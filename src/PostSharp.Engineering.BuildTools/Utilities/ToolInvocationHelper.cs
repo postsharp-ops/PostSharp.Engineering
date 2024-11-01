@@ -153,6 +153,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             out string output,
             ToolInvocationOptions? options = null )
         {
+            using var l = new ReaderWriterLockSlim();
+
             StringBuilder outputBuilder = new();
 
             var success =
@@ -165,23 +167,45 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     out exitCode,
                     s =>
                     {
-                        lock ( outputBuilder )
+                        try
                         {
+                            l.EnterWriteLock();
+
                             outputBuilder.Append( s );
                             outputBuilder.Append( '\n' );
+                        }
+                        finally
+                        {
+                            l.ExitWriteLock();
                         }
                     },
                     s =>
                     {
-                        lock ( outputBuilder )
+                        try
                         {
+                            l.EnterWriteLock();
+
                             outputBuilder.Append( s );
                             outputBuilder.Append( '\n' );
+                        }
+                        finally
+                        {
+                            l.ExitWriteLock();
                         }
                     },
                     options );
 
-            output = outputBuilder.ToString();
+            try
+            {
+                // EnterReadLock will block until all writes are done.
+                l.EnterReadLock();
+
+                output = outputBuilder.ToString();
+            }
+            finally
+            {
+                l.ExitReadLock();
+            }
 
             return success && exitCode == 0;
         }
@@ -385,13 +409,13 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         // We will wait for a while for all output to be processed.
                         if ( !cancellationToken.CanBeCanceled )
                         {
-                            WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], 10000 );
+                            WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], TimeSpan.FromSeconds( 10 ) );
                         }
                         else
                         {
                             var i = 0;
 
-                            while ( !WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], 100 ) &&
+                            while ( !WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], TimeSpan.FromMilliseconds( 100 ) ) &&
                                     i++ < 100 )
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
