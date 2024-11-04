@@ -78,6 +78,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 out exitCode,
                 HandleErrorData,
                 HandleOutputData,
+                isOutputImportant: options.FilterOutput,
                 options );
 
             void HandleErrorData( string s )
@@ -153,8 +154,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             out string output,
             ToolInvocationOptions? options = null )
         {
-            using var l = new ReaderWriterLockSlim();
-
             StringBuilder outputBuilder = new();
 
             var success =
@@ -167,45 +166,24 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     out exitCode,
                     s =>
                     {
-                        try
+                        lock ( outputBuilder )
                         {
-                            l.EnterWriteLock();
-
                             outputBuilder.Append( s );
                             outputBuilder.Append( '\n' );
-                        }
-                        finally
-                        {
-                            l.ExitWriteLock();
                         }
                     },
                     s =>
                     {
-                        try
+                        lock ( outputBuilder )
                         {
-                            l.EnterWriteLock();
-
                             outputBuilder.Append( s );
                             outputBuilder.Append( '\n' );
                         }
-                        finally
-                        {
-                            l.ExitWriteLock();
-                        }
                     },
+                    isOutputImportant: true,
                     options );
 
-            try
-            {
-                // EnterReadLock will block until all writes are done.
-                l.EnterReadLock();
-
-                output = outputBuilder.ToString();
-            }
-            finally
-            {
-                l.ExitReadLock();
-            }
+            output = outputBuilder.ToString();
 
             return success && exitCode == 0;
         }
@@ -219,7 +197,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             out int exitCode,
             Action<string> handleErrorData,
             Action<string> handleOutputData,
-            ToolInvocationOptions? options = null )
+            bool isOutputImportant,
+            ToolInvocationOptions? options )
         {
             exitCode = 0;
             options ??= new ToolInvocationOptions();
@@ -283,7 +262,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     // Filters process output where matching RegEx value indicates process failure.
                     void FilterProcessOutput( string output )
                     {
-                        if ( options.Retry is { Regex: { } } && options.Retry.Regex.IsMatch( output ) )
+                        if ( options.Retry is { Regex: { } retryRegex } && retryRegex.IsMatch( output ) )
                         {
                             processShouldRetry = true;
                         }
@@ -407,19 +386,29 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
 
                         // We will wait for a while for all output to be processed.
+                        var outputTimeout = TimeSpan.FromSeconds( isOutputImportant ? 60 : 10 );
+
                         if ( !cancellationToken.CanBeCanceled )
                         {
-                            WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], TimeSpan.FromSeconds( 10 ) );
+                            WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], outputTimeout );
                         }
                         else
                         {
-                            var i = 0;
+                            var spinTime = TimeSpan.FromMilliseconds( 100 );
 
-                            while ( !WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], TimeSpan.FromMilliseconds( 100 ) ) &&
-                                    i++ < 100 )
+                            var i = 0;
+                            var n = outputTimeout / spinTime;
+
+                            while ( !WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], spinTime ) &&
+                                    i++ < n )
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
                             }
+                        }
+
+                        if ( isOutputImportant && (!stdErrorClosed.WaitOne( TimeSpan.Zero ) || !stdOutClosed.WaitOne( TimeSpan.Zero )) )
+                        {
+                            console.WriteError( $"Output processing didn't finish within {outputTimeout.TotalSeconds} seconds." );
                         }
 
                         exitCode = process.ExitCode;
