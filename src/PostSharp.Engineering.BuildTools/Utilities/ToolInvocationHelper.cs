@@ -69,6 +69,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             options ??= ToolInvocationOptions.Default;
 
+            if ( options.FilterOutput && options.OutputReadingTimeout < ToolInvocationOptions.LongOutputReadingTimeout )
+            {
+                options = options with { OutputReadingTimeout = ToolInvocationOptions.LongOutputReadingTimeout };
+            }
+
             return InvokeTool(
                 console,
                 fileName,
@@ -155,6 +160,13 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             StringBuilder outputBuilder = new();
 
+            options ??= ToolInvocationOptions.Default;
+
+            if ( options.OutputReadingTimeout < ToolInvocationOptions.LongOutputReadingTimeout )
+            {
+                options = options with { OutputReadingTimeout = ToolInvocationOptions.LongOutputReadingTimeout };
+            }
+
             var success =
                 InvokeTool(
                     console,
@@ -195,10 +207,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             out int exitCode,
             Action<string> handleErrorData,
             Action<string> handleOutputData,
-            ToolInvocationOptions? options = null )
+            ToolInvocationOptions? options )
         {
             exitCode = 0;
-            options ??= new ToolInvocationOptions();
+            options ??= ToolInvocationOptions.Default;
             var processShouldRetry = false;
             var retryAttempts = 3;
 
@@ -259,7 +271,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     // Filters process output where matching RegEx value indicates process failure.
                     void FilterProcessOutput( string output )
                     {
-                        if ( options.Retry is { Regex: { } } && options.Retry.Regex.IsMatch( output ) )
+                        if ( options.Retry is { Regex: { } retryRegex } && retryRegex.IsMatch( output ) )
                         {
                             processShouldRetry = true;
                         }
@@ -383,19 +395,29 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
 
                         // We will wait for a while for all output to be processed.
+                        var outputTimeout = options.OutputReadingTimeout;
+
                         if ( !cancellationToken.CanBeCanceled )
                         {
-                            WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], 10000 );
+                            WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], outputTimeout );
                         }
                         else
                         {
-                            var i = 0;
+                            var spinTime = TimeSpan.FromMilliseconds( 100 );
 
-                            while ( !WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], 100 ) &&
-                                    i++ < 100 )
+                            var i = 0;
+                            var n = outputTimeout / spinTime;
+
+                            while ( !WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], spinTime ) &&
+                                    i++ < n )
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
                             }
+                        }
+
+                        if ( !stdErrorClosed.WaitOne( TimeSpan.Zero ) || !stdOutClosed.WaitOne( TimeSpan.Zero ) )
+                        {
+                            console.WriteError( $"Output processing didn't finish within {outputTimeout.TotalSeconds} seconds." );
                         }
 
                         exitCode = process.ExitCode;

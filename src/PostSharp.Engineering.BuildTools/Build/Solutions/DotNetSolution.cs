@@ -18,13 +18,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
     {
         public DotNetSolution( string solutionPath ) : base( solutionPath ) { }
 
-        public override bool Build( BuildContext context, BuildSettings settings ) => this.RunBuildOrTests( context, settings, false );
+        public override bool Build( BuildContext context, BuildSettings settings ) => this.RunBuildOrTests( context, settings, test: false );
 
-        public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "pack", "", true );
+        public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "pack", "", addConfigurationFlag: true );
 
-        public override bool Test( BuildContext context, BuildSettings settings ) => this.RunBuildOrTests( context, settings, true );
+        public override bool Test( BuildContext context, BuildSettings settings ) => this.RunBuildOrTests( context, settings, test: true );
 
-        public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache", false );
+        public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache", addConfigurationFlag: false );
 
         private string GetFinalSolutionPath( BuildContext context )
             => FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
