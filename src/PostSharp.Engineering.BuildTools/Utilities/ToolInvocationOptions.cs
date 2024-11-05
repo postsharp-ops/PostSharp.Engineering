@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using System;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 
@@ -30,6 +31,10 @@ public record ToolInvocationOptions(
     public ImmutableArray<ReplacePattern> ReplacePatterns { get; init; } = ImmutableArray<ReplacePattern>.Empty;
 
     public bool FilterOutput { get; init; } = true;
+
+    public TimeSpan OutputReadingTimeout { get; init; } = TimeSpan.FromSeconds( 10 );
+
+    public static TimeSpan LongOutputReadingTimeout => TimeSpan.FromSeconds( 60 );
 
     public ToolInvocationOptions WithEnvironmentVariables( ImmutableDictionary<string, string?> additionalEnvironmentVariables )
         => this with

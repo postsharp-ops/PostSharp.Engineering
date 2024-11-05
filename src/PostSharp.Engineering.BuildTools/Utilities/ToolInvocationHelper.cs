@@ -69,6 +69,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             options ??= ToolInvocationOptions.Default;
 
+            if ( options.FilterOutput && options.OutputReadingTimeout < ToolInvocationOptions.LongOutputReadingTimeout )
+            {
+                options = options with { OutputReadingTimeout = ToolInvocationOptions.LongOutputReadingTimeout };
+            }
+
             return InvokeTool(
                 console,
                 fileName,
@@ -78,7 +83,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 out exitCode,
                 HandleErrorData,
                 HandleOutputData,
-                isOutputImportant: options.FilterOutput,
                 options );
 
             void HandleErrorData( string s )
@@ -156,6 +160,13 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             StringBuilder outputBuilder = new();
 
+            options ??= ToolInvocationOptions.Default;
+
+            if ( options.OutputReadingTimeout < ToolInvocationOptions.LongOutputReadingTimeout )
+            {
+                options = options with { OutputReadingTimeout = ToolInvocationOptions.LongOutputReadingTimeout };
+            }
+
             var success =
                 InvokeTool(
                     console,
@@ -180,7 +191,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             outputBuilder.Append( '\n' );
                         }
                     },
-                    isOutputImportant: true,
                     options );
 
             output = outputBuilder.ToString();
@@ -197,11 +207,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             out int exitCode,
             Action<string> handleErrorData,
             Action<string> handleOutputData,
-            bool isOutputImportant,
             ToolInvocationOptions? options )
         {
             exitCode = 0;
-            options ??= new ToolInvocationOptions();
+            options ??= ToolInvocationOptions.Default;
             var processShouldRetry = false;
             var retryAttempts = 3;
 
@@ -386,7 +395,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
 
                         // We will wait for a while for all output to be processed.
-                        var outputTimeout = TimeSpan.FromSeconds( isOutputImportant ? 60 : 10 );
+                        var outputTimeout = options.OutputReadingTimeout;
 
                         if ( !cancellationToken.CanBeCanceled )
                         {
@@ -406,7 +415,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             }
                         }
 
-                        if ( isOutputImportant && (!stdErrorClosed.WaitOne( TimeSpan.Zero ) || !stdOutClosed.WaitOne( TimeSpan.Zero )) )
+                        if ( !stdErrorClosed.WaitOne( TimeSpan.Zero ) || !stdOutClosed.WaitOne( TimeSpan.Zero ) )
                         {
                             console.WriteError( $"Output processing didn't finish within {outputTimeout.TotalSeconds} seconds." );
                         }
