@@ -13,6 +13,7 @@ using PostSharp.Engineering.BuildTools.Coverage;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
+using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -1713,6 +1714,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            if ( this.ProductFamily.UpstreamProductFamily != null && !DownstreamMerge.CheckUpstreamChanges( context, settings ) )
+            {
+                return false;
+            }
+
             // Check that we're ready to publish.
             if ( !this.CanPublish( context, settings ) )
             {
@@ -2368,7 +2374,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
                 }
 
-                var requiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck && this.ProductFamily.UpstreamProductFamily != null;
+                var requiresUpstreamCheck =
+
+                    // The check is required.
+                    configurationInfo.RequiresUpstreamCheck
+
+                    // There is upstream product to check.
+                    && this.ProductFamily.UpstreamProductFamily != null
+
+                    // For products with the release branch, the check is done as part of the deployment preparation step.
+                    && this.DependencyDefinition.ReleaseBranch == null;
 
                 if ( requiresUpstreamCheck )
                 {
