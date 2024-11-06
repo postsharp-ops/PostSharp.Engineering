@@ -28,20 +28,10 @@ internal class SetBranchPoliciesCommand : BaseCommand<SetBranchPoliciesSettings>
         {
             Task<bool> setBranchPoliciesTask;
 
-            if ( AzureDevOpsRepository.TryParse( remoteUrl, out var azureDevOpsRepository ) )
+            if ( VcsUrlParser.TryGetRepository( remoteUrl, out var repository ) )
             {
-                setBranchPoliciesTask = AzureDevOpsHelper.TrySetBranchPoliciesAsync(
+                setBranchPoliciesTask = repository.TrySetBranchPoliciesAsync(
                     context,
-                    azureDevOpsRepository,
-                    buildStatusGenre,
-                    buildStatusName,
-                    settings.Dry );
-            }
-            else if ( GitHubRepository.TryParse( remoteUrl, out var gitHubRepository ) )
-            {
-                setBranchPoliciesTask = GitHubHelper.TrySetBranchPoliciesAsync(
-                    context,
-                    gitHubRepository,
                     buildStatusGenre,
                     buildStatusName,
                     settings.Dry );

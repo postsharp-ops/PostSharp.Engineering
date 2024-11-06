@@ -1,9 +1,11 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
@@ -38,6 +40,10 @@ public abstract class VcsRepository( string? defaultBranchParameter )
     public abstract bool IsSshAgentRequired { get; }
     
     public abstract bool TryDownloadTextFile( ConsoleHelper console, string branch, string path, [NotNullWhen( true )] out string? text );
+
+    public abstract Task<bool> TrySetBranchPoliciesAsync( BuildContext context, string buildStatusGenre, string? buildStatusName, bool dry );
+
+    public abstract Task<string?> TryCreatePullRequestAsync( ConsoleHelper console, string sourceBranch, string targetBranch, string title );
 
     /// <summary>
     /// Returns the URL that identifies the repository and allows user to access the repository using a web browser.

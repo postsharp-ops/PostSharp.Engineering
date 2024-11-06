@@ -42,7 +42,7 @@ public static class AzureDevOpsHelper
     // https://github.com/microsoft/azure-devops-dotnet-samples/blob/main/ClientLibrary/Samples/Git/PullRequestsSample.cs
     // https://stackoverflow.com/a/52025418/4100001
     // Required personal access token scopes: Code: Read&Write
-    public static async Task<string?> TryCreatePullRequest(
+    public static async Task<string?> TryCreatePullRequestAsync(
         ConsoleHelper console,
         AzureDevOpsRepository repository,
         string sourceBranch,

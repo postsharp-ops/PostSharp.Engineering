@@ -461,20 +461,10 @@ internal static class DownstreamMerge
             var pullRequestTitle = $"Downstream merge from '{sourceBranch}' branch";
             Task<string?> newPullRequestTask;
 
-            if ( AzureDevOpsRepository.TryParse( remoteUrl, out var azureDevOpsRepository ) )
+            if ( VcsUrlParser.TryGetRepository( remoteUrl, out var repository ) )
             {
-                newPullRequestTask = AzureDevOpsHelper.TryCreatePullRequest(
+                newPullRequestTask = repository.TryCreatePullRequestAsync(
                     context.Console,
-                    azureDevOpsRepository,
-                    targetBranch,
-                    downstreamBranch,
-                    pullRequestTitle );
-            }
-            else if ( GitHubRepository.TryParse( remoteUrl, out var gitHubRepository ) )
-            {
-                newPullRequestTask = GitHubHelper.TryCreatePullRequestAsync(
-                    context.Console,
-                    gitHubRepository,
                     targetBranch,
                     downstreamBranch,
                     pullRequestTitle );
