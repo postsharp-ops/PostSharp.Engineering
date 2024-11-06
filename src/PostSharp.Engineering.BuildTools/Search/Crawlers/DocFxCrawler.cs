@@ -64,7 +64,7 @@ public abstract class DocFxCrawler
         var breadcrumbLinks = document.DocumentNode
 
             // ReSharper disable once StringLiteralTypo
-            .SelectSingleNode( "//div[@id=\"breadcrum\"]" ) // Typo in the HelpServer
+            .SelectSingleNode( "//nav[@id=\"breadcrum\"]" ) // Typo in the HelpServer
             .SelectNodes( "./a|./span[@class=\"current\"]" )
             .ToArray();
 
