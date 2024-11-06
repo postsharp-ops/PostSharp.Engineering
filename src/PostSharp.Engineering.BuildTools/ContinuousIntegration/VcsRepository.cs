@@ -1,27 +1,24 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Diagnostics.CodeAnalysis;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
-public abstract class VcsRepository
+[PublicAPI]
+public abstract class VcsRepository( string? defaultBranchParameter )
 {
     public const string DefaultDefaultBranchParameter = "DefaultBranch";
-    
-    protected VcsRepository( string? defaultBranchParameter )
-    {
-        this.DefaultBranchParameter = defaultBranchParameter ?? DefaultDefaultBranchParameter;
-    }
 
     public abstract string Name { get; }
     
     /// <summary>
     /// Parameter name used to specify the default branch in TeamCity build configurations.
     /// </summary>
-    public string DefaultBranchParameter { get; }
-    
+    public string DefaultBranchParameter { get; } = defaultBranchParameter ?? DefaultDefaultBranchParameter;
+
     public abstract VcsProvider Provider { get; }
     
     public abstract string SshUrl { get; }

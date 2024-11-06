@@ -1,41 +1,26 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Immutable;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
-public class ConfigurationSpecific<T>
+[PublicAPI]
+public class ConfigurationSpecific<T>( T debug, T release, T @public )
 {
     private ImmutableDictionary<BuildConfiguration, T>? _asDictionary;
 
-    public T Debug { get; init; }
+    public T Debug { get; init; } = debug;
 
-    public T Release { get; init; }
+    public T Release { get; init; } = release;
 
-    public T Public { get; init; }
+    public T Public { get; init; } = @public;
 
-    public ConfigurationSpecific( T debug, T release, T @public )
-    {
-        this.Debug = debug;
-        this.Release = release;
-        this.Public = @public;
-    }
+    public ConfigurationSpecific( T value ) : this( value, value, value ) { }
 
-    public ConfigurationSpecific( T value )
-    {
-        this.Debug = value;
-        this.Release = value;
-        this.Public = value;
-    }
-
-    public ConfigurationSpecific( in (T Debug, T Release, T Public) values )
-    {
-        this.Debug = values.Debug;
-        this.Release = values.Release;
-        this.Public = values.Public;
-    }
+    public ConfigurationSpecific( in (T Debug, T Release, T Public) values ) : this( values.Debug, values.Release, values.Public ) { }
 
     public T this[ BuildConfiguration configuration ]
         => configuration switch

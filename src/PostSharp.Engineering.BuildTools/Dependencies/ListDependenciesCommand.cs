@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 
@@ -8,6 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// <summary>
     /// Lists dependencies.
     /// </summary>
+    [UsedImplicitly]
     public class ListDependenciesCommand : BaseCommand<BaseDependenciesCommandSettings>
     {
         protected override bool ExecuteCore( BuildContext context, BaseDependenciesCommandSettings settings )

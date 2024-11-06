@@ -1,5 +1,8 @@
-﻿namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
+﻿using JetBrains.Annotations;
 
+namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
+
+[PublicAPI]
 public record BreadcrumbInfo(
     string Breadcrumb,
     string[] Kinds,

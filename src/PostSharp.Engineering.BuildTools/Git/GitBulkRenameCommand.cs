@@ -1,9 +1,9 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Git
@@ -11,10 +11,11 @@ namespace PostSharp.Engineering.BuildTools.Git
     /// <summary>
     /// Renames files in bulk using <c>git rename</c>.
     /// </summary>
+    [UsedImplicitly]
     internal class GitBulkRenameCommand : Command<GitBulkRenameSettings>
     {
         // ReSharper disable RedundantNullableFlowAttribute
-        public override int Execute( [NotNull] CommandContext context, [NotNull] GitBulkRenameSettings settings )
+        public override int Execute( [System.Diagnostics.CodeAnalysis.NotNull] CommandContext context, [System.Diagnostics.CodeAnalysis.NotNull] GitBulkRenameSettings settings )
         {
             // https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/file-system/how-to-iterate-through-a-directory-tree
 

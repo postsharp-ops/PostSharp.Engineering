@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -12,6 +13,7 @@ using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Search;
 
+[PublicAPI]
 public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtension where TUpdateSearchCommand : UpdateSearchCommandBase
 {
     public string TypesenseUri { get; }
@@ -54,10 +56,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
     {
         TeamCityBuildStep CreateBuildStep()
         {
-            var arguments = new List<string>();
-            arguments.Add( this.TypesenseUri );
-            arguments.Add( this.Source );
-            arguments.Add( this.SourceUrl );
+            var arguments = new List<string> { this.TypesenseUri, this.Source, this.SourceUrl };
 
             if ( this.IgnoreTls )
             {
@@ -123,11 +122,16 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
             {
                 search.AddCommand<TUpdateSearchCommand>( "update" )
                     .WithDescription( "Updates a search collection from the given source or writes data to the console when --dry option is used." )
-                    .WithExample( ["tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/sitemap.xml"] )
+                    .WithExample( "tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/sitemap.xml" )
                     .WithExample(
-                    [
-                        "tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/conceptual/tryme", "--single", "--dry"
-                    ] );
+                        "tools",
+                        "search",
+                        "update",
+                        "http://localhost:8108",
+                        "metalamadoc",
+                        "https://doc.example.com/conceptual/tryme",
+                        "--single",
+                        "--dry" );
             } );
 
         return true;

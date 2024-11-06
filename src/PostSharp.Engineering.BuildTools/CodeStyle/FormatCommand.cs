@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -10,6 +11,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
     /// <summary>
     /// Formats the source code of the current repo by applying the standard code style (running JetBrains cleanupcode command).
     /// </summary>
+    [UsedImplicitly]
     internal class FormatCommand : ResharperCommand
     {
         protected override string Title => "Reformatting the code";

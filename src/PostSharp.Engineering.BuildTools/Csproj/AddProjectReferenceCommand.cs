@@ -7,8 +7,6 @@ using System;
 using System.IO;
 using System.Xml;
 
-#pragma warning disable 8765
-
 namespace PostSharp.Engineering.BuildTools.Csproj
 {
     [UsedImplicitly]

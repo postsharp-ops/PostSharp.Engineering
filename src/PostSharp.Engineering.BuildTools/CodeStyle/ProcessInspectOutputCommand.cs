@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System.Collections.Generic;
 using System.Globalization;
@@ -9,12 +10,11 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle;
 
+[UsedImplicitly]
 internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOutputCommandSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, ProcessInspectOutputCommandSettings settings )
-    {
-        return ExecuteImpl( context, settings );
-    }
+    protected override bool ExecuteCore( BuildContext context, ProcessInspectOutputCommandSettings settings ) 
+        => ExecuteImpl( context, settings );
 
     public static bool ExecuteImpl( BuildContext context, ProcessInspectOutputCommandSettings settings )
     {
@@ -86,18 +86,22 @@ internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOu
                 {
                     var c = text[offset];
 
-                    if ( c == '\r' )
+                    switch ( c )
                     {
-                        map.Add( offset + 1 );
+                        case '\r':
+                            map.Add( offset + 1 );
 
-                        if ( text.Length > offset && text[offset + 1] == '\n' )
-                        {
-                            offset++;
-                        }
-                    }
-                    else if ( c == '\n' )
-                    {
-                        map.Add( offset + 1 );
+                            if ( text.Length > offset && text[offset + 1] == '\n' )
+                            {
+                                offset++;
+                            }
+
+                            break;
+
+                        case '\n':
+                            map.Add( offset + 1 );
+
+                            break;
                     }
                 }
 

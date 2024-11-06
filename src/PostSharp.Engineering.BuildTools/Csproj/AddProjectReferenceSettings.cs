@@ -6,7 +6,7 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Csproj
 {
-    [UsedImplicitly]
+    [PublicAPI]
     public class AddProjectReferenceSettings : CommandSettings
     {
         [Description( "Reference path after which the new reference should be added" )]

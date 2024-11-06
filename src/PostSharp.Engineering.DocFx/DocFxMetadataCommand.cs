@@ -4,7 +4,6 @@ using Docfx.Dotnet;
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools;
 using PostSharp.Engineering.BuildTools.Build;
-using Spectre.Console.Cli;
 
 namespace PostSharp.Engineering.DocFx;
 

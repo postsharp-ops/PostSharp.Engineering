@@ -8,28 +8,20 @@ using System.IO;
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     /// <summary>
-    /// A publisher that publishes all artifact files specified in <see cref="Files"/> pattern.
+    /// A publisher that publishes all artifact files specified in <c>files</c> pattern.
     /// </summary>
-    public abstract class ArtifactPublisher : Publisher
+    public abstract class ArtifactPublisher( Pattern files ) : Publisher
     {
-        public Pattern Files { get; }
-
-        public Tester[] Testers { get; init; } = [];
-
-        protected ArtifactPublisher( Pattern files )
-        {
-            this.Files = files;
-        }
+        private readonly Tester[] _testers = [];
 
         /// <summary>
         /// Executes the target for a specified artifact.
         /// </summary>
-        public abstract SuccessCode PublishFile(
+        protected abstract SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo,
-            BuildConfigurationInfo configuration );
+            BuildInfo buildInfo );
 
         protected override bool Publish(
             BuildContext context,
@@ -44,18 +36,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             var directory = isPublic ? directories.Public : directories.Private;
 
-            var files = new List<FilePatternMatch>();
+            var files1 = new List<FilePatternMatch>();
 
-            if ( !this.Files.TryGetFiles( directory, buildInfo, files ) )
+            if ( !files.TryGetFiles( directory, buildInfo, files1 ) )
             {
-                context.Console.WriteWarning( $"Created artifact files do not match the publisher pattern(s): '{this.Files}'" );
+                context.Console.WriteWarning( $"Created artifact files do not match the publisher pattern(s): '{files}'" );
 
                 return true;
             }
 
             var allFilesSucceeded = true;
 
-            foreach ( var file in files )
+            foreach ( var file in files1 )
             {
                 if ( (file.Stem ?? file.Path).Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )
                 {
@@ -68,7 +60,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var filePath = Path.Combine( directory, file.Path );
 
-                switch ( this.PublishFile( context, settings, filePath, buildInfo, configuration ) )
+                switch ( this.PublishFile( context, settings, filePath, buildInfo ) )
                 {
                     case SuccessCode.Success:
                         break;
@@ -89,9 +81,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( allFilesSucceeded )
             {
-                foreach ( var tester in this.Testers )
+                foreach ( var tester in this._testers )
                 {
-                    switch ( tester.Execute( context, directories.Private, buildInfo, configuration, settings.Dry ) )
+                    switch ( tester.Execute( context, directories.Private, buildInfo, settings.Dry ) )
                     {
                         case SuccessCode.Success:
                             break;

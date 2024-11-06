@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
@@ -10,6 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// Sets the source of a dependency to <see cref="DependencySourceKind.Local"/>, <see cref="DependencySourceKind.BuildServer"/>
     /// or <see cref="DependencySourceKind.Feed"/>.
     /// </summary>
+    [UsedImplicitly]
     public class SetDependenciesCommand : ConfigureDependenciesCommand<SetDependenciesCommandSettings>
     {
         protected override bool ConfigureDependency(

@@ -18,12 +18,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
             this.PublishPrerelease = false;
         }
 
-        public override SuccessCode PublishFile(
+        protected override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo,
-            BuildConfigurationInfo configuration )
+            BuildInfo buildInfo )
         {
             var hasEnvironmentError = false;
 

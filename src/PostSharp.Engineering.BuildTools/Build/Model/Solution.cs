@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -9,7 +10,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     /// <summary>
     /// Represents an individual Visual Studio solution, project or build script.
     /// </summary>
-    public abstract class Solution
+    [PublicAPI]
+    public abstract class Solution( string solutionPath )
     {
         /// <summary>
         /// Gets the name of the solution.
@@ -19,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets the full path of the solution file.
         /// </summary>
-        public string SolutionPath { get; }
+        public string SolutionPath { get; } = solutionPath;
 
         /// <summary>
         /// Gets or sets a value indicating whether the current solution should be built only during a <c>test</c> command.
@@ -93,10 +95,5 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public abstract bool Restore( BuildContext context, BuildSettings settings );
 
         public virtual IEnumerable<Solution> GetFormattableSolutions( BuildContext context ) => new[] { this };
-
-        protected Solution( string solutionPath )
-        {
-            this.SolutionPath = solutionPath;
-        }
     }
 }

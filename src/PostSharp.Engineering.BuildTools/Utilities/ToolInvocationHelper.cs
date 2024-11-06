@@ -79,11 +79,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 fileName,
                 commandLine,
                 workingDirectory,
-                ConsoleHelper.CancellationToken,
                 out exitCode,
                 HandleErrorData,
                 HandleOutputData,
-                options );
+                options,
+                ConsoleHelper.CancellationToken );
 
             void HandleErrorData( string s )
             {
@@ -173,7 +173,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     fileName,
                     commandLine,
                     workingDirectory,
-                    ConsoleHelper.CancellationToken,
                     out exitCode,
                     s =>
                     {
@@ -191,7 +190,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             outputBuilder.Append( '\n' );
                         }
                     },
-                    options );
+                    options,
+                    ConsoleHelper.CancellationToken );
 
             output = outputBuilder.ToString();
 
@@ -203,11 +203,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string fileName,
             string commandLine,
             string? workingDirectory,
-            CancellationToken cancellationToken,
             out int exitCode,
             Action<string> handleErrorData,
             Action<string> handleOutputData,
-            ToolInvocationOptions? options )
+            ToolInvocationOptions? options,
+            CancellationToken cancellationToken )
         {
             exitCode = 0;
             options ??= ToolInvocationOptions.Default;

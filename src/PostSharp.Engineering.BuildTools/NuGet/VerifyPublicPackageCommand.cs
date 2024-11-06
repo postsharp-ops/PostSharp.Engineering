@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
@@ -14,14 +15,13 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
 
-#pragma warning disable 8765
-
 namespace PostSharp.Engineering.BuildTools.NuGet
 {
     /// <summary>
     /// Verifies that dependencies of the NuGet packages in a given directory are either published to <c>nuget.org</c> or
     /// present in the same directory.
     /// </summary>
+    [UsedImplicitly]
     internal class VerifyPublicPackageCommand : Command<VerifyPublicPackageCommandSettings>
     {
         public override int Execute( CommandContext context, VerifyPublicPackageCommandSettings settings )

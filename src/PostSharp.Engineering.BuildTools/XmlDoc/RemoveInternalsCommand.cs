@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
 using PostSharp.Engineering.BuildTools.Build;
@@ -9,6 +10,7 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.XmlDoc;
 
+[UsedImplicitly]
 public class RemoveInternalsCommand : BaseCommand<RemoveInternalsCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, RemoveInternalsCommandSettings settings )

@@ -215,7 +215,7 @@ namespace PostSharp.Engineering.BuildTools
                                 {
                                     git.AddCommand<GitBulkRenameCommand>( "rename" )
                                         .WithDescription( "Renames all files and directories recursively preserving GIT history." )
-                                        .WithExample( [@"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama"""] );
+                                        .WithExample( @"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama""" );
 
                                     git.AddCommand<DownstreamMergeCommand>( "merge-downstream" )
                                         .WithData( data )
