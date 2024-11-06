@@ -752,7 +752,7 @@ public static class TeamCityHelper
 
         static string MarkNuGetObjectId( string objectId ) => $"NuGet{objectId}";
 
-        bool TryPopulateBuildConfgurations(
+        bool TryPopulateBuildConfigurations(
             BuildConfiguration configuration,
             string consolidatedBuildObjectName,
             string consolidatedBuildConfigurationName,
@@ -856,7 +856,8 @@ public static class TeamCityHelper
 
             var defaultBuildBranch = configuration switch
             {
-                BuildConfiguration.Public => deploymentBranch,
+                // We should use deploymentBranch here, but TeamCity doesn't support parameterized branches in snapshot dependencies.
+                BuildConfiguration.Public => defaultBranch,
                 _ => defaultBranch
             };
 
@@ -891,7 +892,7 @@ public static class TeamCityHelper
         const string debugBuildObjectName = "DebugBuild";
         const string debugBuildName = "Build [Debug]";
 
-        if ( !TryPopulateBuildConfgurations(
+        if ( !TryPopulateBuildConfigurations(
                 BuildConfiguration.Debug,
                 debugBuildObjectName,
                 debugBuildName,
@@ -936,7 +937,7 @@ public static class TeamCityHelper
         const string releaseBuildObjectName = "ReleaseBuild";
         const string releaseBuildName = "Build [Release]";
 
-        if ( !TryPopulateBuildConfgurations(
+        if ( !TryPopulateBuildConfigurations(
                 BuildConfiguration.Release,
                 releaseBuildObjectName,
                 releaseBuildName,
@@ -960,7 +961,7 @@ public static class TeamCityHelper
         const string publicBuildName = "Build [Public]";
         var publicConfiguration = BuildConfiguration.Public;
 
-        if ( !TryPopulateBuildConfgurations(
+        if ( !TryPopulateBuildConfigurations(
                 BuildConfiguration.Public,
                 publicBuildObjectName,
                 $"3. {publicBuildName}",
@@ -1278,7 +1279,9 @@ public static class TeamCityHelper
             new TeamCityBuildConfiguration(
                 publicDeploymentObjectName,
                 $"4. {publicDeploymentName}",
-                deploymentBranch,
+                
+                // We should use deploymentBranch here, but TeamCity doesn't support parameterized branches in snapshot dependencies.
+                defaultBranch,
                 defaultBranchParameter,
                 vcsRootId,
                 context.Product.ResolvedBuildAgentRequirements )
