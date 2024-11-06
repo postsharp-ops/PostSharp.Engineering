@@ -39,7 +39,7 @@ internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOu
                     : Path.Combine( context.RepoDirectory, settings.SolutionDirectory )
                 : context.RepoDirectory;
 
-            var line = int.Parse( issue.Attribute( "Line" )!.Value, CultureInfo.InvariantCulture );
+            var line = issue.Attribute( "Line" ) is { Value: var value } ? int.Parse( value, CultureInfo.InvariantCulture ) : 1;
             var offsets = issue.Attribute( "Offset" )!.Value.Split( '-' );
             var file = Path.GetFullPath( Path.Combine( rootPath, issue.Attribute( "File" )!.Value ) );
             var offset = int.Parse( offsets[0], CultureInfo.InvariantCulture );
@@ -80,8 +80,7 @@ internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOu
                 // Create the map.
                 var text = File.ReadAllText( file );
 
-                map = new List<int>();
-                map.Add( 0 );
+                map = [0];
 
                 for ( var offset = 0; offset < text.Length; offset++ )
                 {
