@@ -1828,7 +1828,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // For consolidated deployments, this is part of the post-deployment step.
-            if ( !this.ProductFamily.HasConsolidatedBuild || settings.IsStandalone )
+            if ( !this.ProductFamily.HasConsolidatedBuild && !settings.IsStandalone )
             {
                 if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
                 {
