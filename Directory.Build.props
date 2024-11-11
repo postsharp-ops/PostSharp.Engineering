@@ -4,6 +4,7 @@
         <RepoDirectory>$(MSBuildThisFileDirectory)</RepoDirectory>
         <RepoKind>GitHub</RepoKind>
         <DisableCodeQuality>True</DisableCodeQuality>
+        <NoWarn>$(NoWarn);NU1903;NU1904</NoWarn>
     </PropertyGroup>
 
     <Import Project="eng\Versions.props"/>

@@ -9,7 +9,7 @@
         <Nullable>enable</Nullable>
         <IsPackable>True</IsPackable>
         <!--  SA0001: XML comment analysis is disabled due to project configuration -->
-        <NoWarn>SA0001</NoWarn>
+        <NoWarn>$(NoWarn);SA0001</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
