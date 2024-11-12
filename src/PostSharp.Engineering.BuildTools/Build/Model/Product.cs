@@ -1847,7 +1847,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( releaseBranch != null && context.Branch == context.Product.DependencyDefinition.Branch )
                 {
-                    if ( !GitHelper.TryPullAndMergeAndPush( context, settings, releaseBranch ) )
+                    if ( settings.Dry )
+                    {
+                        context.Console.WriteImportantMessage( $"Dry run: Merging the current branch to '{releaseBranch}' branch." );
+                    }
+                    else if ( !GitHelper.TryPullAndMergeAndPush( context, settings, releaseBranch ) )
                     {
                         return false;
                     }
@@ -1957,44 +1961,51 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Commit and push if dependencies versions were updated in previous step.
             if ( dependenciesUpdated )
             {
-                // Adds AutoUpdatedVersions.props with updated dependencies versions to Git staging area.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        $"add {context.Product.AutoUpdatedVersionsFilePath}",
-                        context.RepoDirectory ) )
+                if ( settings.Dry )
                 {
-                    return false;
+                    context.Console.WriteImportantMessage( "Dry run: Updating auto-updated dependencies." );
                 }
-
-                // Returns the remote origin.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "remote get-url origin",
-                        context.RepoDirectory,
-                        out _,
-                        out var gitOrigin ) )
+                else
                 {
-                    return false;
-                }
+                    // Adds AutoUpdatedVersions.props with updated dependencies versions to Git staging area.
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "git",
+                            $"add {context.Product.AutoUpdatedVersionsFilePath}",
+                            context.RepoDirectory ) )
+                    {
+                        return false;
+                    }
 
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "commit -m \"<<DEPENDENCIES_UPDATED>>\"",
-                        context.RepoDirectory ) )
-                {
-                    return false;
-                }
+                    // Returns the remote origin.
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "git",
+                            "remote get-url origin",
+                            context.RepoDirectory,
+                            out _,
+                            out var gitOrigin ) )
+                    {
+                        return false;
+                    }
 
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        $"push {gitOrigin.Trim()}",
-                        context.RepoDirectory ) )
-                {
-                    return false;
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "git",
+                            "commit -m \"<<DEPENDENCIES_UPDATED>>\"",
+                            context.RepoDirectory ) )
+                    {
+                        return false;
+                    }
+
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "git",
+                            $"push {gitOrigin.Trim()}",
+                            context.RepoDirectory ) )
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -2706,7 +2717,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryAddTagToLastCommit( BuildContext context, BaseBuildSettings settings )
+        private bool TryAddTagToLastCommit( BuildContext context, PublishSettings settings )
         {
             if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo ) )
             {
@@ -2734,6 +2745,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( gitOutput.Contains( versionTag, StringComparison.OrdinalIgnoreCase ) )
             {
                 context.Console.WriteWarning( $"Repository already contains tag '{versionTag}'." );
+
+                return true;
+            }
+
+            if ( settings.Dry )
+            {
+                context.Console.WriteImportantMessage( $"Dry run: Adding '{versionTag}' tag to the latest commit." );
 
                 return true;
             }

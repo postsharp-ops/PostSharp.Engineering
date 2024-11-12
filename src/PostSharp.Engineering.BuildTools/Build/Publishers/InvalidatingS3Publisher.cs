@@ -29,8 +29,13 @@ public class InvalidatingS3Publisher(
         {
             return false;
         }
-        
-        context.Console.WriteImportantMessage( $"Invalidating {invalidatedUrl}" );
+
+        context.Console.WriteImportantMessage( $"{(settings.Dry ? "Dry run: " : "")}Invalidating {invalidatedUrl}" );
+
+        if ( settings.Dry )
+        {
+            return true;
+        }
 
         var url = Environment.ExpandEnvironmentVariables( invalidatedUrl );
         using var httpClient = new HttpClient();
