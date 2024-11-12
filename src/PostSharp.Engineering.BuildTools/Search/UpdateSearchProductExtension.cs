@@ -84,7 +84,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
                 name,
-                context.Product.DependencyDefinition.ReleaseBranch ?? context.Product.DependencyDefinition.Branch,
+                context.Product.DependencyDefinition.PublishingBranch,
                 context.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter,
                 vcsRootId,
                 buildAgentRequirements )

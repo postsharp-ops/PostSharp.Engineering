@@ -1770,13 +1770,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( !context.Product.IsPublishingNonReleaseBranchesAllowed && !settings.IsStandalone )
             {
-                var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
-
-                // If the release branch is not specified, the pre and post publishing is not required, and the publishing can be performed from any branch. 
-                if ( releaseBranch != null && context.Branch != releaseBranch )
+                var publishingBranch = context.Product.DependencyDefinition.PublishingBranch;
+                
+                if ( context.Branch != publishingBranch )
                 {
                     context.Console.WriteError(
-                        $"Publishing can only be executed on the release branch ('{releaseBranch}'). The current branch is '{context.Branch}'." );
+                        $"Publishing can only be executed on the '{publishingBranch}' branch. The current branch is '{context.Branch}'." );
 
                     return false;
                 }
@@ -2283,11 +2282,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
             var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;
             var defaultBranch = this.DependencyDefinition.Branch;
-
-            var deploymentBranch = this.ProductFamily.HasConsolidatedBuild
-                ? this.DependencyDefinition.ReleaseBranch ?? defaultBranch
-                : defaultBranch;
-
+            var deploymentBranch = this.DependencyDefinition.PublishingBranch;
             var defaultBranchParameter = this.DependencyDefinition.VcsRepository.DefaultBranchParameter;
             var vcsRootId = TeamCityHelper.GetVcsRootId( this.DependencyDefinition );
 
