@@ -74,7 +74,7 @@ internal static class AutoUpdatedDependenciesHelper
             
             if ( !File.Exists( dependencyVersionPath ) )
             {
-                context.Console.WriteError( $"Version file of '{dependency.Name}' does not exist." );
+                context.Console.WriteError( $"'{dependencyVersionPath}' version file of '{dependency.Name}' does not exist." );
 
                 return false;
             }
