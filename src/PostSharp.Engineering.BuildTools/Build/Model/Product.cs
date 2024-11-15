@@ -886,7 +886,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     solutionSettings = settings.WithAdditionalProperties( properties.ToImmutableDictionary() ).WithoutConcurrency();
                 }
 
-                context.Console.WriteHeading( $"Testing {solution.Name}." );
+                context.Console.WriteHeading( $"Testing {solution.Name}" );
 
                 if ( !TryExecuteBuildMethod( context, solutionSettings, solution, solution.TestMethod ?? BuildMethod.Test ) )
                 {
@@ -1570,13 +1570,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // NugetCache must be automatically deleted only on TeamCity.
             if ( TeamCityHelper.IsTeamCityBuild( settings ) && !DockerHelper.IsDockerBuild() && !settings.NoNuGetCacheCleanup )
             {
-                context.Console.WriteHeading( "Cleaning NuGet cache." );
+                context.Console.WriteHeading( "Cleaning NuGet cache" );
                 context.Console.WriteMessage( "The NuGet cache cleanup can be skipped using --no-nuget-cache-cleanup." );
 
                 CleanNugetCache();
             }
 
-            context.Console.WriteHeading( $"Cleaning {this.ProductName}." );
+            context.Console.WriteHeading( $"Cleaning {this.ProductName}" );
 
             foreach ( var directory in this.AdditionalDirectoriesToClean )
             {
@@ -1707,8 +1707,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PrePublish( BuildContext context, PublishSettings settings )
         {
-            // This step is only required for pre-publishing and post-publishing, so they don't require a build.
-            // Publishing gets this file along with the published artifacts.
             if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
@@ -1782,6 +1780,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             if ( !this.CanPublish( context, settings ) )
+            {
+                return false;
+            }
+
+            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
             }
@@ -1887,10 +1890,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PostPublish( BuildContext context, PublishSettings settings )
         {
-            context.Console.WriteHeading( "Finishing publishig." );
+            context.Console.WriteHeading( "Finishing publishig" );
             
-            // This step is only required for pre-publishing and post-publishing, so they don't require a build.
-            // Publishing gets this file along with the published artifacts.
             if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
@@ -2095,7 +2096,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool BumpVersion( BuildContext context, BumpSettings settings )
         {
-            context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
+            context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version" );
 
             var developmentBranch = context.Product.DependencyDefinition.Branch;
 
