@@ -27,6 +27,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public IAnsiConsole? Error { get; }
 
+        public int ConsoleWidth => this.Out?.Profile.Width ?? Console.WindowWidth;
+        
+        public int ConsoleHeight => this.Out?.Profile.Height ?? Console.WindowHeight;
+
         public void WriteError( string format, params object[] args ) => this.WriteError( string.Format( CultureInfo.InvariantCulture, format, args ) );
 
         public void WriteError( string message )

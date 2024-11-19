@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
-using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -13,8 +12,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
@@ -139,72 +136,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool TryDownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string artifactsDirectory )
         {
-            var throttler = new SemaphoreSlim( 4, 4 );
-            var cancellationToken = ConsoleHelper.CancellationToken;
-
-            async Task<bool> DownloadFileAsync( ProgressTask progress, string url, string targetFilePath )
-            {
-                try
-                {
-                    progress.StartTask();
-                    var response = await this._httpClient.GetAsync( url, HttpCompletionOption.ResponseHeadersRead, cancellationToken );
-
-                    if ( !response.IsSuccessStatusCode )
-                    {
-                        progress.Description( $"{progress.Description} failed: {response.StatusCode} {response.ReasonPhrase}" );
-
-                        return false;
-                    }
-
-                    await using var httpStream = await this._httpClient.GetStreamAsync( url, cancellationToken );
-                    await using var fileStream = File.Open( targetFilePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None );
-
-                    var buffer = new byte[4096];
-                    int bytesRead;
-
-                    while ( (bytesRead = await httpStream.ReadAsync( buffer, 0, buffer.Length, cancellationToken )) != 0 )
-                    {
-                        await fileStream.WriteAsync( buffer, 0, bytesRead, cancellationToken );
-                        progress.Increment( bytesRead );
-                    }
-
-                    return true;
-                }
-                finally
-                {
-                    throttler.Release();
-                    progress.StopTask();
-                }
-            }
-
-            async Task<bool> DownloadDirectoryAsync(
-                ProgressContext totalProgress,
-                IEnumerable<(string Name, string Path, long Length)> files,
-                string targetDirectory )
-            {
-                List<Task<bool>> fileDownloads = new();
-
-                Directory.CreateDirectory( targetDirectory );
-
-                foreach ( var file in files )
-                {
-                    var targetFilePath = Path.Combine( targetDirectory, file.Name );
-                    var targetFileRelativePath = Path.GetRelativePath( artifactsDirectory, targetFilePath );
-                    var fileProgress = totalProgress.AddTask( targetFileRelativePath, false, file.Length );
-
-                    // ReSharper disable once RedundantSuppressNullableWarningExpression
-                    await throttler!.WaitAsync( cancellationToken );
-                    fileDownloads.Add( Task.Run( () => DownloadFileAsync( fileProgress, file.Path, targetFilePath ), cancellationToken ) );
-                }
-
-                await Task.WhenAll( fileDownloads );
-
-                return fileDownloads.All( d => d.Result );
-            }
-
-            List<Task<bool>> directoryDownloads = new();
-
-            void StartDownloadTree( ProgressContext progress, string urlOrPath, string targetDirectory )
+            IEnumerable<DownloadedFile> GetFiles( string urlOrPath, string targetDirectory )
             {
                 if ( !this.TryGet( urlOrPath, console, out var response ) )
                 {
@@ -226,7 +158,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                     .Where( a => a.Value != null )
                     .Select( a => (a.Name, a.Value!, a.Item3) );
 
-                directoryDownloads.Add( DownloadDirectoryAsync( progress, files, targetDirectory ) );
+                foreach ( var file in files )
+                {
+                    var targetFilePath = Path.Combine( targetDirectory, file.Name );
+
+                    yield return new DownloadedFile( file.Url, targetFilePath, file.Name, file.Size );
+                }
 
                 IEnumerable<(string Name, string Url)> directories = artifacts
                     .Select( a => (a.Item1, a.Element.Element( "children" )?.Attribute( "href" )?.Value) )
@@ -236,36 +173,23 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 foreach ( var directory in directories )
                 {
                     var childTargetDirectory = Path.Combine( targetDirectory, directory.Name );
-                    StartDownloadTree( progress, directory.Url, childTargetDirectory );
+                    var subFiles = GetFiles( directory.Url, childTargetDirectory );
+
+                    foreach ( var subFile in subFiles )
+                    {
+                        yield return subFile;
+                    }
                 }
             }
 
-            async Task<bool> DownloadAllAsync( ProgressContext progress )
-            {
-                var basePath =
-                    $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath.Replace( '\\', '/' )}";
+            var basePath =
+                $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath.Replace( '\\', '/' )}";
 
-                var baseTargetDirectory = Path.Combine( artifactsDirectory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
+            var baseTargetDirectory = Path.Combine( artifactsDirectory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
 
-                StartDownloadTree( progress, basePath, baseTargetDirectory );
+            var files = GetFiles( basePath, baseTargetDirectory );
 
-                await Task.WhenAll( directoryDownloads );
-
-                return directoryDownloads.All( d => d.Result );
-            }
-
-            var success = Task.Run(
-                    () => AnsiConsole.Progress()
-                        .Columns(
-                            new TaskDescriptionColumn(),
-                            new ProgressBarColumn(),
-                            new DownloadedColumn(),
-                            new TransferSpeedColumn(),
-                            new RemainingTimeColumn(),
-                            new ElapsedTimeColumn(),
-                            new SpinnerColumn() )
-                        .StartAsync( DownloadAllAsync ),
-                    cancellationToken )
+            var success = FileDownloader.DownloadAsync( files, this._httpClient, console )
                 .GetAwaiter()
                 .GetResult();
 
@@ -273,7 +197,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             {
                 console.WriteError( "Failed to fetch artifacts. Check the descriptions above." );
             }
-            
+
             return success;
         }
 
@@ -728,24 +652,27 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             void AddProperty( string propertyName, string propertyValue ) => properties.Add( (propertyName, propertyValue) );
 
-            if ( repository is AzureDevOpsRepository )
+            switch ( repository )
             {
-                AddProperty( "authMethod", "PASSWORD" );
-                AddProperty( "username", "teamcity@postsharp.net" );
-                AddProperty( "secure:password", "%SourceCodeWritingToken%" );
-                AddProperty( "usernameStyle", "EMAIL" );
-            }
-            else if ( repository is GitHubRepository )
-            {
-                AddProperty( "authMethod", "TEAMCITY_SSH_KEY" );
-                AddProperty( "teamcitySshKey", "PostSharp.Engineering" );
-                AddProperty( "usernameStyle", "USERID" );
-            }
-            else
-            {
-                console.WriteError( $"Unknown VCS provider: {url}" );
+                case AzureDevOpsRepository:
+                    AddProperty( "authMethod", "PASSWORD" );
+                    AddProperty( "username", "teamcity@postsharp.net" );
+                    AddProperty( "secure:password", "%SourceCodeWritingToken%" );
+                    AddProperty( "usernameStyle", "EMAIL" );
 
-                return false;
+                    break;
+
+                case GitHubRepository:
+                    AddProperty( "authMethod", "TEAMCITY_SSH_KEY" );
+                    AddProperty( "teamcitySshKey", "PostSharp.Engineering" );
+                    AddProperty( "usernameStyle", "USERID" );
+
+                    break;
+
+                default:
+                    console.WriteError( $"Unknown VCS provider: {url}" );
+
+                    return false;
             }
 
             AddProperty( "url", url );
