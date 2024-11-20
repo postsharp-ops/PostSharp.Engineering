@@ -5,17 +5,17 @@
   </PropertyGroup>
   <!-- Set versions of dependencies that need special treatment or consist of multiple packages of the same version. -->
   <PropertyGroup>
-    <RoslynVersion>4.0.1</RoslynVersion>
-    <!-- The property MSBuildVersion is reserved. -->
-    <MSBuildPackagesVersion>17.0.0</MSBuildPackagesVersion>
+    <RoslynVersion>4.10.0</RoslynVersion> <!-- Must respect the DoxFx version. -->
+    <MSBuildPackagesVersion>17.11.4</MSBuildPackagesVersion> <!-- Must respect the target framework. The property MSBuildVersion is reserved. -->
     <DocFxVersion>2.77.0</DocFxVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Docfx.App" Version="$(DocFxVersion)" />
     <PackageVersion Include="Docfx.Common" Version="$(DocFxVersion)" />
     <PackageVersion Include="Docfx.MarkdigEngine.Extensions" Version="$(DocFxVersion)" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.0" />
     <PackageVersion Include="PKT.LZStringCSharp" Version="2.1.0" />
-    <PackageVersion Include="AWSSDK.S3" Version="3.7.405.9" />
+    <PackageVersion Include="AWSSDK.S3" Version="3.7.406.3" />
     <PackageVersion Include="Azure.Identity" Version="1.13.1" />
     <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.7.0" />
     <PackageVersion Include="JetBrains.Annotations" Version="2024.3.0" />
@@ -25,19 +25,24 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(RoslynVersion)" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="$(RoslynVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.NET.StringTools" Version="17.10.4" />
+    <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.NET.StringTools" Version="17.12.6" />
     <PackageVersion Include="Microsoft.TeamFoundationServer.Client" Version="19.225.1" />
-    <PackageVersion Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.10.2154" />
+    <PackageVersion Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.12.2149" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageVersion Include="HtmlAgilityPack" Version="1.11.70" />
-    <PackageVersion Include="NuGet.Versioning" Version="6.10.0" />
+    <PackageVersion Include="HtmlAgilityPack" Version="1.11.71" />
+    <PackageVersion Include="NuGet.Versioning" Version="6.12.1" />
     <PackageVersion Include="Spectre.Console" Version="0.49.1" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.49.1" />
-    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="8.0.1" />
-    <PackageVersion Include="System.Management" Version="8.0.0" />
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="9.0.0" />
+    <PackageVersion Include="System.Data.SqlClient" Version="4.9.0" />
+    <PackageVersion Include="System.Formats.Asn1" Version="9.0.0" />
+    <PackageVersion Include="System.Management" Version="9.0.0" />
+    <PackageVersion Include="System.Net.Http" Version="4.3.4" />
+    <PackageVersion Include="System.Text.Json" Version="9.0.0" />
+    <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageVersion Include="Typesense" Version="7.7.0" />
-    <PackageVersion Include="Octokit" Version="11.0.1" />
+    <PackageVersion Include="Octokit" Version="13.0.1" />
     <PackageVersion Include="Octokit.GraphQL" Version="0.2.0-beta" />
   </ItemGroup>
 </Project>
