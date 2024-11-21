@@ -13,6 +13,11 @@ namespace PostSharp.Engineering.BuildTools.Build
     [UsedImplicitly]
     public class KillCommand : BaseCommand<KillCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, KillCommandSettings settings ) => ProcessKiller.Kill( context.Console, settings.Dry );
+        protected override bool ExecuteCore( BuildContext context, KillCommandSettings settings )
+        {
+            context.Console.WriteHeading( "Killing processes" );
+
+            return ProcessKiller.Kill( context.Console, settings.Dry );
+        }
     }
 }

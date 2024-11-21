@@ -14,8 +14,6 @@ public static class ProcessKiller
 {
     public static bool Kill( ConsoleHelper console, bool dry = false )
     {
-        console.WriteHeading( "Killing processes" );
-
         var currentSessionId = Process.GetCurrentProcess().SessionId;
 
         var processesToKill = Process.GetProcesses()

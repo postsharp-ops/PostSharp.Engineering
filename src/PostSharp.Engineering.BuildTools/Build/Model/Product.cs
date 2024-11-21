@@ -1560,10 +1560,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
                 }
 
-                // Delete all cached packages directories starting with 'PostSharp.Engineering'.
+                // Delete all cached packages directories starting with 'PostSharp.Engineering' but the current one.
                 foreach ( var dir in directoryInfo.EnumerateDirectories( "postsharp.engineering*" ) )
                 {
-                    DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
+                    foreach ( var subDir in dir.EnumerateDirectories() )
+                    {
+                        var directoryPath = Path.Combine( nugetCacheDirectory, dir.Name, subDir.Name );
+                        
+                        if ( subDir.Name.Equals( VersionHelper.EngineeringVersion, StringComparison.OrdinalIgnoreCase ) )
+                        {
+                            context.Console.WriteMessage( $"Skipping directory '{directoryPath}'." );
+                            
+                            continue;
+                        }
+
+                        DeleteDirectory( directoryPath );
+                    }
                 }
             }
 
