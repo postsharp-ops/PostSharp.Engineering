@@ -5,7 +5,7 @@
   </PropertyGroup>
   <!-- Set versions of dependencies that need special treatment or consist of multiple packages of the same version. -->
   <PropertyGroup>
-    <RoslynVersion>4.10.0</RoslynVersion> <!-- Must respect the DoxFx version. -->
+    <RoslynVersion>4.7.0</RoslynVersion> <!-- Must respect the DoxFx version. Now also downgraded to 4.7.0 as per https://github.com/dotnet/roslyn/issues/73854#issuecomment-2296437307 . This bug causes failure of RemoveInternalsCommand used in Metalama public build. -->
     <MSBuildPackagesVersion>17.11.4</MSBuildPackagesVersion> <!-- Must respect the target framework. The property MSBuildVersion is reserved. -->
     <DocFxVersion>2.77.0</DocFxVersion>
   </PropertyGroup>
