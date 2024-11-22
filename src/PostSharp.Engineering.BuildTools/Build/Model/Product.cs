@@ -1844,6 +1844,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // For consolidated deployments, this is part of the post-deployment step.
             if ( !this.ProductFamily.HasConsolidatedBuild && !settings.IsStandalone )
             {
+                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+                {
+                    // When on TeamCity, Git user credentials are set to TeamCity.
+                    if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                    {
+                        return false;
+                    }
+                }
+                
                 if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
                 {
                     context.Console.WriteError( "Failed to update auto-updated dependencies." );
