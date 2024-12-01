@@ -23,11 +23,12 @@ namespace PostSharp.Engineering.BuildTools.S3.Publishers
             this._configuration = ImmutableArray.Create<S3PublisherConfiguration>().AddRange( configurations );
         }
 
-        protected override SuccessCode PublishFile(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo )
+            BuildInfo buildInfo,
+            BuildConfigurationInfo configuration )
         {
             var fileName = Path.GetFileName( file );
             var packageConfiguration = this._configuration.Single( c => c.PackageFileName.ToString( buildInfo ) == fileName );

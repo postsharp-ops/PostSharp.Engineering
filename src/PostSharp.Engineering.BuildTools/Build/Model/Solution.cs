@@ -11,7 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     /// Represents an individual Visual Studio solution, project or build script.
     /// </summary>
     [PublicAPI]
-    public abstract class Solution( string solutionPath )
+    public abstract class Solution
     {
         /// <summary>
         /// Gets the name of the solution.
@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets the full path of the solution file.
         /// </summary>
-        public string SolutionPath { get; } = solutionPath;
+        public string SolutionPath { get; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the current solution should be built only during a <c>test</c> command.
@@ -95,5 +95,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public abstract bool Restore( BuildContext context, BuildSettings settings );
 
         public virtual IEnumerable<Solution> GetFormattableSolutions( BuildContext context ) => new[] { this };
+
+        protected Solution( string solutionPath )
+        {
+            this.SolutionPath = solutionPath;
+        }
     }
 }

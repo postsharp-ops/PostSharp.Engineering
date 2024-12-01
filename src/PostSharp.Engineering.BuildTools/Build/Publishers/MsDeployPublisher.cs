@@ -57,11 +57,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
             return true;
         }
 
-        protected override SuccessCode PublishFile(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo )
+            BuildInfo buildInfo,
+            BuildConfigurationInfo configuration )
         {
             var fileName = Path.GetFileName( file );
             var packageConfiguration = this._configurations.Single( c => c.PackageFileName.ToString( buildInfo ) == fileName );

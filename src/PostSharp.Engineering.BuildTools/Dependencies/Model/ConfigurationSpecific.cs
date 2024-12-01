@@ -8,19 +8,22 @@ using System.Collections.Immutable;
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
 [PublicAPI]
-public class ConfigurationSpecific<T>( T debug, T release, T @public )
+public class ConfigurationSpecific<T>
 {
     private ImmutableDictionary<BuildConfiguration, T>? _asDictionary;
 
-    public T Debug { get; init; } = debug;
+    public T Debug { get; init; }
 
-    public T Release { get; init; } = release;
+    public T Release { get; init; }
 
-    public T Public { get; init; } = @public;
+    public T Public { get; init; }
 
-    public ConfigurationSpecific( T value ) : this( value, value, value ) { }
-
-    public ConfigurationSpecific( in (T Debug, T Release, T Public) values ) : this( values.Debug, values.Release, values.Public ) { }
+    public ConfigurationSpecific( T debug, T release, T @public )
+    {
+        this.Debug = debug;
+        this.Release = release;
+        this.Public = @public;
+    }
 
     public T this[ BuildConfiguration configuration ]
         => configuration switch

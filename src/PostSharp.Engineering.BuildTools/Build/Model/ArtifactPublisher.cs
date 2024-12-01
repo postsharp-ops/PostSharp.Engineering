@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Microsoft.Extensions.FileSystemGlobbing;
 using System;
 using System.Collections.Generic;
@@ -8,20 +9,29 @@ using System.IO;
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     /// <summary>
-    /// A publisher that publishes all artifact files specified in <c>files</c> pattern.
+    /// A publisher that publishes all artifact files specified in <see cref="Files"/> pattern.
     /// </summary>
-    public abstract class ArtifactPublisher( Pattern files ) : Publisher
+    [PublicAPI]
+    public abstract class ArtifactPublisher : Publisher
     {
-        private readonly Tester[] _testers = [];
+        public Pattern Files { get; }
+
+        public Tester[] Testers { get; init; } = [];
+
+        protected ArtifactPublisher( Pattern files )
+        {
+            this.Files = files;
+        }
 
         /// <summary>
         /// Executes the target for a specified artifact.
         /// </summary>
-        protected abstract SuccessCode PublishFile(
+        public abstract SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo );
+            BuildInfo buildInfo,
+            BuildConfigurationInfo configuration );
 
         protected override bool Publish(
             BuildContext context,
@@ -36,18 +46,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             var directory = isPublic ? directories.Public : directories.Private;
 
-            var files1 = new List<FilePatternMatch>();
+            var files = new List<FilePatternMatch>();
 
-            if ( !files.TryGetFiles( directory, buildInfo, files1 ) )
+            if ( !this.Files.TryGetFiles( directory, buildInfo, files ) )
             {
-                context.Console.WriteWarning( $"Created artifact files do not match the publisher pattern(s): '{files}'" );
+                context.Console.WriteWarning( $"Created artifact files do not match the publisher pattern(s): '{this.Files}'" );
 
                 return true;
             }
 
             var allFilesSucceeded = true;
 
-            foreach ( var file in files1 )
+            foreach ( var file in files )
             {
                 if ( (file.Stem ?? file.Path).Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )
                 {
@@ -60,7 +70,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var filePath = Path.Combine( directory, file.Path );
 
-                switch ( this.PublishFile( context, settings, filePath, buildInfo ) )
+                switch ( this.PublishFile( context, settings, filePath, buildInfo, configuration ) )
                 {
                     case SuccessCode.Success:
                         break;
@@ -81,7 +91,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( allFilesSucceeded )
             {
-                foreach ( var tester in this._testers )
+                foreach ( var tester in this.Testers )
                 {
                     switch ( tester.Execute( context, directories.Private, buildInfo, settings.Dry ) )
                     {

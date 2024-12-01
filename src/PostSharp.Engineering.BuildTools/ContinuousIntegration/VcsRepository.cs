@@ -10,17 +10,22 @@ using System.Threading.Tasks;
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 [PublicAPI]
-public abstract class VcsRepository( string? defaultBranchParameter )
+public abstract class VcsRepository
 {
     public const string DefaultDefaultBranchParameter = "DefaultBranch";
+    
+    protected VcsRepository( string? defaultBranchParameter )
+    {
+        this.DefaultBranchParameter = defaultBranchParameter ?? DefaultDefaultBranchParameter;
+    }
 
     public abstract string Name { get; }
     
     /// <summary>
     /// Parameter name used to specify the default branch in TeamCity build configurations.
     /// </summary>
-    public string DefaultBranchParameter { get; } = defaultBranchParameter ?? DefaultDefaultBranchParameter;
-
+    public string DefaultBranchParameter { get; }
+    
     public abstract VcsProvider Provider { get; }
     
     public abstract string SshUrl { get; }
@@ -40,7 +45,7 @@ public abstract class VcsRepository( string? defaultBranchParameter )
     public abstract bool IsSshAgentRequired { get; }
     
     public abstract bool TryDownloadTextFile( ConsoleHelper console, string branch, string path, [NotNullWhen( true )] out string? text );
-
+    
     public abstract Task<bool> TrySetBranchPoliciesAsync( BuildContext context, string buildStatusGenre, string? buildStatusName, bool dry );
 
     public abstract Task<string?> TryCreatePullRequestAsync( ConsoleHelper console, string sourceBranch, string targetBranch, string title );

@@ -9,11 +9,17 @@ using System.IO;
 namespace PostSharp.Engineering.BuildTools.Docker;
 
 [PublicAPI]
-public abstract class DockerfileWriter( TextWriter streamTextWriter, DockerImage image ) : IDisposable
+public abstract class DockerfileWriter : IDisposable
 {
-    public TextWriter TextWriter { get; } = streamTextWriter;
+    public TextWriter TextWriter { get; }
 
-    public DockerImage Image { get; } = image;
+    public DockerImage Image { get; }
+
+    protected DockerfileWriter( TextWriter streamTextWriter, DockerImage image )
+    {
+        this.TextWriter = streamTextWriter;
+        this.Image = image;
+    }
 
     public virtual string EscapePath( string s ) => "\"" + s.Replace( "\\", "\\\\", StringComparison.Ordinal ) + "\"";
 

@@ -22,7 +22,8 @@ namespace PostSharp.Engineering.BuildTools.NuGet
         public override int Execute( CommandContext context, RenamePackageCommandSettings settings )
             => Execute( new ConsoleHelper(), settings ) ? 0 : 2;
 
-        private static bool Execute( ConsoleHelper console, RenamePackageCommandSettings settings )
+        [PublicAPI]
+        public static bool Execute( ConsoleHelper console, RenamePackageCommandSettings settings )
         {
             var success = true;
 

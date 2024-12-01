@@ -6,7 +6,7 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
-[PublicAPI]
+[UsedImplicitly]
 public class TeamCityCreateProjectCommandSettings : CommonCommandSettings
 {
     [Description( "The name of the new project." )]
