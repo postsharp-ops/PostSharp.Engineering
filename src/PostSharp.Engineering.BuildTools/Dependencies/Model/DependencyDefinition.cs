@@ -43,6 +43,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// </remarks>
         public string? ReleaseBranch { get; }
 
+        // If the product is part of a consolidated build, pre-publishing takes place and the deployment is preformed from the release branch.
+        // If not, the deployment is performed from the default branch, and post-publishing is is part of the publishing step.
+        public string PublishingBranch => this.ReleaseBranch != null && this.ProductFamily.HasConsolidatedBuild ? this.ReleaseBranch : this.Branch;
+
         public CiProjectConfiguration CiConfiguration { get; }
 
         public bool IsVersioned { get; }

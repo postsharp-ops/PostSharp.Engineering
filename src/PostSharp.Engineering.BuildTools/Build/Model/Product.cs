@@ -886,7 +886,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     solutionSettings = settings.WithAdditionalProperties( properties.ToImmutableDictionary() ).WithoutConcurrency();
                 }
 
-                context.Console.WriteHeading( $"Testing {solution.Name}." );
+                context.Console.WriteHeading( $"Testing {solution.Name}" );
 
                 if ( !TryExecuteBuildMethod( context, solutionSettings, solution, solution.TestMethod ?? BuildMethod.Test ) )
                 {
@@ -1560,23 +1560,35 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
                 }
 
-                // Delete all cached packages directories starting with 'PostSharp.Engineering'.
+                // Delete all cached packages directories starting with 'PostSharp.Engineering' but the current one.
                 foreach ( var dir in directoryInfo.EnumerateDirectories( "postsharp.engineering*" ) )
                 {
-                    DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
+                    foreach ( var subDir in dir.EnumerateDirectories() )
+                    {
+                        var directoryPath = Path.Combine( nugetCacheDirectory, dir.Name, subDir.Name );
+                        
+                        if ( subDir.Name.Equals( VersionHelper.EngineeringVersion, StringComparison.OrdinalIgnoreCase ) )
+                        {
+                            context.Console.WriteMessage( $"Skipping directory '{directoryPath}'." );
+                            
+                            continue;
+                        }
+
+                        DeleteDirectory( directoryPath );
+                    }
                 }
             }
 
             // NugetCache must be automatically deleted only on TeamCity.
             if ( TeamCityHelper.IsTeamCityBuild( settings ) && !DockerHelper.IsDockerBuild() && !settings.NoNuGetCacheCleanup )
             {
-                context.Console.WriteHeading( "Cleaning NuGet cache." );
+                context.Console.WriteHeading( "Cleaning NuGet cache" );
                 context.Console.WriteMessage( "The NuGet cache cleanup can be skipped using --no-nuget-cache-cleanup." );
 
                 CleanNugetCache();
             }
 
-            context.Console.WriteHeading( $"Cleaning {this.ProductName}." );
+            context.Console.WriteHeading( $"Cleaning {this.ProductName}" );
 
             foreach ( var directory in this.AdditionalDirectoriesToClean )
             {
@@ -1707,8 +1719,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PrePublish( BuildContext context, PublishSettings settings )
         {
-            // This step is only required for pre-publishing and post-publishing, so they don't require a build.
-            // Publishing gets this file along with the published artifacts.
             if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
@@ -1770,19 +1780,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( !context.Product.IsPublishingNonReleaseBranchesAllowed && !settings.IsStandalone )
             {
-                var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
-
-                // If the release branch is not specified, the pre and post publishing is not required, and the publishing can be performed from any branch. 
-                if ( releaseBranch != null && context.Branch != releaseBranch )
+                var publishingBranch = context.Product.DependencyDefinition.PublishingBranch;
+                
+                if ( context.Branch != publishingBranch )
                 {
                     context.Console.WriteError(
-                        $"Publishing can only be executed on the release branch ('{releaseBranch}'). The current branch is '{context.Branch}'." );
+                        $"Publishing can only be executed on the '{publishingBranch}' branch. The current branch is '{context.Branch}'." );
 
                     return false;
                 }
             }
 
             if ( !this.CanPublish( context, settings ) )
+            {
+                return false;
+            }
+
+            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
             }
@@ -1828,8 +1842,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // For consolidated deployments, this is part of the post-deployment step.
-            if ( !this.ProductFamily.HasConsolidatedBuild || settings.IsStandalone )
+            if ( !this.ProductFamily.HasConsolidatedBuild && !settings.IsStandalone )
             {
+                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+                {
+                    // When on TeamCity, Git user credentials are set to TeamCity.
+                    if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                    {
+                        return false;
+                    }
+                }
+                
                 if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
                 {
                     context.Console.WriteError( "Failed to update auto-updated dependencies." );
@@ -1848,7 +1871,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( releaseBranch != null && context.Branch == context.Product.DependencyDefinition.Branch )
                 {
-                    if ( !GitHelper.TryPullAndMergeAndPush( context, settings, releaseBranch ) )
+                    if ( settings.Dry )
+                    {
+                        context.Console.WriteImportantMessage( $"Dry run: Merging the current branch to '{releaseBranch}' branch." );
+                    }
+                    else if ( !GitHelper.TryPullAndMergeAndPush( context, settings, releaseBranch ) )
                     {
                         return false;
                     }
@@ -1884,10 +1911,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PostPublish( BuildContext context, PublishSettings settings )
         {
-            context.Console.WriteHeading( "Finishing publishig." );
+            context.Console.WriteHeading( "Finishing publishig" );
             
-            // This step is only required for pre-publishing and post-publishing, so they don't require a build.
-            // Publishing gets this file along with the published artifacts.
             if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
@@ -1958,44 +1983,51 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Commit and push if dependencies versions were updated in previous step.
             if ( dependenciesUpdated )
             {
-                // Adds AutoUpdatedVersions.props with updated dependencies versions to Git staging area.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        $"add {context.Product.AutoUpdatedVersionsFilePath}",
-                        context.RepoDirectory ) )
+                if ( settings.Dry )
                 {
-                    return false;
+                    context.Console.WriteImportantMessage( "Dry run: Updating auto-updated dependencies." );
                 }
-
-                // Returns the remote origin.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "remote get-url origin",
-                        context.RepoDirectory,
-                        out _,
-                        out var gitOrigin ) )
+                else
                 {
-                    return false;
-                }
+                    // Adds AutoUpdatedVersions.props with updated dependencies versions to Git staging area.
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "git",
+                            $"add {context.Product.AutoUpdatedVersionsFilePath}",
+                            context.RepoDirectory ) )
+                    {
+                        return false;
+                    }
 
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "commit -m \"<<DEPENDENCIES_UPDATED>>\"",
-                        context.RepoDirectory ) )
-                {
-                    return false;
-                }
+                    // Returns the remote origin.
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "git",
+                            "remote get-url origin",
+                            context.RepoDirectory,
+                            out _,
+                            out var gitOrigin ) )
+                    {
+                        return false;
+                    }
 
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        $"push {gitOrigin.Trim()}",
-                        context.RepoDirectory ) )
-                {
-                    return false;
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "git",
+                            "commit -m \"<<DEPENDENCIES_UPDATED>>\"",
+                            context.RepoDirectory ) )
+                    {
+                        return false;
+                    }
+
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "git",
+                            $"push {gitOrigin.Trim()}",
+                            context.RepoDirectory ) )
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -2085,7 +2117,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool BumpVersion( BuildContext context, BumpSettings settings )
         {
-            context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
+            context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version" );
 
             var developmentBranch = context.Product.DependencyDefinition.Branch;
 
@@ -2283,11 +2315,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
             var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;
             var defaultBranch = this.DependencyDefinition.Branch;
-
-            var deploymentBranch = this.ProductFamily.HasConsolidatedBuild
-                ? this.DependencyDefinition.ReleaseBranch ?? defaultBranch
-                : defaultBranch;
-
+            var deploymentBranch = this.DependencyDefinition.PublishingBranch;
             var defaultBranchParameter = this.DependencyDefinition.VcsRepository.DefaultBranchParameter;
             var vcsRootId = TeamCityHelper.GetVcsRootId( this.DependencyDefinition );
 
@@ -2711,7 +2739,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryAddTagToLastCommit( BuildContext context, BaseBuildSettings settings )
+        private bool TryAddTagToLastCommit( BuildContext context, PublishSettings settings )
         {
             if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo ) )
             {
@@ -2739,6 +2767,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( gitOutput.Contains( versionTag, StringComparison.OrdinalIgnoreCase ) )
             {
                 context.Console.WriteWarning( $"Repository already contains tag '{versionTag}'." );
+
+                return true;
+            }
+
+            if ( settings.Dry )
+            {
+                context.Console.WriteImportantMessage( $"Dry run: Adding '{versionTag}' tag to the latest commit." );
 
                 return true;
             }

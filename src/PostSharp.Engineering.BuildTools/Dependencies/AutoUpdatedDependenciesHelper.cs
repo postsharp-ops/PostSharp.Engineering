@@ -74,7 +74,7 @@ internal static class AutoUpdatedDependenciesHelper
             
             if ( !File.Exists( dependencyVersionPath ) )
             {
-                context.Console.WriteError( $"Version file of '{dependency.Name}' does not exist." );
+                context.Console.WriteError( $"'{dependencyVersionPath}' version file of '{dependency.Name}' does not exist." );
 
                 return false;
             }
@@ -118,14 +118,17 @@ internal static class AutoUpdatedDependenciesHelper
 
         if ( dependenciesUpdated )
         {
-            context.Console.WriteImportantMessage( $"Writing updated '{autoUpdatedVersionsFileName}'." );
+            context.Console.WriteImportantMessage( $"{(settings.Dry ? "Dry run: " : "")}Writing updated '{autoUpdatedVersionsFileName}'." );
 
-            var xmlWriterSettings =
-                new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
-
-            using ( var xmlWriter = XmlWriter.Create( autoUpdatedVersionsFilePath, xmlWriterSettings ) )
+            if ( !settings.Dry )
             {
-                currentVersionDocument.Save( xmlWriter );
+                var xmlWriterSettings =
+                    new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
+
+                using ( var xmlWriter = XmlWriter.Create( autoUpdatedVersionsFilePath, xmlWriterSettings ) )
+                {
+                    currentVersionDocument.Save( xmlWriter );
+                }
             }
         }
 

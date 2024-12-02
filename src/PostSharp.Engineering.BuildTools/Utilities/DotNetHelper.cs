@@ -88,6 +88,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             var argsBuilder = new StringBuilder();
 
             var isRunCommand = command == "run";
+            var isTestDllCommand = command == "test" && Path.GetExtension( projectOrSolution ) == ".dll";
 
             var projectPrefix = string.Empty;
             var nologo = " --nologo";
@@ -112,7 +113,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     $" -c {context.Product.DependencyDefinition.MSBuildConfiguration[settings.BuildConfiguration]}" );
             }
 
-            if ( settings.NoConcurrency )
+            if ( settings.NoConcurrency && !isTestDllCommand )
             {
                 argsBuilder.Append( " -m:1" );
             }
@@ -122,7 +123,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 argsBuilder.Append( CultureInfo.InvariantCulture, $" -p:{property.Key}={property.Value}" );
             }
 
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) && !isTestDllCommand )
             {
                 argsBuilder.Append( " -p:ContinuousIntegrationBuild=True" );
             }
@@ -132,7 +133,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 argsBuilder.Append( " --disable-build-servers" );
             }
 
-            if ( !isRunCommand )
+            if ( !isRunCommand && !isTestDllCommand )
             {
                 var binaryLogFilePath = Path.Combine(
                     context.RepoDirectory,
