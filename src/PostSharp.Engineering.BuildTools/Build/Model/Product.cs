@@ -2058,7 +2058,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         case SuccessCode.Success:
                             foreach ( var tester in swapper.Testers )
                             {
-                                switch ( tester.Execute( context, directories.Private, buildInfo, configuration, settings.Dry ) )
+                                switch ( tester.Execute( context, directories.Private, buildInfo, settings.Dry ) )
                                 {
                                     case SuccessCode.Success:
                                         break;

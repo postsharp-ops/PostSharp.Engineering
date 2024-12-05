@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
@@ -9,18 +10,15 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net.Http;
 
-#pragma warning disable 8765
-
 namespace PostSharp.Engineering.BuildTools.NuGet;
 
+[UsedImplicitly]
 public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettings>
 {
     public override int Execute( CommandContext context, UnlistNugetPackageCommandSettings settings )
-    {
-        return Execute( new ConsoleHelper(), settings ) ? 0 : 1;
-    }
+        => Execute( new ConsoleHelper(), settings ) ? 0 : 1;
 
-    public static bool Execute( ConsoleHelper console, UnlistNugetPackageCommandSettings settings )
+    private static bool Execute( ConsoleHelper console, UnlistNugetPackageCommandSettings settings )
     {
         if ( string.IsNullOrEmpty( settings.PackageName ) )
         {

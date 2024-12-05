@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 using System;
@@ -13,6 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     /// <summary>
     /// A file globbing pattern, i.e. something like <c>**\*.cs</c>. This class is immutable. 
     /// </summary>
+    [PublicAPI]
     public sealed class Pattern
     {
         private ImmutableArray<(ParametricString Pattern, bool IsExclude)> Items { get; }

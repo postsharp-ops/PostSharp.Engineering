@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Microsoft.Extensions.FileSystemGlobbing;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     /// <summary>
     /// A publisher that publishes all artifact files specified in <see cref="Files"/> pattern.
     /// </summary>
+    [PublicAPI]
     public abstract class ArtifactPublisher : Publisher
     {
         public Pattern Files { get; }
@@ -91,7 +93,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 foreach ( var tester in this.Testers )
                 {
-                    switch ( tester.Execute( context, directories.Private, buildInfo, configuration, settings.Dry ) )
+                    switch ( tester.Execute( context, directories.Private, buildInfo, settings.Dry ) )
                     {
                         case SuccessCode.Success:
                             break;

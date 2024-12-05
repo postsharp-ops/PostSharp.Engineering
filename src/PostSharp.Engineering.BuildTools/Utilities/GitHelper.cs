@@ -142,7 +142,8 @@ public static class GitHelper
             $"branch --show-current",
             repoDirectory,
             out var gitExitCode,
-            out var gitOutput );
+            out var gitOutput,
+            ToolInvocationOptions.Default with { Silent = true } );
 
         if ( gitExitCode != 0 )
         {

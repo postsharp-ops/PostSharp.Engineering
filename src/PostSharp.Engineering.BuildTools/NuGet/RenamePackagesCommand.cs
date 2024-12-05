@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
@@ -10,20 +11,18 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
 
-#pragma warning disable 8765
-
 namespace PostSharp.Engineering.BuildTools.NuGet
 {
     /// <summary>
     /// Renames <c>Microsoft</c> into <c>Metalama.Roslyn</c> in all NuGet packages of a directory.
     /// </summary>
+    [UsedImplicitly]
     public class RenamePackagesCommand : Command<RenamePackageCommandSettings>
     {
         public override int Execute( CommandContext context, RenamePackageCommandSettings settings )
-        {
-            return Execute( new ConsoleHelper(), settings ) ? 0 : 2;
-        }
+            => Execute( new ConsoleHelper(), settings ) ? 0 : 2;
 
+        [PublicAPI]
         public static bool Execute( ConsoleHelper console, RenamePackageCommandSettings settings )
         {
             var success = true;

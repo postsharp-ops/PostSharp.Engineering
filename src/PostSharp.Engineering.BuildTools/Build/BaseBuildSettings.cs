@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
@@ -13,6 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Build;
 /// Base for <see cref="BuildSettings"/> and <see cref="PublishSettings"/>. Defines a <see cref="BuildConfiguration"/>
 /// option that resolves to the configuration of the latest build if any was define, otherwise to Debug.
 /// </summary>
+[PublicAPI]
 public class BaseBuildSettings : CommonCommandSettings
 {
     private BuildConfiguration? _resolvedConfiguration;

@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System.Collections.Generic;
 using System.Globalization;
@@ -9,12 +10,11 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle;
 
+[UsedImplicitly]
 internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOutputCommandSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, ProcessInspectOutputCommandSettings settings )
-    {
-        return ExecuteImpl( context, settings );
-    }
+    protected override bool ExecuteCore( BuildContext context, ProcessInspectOutputCommandSettings settings ) 
+        => ExecuteImpl( context, settings );
 
     public static bool ExecuteImpl( BuildContext context, ProcessInspectOutputCommandSettings settings )
     {
@@ -39,7 +39,7 @@ internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOu
                     : Path.Combine( context.RepoDirectory, settings.SolutionDirectory )
                 : context.RepoDirectory;
 
-            var line = int.Parse( issue.Attribute( "Line" )!.Value, CultureInfo.InvariantCulture );
+            var line = issue.Attribute( "Line" ) is { Value: var value } ? int.Parse( value, CultureInfo.InvariantCulture ) : 1;
             var offsets = issue.Attribute( "Offset" )!.Value.Split( '-' );
             var file = Path.GetFullPath( Path.Combine( rootPath, issue.Attribute( "File" )!.Value ) );
             var offset = int.Parse( offsets[0], CultureInfo.InvariantCulture );
@@ -80,25 +80,28 @@ internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOu
                 // Create the map.
                 var text = File.ReadAllText( file );
 
-                map = new List<int>();
-                map.Add( 0 );
+                map = [0];
 
                 for ( var offset = 0; offset < text.Length; offset++ )
                 {
                     var c = text[offset];
 
-                    if ( c == '\r' )
+                    switch ( c )
                     {
-                        map.Add( offset + 1 );
+                        case '\r':
+                            map.Add( offset + 1 );
 
-                        if ( text.Length > offset && text[offset + 1] == '\n' )
-                        {
-                            offset++;
-                        }
-                    }
-                    else if ( c == '\n' )
-                    {
-                        map.Add( offset + 1 );
+                            if ( text.Length > offset && text[offset + 1] == '\n' )
+                            {
+                                offset++;
+                            }
+
+                            break;
+
+                        case '\n':
+                            map.Add( offset + 1 );
+
+                            break;
                     }
                 }
 

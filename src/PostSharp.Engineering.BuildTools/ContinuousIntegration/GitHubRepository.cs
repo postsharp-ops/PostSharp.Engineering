@@ -1,9 +1,11 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
@@ -57,4 +59,10 @@ public class GitHubRepository : VcsRepository
 
     public override bool TryDownloadTextFile( ConsoleHelper console, string branch, string path, [NotNullWhen( true )] out string? text )
         => GitHubHelper.TryDownloadText( console, this, path, branch, out text );
+
+    public override Task<bool> TrySetBranchPoliciesAsync( BuildContext context, string buildStatusGenre, string? buildStatusName, bool dry )
+        => GitHubHelper.TrySetBranchPoliciesAsync( context, this, buildStatusGenre, buildStatusName, dry );
+
+    public override Task<string?> TryCreatePullRequestAsync( ConsoleHelper console, string sourceBranch, string targetBranch, string title )
+        => GitHubHelper.TryCreatePullRequestAsync( console, this, sourceBranch, targetBranch, title );
 }

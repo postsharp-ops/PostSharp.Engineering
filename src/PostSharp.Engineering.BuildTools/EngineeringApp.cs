@@ -5,7 +5,6 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 
 namespace PostSharp.Engineering.BuildTools;
 

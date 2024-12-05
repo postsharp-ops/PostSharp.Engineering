@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Generic;
@@ -7,6 +8,7 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
+[PublicAPI]
 public abstract class DockerfileWriter : IDisposable
 {
     public TextWriter TextWriter { get; }
@@ -35,20 +37,11 @@ public abstract class DockerfileWriter : IDisposable
         }
     }
 
-    public void WriteLine( string s )
-    {
-        this.TextWriter.WriteLine( s );
-    }
+    public void WriteLine( string s ) => this.TextWriter.WriteLine( s );
 
-    public void Dispose()
-    {
-        this.TextWriter.Dispose();
-    }
+    public void Dispose() => this.TextWriter.Dispose();
 
-    public void Close()
-    {
-        this.TextWriter.Close();
-    }
+    public void Close() => this.TextWriter.Close();
 
     public abstract void MakeDirectory( string s );
 

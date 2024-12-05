@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -8,6 +9,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
@@ -83,4 +85,10 @@ public class AzureDevOpsRepository : VcsRepository
 
         return true;
     }
+
+    public override Task<bool> TrySetBranchPoliciesAsync( BuildContext context, string buildStatusGenre, string? buildStatusName, bool dry )
+        => AzureDevOpsHelper.TrySetBranchPoliciesAsync( context, this, buildStatusGenre, buildStatusName, dry );
+
+    public override Task<string?> TryCreatePullRequestAsync( ConsoleHelper console, string sourceBranch, string targetBranch, string title )
+        => AzureDevOpsHelper.TryCreatePullRequestAsync( console, this, sourceBranch, targetBranch, title );
 }

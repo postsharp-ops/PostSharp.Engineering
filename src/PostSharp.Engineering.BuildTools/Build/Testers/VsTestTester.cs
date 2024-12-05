@@ -29,7 +29,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Testers
             BuildContext context,
             string artifactsDirectory,
             BuildInfo buildInfo,
-            BuildConfigurationInfo configuration,
             bool dry )
         {
             var tempDirectory = Path.Combine( Path.GetTempPath(), Path.GetRandomFileName() );

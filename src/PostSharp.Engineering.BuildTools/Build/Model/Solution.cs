@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -9,6 +10,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     /// <summary>
     /// Represents an individual Visual Studio solution, project or build script.
     /// </summary>
+    [PublicAPI]
     public abstract class Solution
     {
         /// <summary>

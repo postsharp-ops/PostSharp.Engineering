@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console.Cli;
 using System.ComponentModel;
@@ -9,6 +10,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// <summary>
     /// Settings of <see cref="SetDependenciesCommand"/>.
     /// </summary>
+    [PublicAPI]
     public class SetDependenciesCommandSettings : ConfigureDependenciesCommandSettings
     {
         [Description( "The source of dependencies: Feed | Local | BuildServer" )]

@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -14,13 +15,12 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-#pragma warning disable 8765
-
 namespace PostSharp.Engineering.BuildTools.Coverage
 {
     /// <summary>
     /// Compares the code coverage result file with the syntax tree and detects tolerable gaps. Emit warnings for non-tolerable gaps.
     /// </summary>
+    [PublicAPI]
     public class AnalyzeCoverageCommand : Command<AnalyzeCoverageCommandSettings>
     {
         public override int Execute( CommandContext context, AnalyzeCoverageCommandSettings settings )

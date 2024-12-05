@@ -1,11 +1,13 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Immutable;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
+[PublicAPI]
 public class ConfigurationSpecific<T>
 {
     private ImmutableDictionary<BuildConfiguration, T>? _asDictionary;
@@ -21,20 +23,6 @@ public class ConfigurationSpecific<T>
         this.Debug = debug;
         this.Release = release;
         this.Public = @public;
-    }
-
-    public ConfigurationSpecific( T value )
-    {
-        this.Debug = value;
-        this.Release = value;
-        this.Public = value;
-    }
-
-    public ConfigurationSpecific( in (T Debug, T Release, T Public) values )
-    {
-        this.Debug = values.Debug;
-        this.Release = values.Release;
-        this.Public = values.Public;
     }
 
     public T this[ BuildConfiguration configuration ]

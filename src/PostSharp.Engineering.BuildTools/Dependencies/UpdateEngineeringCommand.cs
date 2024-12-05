@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PostSharp.Engineering.BuildTools.Build;
@@ -13,6 +14,7 @@ using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
+[UsedImplicitly]
 public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )

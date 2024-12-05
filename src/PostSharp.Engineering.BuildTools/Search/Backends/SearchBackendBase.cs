@@ -1,11 +1,13 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Typesense;
 
 namespace PostSharp.Engineering.BuildTools.Search.Backends;
 
+[PublicAPI]
 public abstract class SearchBackendBase
 {
     public abstract Task CreateCollectionAsync( Schema schema );

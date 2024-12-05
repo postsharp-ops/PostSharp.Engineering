@@ -6,7 +6,7 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.DotNetTools;
 
-[UsedImplicitly]
+[PublicAPI]
 public class InvokeDotNetToolCommandSettings : CommonCommandSettings
 {
     [Description( "The arguments passed to the tool." )]

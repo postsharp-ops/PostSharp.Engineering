@@ -45,7 +45,8 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                     "--version",
                     Path.GetDirectoryName( formattableSolution.SolutionPath ),
                     out _,
-                    out var sdkVersionString );
+                    out var sdkVersionString,
+                    ToolInvocationOptions.Default with { Silent = true } );
 
                 if ( !NuGetVersion.TryParse( sdkVersionString, out var sdkVersion ) )
                 {

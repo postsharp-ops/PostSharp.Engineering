@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using Spectre.Console.Cli;
 using System.Collections.Immutable;
@@ -14,6 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Build
     /// <summary>
     /// Settings for <see cref="BuildCommand"/>, <see cref="PrepareCommand"/> and <see cref="CleanCommand"/>.
     /// </summary>
+    [PublicAPI]
     public class BuildSettings : BaseBuildSettings
     {
         private int? _solutionId;

@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
@@ -8,6 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Git
     /// <summary>
     /// Settings for <see cref="GitBulkRenameCommand"/>.
     /// </summary>
+    [PublicAPI]
     internal class GitBulkRenameSettings : CommandSettings
     {
         [Description( "The path to the root of the GIT repository where the renaming should take place." )]

@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.IO;
@@ -9,6 +10,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
     /// <summary>
     /// Copies the code style from the current repo to the shared repo to. 
     /// </summary>
+    [UsedImplicitly]
     internal class PushCodeStyleCommand : BaseCodeStyleCommand<CodeStyleSettings>
     {
         protected override bool ExecuteCore( BuildContext context, CodeStyleSettings settings )

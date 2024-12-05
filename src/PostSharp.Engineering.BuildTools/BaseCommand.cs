@@ -12,8 +12,6 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 
-#pragma warning disable 8765
-
 namespace PostSharp.Engineering.BuildTools
 {
     /// <summary>

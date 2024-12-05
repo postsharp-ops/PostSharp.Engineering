@@ -1,9 +1,9 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Git
@@ -11,6 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Git
     /// <summary>
     /// Renames files in bulk using <c>git rename</c>.
     /// </summary>
+    [UsedImplicitly]
     internal class GitBulkRenameCommand : Command<GitBulkRenameSettings>
     {
         // ReSharper disable RedundantNullableFlowAttribute

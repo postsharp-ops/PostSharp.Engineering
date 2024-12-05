@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishers
@@ -7,6 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
     /// <summary>
     /// Configuration of a deployment with <see cref="MsDeployPublisher"/>.
     /// </summary>
+    [PublicAPI]
     public class MsDeployConfiguration
     {
         public ParametricString PackageFileName { get; init; }
