@@ -15,7 +15,7 @@ public static partial class MetalamaDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2025_0
+    public static class V2025_1
     {
         private class MetalamaDependencyDefinition : DependencyDefinition
         {
@@ -51,9 +51,11 @@ public static partial class MetalamaDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2025.0", DevelopmentDependencies.Family, PostSharpDependencies.V2025_0.Family )
+        public static ProductFamily Family { get; } = new( _projectName, "2025.1", DevelopmentDependencies.Family, PostSharpDependencies.V2025_0.Family )
         {
-            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2024_2.Family, DownstreamProductFamily = V2025_1.Family
+            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2025_0.Family
+
+            // DownstreamProductFamily = V2025_2.Family
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
