@@ -75,15 +75,6 @@ public static partial class MetalamaDependencies
             EngineeringDirectory = "eng-Metalama", PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
         };
 
-        public static DependencyDefinition MetalamaFrameworkRunTime { get; } =
-            new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
-
-        public static DependencyDefinition MetalamaFrameworkPrivate { get; } = new MetalamaDependencyDefinition(
-            "Metalama.Framework.Private",
-            VcsProvider.GitHub,
-            isVersioned: false,
-            pullRequestRequiresStatusCheck: false ) { GenerateSnapshotDependency = false };
-
         public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition(
             "Metalama",
             VcsProvider.GitHub,
