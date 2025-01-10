@@ -51,7 +51,7 @@ public static partial class MetalamaDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2025.1", DevelopmentDependencies.Family, PostSharpDependencies.V2025_0.Family )
+        public static ProductFamily Family { get; } = new( _projectName, "2025.1", DevelopmentDependencies.Family, PostSharpDependencies.V2025_1.Family )
         {
             DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2025_0.Family
 
