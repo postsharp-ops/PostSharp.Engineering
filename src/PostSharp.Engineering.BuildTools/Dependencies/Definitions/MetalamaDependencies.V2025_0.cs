@@ -53,7 +53,9 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2025.0", DevelopmentDependencies.Family, PostSharpDependencies.V2025_0.Family )
         {
-            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2024_2.Family, DownstreamProductFamily = V2025_1.Family
+            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2024_2.Family
+
+            // No downstream merge is supported into 2025.1 because repo merge.
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );

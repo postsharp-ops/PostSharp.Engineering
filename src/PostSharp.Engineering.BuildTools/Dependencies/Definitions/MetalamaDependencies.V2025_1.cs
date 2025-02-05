@@ -53,12 +53,10 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2025.1", DevelopmentDependencies.Family, PostSharpDependencies.V2025_1.Family )
         {
-            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2025_0.Family
+            DockerBaseImage = DockerImages.WindowsServerCore
 
             // DownstreamProductFamily = V2025_2.Family
         };
-
-        public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
 
         public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
             ProductFamily.ConsolidatedProjectName,
@@ -78,21 +76,19 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition(
             "Metalama",
             VcsProvider.GitHub,
-            customRepositoryName: "Metalama.Framework" );
+            customRepositoryName: "Metalama.Framework.2025.1" ); // TODO: Change after open-sourcing.
+
+        public static DependencyDefinition MetalamaPremium { get; } = new MetalamaDependencyDefinition(
+            "Metalama.Premium",
+            VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaVsx { get; } = new MetalamaDependencyDefinition( "Metalama.Vsx", VcsProvider.AzureDevOps );
-
-        public static DependencyDefinition MetalamaExtensions { get; } = new MetalamaDependencyDefinition( "Metalama.Extensions", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaSamples { get; } =
             new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub ) { CodeStyle = "Metalama.Samples" };
 
         public static DependencyDefinition TimelessDotNetEngineer { get; } =
             new MetalamaDependencyDefinition( "TimelessDotNetEngineer", VcsProvider.GitHub ) { CodeStyle = "Metalama.Samples" };
-
-        public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition( "Metalama.Migration", VcsProvider.GitHub );
-
-        public static DependencyDefinition MetalamaLinqPad { get; } = new MetalamaDependencyDefinition( "Metalama.LinqPad", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaCommunity { get; } = new MetalamaDependencyDefinition( "Metalama.Community", VcsProvider.GitHub );
 
@@ -101,17 +97,10 @@ public static partial class MetalamaDependencies
             VcsProvider.GitHub,
             false );
 
-        public static DependencyDefinition MetalamaTry { get; } =
-            new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureDevOps, false ) { EngineeringDirectory = "eng-Metalama" };
-
         public static DependencyDefinition PostSharpPatterns { get; } = new MetalamaDependencyDefinition(
             "PostSharp.Patterns",
             VcsProvider.AzureDevOps,
             false );
-
-        public static DependencyDefinition MetalamaPatterns { get; } = new MetalamaDependencyDefinition(
-            "Metalama.Patterns",
-            VcsProvider.GitHub );
 
         public static DependencyDefinition NopCommerce { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.NopCommerce",
