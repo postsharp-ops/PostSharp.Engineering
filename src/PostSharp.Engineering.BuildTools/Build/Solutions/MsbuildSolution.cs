@@ -112,6 +112,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 argsBuilder.Append( CultureInfo.InvariantCulture, $" -p:{property.Key}={property.Value}" );
             }
 
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                argsBuilder.Append( " -p:ContinuousIntegrationBuild=True" );
+            }
+
             if ( !string.IsNullOrWhiteSpace( arguments ) )
             {
                 argsBuilder.Append( " " + arguments.Trim() );
