@@ -1542,13 +1542,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 ProcessKiller.Kill( context.Console );
 
                 // Use dotnet command to locate nuget cache directory.
-                ToolInvocationHelper.InvokeTool(
+                var success = ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "dotnet",
                     "nuget locals global-packages -l",
                     context.RepoDirectory,
                     out _,
                     out var output );
+
+                if ( !success )
+                {
+                    context.Console.WriteWarning( "Couldn't locate NuGet cache directory, skipping cleaning it." );
+
+                    return;
+                }
 
                 // Get only directory location string.
                 var nugetCacheDirectory = output.Split( ' ' )[1].Trim();
