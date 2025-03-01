@@ -1,12 +1,11 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
-
-using Microsoft.Build.Locator;
+﻿using Microsoft.Build.Locator;
 using Microsoft.VisualStudio.Setup.Configuration;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using PostSharp.Engineering.BuildTools.Build;
 
 namespace PostSharp.Engineering.BuildTools;
 
@@ -19,9 +18,9 @@ internal static class MSBuildHelper
 
     public static void InitializeLocator()
     {
-        if ( !_isInitialized )
+        if (!_isInitialized)
         {
-            if ( MSBuildLocator.CanRegister )
+            if (MSBuildLocator.CanRegister)
             {
                 try
                 {
@@ -29,7 +28,7 @@ internal static class MSBuildHelper
 
                     _isInitialized = true;
                 }
-                catch ( Exception e )
+                catch (Exception e)
                 {
                     throw new InvalidOperationException(
                         $"Cannot find a suitable version of MSBuild for "
@@ -42,11 +41,11 @@ internal static class MSBuildHelper
         }
     }
 
-    public static string? FindLatestMSBuildExe()
+    public static string? FindLatestMSBuildExe( BuildContext context )
     {
-        var directory = FindLatestMSBuildDirectory();
+        var directory = FindLatestMSBuildDirectory( context );
 
-        if ( directory == null )
+        if (directory == null)
         {
             return directory;
         }
@@ -56,16 +55,16 @@ internal static class MSBuildHelper
         }
     }
 
-    private static string? FindLatestMSBuildDirectory()
+    private static string? FindLatestMSBuildDirectory( BuildContext context )
     {
-        var instances = GetVisualStudioInstances().OrderByDescending( i => i.Version );
+        var instances = GetVisualStudioInstances( context ).OrderByDescending( i => i.Version );
 
-        foreach ( var instance in instances )
+        foreach (var instance in instances)
         {
             // We got a Visual Studio instance but not all of them have an MSBuild instance. For instance, a Test Agent instance does not have.
             var directory = Path.Combine( instance.Path, "MSBuild", "Current", "Bin" );
 
-            if ( Directory.Exists( directory ) )
+            if (Directory.Exists( directory ))
             {
                 return directory;
             }
@@ -74,34 +73,48 @@ internal static class MSBuildHelper
         return null;
     }
 
-    public static IEnumerable<VisualStudioInstance> GetVisualStudioInstances()
+    public static IEnumerable<VisualStudioInstance> GetVisualStudioInstances( BuildContext context )
     {
-        if ( !RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
+        if (!RuntimeInformation.IsOSPlatform( OSPlatform.Windows ))
         {
-            yield break;
+            return [];
         }
 
-        // List instances discovered by Visual Studio installer.
-        var query = new SetupConfiguration();
-        var enumInstances = query.EnumAllInstances();
+        List<VisualStudioInstance> list = new();
 
-        int fetched;
-        var instances = new ISetupInstance[1];
-
-        do
+        try
         {
-            enumInstances.Next( 1, instances, out fetched );
+            // List instances discovered by Visual Studio installer.
+            var query = new SetupConfiguration();
+            var enumInstances = query.EnumAllInstances();
 
-            if ( fetched > 0 )
+            int fetched;
+            var instances = new ISetupInstance[1];
+
+            do
             {
-                var instance = (ISetupInstance2) instances[0];
+                enumInstances.Next( 1, instances, out fetched );
 
-                yield return new VisualStudioInstance(
-                    instance.GetDisplayName(),
-                    Version.Parse( instance.GetInstallationVersion() ),
-                    instance.GetInstallationPath() );
+                if (fetched > 0)
+                {
+                    var instance = (ISetupInstance2)instances[0];
+
+                    list.Add(
+                        new VisualStudioInstance(
+                            instance.GetDisplayName(),
+                            Version.Parse( instance.GetInstallationVersion() ),
+                            instance.GetInstallationPath() ) );
+                }
             }
+            while (fetched > 0);
         }
-        while ( fetched > 0 );
+        catch (COMException exception)
+        {
+            context.Console.WriteWarning( $"Cannot find VS instances: {exception.Message}" );
+
+            return [];
+        }
+
+        return list;
     }
 }

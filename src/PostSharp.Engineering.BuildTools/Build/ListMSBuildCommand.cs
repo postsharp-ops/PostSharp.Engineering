@@ -1,6 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
-
-using JetBrains.Annotations;
+﻿using JetBrains.Annotations;
 using Microsoft.Build.Locator;
 using Spectre.Console;
 
@@ -15,20 +13,20 @@ public class ListMSBuildCommand : BaseCommand<CommonCommandSettings>
         table.AddColumns( "Name", "Version", "Path", "Type" );
 
         // List instances discovered by MSBuildLocator.
-        foreach ( var instance in MSBuildLocator.QueryVisualStudioInstances() )
+        foreach (var instance in MSBuildLocator.QueryVisualStudioInstances())
         {
             table.AddRow( instance.Name, instance.Version.ToString(), instance.MSBuildPath, instance.DiscoveryType.ToString() );
         }
 
         // List instances discovered by Visual Studio installer.
-        foreach ( var instance in MSBuildHelper.GetVisualStudioInstances() )
+        foreach (var instance in MSBuildHelper.GetVisualStudioInstances( context ))
         {
             table.AddRow( instance.Name, instance.Version.ToString(), instance.Path, "VS" );
         }
 
         context.Console.Write( table );
 
-        context.Console.WriteMessage( $"MSBuildHelper.FindLatestMSBuildExe returns: {MSBuildHelper.FindLatestMSBuildExe() ?? "<null>"}" );
+        context.Console.WriteMessage( $"MSBuildHelper.FindLatestMSBuildExe returns: {MSBuildHelper.FindLatestMSBuildExe( context ) ?? "<null>"}" );
 
         return true;
     }
