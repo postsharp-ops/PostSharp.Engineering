@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
+using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -1214,30 +1215,52 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     return false;
                 }
-                else if ( dependencySource.VersionFile == null )
-                {
-                    context.Console.WriteError( $"The dependency '{mainVersionDependencyName}' is not resolved." );
-
-                    return false;
-                }
-
-                var versionFile = Project.FromFile( dependencySource.VersionFile, new ProjectOptions() );
-
-                var propertyName = this.MainVersionDependency!.NameWithoutDot + "MainVersion";
-
-                mainVersion = versionFile.Properties.SingleOrDefault( p => p.Name == propertyName )
-                    ?.UnevaluatedValue;
-
-                if ( string.IsNullOrEmpty( mainVersion ) )
-                {
-                    context.Console.WriteError( $"The file '{dependencySource.VersionFile}' does not contain the {propertyName}." );
-
-                    return false;
-                }
 
                 // Note that the version suffix is not copied from the dependency, only the main version. 
 
-                ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+                if ( dependencySource.VersionFile == null )
+                {
+                    if ( !VersionFile.TryRead( context, settings, out var localVersionFile ) )
+                    {
+                        return false;
+                    }
+
+                    if ( !localVersionFile.Dependencies.TryGetValue( this.MainVersionDependency.Name, out var mainDependencySource ) )
+                    {
+                        context.Console.WriteError( $"Version file doesn't contain version for {this.MainVersionDependency.Name}." );
+
+                        return false;
+                    }
+
+                    var versionString = mainDependencySource.Version;
+
+                    if ( !NuGetVersion.TryParse( versionString, out var mainFullVersion ) )
+                    {
+                        context.Console.WriteError( $"Could not parse the version '{versionString}'." );
+
+                        return false;
+                    }
+
+                    mainVersion = new NuGetVersion( mainFullVersion.Major, mainFullVersion.Minor, mainFullVersion.Patch ).ToString();
+                }
+                else
+                {
+                    var versionFile = Project.FromFile( dependencySource.VersionFile, new ProjectOptions() );
+
+                    var propertyName = this.MainVersionDependency!.NameWithoutDot + "MainVersion";
+
+                    mainVersion = versionFile.Properties.SingleOrDefault( p => p.Name == propertyName )
+                        ?.UnevaluatedValue;
+
+                    if ( string.IsNullOrEmpty( mainVersion ) )
+                    {
+                        context.Console.WriteError( $"The file '{dependencySource.VersionFile}' does not contain the {propertyName}." );
+
+                        return false;
+                    }
+
+                    ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+                }
             }
 
             if ( !string.IsNullOrEmpty( mainVersionFileInfo.OverriddenPatchVersion )
@@ -1542,13 +1565,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 ProcessKiller.Kill( context.Console );
 
                 // Use dotnet command to locate nuget cache directory.
-                ToolInvocationHelper.InvokeTool(
+                var success = ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "dotnet",
                     "nuget locals global-packages -l",
                     context.RepoDirectory,
                     out _,
                     out var output );
+
+                if ( !success )
+                {
+                    context.Console.WriteWarning( "Couldn't locate NuGet cache directory, skipping cleaning it." );
+
+                    return;
+                }
 
                 // Get only directory location string.
                 var nugetCacheDirectory = output.Split( ' ' )[1].Trim();

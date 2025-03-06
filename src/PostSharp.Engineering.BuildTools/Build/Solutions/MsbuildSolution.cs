@@ -82,7 +82,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 return false;
             }
 
-            var msbuildPath = MSBuildHelper.FindLatestMSBuildExe();
+            var msbuildPath = MSBuildHelper.FindLatestMSBuildExe( context );
 
             if ( msbuildPath == null )
             {
