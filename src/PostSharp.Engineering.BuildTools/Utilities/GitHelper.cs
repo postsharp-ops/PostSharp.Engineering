@@ -596,7 +596,7 @@ public static class GitHelper
         if ( !ToolInvocationHelper.InvokeTool(
                  context.Console,
                  "git",
-                 $"log -1 --format=%cd --date=iso-strict --author='@postsharp.net'",
+                 $"log -1 --format=%cd --date=iso-strict --author=@postsharp.net",
                  context.RepoDirectory,
                  out var exitCode,
                  out var output )
@@ -609,6 +609,13 @@ public static class GitHelper
         }
 
         buildDate = output.Trim();
+
+        if ( string.IsNullOrEmpty( buildDate ) )
+        {
+            context.Console.WriteError( $"Cannot find any commits from *@postsharp.net on this branch." );
+
+            return false;
+        }
 
         return true;
     }
