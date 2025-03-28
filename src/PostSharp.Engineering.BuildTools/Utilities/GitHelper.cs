@@ -591,10 +591,12 @@ public static class GitHelper
 
     public static bool TryGetLatestCommitDate( BuildContext context, [NotNullWhen( true )] out string? buildDate )
     {
+        // We intentionally ignore any commit that is not by postsharp.net, so customers can add their own commit without
+        // affecting the build date restriction of their support subscription.
         if ( !ToolInvocationHelper.InvokeTool(
                  context.Console,
                  "git",
-                 $"log -1 --format=%cd --date=iso-strict",
+                 $"log -1 --format=%cd --date=iso-strict --author='@postsharp.net'",
                  context.RepoDirectory,
                  out var exitCode,
                  out var output )
