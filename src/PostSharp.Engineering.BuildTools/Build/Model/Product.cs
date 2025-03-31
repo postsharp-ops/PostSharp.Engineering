@@ -1793,6 +1793,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
             
+            if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
+            {
+                context.Console.WriteError( "Failed to update auto-updated dependencies." );
+                
+                return false;
+            }
+            
             if ( !GitHelper.TryPullAndMergeAndPush( context, settings, targetBranch ) )
             {
                 return false;
@@ -1883,13 +1890,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     }
                 }
                 
-                if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
-                {
-                    context.Console.WriteError( "Failed to update auto-updated dependencies." );
-
-                    return false;
-                }
-
                 if ( !this.TryAddTagToLastCommit( context, settings ) )
                 {
                     context.Console.WriteError( "Failed to tag the latest commit." );
@@ -1941,7 +1941,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PostPublish( BuildContext context, PublishSettings settings )
         {
-            context.Console.WriteHeading( "Finishing publishig" );
+            context.Console.WriteHeading( "Finishing publishing." );
             
             if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
@@ -1971,13 +1971,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteError(
                     $"Post-publishing can only be executed on the release branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
 
-                return false;
-            }
-            
-            if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
-            {
-                context.Console.WriteError( "Failed to update auto-updated dependencies." );
-                
                 return false;
             }
 
@@ -2312,8 +2305,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 var mainVersionFile = $"{dependency.EngineeringDirectory}/MainVersion.props";
-                context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.VcsRepository}'." );
-
+                
                 if ( !dependency.VcsRepository.TryDownloadTextFile( context.Console, dependency.Branch, mainVersionFile, out var mainVersionContent ) )
                 {
                     return false;

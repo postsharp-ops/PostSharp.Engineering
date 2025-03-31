@@ -81,7 +81,10 @@ public class AzureDevOpsRepository : VcsRepository
         var authString = Convert.ToBase64String( Encoding.UTF8.GetBytes( $@"{TeamCityHelper.TeamCityUsername}:{teamCitySourceReadToken}" ) );
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Basic", authString );
 
-        text = httpClient.GetString( $"{this.BaseUrl}/{this.Project}/_apis/git/repositories/{this.Name}/items?path={path}&versionDescriptor.version={branch}" );
+        var uri = $"{this.BaseUrl}/{this.Project}/_apis/git/repositories/{this.Name}/items?path={path}&versionDescriptor.version={branch}";
+        
+        console.WriteMessage( $"Downloading {uri}." );
+        text = httpClient.GetString( uri );
 
         return true;
     }
