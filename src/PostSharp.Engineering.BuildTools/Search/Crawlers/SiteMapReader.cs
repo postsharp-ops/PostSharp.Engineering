@@ -9,16 +9,16 @@ using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
-public class SiteMapCrawler
+internal class SiteMapReader
 {
     private readonly HttpClient _client;
 
-    public SiteMapCrawler( HttpClient client )
+    public SiteMapReader( HttpClient client )
     {
         this._client = client;
     }
 
-    public async Task<IEnumerable<string>> GetDocumentsAsync( string url )
+    public async Task<IReadOnlyList<string>> GetDocumentsAsync( string url )
     {
         await using var stream = await this._client.GetStreamAsync( url );
         var sitemap = new HtmlDocument();

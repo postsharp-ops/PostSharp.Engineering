@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
-public static class DocFxApiArticleHelper
+internal static class DocFxApiArticleHelper
 {
     public static NextParagraphStrategy GetNextParagraphStrategy( HtmlNode paragraphInitialNode )
     {
@@ -48,7 +48,7 @@ public static class DocFxApiArticleHelper
                 }
 
                 break;
-            
+
             case 5:
                 var text = paragraphInitialNode.GetText().Trim();
                 isIgnored = text != "Remarks";

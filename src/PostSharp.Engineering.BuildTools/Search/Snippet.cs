@@ -10,64 +10,67 @@ namespace PostSharp.Engineering.BuildTools.Search;
 public class Snippet
 {
     [JsonPropertyName( "title" )]
-    public string Title { get; set; } = null!;
-    
+    public string Title { get; set; } = "";
+
     [JsonPropertyName( "breadcrumb" )]
-    public string Breadcrumb { get; set; } = null!;
-    
+    public string Breadcrumb { get; set; } = "";
+
     [JsonPropertyName( "summary" )]
-    public string Summary { get; set; } = null!;
+    public string Summary { get; set; } = "";
 
     [JsonPropertyName( "h1" )]
-    public string[] H1 { get; set; } = null!;
-    
+    public string[] H1 { get; set; } = [];
+
     [JsonPropertyName( "h2" )]
-    public string[] H2 { get; set; } = null!;
-    
+    public string[] H2 { get; set; } = [];
+
     [JsonPropertyName( "h3" )]
-    public string[] H3 { get; set; } = null!;
-    
+    public string[] H3 { get; set; } = [];
+
     [JsonPropertyName( "h4" )]
-    public string[] H4 { get; set; } = null!;
-    
+    public string[] H4 { get; set; } = [];
+
     [JsonPropertyName( "h5" )]
-    public string[] H5 { get; set; } = null!;
-    
+    public string[] H5 { get; set; } = [];
+
     [JsonPropertyName( "h6" )]
-    public string[] H6 { get; set; } = null!;
+    public string[] H6 { get; set; } = [];
 
     [JsonPropertyName( "text" )]
-    public string[] Text { get; set; } = null!;
+    public string[] Text { get; set; } = [];
+
+    [JsonPropertyName( "keywords" )]
+    public string Keywords { get; set; } = "";
 
     [JsonPropertyName( "source" )]
     [Facet]
-    public string Source { get; set; } = null!;
+    public string Source { get; set; } = "";
 
     [JsonPropertyName( "link" )]
-    public string Link { get; set; } = null!;
+    public string Link { get; set; } = "";
 
     [JsonPropertyName( "products" )]
     [Facet]
-    public string[] Products { get; set; } = null!;
+    public string[] Products { get; set; } = [];
 
     [JsonPropertyName( "kinds" )]
     [Facet]
-    public string[] Kinds { get; set; } = null!;
+    public string[] Kinds { get; set; } = [];
 
     [JsonPropertyName( "kind-rank" )]
     public int KindRank { get; set; }
 
     [JsonPropertyName( "categories" )]
     [Facet]
-    public string[] Categories { get; set; } = null!;
+    public string[] Categories { get; set; } = [];
 
     [JsonPropertyName( "complexity-levels" )]
     [Facet]
-    public int[] ComplexityLevels { get; set; } = null!;
+    public int[] ComplexityLevels { get; set; } = [];
 
     [JsonPropertyName( "complexity-level-rank" )]
     public int ComplexityLevelRank { get; set; }
-    
+
     [JsonPropertyName( "navigation-level" )]
     [Facet]
     public int NavigationLevel { get; set; }

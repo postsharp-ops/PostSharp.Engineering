@@ -2,4 +2,4 @@
 
 namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
-public record NextParagraphStrategy( bool IsNextSnippet, bool IsIgnored );
+internal record NextParagraphStrategy( bool IsNextSnippet, bool IsIgnored );

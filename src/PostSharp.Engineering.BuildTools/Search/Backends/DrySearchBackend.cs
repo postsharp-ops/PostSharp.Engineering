@@ -9,11 +9,11 @@ using Typesense;
 
 namespace PostSharp.Engineering.BuildTools.Search.Backends;
 
-public class ConsoleBackend : SearchBackendBase
+public class DrySearchBackend : SearchBackendBase
 {
     private readonly ConsoleHelper _console;
 
-    public ConsoleBackend( ConsoleHelper console )
+    public DrySearchBackend( ConsoleHelper console )
     {
         this._console = console;
     }
@@ -26,14 +26,14 @@ public class ConsoleBackend : SearchBackendBase
         {
             this._console.WriteMessage( $"  {field.Name}: {field.Type}, facet: {field.Facet}" );
         }
-        
+
         this._console.WriteMessage( "" );
 
         return Task.CompletedTask;
     }
 
     public override Task DeleteCollectionAsync( string collection ) => throw new NotSupportedException();
-    
+
     public override Task<bool> TryDeleteCollectionAsync( string collection ) => Task.FromResult( false );
 
     public override Task<IEnumerable<CollectionResponse>> RetrieveCollectionsAsync() => throw new NotSupportedException();
@@ -49,7 +49,7 @@ public class ConsoleBackend : SearchBackendBase
     private void WriteObject( object o, int indentation = 0 )
     {
         var indentationString = new string( ' ', indentation );
-        
+
         foreach ( var property in o.GetType().GetProperties() )
         {
             var value = property.GetValue( o )!;

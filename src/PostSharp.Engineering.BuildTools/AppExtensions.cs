@@ -39,140 +39,185 @@ namespace PostSharp.Engineering.BuildTools
                 {
                     root.Settings.StrictParsing = true;
 
-                    root.AddCommand<PrepareCommand>( "prepare" )
-                        .WithData( data )
-                        .WithDescription( "Creates the files that are required to build the product" );
-
-                    root.AddCommand<BuildCommand>( "build" )
-                        .WithData( data )
-                        .WithDescription( "Builds all packages in the product (implies 'prepare')" );
-
-                    root.AddCommand<GenerateCiScriptsCommand>( "generate-scripts" )
-                        .WithData( data )
-                        .WithDescription( "Generates the continuous integration scripts" );
-
-                    root.AddCommand<ListSolutionsCommand>( "list-solutions" )
-                        .WithData( data )
-                        .WithDescription( "Lists the solutions in the build sequence." );
-
-                    root.AddCommand<TestCommand>( "test" )
-                        .WithData( data )
-                        .WithDescription( "Builds all packages then run all tests (implies 'build')" );
-
-                    root.AddCommand<VerifyCommand>( "verify" )
-                        .WithData( data )
-                        .WithDescription( "Verify that the dependencies of public artifacts have already been publicly deployed" );
-
-                    root.AddCommand<PrePublishCommand>( "prepublish" )
-                        .WithData( data )
-                        .WithDescription( "Prepares publishing of all packages that have been previously built by the 'build' command" );
-                    
-                    root.AddCommand<PublishCommand>( "publish" )
-                        .WithData( data )
-                        .WithDescription( "Publishes all packages that have been previously built by the 'build' command" );
-                    
-                    root.AddCommand<PostPublishCommand>( "postpublish" )
-                        .WithData( data )
-                        .WithDescription( "Finalizes publishing of all packages that have been previously built by the 'build' command" );
-
-                    root.AddCommand<SwapCommand>( "swap" )
-                        .WithData( data )
-                        .WithDescription( "Swaps deployment slots" );
-
-                    if ( product.DependencyDefinition.IsVersioned )
+                    if ( product.AddDefaultCommands )
                     {
-                        root.AddCommand<BumpCommand>( "bump" )
+                        root.AddCommand<PrepareCommand>( "prepare" )
                             .WithData( data )
-                            .WithDescription( "Bumps the version of this product" );
-                    }
+                            .WithDescription( "Creates the files that are required to build the product" );
 
-                    root.AddBranch(
-                        "docker",
-                        docker =>
+                        root.AddCommand<BuildCommand>( "build" )
+                            .WithData( data )
+                            .WithDescription( "Builds all packages in the product (implies 'prepare')" );
+
+                        root.AddCommand<GenerateCiScriptsCommand>( "generate-scripts" )
+                            .WithData( data )
+                            .WithDescription( "Generates the continuous integration scripts" );
+
+                        root.AddCommand<ListSolutionsCommand>( "list-solutions" )
+                            .WithData( data )
+                            .WithDescription( "Lists the solutions in the build sequence." );
+
+                        root.AddCommand<TestCommand>( "test" )
+                            .WithData( data )
+                            .WithDescription( "Builds all packages then run all tests (implies 'build')" );
+
+                        root.AddCommand<VerifyCommand>( "verify" )
+                            .WithData( data )
+                            .WithDescription( "Verify that the dependencies of public artifacts have already been publicly deployed" );
+
+                        root.AddCommand<PrePublishCommand>( "prepublish" )
+                            .WithData( data )
+                            .WithDescription( "Prepares publishing of all packages that have been previously built by the 'build' command" );
+
+                        root.AddCommand<PublishCommand>( "publish" )
+                            .WithData( data )
+                            .WithDescription( "Publishes all packages that have been previously built by the 'build' command" );
+
+                        root.AddCommand<PostPublishCommand>( "postpublish" )
+                            .WithData( data )
+                            .WithDescription( "Finalizes publishing of all packages that have been previously built by the 'build' command" );
+
+                        root.AddCommand<SwapCommand>( "swap" )
+                            .WithData( data )
+                            .WithDescription( "Swaps deployment slots" );
+
+                        if ( product.DependencyDefinition.IsVersioned )
                         {
-                            docker.AddCommand<DockerPrepareCommand>( "prepare" )
+                            root.AddCommand<BumpCommand>( "bump" )
                                 .WithData( data )
-                                .WithDescription( "Builds an image ready to run the product build." );
+                                .WithDescription( "Bumps the version of this product" );
+                        }
 
-                            docker.AddCommand<DockerBuildCommand>( "build" )
-                                .WithData( data )
-                                .WithDescription( "Builds the product inside docker." );
-
-                            docker.AddCommand<DockerTestCommand>( "test" )
-                                .WithData( data )
-                                .WithDescription( "Runs the product tests inside docker." );
-
-                            docker.AddCommand<DockerInteractiveCommand>( "interactive" )
-                                .WithData( data )
-                                .WithDescription( "Opens an interactive PowerShell session inside the docker container." );
-
-                            docker.AddCommand<DockerListImagesCommand>( "list-images" )
-                                .WithData( data )
-                                .WithDescription( "Prints the list of configured images." );
-                        } );
-
-                    root.AddBranch(
-                        "dependencies",
-                        dependencies =>
-                        {
-                            dependencies.AddCommand<ListDependenciesCommand>( "list" )
-                                .WithData( data )
-                                .WithDescription( "Lists the dependencies of this product" );
-
-                            dependencies.AddCommand<SetDependenciesCommand>( "set" )
-                                .WithData( data )
-                                .WithDescription( "Sets how dependencies should be consumed." );
-
-                            dependencies.AddCommand<ResetDependenciesCommand>( "reset" )
-                                .WithData( data )
-                                .WithDescription( "Resets any change done with the 'set' command and revert to the configuration as stored in source code." );
-
-                            dependencies.AddCommand<PrintDependenciesCommand>( "print" )
-                                .WithData( data )
-                                .WithDescription( "Prints the dependency file." );
-
-                            dependencies.AddCommand<FetchDependencyCommand>( "fetch" )
-                                .WithData( data )
-                                .WithDescription( "Fetch build dependencies from TeamCity but does not update a version that has already been resolved." );
-
-                            dependencies.AddCommand<UpdateDependencyCommand>( "update" )
-                                .WithData( data )
-                                .WithDescription( "Updates dependencies to the newest version available on TeamCity." );
-
-                            dependencies.AddCommand<UpdateEngineeringCommand>( "update-eng" )
-                                .WithData( data )
-                                .WithDescription( "Updates PostSharp.Engineering in global.json and Versions.props." );
-                        } );
-
-                    root.AddBranch(
-                        "codestyle",
-                        codestyle =>
-                        {
-                            codestyle.AddCommand<PushCodeStyleCommand>( "push" )
-                                .WithData( data )
-                                .WithDescription(
-                                    $"Copies the changes in {product.EngineeringDirectory}/shared to the local engineering repo, but does not commit nor push." );
-
-                            codestyle.AddCommand<PullCodeStyleCommand>( "pull" )
-                                .WithData( data )
-                                .WithDescription(
-                                    $"Copies the remote engineering repo to {product.EngineeringDirectory}/shared. Automatically pulls 'master'." );
-
-                            if ( product.Solutions.Any( s => s.CanFormatCode ) )
+                        root.AddBranch(
+                            "docker",
+                            docker =>
                             {
-                                codestyle.AddCommand<FormatCommand>( "format" )
+                                docker.AddCommand<DockerPrepareCommand>( "prepare" )
                                     .WithData( data )
-                                    .WithDescription( "Formats the code" );
+                                    .WithDescription( "Builds an image ready to run the product build." );
 
-                                codestyle.AddCommand<InspectCommand>( "inspect" )
+                                docker.AddCommand<DockerBuildCommand>( "build" )
                                     .WithData( data )
-                                    .WithDescription( "Inspects the code for warnings" );
+                                    .WithDescription( "Builds the product inside docker." );
 
-                                codestyle.AddCommand<ProcessInspectOutputCommand>( "process-inspect-output" )
+                                docker.AddCommand<DockerTestCommand>( "test" )
                                     .WithData( data )
-                                    .WithDescription( "Prints errors and warnings for the output of the 'inspect' command" );
-                            }
-                        } );
+                                    .WithDescription( "Runs the product tests inside docker." );
+
+                                docker.AddCommand<DockerInteractiveCommand>( "interactive" )
+                                    .WithData( data )
+                                    .WithDescription( "Opens an interactive PowerShell session inside the docker container." );
+
+                                docker.AddCommand<DockerListImagesCommand>( "list-images" )
+                                    .WithData( data )
+                                    .WithDescription( "Prints the list of configured images." );
+                            } );
+
+                        root.AddBranch(
+                            "dependencies",
+                            dependencies =>
+                            {
+                                dependencies.AddCommand<ListDependenciesCommand>( "list" )
+                                    .WithData( data )
+                                    .WithDescription( "Lists the dependencies of this product" );
+
+                                dependencies.AddCommand<SetDependenciesCommand>( "set" )
+                                    .WithData( data )
+                                    .WithDescription( "Sets how dependencies should be consumed." );
+
+                                dependencies.AddCommand<ResetDependenciesCommand>( "reset" )
+                                    .WithData( data )
+                                    .WithDescription(
+                                        "Resets any change done with the 'set' command and revert to the configuration as stored in source code." );
+
+                                dependencies.AddCommand<PrintDependenciesCommand>( "print" )
+                                    .WithData( data )
+                                    .WithDescription( "Prints the dependency file." );
+
+                                dependencies.AddCommand<FetchDependencyCommand>( "fetch" )
+                                    .WithData( data )
+                                    .WithDescription( "Fetch build dependencies from TeamCity but does not update a version that has already been resolved." );
+
+                                dependencies.AddCommand<UpdateDependencyCommand>( "update" )
+                                    .WithData( data )
+                                    .WithDescription( "Updates dependencies to the newest version available on TeamCity." );
+
+                                dependencies.AddCommand<UpdateEngineeringCommand>( "update-eng" )
+                                    .WithData( data )
+                                    .WithDescription( "Updates PostSharp.Engineering in global.json and Versions.props." );
+                            } );
+
+                        root.AddBranch(
+                            "codestyle",
+                            codestyle =>
+                            {
+                                codestyle.AddCommand<PushCodeStyleCommand>( "push" )
+                                    .WithData( data )
+                                    .WithDescription(
+                                        $"Copies the changes in {product.EngineeringDirectory}/shared to the local engineering repo, but does not commit nor push." );
+
+                                codestyle.AddCommand<PullCodeStyleCommand>( "pull" )
+                                    .WithData( data )
+                                    .WithDescription(
+                                        $"Copies the remote engineering repo to {product.EngineeringDirectory}/shared. Automatically pulls 'master'." );
+
+                                if ( product.Solutions.Any( s => s.CanFormatCode ) )
+                                {
+                                    codestyle.AddCommand<FormatCommand>( "format" )
+                                        .WithData( data )
+                                        .WithDescription( "Formats the code" );
+
+                                    codestyle.AddCommand<InspectCommand>( "inspect" )
+                                        .WithData( data )
+                                        .WithDescription( "Inspects the code for warnings" );
+
+                                    codestyle.AddCommand<ProcessInspectOutputCommand>( "process-inspect-output" )
+                                        .WithData( data )
+                                        .WithDescription( "Prints errors and warnings for the output of the 'inspect' command" );
+                                }
+                            } );
+
+                        root.AddBranch(
+                            "teamcity",
+                            teamcity =>
+                            {
+                                teamcity.AddCommand<TeamCityBuildCommand>( "run" )
+                                    .WithData( data )
+                                    .WithDescription( "Triggers specified build type of specified product on TeamCity." );
+
+                                teamcity.AddBranch(
+                                    "project",
+                                    project =>
+                                    {
+                                        project.AddCommand<TeamCityGetProjectDetailsCommand>( "get" )
+                                            .WithData( data )
+                                            .WithDescription( "Get details of a TeamCity project." );
+
+                                        project.AddCommand<TeamCityCreateProjectCommand>( "create" )
+                                            .WithData( data )
+                                            .WithDescription( "Creates a new TeamCity project." );
+
+                                        project.AddCommand<TeamCityCreateThisProjectCommand>( "create-this" )
+                                            .WithData( data )
+                                            .WithDescription(
+                                                "Creates a new TeamCity project and VCS root, if it doesn't exist, based on the product in the current repository." );
+                                    } );
+
+                                teamcity.AddBranch(
+                                    "vcs-root",
+                                    vcsRoot =>
+                                    {
+                                        vcsRoot.AddCommand<TeamCityGetVcsRootDetailsCommand>( "get" )
+                                            .WithData( data )
+                                            .WithDescription( "Get details of a TeamCity VCS root." );
+
+                                        vcsRoot.AddCommand<TeamCityCreateThisVcsRootCommand>( "create-this" )
+                                            .WithData( data )
+                                            .WithDescription(
+                                                "Creates a new TeamCity VCS root, if it doesn't exist, based on the product in the current repository, in a specified project." );
+                                    } );
+                            } );
+                    }
 
                     root.AddBranch(
                         "tools",
@@ -242,11 +287,6 @@ namespace PostSharp.Engineering.BuildTools
                                 "xmldoc",
                                 xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( data ) );
 
-                            foreach ( var extension in product.Extensions )
-                            {
-                                extension.AddTool( tools );
-                            }
-
                             foreach ( var tool in product.DotNetTools )
                             {
                                 tools.AddCommand<InvokeDotNetToolCommand>( tool.Alias )
@@ -255,46 +295,10 @@ namespace PostSharp.Engineering.BuildTools
                             }
                         } );
 
-                    root.AddBranch(
-                        "teamcity",
-                        teamcity =>
-                        {
-                            teamcity.AddCommand<TeamCityBuildCommand>( "run" )
-                                .WithData( data )
-                                .WithDescription( "Triggers specified build type of specified product on TeamCity." );
-
-                            teamcity.AddBranch(
-                                "project",
-                                project =>
-                                {
-                                    project.AddCommand<TeamCityGetProjectDetailsCommand>( "get" )
-                                        .WithData( data )
-                                        .WithDescription( "Get details of a TeamCity project." );
-
-                                    project.AddCommand<TeamCityCreateProjectCommand>( "create" )
-                                        .WithData( data )
-                                        .WithDescription( "Creates a new TeamCity project." );
-
-                                    project.AddCommand<TeamCityCreateThisProjectCommand>( "create-this" )
-                                        .WithData( data )
-                                        .WithDescription(
-                                            "Creates a new TeamCity project and VCS root, if it doesn't exist, based on the product in the current repository." );
-                                } );
-
-                            teamcity.AddBranch(
-                                "vcs-root",
-                                vcsRoot =>
-                                {
-                                    vcsRoot.AddCommand<TeamCityGetVcsRootDetailsCommand>( "get" )
-                                        .WithData( data )
-                                        .WithDescription( "Get details of a TeamCity VCS root." );
-
-                                    vcsRoot.AddCommand<TeamCityCreateThisVcsRootCommand>( "create-this" )
-                                        .WithData( data )
-                                        .WithDescription(
-                                            "Creates a new TeamCity VCS root, if it doesn't exist, based on the product in the current repository, in a specified project." );
-                                } );
-                        } );
+                    foreach ( var extension in product.Extensions )
+                    {
+                        extension.AddCommands( root, data );
+                    }
                 } );
         }
     }

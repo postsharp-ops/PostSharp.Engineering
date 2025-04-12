@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
 [PublicAPI]
-public abstract class DocFxCrawler
+public abstract class DocFxDocumentParser : DocumentParser
 {
     private static readonly char _newLineCharacter = Environment.NewLine[^1];
     private ContentInfo? _contentInfo;
@@ -23,6 +23,7 @@ public abstract class DocFxCrawler
     private string? _canonicalUrl;
     private string? _anchor;
     private string _summary = "";
+    private string _keywords = "";
     private readonly List<string> _h1 = [];
     private readonly List<string> _h2 = [];
     private readonly List<string> _h3 = [];
@@ -37,7 +38,7 @@ public abstract class DocFxCrawler
     private bool _isCurrentContentIgnored;
     private readonly List<Snippet> _snippets = [];
 
-    protected DocFxCrawler()
+    protected DocFxDocumentParser()
     {
         this._headings = new Dictionary<int, List<string>>
         {
@@ -50,10 +51,11 @@ public abstract class DocFxCrawler
         }.ToImmutableDictionary();
     }
 
-    public async Task<IEnumerable<Snippet>> GetSnippetsFromDocument(
+    public override async Task<IReadOnlyCollection<Snippet>> GetSnippetsFromDocument(
         HtmlDocument document,
         string source,
-        string[] products )
+        string url,
+        ImmutableArray<string> products )
     {
         // TODO: The design could be improved, so we don't need to check this.
         if ( this._contentInfo != null )
@@ -62,10 +64,9 @@ public abstract class DocFxCrawler
         }
 
         var breadcrumbLinks = document.DocumentNode
-
-            // ReSharper disable once StringLiteralTypo
-            .SelectSingleNode( "//nav[@id=\"breadcrum\"]" ) // Typo in the HelpServer
-            .SelectNodes( "./a|./span[@class=\"current\"]" )
+            .SelectSingleNode( "//nav[@itemtype=\"https://schema.org/BreadcrumbList\"]" )
+            .SelectNodes( ".//span[@itemprop=\"name\"]" )
+            .Select( node => node.GetText() )
             .ToArray();
 
         var breadcrumb = this.GetBreadcrumbData( breadcrumbLinks );
@@ -86,6 +87,13 @@ public abstract class DocFxCrawler
                           ?.Trim()
                           .Replace( "&#xD;&#xA;", "", StringComparison.OrdinalIgnoreCase ) // This is appended to each title by the HelpServer. Might be a bug.
                       ?? throw new InvalidOperationException( "Title is missing." );
+
+        var summaryNode = document.DocumentNode.SelectSingleNode( "//meta[@name=\"description\"]" );
+
+        this._summary = summaryNode?.Attributes["content"]?.Value?.Trim() ?? "";
+        var keywordsNode = titleNode?.SelectSingleNode( "//meta[@name=\"keywords\"]" );
+
+        this._keywords = keywordsNode?.Attributes["content"]?.Value?.Trim() ?? "";
 
         // API pages containing H4s that don't belong to member lists
         // are split to individual snippets according to the H4s.
@@ -122,7 +130,7 @@ public abstract class DocFxCrawler
             breadcrumb.KindRank,
             breadcrumb.Categories,
             source,
-            products,
+            products.ToArray(),
             complexityLevel,
             complexityLevelRank,
             breadcrumb.NavigationLevel,
@@ -135,17 +143,17 @@ public abstract class DocFxCrawler
         return snippets;
     }
 
-    protected abstract BreadcrumbInfo GetBreadcrumbData( HtmlNode[] breadcrumbLinks );
+    protected abstract BreadcrumbInfo GetBreadcrumbData( string[] breadcrumbLinks );
 
-    private async Task<IEnumerable<Snippet>> CrawlAsync( HtmlNode node )
+    private async Task<IReadOnlyCollection<Snippet>> CrawlAsync( HtmlNode node )
     {
-        await this.CrawlRecursivelyAsync( node, true );
+        await this.ParseRecursivelyAsync( node, true );
         this.CreateSnippet();
 
-        return this._snippets.ToImmutableArray();
+        return this._snippets.ToArray();
     }
 
-    private async Task CrawlRecursivelyAsync( HtmlNode node, bool skipNextSibling = false )
+    private async Task ParseRecursivelyAsync( HtmlNode node, bool skipNextSibling = false )
     {
         await Task.Yield();
 
@@ -258,7 +266,7 @@ public abstract class DocFxCrawler
 
         if ( !skipChildNodes && node.HasChildNodes )
         {
-            await this.CrawlRecursivelyAsync( node.FirstChild );
+            await this.ParseRecursivelyAsync( node.FirstChild );
         }
 
         switch ( nodeName )
@@ -284,7 +292,7 @@ public abstract class DocFxCrawler
 
         if ( !skipNextSibling && node.NextSibling != null )
         {
-            await this.CrawlRecursivelyAsync( node.NextSibling );
+            await this.ParseRecursivelyAsync( node.NextSibling );
         }
     }
 
@@ -338,6 +346,7 @@ public abstract class DocFxCrawler
             Title = $"{this._titlePrefix}{this._title}",
             Summary = summary,
             Text = this._text.ToArray(),
+            Keywords = this._keywords,
             H1 = this._h1.ToArray(),
             H2 = this._h2.ToArray(),
             H3 = this._h3.ToArray(),

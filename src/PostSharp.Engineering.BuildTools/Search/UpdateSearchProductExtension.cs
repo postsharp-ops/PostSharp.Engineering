@@ -7,20 +7,24 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Search.Crawlers;
 using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 
 namespace PostSharp.Engineering.BuildTools.Search;
 
 [PublicAPI]
-public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtension where TUpdateSearchCommand : UpdateSearchCommandBase
+public class UpdateSearchProductExtension : ProductExtension
 {
     public string TypesenseUri { get; }
 
     public string Source { get; }
 
     public string SourceUrl { get; }
+
+    public DocumentParserFactory DocumentParserFactory { get; }
 
     public bool IgnoreTls { get; }
 
@@ -32,10 +36,14 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
 
     public ConfigurationSpecific<IBuildTrigger[]?>? BuildTriggers { get; }
 
+    public ImmutableArray<string> Products { get; }
+
     public UpdateSearchProductExtension(
         string typesenseUri,
         string source,
         string sourceUrl,
+        Func<DocumentParser> createParser,
+        ImmutableArray<string> products,
         bool ignoreTls = false,
         BuildConfiguration[]? buildConfigurations = null,
         TimeSpan? timeOutThreshold = null,
@@ -45,6 +53,8 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
         this.TypesenseUri = typesenseUri;
         this.Source = source;
         this.SourceUrl = sourceUrl;
+        this.DocumentParserFactory = new DocumentParserFactory( createParser );
+        this.Products = products;
         this.IgnoreTls = ignoreTls;
         this.BuildConfigurations = buildConfigurations ?? [BuildConfiguration.Public];
         this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 5 );
@@ -114,24 +124,15 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
         return true;
     }
 
-    internal override bool AddTool( IConfigurator<CommandSettings> tools )
+    internal override bool AddCommands( IConfigurator root, BaseCommandData data )
     {
-        tools.AddBranch(
+        root.AddBranch(
             "search",
             search =>
             {
-                search.AddCommand<TUpdateSearchCommand>( "update" )
-                    .WithDescription( "Updates a search collection from the given source or writes data to the console when --dry option is used." )
-                    .WithExample( "tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/sitemap.xml" )
-                    .WithExample(
-                        "tools",
-                        "search",
-                        "update",
-                        "http://localhost:8108",
-                        "metalamadoc",
-                        "https://doc.example.com/conceptual/tryme",
-                        "--single",
-                        "--dry" );
+                search.AddCommand<UpdateSearchCommand>( "update" )
+                    .WithData( data )
+                    .WithDescription( "Updates a search collection from the given source or writes data to the console when --dry option is used." );
             } );
 
         return true;

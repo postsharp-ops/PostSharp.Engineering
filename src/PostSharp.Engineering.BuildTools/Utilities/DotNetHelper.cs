@@ -133,6 +133,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 argsBuilder.Append( " --disable-build-servers" );
             }
 
+            if ( settings.NoSign )
+            {
+                argsBuilder.Append( "-p:DoNotSign=True" );
+            }
+
             if ( !isRunCommand && !isTestDllCommand )
             {
                 var binaryLogFilePath = Path.Combine(

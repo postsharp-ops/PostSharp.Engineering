@@ -5,26 +5,30 @@ using PostSharp.Engineering.BuildTools.Search.Backends;
 using PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 using PostSharp.Engineering.BuildTools.Search.Crawlers;
 using PostSharp.Engineering.BuildTools.Search.Indexers;
+using System.Collections.Immutable;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Typesense;
 
 namespace PostSharp.Engineering.BuildTools.Search.Updaters;
 
-public class DocumentationUpdater<TDocFxCrawler> : CollectionUpdater where TDocFxCrawler : DocFxCrawler, new()
+internal class DocumentationUpdater : CollectionUpdater
 {
-    private readonly string[] _products;
+    private readonly ImmutableArray<string> _products;
 
-    public DocumentationUpdater( string[] products, SearchBackendBase backend ) : base( backend )
+    public DocumentationUpdater( ImmutableArray<string> products, SearchBackendBase backend ) : base( backend )
     {
         this._products = products;
     }
 
     public override async Task<bool> UpdateAsync( BuildContext context, UpdateSearchCommandSettings settings, string targetCollection )
     {
+        var productExtension = context.Product.Extensions.OfType<UpdateSearchProductExtension>().Single();
+
         HttpClient web;
 
-        if ( settings.IgnoreTls )
+        if ( productExtension.IgnoreTls )
         {
             var handler = new HttpClientHandler();
             handler.ClientCertificateOptions = ClientCertificateOption.Manual;
@@ -41,19 +45,19 @@ public class DocumentationUpdater<TDocFxCrawler> : CollectionUpdater where TDocF
 
         using ( web )
         {
-            var indexer = new DocFxIndexer<TDocFxCrawler>( this.Backend, web, context.Console );
+            var siteIndexer = new SiteIndexer( this.Backend, productExtension.DocumentParserFactory, web, context.Console );
 
-            if ( settings.Single )
+            if ( !string.IsNullOrEmpty( settings.SingleArticleUrl ) )
             {
-                context.Console.WriteMessage( $"Indexing single page '{settings.SourceUrl}' to '{targetCollection}' collection." );
+                context.Console.WriteMessage( $"Indexing single page '{productExtension.SourceUrl}' to '{targetCollection}' collection." );
 
-                return await indexer.IndexArticlesAsync( targetCollection, settings.Source, this._products, settings.SourceUrl );
+                return await siteIndexer.IndexArticlesAsync( targetCollection, productExtension.Source, this._products, [settings.SingleArticleUrl] );
             }
             else
             {
-                context.Console.WriteMessage( $"Indexing sitemap '{settings.SourceUrl}' to '{targetCollection}' collection." );
+                context.Console.WriteMessage( $"Indexing sitemap '{productExtension.SourceUrl}' to '{targetCollection}' collection." );
 
-                return await indexer.IndexSiteMapAsync( targetCollection, settings.Source, this._products, settings.SourceUrl );
+                return await siteIndexer.IndexSiteMapAsync( targetCollection, productExtension.Source, this._products, productExtension.SourceUrl );
             }
         }
     }

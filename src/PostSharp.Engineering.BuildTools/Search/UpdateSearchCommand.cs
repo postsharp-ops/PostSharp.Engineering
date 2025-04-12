@@ -1,11 +1,11 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Search.Backends;
 using PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 using PostSharp.Engineering.BuildTools.Search.Updaters;
 using PostSharp.Engineering.BuildTools.Utilities;
-using Spectre.Console.Cli;
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -15,14 +15,19 @@ using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Search;
 
-public abstract class UpdateSearchCommandBase : AsyncCommand<UpdateSearchCommandSettings>
+[UsedImplicitly]
+public class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
 {
-    protected abstract CollectionUpdater CreateUpdater( SearchBackendBase backend );
-    
-    public override async Task<int> ExecuteAsync( CommandContext context, UpdateSearchCommandSettings settings )
+    private static CollectionUpdater CreateUpdater( UpdateSearchProductExtension productExtension, SearchBackendBase backend )
+        => new DocumentationUpdater( productExtension.Products, backend );
+
+    protected override bool ExecuteCore( BuildContext context, UpdateSearchCommandSettings settings )
+        => ExecuteCoreAsync( context, settings ).GetAwaiter().GetResult();
+
+    private static async Task<bool> ExecuteCoreAsync( BuildContext context, UpdateSearchCommandSettings settings )
     {
         var console = new ConsoleHelper();
-        
+
         if ( settings.Debug )
         {
             console.WriteMessage( "Launching debugger." );
@@ -30,15 +35,17 @@ public abstract class UpdateSearchCommandBase : AsyncCommand<UpdateSearchCommand
         }
 
         CollectionUpdater updater;
-        
+
+        var productExtension = context.Product.Extensions.OfType<UpdateSearchProductExtension>().Single();
+
         // When the collection is set explicitly, we don't work with an alias.
-        var alias = settings.Collection == null ? settings.Source : null;
+        var alias = settings.Collection == null ? productExtension.Source : null;
         string targetCollection;
         (string? Production, string Staging) targetCollections;
 
         if ( settings.Dry )
         {
-            updater = this.CreateUpdater( new ConsoleBackend( console ) );
+            updater = CreateUpdater( productExtension, new DrySearchBackend( console ) );
             targetCollection = "dry"; // Console backend doesn't work with collection names.
             targetCollections = (null, targetCollection);
         }
@@ -51,37 +58,32 @@ public abstract class UpdateSearchCommandBase : AsyncCommand<UpdateSearchCommand
             {
                 console.WriteError( $"{apiKeyEnvironmentVariableName} environment variable not set." );
 
-                return -1;
+                return false;
             }
-            
-            var uri = new Uri( settings.TypesenseUri );
+
+            var uri = new Uri( productExtension.TypesenseUri );
             var backend = new TypesenseBackend( apiKey, uri.Host, uri.Port.ToString( CultureInfo.InvariantCulture ), uri.Scheme );
-            updater = this.CreateUpdater( backend );
+            updater = CreateUpdater( productExtension, backend );
 
             targetCollections = alias == null
                 ? (null, settings.Collection!)
                 : await GetTargetCollectionsForAliasAsync( backend, alias );
 
             targetCollection = targetCollections.Staging;
-            
+
             console.WriteMessage( $"Resetting '{targetCollection}' collection." );
         }
-        
+
         await ResetCollectionAsync( updater, targetCollection );
 
-        if ( !BuildContext.TryCreate( context, out var buildContext ) )
-        {
-            return -1;
-        }
-
-        var success = await updater.UpdateAsync( buildContext, settings, targetCollection );
+        var success = await updater.UpdateAsync( context, settings, targetCollection );
 
         if ( success && !settings.Dry && alias != null )
         {
             var sourceCollectionDescription = targetCollections.Production == null
                 ? "none"
                 : $"'{targetCollections.Production}' collection";
-            
+
             console.WriteMessage( $"Swapping '{alias}' from {sourceCollectionDescription} to '{targetCollection}' collection." );
             await updater.Backend.UpsertCollectionAliasAsync( alias, targetCollection );
         }
@@ -95,7 +97,7 @@ public abstract class UpdateSearchCommandBase : AsyncCommand<UpdateSearchCommand
             console.WriteError( "Failed. See the error messages above." );
         }
 
-        return 0;
+        return true;
     }
 
     private static async Task<(string? Production, string Staging)> GetTargetCollectionsForAliasAsync( SearchBackendBase search, string alias )
@@ -122,7 +124,7 @@ public abstract class UpdateSearchCommandBase : AsyncCommand<UpdateSearchCommand
 
         return (productionTarget, stagingTarget);
     }
-    
+
     private static async Task ResetCollectionAsync( CollectionUpdater updater, string collection )
     {
         _ = await updater.Backend.TryDeleteCollectionAsync( collection );

@@ -15,31 +15,33 @@ using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Search.Indexers;
 
-public class DocFxIndexer<TDocFxCrawler> where TDocFxCrawler : DocFxCrawler, new()
+public class SiteIndexer
 {
     private readonly SearchBackendBase _search;
+    private readonly DocumentParserFactory _parserFactory;
     private readonly HttpClient _web;
     private readonly ConsoleHelper _console;
 
-    public DocFxIndexer( SearchBackendBase search, HttpClient web, ConsoleHelper console )
+    public SiteIndexer( SearchBackendBase search, DocumentParserFactory parserFactory, HttpClient web, ConsoleHelper console )
     {
         this._search = search;
+        this._parserFactory = parserFactory;
         this._web = web;
         this._console = console;
     }
 
-    public async Task<bool> IndexSiteMapAsync( string collection, string source, string[] products, string url )
+    public async Task<bool> IndexSiteMapAsync( string collection, string source, ImmutableArray<string> products, string url )
     {
         this._console.WriteMessage( $"Loading sitemap from '{url}'." );
-        
-        var documents = await new SiteMapCrawler( this._web ).GetDocumentsAsync( url );
-        
+
+        var documents = await new SiteMapReader( this._web ).GetDocumentsAsync( url );
+
         this._console.WriteMessage( "Sitemap loaded." );
 
-        return await this.IndexArticlesAsync( collection, source, products, documents.ToArray() );
+        return await this.IndexArticlesAsync( collection, source, products, documents );
     }
-    
-    public async Task<bool> IndexArticlesAsync( string collection, string source, string[] products, params string[] urls )
+
+    public async Task<bool> IndexArticlesAsync( string collection, string source, ImmutableArray<string> products, IReadOnlyCollection<string> urls )
     {
         var sw = new Stopwatch();
         sw.Start();
@@ -50,17 +52,17 @@ public class DocFxIndexer<TDocFxCrawler> where TDocFxCrawler : DocFxCrawler, new
         }
 
         WriteMessage( "Indexing started." );
-        
+
         const int parallelism = 8;
         const int batchSize = 40;
-        var tasks = new List<Task>( parallelism );
+        var uploadBatchTasks = new List<Task>( parallelism );
         var batch = new List<Snippet>( batchSize );
-        var finished = 0;
-        var total = 0;
+        var finishedBatchesCount = 0;
+        var totalBatchesCount = 0;
         var parsedDocuments = new HashSet<string>();
-        List<Task> failedTasks = new();
+        var errors = 0;
 
-        void StartBatch()
+        void StartUploadingBatch()
         {
             var documentsInBatch = batch
                 .Select(
@@ -77,15 +79,14 @@ public class DocFxIndexer<TDocFxCrawler> where TDocFxCrawler : DocFxCrawler, new
             WriteMessage( $"Batch parsed. Starting indexing. (Partially) parsed documents: {parsedDocumentsInBatch}." );
 
             var task = this._search.CreateDocumentsAsync( collection, batch.ToImmutableArray() );
-            tasks.Add( task );
-            total++;
+            uploadBatchTasks.Add( task );
+            totalBatchesCount++;
             batch.Clear();
         }
 
-        async Task HandleNextCompletedTask( int t )
+        async Task AwaitForAnyBatchUploadTaskCompleted()
         {
-            // TODO: Cancellation, delay
-            var completedTask = await Task.WhenAny( tasks.ToArray() );
+            var completedTask = await Task.WhenAny( uploadBatchTasks.ToArray() );
 
             try
             {
@@ -94,81 +95,81 @@ public class DocFxIndexer<TDocFxCrawler> where TDocFxCrawler : DocFxCrawler, new
             catch ( Exception e )
             {
                 this._console.WriteError( e.ToString() );
-                failedTasks.Add( completedTask );
+                errors++;
             }
 
-            tasks.Remove( completedTask );
-            finished++;
+            uploadBatchTasks.Remove( completedTask );
+            finishedBatchesCount++;
 
             this._console.WriteMessage(
-                $"{sw.Elapsed}: Batch completed. Queued: {tasks.Count}; Finished: {finished}; Total: {t}; Parsed documents: {parsedDocuments.Count}/{urls.Length}" );
+                $"{sw.Elapsed}: Batch completed. Queued: {uploadBatchTasks.Count}; Finished: {finishedBatchesCount}; Parsed documents: {parsedDocuments.Count}/{urls.Count}" );
         }
 
         foreach ( var url in urls )
         {
             Stream stream;
-            var httpTask = this._web.GetStreamAsync( url );
-
+            
+            this._console.WriteMessage( $"Fetching '{url}'." );
+            
             try
             {
-                stream = await httpTask;
+                stream = await this._web.GetStreamAsync( url );
             }
             catch ( Exception e )
             {
-                this._console.WriteError( e.ToString() );
-                failedTasks.Add( httpTask );
+                this._console.WriteError( $"Cannot get {url}: {e.Message}" );
+                errors++;
 
                 continue;
             }
 
             HtmlDocument document;
-            
+
             await using ( stream )
             {
                 document = new HtmlDocument();
                 document.Load( stream );
             }
 
-            var snippets = await new TDocFxCrawler().GetSnippetsFromDocument( document, source, products );
-            
-            foreach ( var snippet in snippets )
+            var snippets = await this._parserFactory.CreateParser().GetSnippetsFromDocument( document, source, url, products );
+
+            if ( snippets.Count == 0 )
             {
-                if ( tasks.Count == parallelism )
+                this._console.WriteWarning( $"{url}: No snippets found." );
+            }
+            else
+            {
+                foreach ( var snippet in snippets )
                 {
-                    await HandleNextCompletedTask( total );
-                }
+                    if ( uploadBatchTasks.Count == parallelism )
+                    {
+                        await AwaitForAnyBatchUploadTaskCompleted();
+                    }
 
-                if ( batch.Count == batchSize )
-                {
-                    StartBatch();
-                }
+                    if ( batch.Count == batchSize )
+                    {
+                        StartUploadingBatch();
+                    }
 
-                batch.Add( snippet );
+                    batch.Add( snippet );
+                }
             }
         }
 
         if ( batch.Count > 0 )
         {
-            StartBatch();
+            StartUploadingBatch();
         }
 
-        while ( tasks.Count > 0 )
+        while ( uploadBatchTasks.Count > 0 )
         {
-            await HandleNextCompletedTask( total );
+            await AwaitForAnyBatchUploadTaskCompleted();
         }
 
-        if ( failedTasks.Count > 0 )
+        if ( errors > 0 )
         {
-            this._console.WriteError( $"{sw.Elapsed}: Indexing failed." );
-
-            this._console.WriteError( "Exceptions:" );
-
-            failedTasks.ForEach(
-                t =>
-                {
-                    this._console.WriteError( t.Exception?.ToString() ?? "<unknown>" );
-                } );
-
+            this._console.WriteError( $"{sw.Elapsed}: Indexing failed. {errors} errors." );
+            
             return false;
         }
         else
