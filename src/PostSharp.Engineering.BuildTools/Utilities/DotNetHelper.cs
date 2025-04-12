@@ -135,7 +135,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             if ( settings.NoSign )
             {
-                argsBuilder.Append( "-p:DoNotSign=True" );
+                argsBuilder.Append( " -p:DoNotSign=True" );
             }
 
             if ( !isRunCommand && !isTestDllCommand )
