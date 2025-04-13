@@ -10,6 +10,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>https://github.com/orgs/metalama/discussions/categories/changelog</PackageReleaseNotes>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageDescription>A multi-repo build orchestrator used by PostSharp Technologies for its products and for Metalama.</PackageDescription>
     </PropertyGroup>
 
     <!-- Additional content of NuGet packages -->
