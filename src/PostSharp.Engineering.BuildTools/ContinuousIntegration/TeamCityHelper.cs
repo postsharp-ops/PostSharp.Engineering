@@ -1031,7 +1031,11 @@ public static class TeamCityHelper
                 new TeamCityEngineeringCommandBuildStep(
                     $"Bump{bumpedProjectId.Split( '_' ).Last()}",
                     $"Bump version of {bumpedProjectName}",
-                    "bump" ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
+                    "bump",
+                    areCustomArgumentsAllowed: true )
+                {
+                    WorkingDirectory = $"source-dependencies/{bumpedProjectName}"
+                } );
 
             consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefintion( dependencyDefinition ) );
 
@@ -1132,7 +1136,8 @@ public static class TeamCityHelper
                         $"{objectName}_{projectRelativeId}",
                         $"{commandName} deployment of {project.Name}",
                         command,
-                        "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies" )
+                        "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies",
+                        areCustomArgumentsAllowed: true )
                     {
                         WorkingDirectory = $"source-dependencies/{project.Name}"
                     } );
