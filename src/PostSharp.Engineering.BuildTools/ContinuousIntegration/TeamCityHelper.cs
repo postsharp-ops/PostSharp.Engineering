@@ -812,7 +812,7 @@ public static class TeamCityHelper
                     ];
 
                     var artifactRules = string.Join( "\\n", rules );
-
+                    
                     nuGetDependencies.Add(
                         new(
                             buildConfiguration.BuildConfigurationId,
@@ -1235,12 +1235,15 @@ public static class TeamCityHelper
 
         var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration ) };
 
+        // TODO: Only Public builds of dependencies that define version need to be included.
+        //       Here we include all Public builds which will cause download of all artifacts.
         var nuGetPublicDeploymentDependencies =
             nuGetPublicBuildDependencies
                 .Select(
                     d => new TeamCitySnapshotDependency(
                         d.ObjectId.Replace( $"_{publicBuildObjectName}", $"_{publicDeploymentObjectName}", StringComparison.Ordinal ),
                         true ) )
+                .Concat( nuGetPublicBuildDependencies )
                 .Append( new( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
 
         nuGetConfigurations.Add(
