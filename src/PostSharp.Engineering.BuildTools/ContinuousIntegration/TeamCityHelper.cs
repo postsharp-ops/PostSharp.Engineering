@@ -998,7 +998,7 @@ public static class TeamCityHelper
         TeamCitySourceDependency CreateSourceDependency( string vcsProjectRootId, string projectName )
             => new( vcsProjectRootId, true, $"+:. => {context.Product.SourceDependenciesDirectory}/{projectName}" );
 
-        TeamCitySourceDependency CreateSourceDependencyFromDefintion( DependencyDefinition dependencyDefinition )
+        TeamCitySourceDependency CreateSourceDependencyFromDefinition( DependencyDefinition dependencyDefinition )
             => CreateSourceDependency( GetVcsRootId( dependencyDefinition ), dependencyDefinition.Name );
 
         foreach ( var buildConfiguration in buildConfigurationsByKind[publicBuildObjectName] )
@@ -1033,7 +1033,7 @@ public static class TeamCityHelper
                     $"Bump version of {bumpedProjectName}",
                     "bump" ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
 
-            consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefintion( dependencyDefinition ) );
+            consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefinition( dependencyDefinition ) );
 
             if ( dependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
             {
@@ -1104,7 +1104,7 @@ public static class TeamCityHelper
                     continue;
                 }
 
-                sourceDependencies.Add( CreateSourceDependencyFromDefintion( projectDependencyDefinition ) );
+                sourceDependencies.Add( CreateSourceDependencyFromDefinition( projectDependencyDefinition ) );
 
                 if ( projectDependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
                 {
@@ -1173,7 +1173,7 @@ public static class TeamCityHelper
                 }
             }
 
-            sourceDependencies.Add( CreateSourceDependencyFromDefintion( context.Product.DependencyDefinition ) );
+            sourceDependencies.Add( CreateSourceDependencyFromDefinition( context.Product.DependencyDefinition ) );
 
             steps.Add(
                 new TeamCityEngineeringCommandBuildStep(
