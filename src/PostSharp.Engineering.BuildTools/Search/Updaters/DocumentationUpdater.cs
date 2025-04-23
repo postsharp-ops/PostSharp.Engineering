@@ -26,22 +26,13 @@ internal class DocumentationUpdater : CollectionUpdater
     {
         var productExtension = context.Product.Extensions.OfType<UpdateSearchProductExtension>().Single();
 
-        HttpClient web;
+        var handler = new HttpClientHandler();
+        handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+        
+        handler.ServerCertificateCustomValidationCallback =
+            ( _, _, _, _ ) => true;
 
-        if ( productExtension.IgnoreTls )
-        {
-            var handler = new HttpClientHandler();
-            handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-
-            handler.ServerCertificateCustomValidationCallback =
-                ( _, _, _, _ ) => true;
-
-            web = new HttpClient( handler );
-        }
-        else
-        {
-            web = new HttpClient();
-        }
+        var web = new HttpClient( handler );
 
         using ( web )
         {

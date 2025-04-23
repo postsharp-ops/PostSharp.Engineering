@@ -28,7 +28,7 @@ public class PlainDocumentParser : DocumentParser
         {
             throw new ArgumentException( nameof(document) );
         }
-        
+
         var snippets = new List<Snippet>();
 
         var title = document.DocumentNode.SelectSingleNode( "/html/head/meta[@name=\"title\"]" )?.Attributes["content"]?.Value ??
@@ -47,9 +47,9 @@ public class PlainDocumentParser : DocumentParser
 
         var keywordsNode = document.DocumentNode?.SelectSingleNode( "/html/head/meta[@name=\"keywords\"]" );
         var keywords = keywordsNode?.Attributes["content"]?.Value?.Trim() ?? "";
-        
+
         var breadcrumbLinks = document.DocumentNode
-            .SelectSingleNode( "//nav[@itemtype=\"https://schema.org/BreadcrumbList\"]" )
+            !.SelectSingleNode( "//nav[@itemtype=\"https://schema.org/BreadcrumbList\"]" )
             ?
             .SelectNodes( ".//span[@itemprop=\"name\"]" )
             .Select( node => node.GetText() )

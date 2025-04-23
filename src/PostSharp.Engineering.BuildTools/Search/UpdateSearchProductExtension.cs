@@ -26,8 +26,6 @@ public class UpdateSearchProductExtension : ProductExtension
 
     public DocumentParserFactory DocumentParserFactory { get; }
 
-    public bool IgnoreTls { get; }
-
     public BuildConfiguration[] BuildConfigurations { get; }
 
     public TimeSpan TimeOutThreshold { get; }
@@ -44,7 +42,6 @@ public class UpdateSearchProductExtension : ProductExtension
         string sourceUrl,
         Func<DocumentParser> createParser,
         ImmutableArray<string> products,
-        bool ignoreTls = false,
         BuildConfiguration[]? buildConfigurations = null,
         TimeSpan? timeOutThreshold = null,
         string? customBuildConfigurationName = null,
@@ -55,7 +52,6 @@ public class UpdateSearchProductExtension : ProductExtension
         this.SourceUrl = sourceUrl;
         this.DocumentParserFactory = new DocumentParserFactory( createParser );
         this.Products = products;
-        this.IgnoreTls = ignoreTls;
         this.BuildConfigurations = buildConfigurations ?? [BuildConfiguration.Public];
         this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 5 );
         this.CustomBuildConfigurationName = customBuildConfigurationName;
@@ -66,14 +62,7 @@ public class UpdateSearchProductExtension : ProductExtension
     {
         TeamCityBuildStep CreateBuildStep()
         {
-            var arguments = new List<string> { this.TypesenseUri, this.Source, this.SourceUrl };
-
-            if ( this.IgnoreTls )
-            {
-                arguments.Add( "--ignore-tls" );
-            }
-
-            return new TeamCityEngineeringCommandBuildStep( "UpdateSearch", "Update search", "tools search update", string.Join( " ", arguments ), true );
+            return new TeamCityEngineeringCommandBuildStep( "UpdateSearch", "Update search", "search update", null, true );
         }
 
         foreach ( var configuration in this.BuildConfigurations )
