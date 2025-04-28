@@ -812,7 +812,7 @@ public static class TeamCityHelper
                     ];
 
                     var artifactRules = string.Join( "\\n", rules );
-
+                    
                     nuGetDependencies.Add(
                         new(
                             buildConfiguration.BuildConfigurationId,
@@ -998,7 +998,7 @@ public static class TeamCityHelper
         TeamCitySourceDependency CreateSourceDependency( string vcsProjectRootId, string projectName )
             => new( vcsProjectRootId, true, $"+:. => {context.Product.SourceDependenciesDirectory}/{projectName}" );
 
-        TeamCitySourceDependency CreateSourceDependencyFromDefintion( DependencyDefinition dependencyDefinition )
+        TeamCitySourceDependency CreateSourceDependencyFromDefinition( DependencyDefinition dependencyDefinition )
             => CreateSourceDependency( GetVcsRootId( dependencyDefinition ), dependencyDefinition.Name );
 
         foreach ( var buildConfiguration in buildConfigurationsByKind[publicBuildObjectName] )
@@ -1033,7 +1033,7 @@ public static class TeamCityHelper
                     $"Bump version of {bumpedProjectName}",
                     "bump" ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
 
-            consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefintion( dependencyDefinition ) );
+            consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefinition( dependencyDefinition ) );
 
             if ( dependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
             {
@@ -1104,7 +1104,7 @@ public static class TeamCityHelper
                     continue;
                 }
 
-                sourceDependencies.Add( CreateSourceDependencyFromDefintion( projectDependencyDefinition ) );
+                sourceDependencies.Add( CreateSourceDependencyFromDefinition( projectDependencyDefinition ) );
 
                 if ( projectDependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
                 {
@@ -1173,7 +1173,7 @@ public static class TeamCityHelper
                 }
             }
 
-            sourceDependencies.Add( CreateSourceDependencyFromDefintion( context.Product.DependencyDefinition ) );
+            sourceDependencies.Add( CreateSourceDependencyFromDefinition( context.Product.DependencyDefinition ) );
 
             steps.Add(
                 new TeamCityEngineeringCommandBuildStep(
@@ -1235,12 +1235,15 @@ public static class TeamCityHelper
 
         var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration ) };
 
+        // TODO: Only Public builds of dependencies that define version need to be included.
+        //       Here we include all Public builds which will cause download of all artifacts.
         var nuGetPublicDeploymentDependencies =
             nuGetPublicBuildDependencies
                 .Select(
                     d => new TeamCitySnapshotDependency(
                         d.ObjectId.Replace( $"_{publicBuildObjectName}", $"_{publicDeploymentObjectName}", StringComparison.Ordinal ),
                         true ) )
+                .Concat( nuGetPublicBuildDependencies )
                 .Append( new( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
 
         nuGetConfigurations.Add(
