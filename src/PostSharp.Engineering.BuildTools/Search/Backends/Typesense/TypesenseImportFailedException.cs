@@ -12,7 +12,8 @@ public class TypesenseImportFailedException : Exception
 {
     private readonly Dictionary<int, ImportResponse> _data;
 
-    public TypesenseImportFailedException( IEnumerable<ImportResponse> failedResponses ) : base( "Import failed." )
+    public TypesenseImportFailedException( IReadOnlyCollection<ImportResponse> failedResponses ) :
+        base( $"Import failed: {string.Join( "", failedResponses.Select( x => $"\n - {x.Error}" ) )}" )
     {
         var i = 0;
         this._data = failedResponses.ToDictionary( _ => i++, r => r );

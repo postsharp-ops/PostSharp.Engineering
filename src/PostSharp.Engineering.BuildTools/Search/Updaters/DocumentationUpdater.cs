@@ -16,10 +16,12 @@ namespace PostSharp.Engineering.BuildTools.Search.Updaters;
 internal class DocumentationUpdater : CollectionUpdater
 {
     private readonly ImmutableArray<string> _products;
+    private readonly DocumentParserFactory _documentParserFactory;
 
-    public DocumentationUpdater( ImmutableArray<string> products, SearchBackendBase backend ) : base( backend )
+    public DocumentationUpdater( ImmutableArray<string> products, DocumentParserFactory documentParserFactory,  SearchBackendBase backend ) : base( backend )
     {
         this._products = products;
+        this._documentParserFactory = documentParserFactory;
     }
 
     public override async Task<bool> UpdateAsync( BuildContext context, UpdateSearchCommandSettings settings, string targetCollection )
@@ -36,7 +38,7 @@ internal class DocumentationUpdater : CollectionUpdater
 
         using ( web )
         {
-            var siteIndexer = new SiteIndexer( this.Backend, productExtension.DocumentParserFactory, web, context.Console );
+            var siteIndexer = new SiteIndexer( this.Backend, this._documentParserFactory, web, context.Console );
 
             if ( !string.IsNullOrEmpty( settings.SingleArticleUrl ) )
             {

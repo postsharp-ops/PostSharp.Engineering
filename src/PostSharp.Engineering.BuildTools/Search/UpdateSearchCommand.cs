@@ -18,9 +18,6 @@ namespace PostSharp.Engineering.BuildTools.Search;
 [UsedImplicitly]
 public class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
 {
-    private static CollectionUpdater CreateUpdater( UpdateSearchProductExtension productExtension, SearchBackendBase backend )
-        => new DocumentationUpdater( productExtension.Products, backend );
-
     protected override bool ExecuteCore( BuildContext context, UpdateSearchCommandSettings settings )
         => ExecuteCoreAsync( context, settings ).GetAwaiter().GetResult();
 
@@ -45,7 +42,7 @@ public class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
 
         if ( settings.Dry )
         {
-            updater = CreateUpdater( productExtension, new DrySearchBackend( console ) );
+            updater = productExtension.CreateUpdater( new DrySearchBackend( console ) );
             targetCollection = "dry"; // Console backend doesn't work with collection names.
             targetCollections = (null, targetCollection);
         }
@@ -63,7 +60,7 @@ public class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
 
             var uri = new Uri( productExtension.TypesenseUri );
             var backend = new TypesenseBackend( apiKey, uri.Host, uri.Port.ToString( CultureInfo.InvariantCulture ), uri.Scheme );
-            updater = CreateUpdater( productExtension, backend );
+            updater = productExtension.CreateUpdater( backend );
 
             targetCollections = alias == null
                 ? (null, settings.Collection!)

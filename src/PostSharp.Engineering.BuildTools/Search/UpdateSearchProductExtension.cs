@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using Amazon.Runtime.Documents;
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
@@ -7,7 +8,9 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Search.Backends;
 using PostSharp.Engineering.BuildTools.Search.Crawlers;
+using PostSharp.Engineering.BuildTools.Search.Updaters;
 using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
@@ -18,13 +21,13 @@ namespace PostSharp.Engineering.BuildTools.Search;
 [PublicAPI]
 public class UpdateSearchProductExtension : ProductExtension
 {
+    private readonly Func<SearchBackendBase, CollectionUpdater> _createUpdater;
+
     public string TypesenseUri { get; }
 
     public string Source { get; }
 
     public string SourceUrl { get; }
-
-    public DocumentParserFactory DocumentParserFactory { get; }
 
     public BuildConfiguration[] BuildConfigurations { get; }
 
@@ -33,8 +36,6 @@ public class UpdateSearchProductExtension : ProductExtension
     public string? CustomBuildConfigurationName { get; }
 
     public ConfigurationSpecific<IBuildTrigger[]?>? BuildTriggers { get; }
-
-    public ImmutableArray<string> Products { get; }
 
     public UpdateSearchProductExtension(
         string typesenseUri,
@@ -45,17 +46,40 @@ public class UpdateSearchProductExtension : ProductExtension
         BuildConfiguration[]? buildConfigurations = null,
         TimeSpan? timeOutThreshold = null,
         string? customBuildConfigurationName = null,
+        ConfigurationSpecific<IBuildTrigger[]?>? buildTriggers = null ) : this(
+        typesenseUri,
+        source,
+        sourceUrl,
+        searchBackend => new DocumentationUpdater( products, new DocumentParserFactory( createParser ), searchBackend ),
+        buildConfigurations,
+        timeOutThreshold,
+        customBuildConfigurationName,
+        buildTriggers ) { }
+
+    public UpdateSearchProductExtension(
+        string typesenseUri,
+        string source,
+        string sourceUrl,
+        Func<SearchBackendBase, CollectionUpdater> createUpdater,
+        BuildConfiguration[]? buildConfigurations = null,
+        TimeSpan? timeOutThreshold = null,
+        string? customBuildConfigurationName = null,
         ConfigurationSpecific<IBuildTrigger[]?>? buildTriggers = null )
     {
+        this._createUpdater = createUpdater;
         this.TypesenseUri = typesenseUri;
         this.Source = source;
         this.SourceUrl = sourceUrl;
-        this.DocumentParserFactory = new DocumentParserFactory( createParser );
-        this.Products = products;
         this.BuildConfigurations = buildConfigurations ?? [BuildConfiguration.Public];
         this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 5 );
         this.CustomBuildConfigurationName = customBuildConfigurationName;
         this.BuildTriggers = buildTriggers;
+    }
+    
+    
+    internal CollectionUpdater CreateUpdater( SearchBackendBase searchBackend )
+    {
+        return this._createUpdater( searchBackend );
     }
 
     internal override bool AddTeamcityBuildConfiguration( BuildContext context, List<TeamCityBuildConfiguration> teamCityBuildConfigurations )
