@@ -94,6 +94,10 @@ internal class GenerateThirdPartyNoticesCommand : BaseCommand<GenerateThirdParty
         {
             writer.WriteLine( $"| {exclusion.Namespace.TrimEnd( '.' )} | {exclusion.Justification} |" );
         }
+        
+        writer.WriteLine();
+        writer.WriteLine( "Additionally, dependencies that are only used to build artifacts from the current repository have also been excluded." );
+        writer.WriteLine();
 
         // Fetch and write license notices.
         if ( !settings.ListOnly )
