@@ -94,7 +94,7 @@ internal class GenerateThirdPartyNoticesCommand : BaseCommand<GenerateThirdParty
         {
             writer.WriteLine( $"| {exclusion.Namespace.TrimEnd( '.' )} | {exclusion.Justification} |" );
         }
-        
+
         writer.WriteLine();
         writer.WriteLine( "Additionally, dependencies that are only used to build artifacts from the current repository have also been excluded." );
         writer.WriteLine();
@@ -119,7 +119,13 @@ internal class GenerateThirdPartyNoticesCommand : BaseCommand<GenerateThirdParty
                     continue;
                 }
 
-                LicenceNoticeDownloader.AppendLicenseAndNoticeFilesAsync( repo.Key, repo.Select( x => x.Package.Name ), consumingPackages, writer ).Wait();
+                LicenceNoticeDownloader.AppendLicenseAndNoticeFilesAsync(
+                        context,
+                        repo.Key!,
+                        repo.Select( x => x.Package.Name ).ToList(),
+                        consumingPackages,
+                        writer )
+                    .Wait();
             }
         }
 

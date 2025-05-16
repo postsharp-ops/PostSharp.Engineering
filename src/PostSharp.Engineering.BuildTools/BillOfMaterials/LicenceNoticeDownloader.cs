@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,8 +8,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -17,7 +16,12 @@ namespace PostSharp.Engineering.BuildTools.BillOfMaterials;
 
 public static class LicenceNoticeDownloader
 {
-    public static async Task AppendLicenseAndNoticeFilesAsync( string repoUrl, IEnumerable<string> consumedPackages, IEnumerable<string> consumingPackages, TextWriter textWriter )
+    public static async Task AppendLicenseAndNoticeFilesAsync(
+        BuildContext context,
+        string repoUrl,
+        IReadOnlyCollection<string> consumedPackages,
+        IReadOnlyCollection<string> consumingPackages,
+        TextWriter textWriter )
     {
         var httpClientHandler = new HttpClientHandler
         {
@@ -32,12 +36,12 @@ public static class LicenceNoticeDownloader
         }
 
         using var gitHubHttpClient = new HttpClient( httpClientHandler );
-        gitHubHttpClient.DefaultRequestHeaders.UserAgent.Add( new ProductInfoHeaderValue( typeof(LicenceNoticeDownloader).Assembly.GetName().Name, "1.0" ) );
+        gitHubHttpClient.DefaultRequestHeaders.UserAgent.Add( new ProductInfoHeaderValue( typeof(LicenceNoticeDownloader).Assembly.GetName().Name!, "1.0" ) );
         gitHubHttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", gitHubToken );
 
         if ( !Uri.TryCreate( repoUrl, UriKind.Absolute, out var uri ) || uri.Host != "github.com" )
         {
-            Console.WriteLine( $"Invalid or non-GitHub repository URL: {repoUrl}" );
+            context.Console.WriteError( $"Invalid or non-GitHub repository URL: {repoUrl}" );
 
             return;
         }
@@ -46,7 +50,7 @@ public static class LicenceNoticeDownloader
 
         if ( segments.Length < 2 )
         {
-            Console.WriteLine( $"Invalid GitHub repository URL: {repoUrl}" );
+            context.Console.WriteError( $"Invalid GitHub repository URL: {repoUrl}" );
 
             return;
         }
@@ -64,10 +68,18 @@ public static class LicenceNoticeDownloader
                 var response = await gitHubHttpClient.GetStringAsync( apiUrl );
                 var filesJson = JsonNode.Parse( response );
 
+                if ( filesJson == null )
+                {
+                    context.Console.WriteError( $"Empty response for '{apiUrl}'." );
+
+                    return;
+                }
+
                 var targetFiles = new[] { "LICENSE", "LICENSE.MD", "LICENSE.TXT", "NOTICE", "NOTICE.MD", "NOTICE.TXT" };
 
                 var matchingFiles = filesJson.AsArray()
-                    .Select( x => (Name: x["name"]!.ToString(), Url: x["download_url"]?.ToString()) )
+                    .Where( x => x != null )
+                    .Select( x => (Name: x!["name"]!.ToString(), Url: x["download_url"]?.ToString()) )
                     .Where( file => targetFiles.Contains( file.Name.ToString(), StringComparer.OrdinalIgnoreCase ) )
                     .ToList();
 
@@ -76,9 +88,15 @@ public static class LicenceNoticeDownloader
                     await textWriter.WriteLineAsync( "\n\n---\n\n" );
                     await textWriter.WriteLineAsync( $"## License notices for {project}\n" );
                     await textWriter.WriteLineAsync();
-                    await textWriter.WriteLineAsync( $"The following packages are consumed from this project: {string.Join( ", ", consumedPackages.Select( x => $"`{x}`" ) )}." );
+
+                    await textWriter.WriteLineAsync(
+                        $"The following packages are consumed from this project: {string.Join( ", ", consumedPackages.Select( x => $"`{x}`" ) )}." );
+
                     await textWriter.WriteLineAsync();
-                    await textWriter.WriteLineAsync( $"This project is used by the following of our packages: {string.Join( ", ", consumingPackages.Select( x => $"`{x}`" ) )}.");
+
+                    await textWriter.WriteLineAsync(
+                        $"This project is used by the following of our packages: {string.Join( ", ", consumingPackages.Select( x => $"`{x}`" ) )}." );
+
                     await textWriter.WriteLineAsync();
 
                     foreach ( var file in matchingFiles )
