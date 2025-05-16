@@ -31,10 +31,10 @@ public record DownloadFolder(
         var name = $"{familyName} {packageVersion}";
         var order = packageVersion.Split( '-' )[0];
         var createdAt = DateTime.UtcNow;
-        files ??= Enumerable.Empty<DownloadFile>();
-        
+        files ??= [];
+
         return new DownloadFolder( name, order, createdAt, description, longDescription, instructions, files );
     }
-    
+
     public DownloadFolder WithFiles( IEnumerable<DownloadFile> files ) => this with { Files = files };
 }

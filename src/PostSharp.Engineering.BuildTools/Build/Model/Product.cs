@@ -5,6 +5,7 @@ using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
 using NuGet.Versioning;
+using PostSharp.Engineering.BuildTools.BillOfMaterials;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -219,6 +220,28 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool UseDockerInTeamcity { get; init; }
 
         public bool IsPublishingNonReleaseBranchesAllowed { get; init; }
+
+        /// <summary>
+        /// Gets or sets values that override the values found on nuget.org for the packages.
+        /// Used to construct the SBOM.
+        /// </summary>
+        public DependentPackageInfoOverride[] DependentPackageInfoOverrides { get; init; } = [];
+
+        /// <summary>
+        /// Gets or sets the list of packages that should be excluded from the SBOM.
+        /// </summary>
+        public DependentPackageExclusion[] DependentPackageExclusions { get; init; } = [];
+
+        /// <summary>
+        /// Gets or sets a list of specifications about how projects will be consumed. Used to construct the SBOM.
+        /// </summary>
+        public ProjectUsageInfo[] ProjectUsages { get; init; } = [];
+
+        /// <summary>
+        /// Gets or sets a globbing pattern capturing the list of <c>*.deps.json</c> for projects that must be included in the SBOM.
+        /// The pattern is appended to the default pattern.
+        /// </summary>
+        public Pattern ConsumableDepsFiles { get; init; } = Pattern.Empty;
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
@@ -770,7 +793,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( settings.SolutionId != null )
             {
                 var solution = this.Solutions[settings.SolutionId.Value - 1];
-                solutionsToBuild = new[] { solution };
+                solutionsToBuild = [solution];
             }
             else
             {
@@ -2297,7 +2320,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var allDependencies =
                 this.ParametrizedDependencies.Select( x => x.Definition )
                     .Union( this.SourceDependencies )
-                    .Union( this.MainVersionDependency == null ? Enumerable.Empty<DependencyDefinition>() : new[] { this.MainVersionDependency } );
+                    .Union( this.MainVersionDependency == null ? [] : [this.MainVersionDependency] );
 
             foreach ( var dependency in allDependencies )
             {
@@ -2391,20 +2414,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 var dependencies =
-                    dependenciesOverrideFile.Dependencies.Select(
-                            x => (Name: x.Key,
-                                  Definition: this.ProductFamily.GetDependencyDefinition( x.Key ),
-                                  Source: x.Value) )
+                    dependenciesOverrideFile.Dependencies.Select( x => (Name: x.Key,
+                                                                        Definition: this.ProductFamily.GetDependencyDefinition( x.Key ),
+                                                                        Source: x.Value) )
                         .Where( d => d.Definition.GenerateSnapshotDependency )
                         .Select( x => (x.Name, x.Definition, Configuration: GetDependencyConfiguration( x.Definition, x.Source )) )
                         .ToList();
 
                 var snapshotDependencies = dependencies
-                    .Select(
-                        d => new TeamCitySnapshotDependency(
-                            d.Definition.CiConfiguration.BuildTypes[d.Configuration],
-                            true,
-                            $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( null, d.Configuration, this, null ) ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
+                    .Select( d => new TeamCitySnapshotDependency(
+                                 d.Definition.CiConfiguration.BuildTypes[d.Configuration],
+                                 true,
+                                 $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( null, d.Configuration, this, null ) ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
                     .ToList();
 
                 var sourceSnapshotDependencies = this.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
@@ -2412,11 +2433,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var buildDependencies = snapshotDependencies.Concat( sourceSnapshotDependencies ).OrderBy( d => d.ObjectId ).ToArray();
 
-                var sourceDependencies = this.SourceDependencies.Select(
-                        d => new TeamCitySourceDependency(
-                            d.CiConfiguration.ProjectId.ToString(),
-                            true,
-                            $"+:. => {this.SourceDependenciesDirectory}/{d.Name}" ) )
+                var sourceDependencies = this.SourceDependencies.Select( d => new TeamCitySourceDependency(
+                                                                             d.CiConfiguration.ProjectId.ToString(),
+                                                                             true,
+                                                                             $"+:. => {this.SourceDependenciesDirectory}/{d.Name}" ) )
                     .ToArray();
 
                 var teamCityBuildSteps = new List<TeamCityBuildStep>();
@@ -2509,7 +2529,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
-                                .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules ) } )
+                                .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] )
                                 .Concat(
                                     this.ParametrizedDependencies.Select( d => d.Definition )
                                         .Union( this.SourceDependencies )
@@ -2539,7 +2559,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             BuildSteps = [CreatePublishBuildStep( true )],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
-                                .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules ) } )
+                                .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] )
                                 .OrderBy( d => d.ObjectId )
                                 .ToArray(),
                             BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold,
@@ -2740,7 +2760,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Check if we bumped since last deployment by looking in the Git log. 
-            var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
+            var gitLog = gitLogOutput.Split( ['\n', '\r'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
 
             var versionBumpLogCommentRegex =
                 new Regex( GitHelper.GetEngineeringCommitsRegex( true, false, context.Product.DependencyDefinition.ProductFamily ) );

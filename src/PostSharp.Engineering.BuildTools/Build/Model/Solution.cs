@@ -94,7 +94,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public abstract bool Restore( BuildContext context, BuildSettings settings );
 
-        public virtual IEnumerable<Solution> GetFormattableSolutions( BuildContext context ) => new[] { this };
+        public virtual IEnumerable<Solution> GetFormattableSolutions( BuildContext context ) => [this];
 
         protected Solution( string solutionPath )
         {
