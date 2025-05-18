@@ -374,7 +374,18 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             using ( ManualResetEvent exitedEvent = new( false ) )
                             {
                                 process.EnableRaisingEvents = true;
-                                process.Exited += ( _, _ ) => exitedEvent.Set();
+
+                                process.Exited += ( _, _ ) =>
+                                {
+                                    try
+                                    {
+                                        exitedEvent.Set();
+                                    }
+                                    catch ( ObjectDisposedException )
+                                    {
+                                        // This happens on Ubuntu.
+                                    }
+                                };
 
                                 using ( cancellationToken.Register( () => cancelledEvent.Set() ) )
                                 {
