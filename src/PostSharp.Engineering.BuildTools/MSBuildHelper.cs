@@ -1,6 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
-
-using Microsoft.Build.Locator;
+﻿using Microsoft.Build.Locator;
 using Microsoft.VisualStudio.Setup.Configuration;
 using System;
 using System.Collections.Generic;
@@ -20,9 +18,9 @@ internal static class MSBuildHelper
 
     public static void InitializeLocator()
     {
-        if ( !_isInitialized )
+        if (!_isInitialized)
         {
-            if ( MSBuildLocator.CanRegister )
+            if (MSBuildLocator.CanRegister)
             {
                 try
                 {
@@ -30,7 +28,7 @@ internal static class MSBuildHelper
 
                     _isInitialized = true;
                 }
-                catch ( Exception e )
+                catch (Exception e)
                 {
                     throw new InvalidOperationException(
                         $"Cannot find a suitable version of MSBuild for "
@@ -47,7 +45,7 @@ internal static class MSBuildHelper
     {
         var directory = FindLatestMSBuildDirectory( context );
 
-        if ( directory == null )
+        if (directory == null)
         {
             return directory;
         }
@@ -59,16 +57,14 @@ internal static class MSBuildHelper
 
     private static string? FindLatestMSBuildDirectory( BuildContext context )
     {
-        InitializeLocator();
-
         var instances = GetVisualStudioInstances( context ).OrderByDescending( i => i.Version );
 
-        foreach ( var instance in instances )
+        foreach (var instance in instances)
         {
             // We got a Visual Studio instance but not all of them have an MSBuild instance. For instance, a Test Agent instance does not have.
             var directory = Path.Combine( instance.Path, "MSBuild", "Current", "Bin" );
 
-            if ( Directory.Exists( directory ) )
+            if (Directory.Exists( directory ))
             {
                 return directory;
             }
@@ -79,9 +75,7 @@ internal static class MSBuildHelper
 
     public static IEnumerable<VisualStudioInstance> GetVisualStudioInstances( BuildContext context )
     {
-        InitializeLocator();
-
-        if ( !RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
+        if (!RuntimeInformation.IsOSPlatform( OSPlatform.Windows ))
         {
             return [];
         }
@@ -101,9 +95,9 @@ internal static class MSBuildHelper
             {
                 enumInstances.Next( 1, instances, out fetched );
 
-                if ( fetched > 0 )
+                if (fetched > 0)
                 {
-                    var instance = (ISetupInstance2) instances[0];
+                    var instance = (ISetupInstance2)instances[0];
 
                     list.Add(
                         new VisualStudioInstance(
@@ -112,9 +106,9 @@ internal static class MSBuildHelper
                             instance.GetInstallationPath() ) );
                 }
             }
-            while ( fetched > 0 );
+            while (fetched > 0);
         }
-        catch ( COMException exception )
+        catch (COMException exception)
         {
             context.Console.WriteWarning( $"Cannot find VS instances: {exception.Message}" );
 

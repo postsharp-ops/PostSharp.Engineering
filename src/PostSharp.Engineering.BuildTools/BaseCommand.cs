@@ -41,6 +41,8 @@ namespace PostSharp.Engineering.BuildTools
                     buildContext = buildContext.WithUseProjectDirectoryAsWorkingDirectory( true );
                 }
 
+                MSBuildHelper.InitializeLocator();
+
                 if ( DockerHelper.IsDockerBuild() )
                 {
                     buildContext.Console.WriteMessage( "Docker detected." );
