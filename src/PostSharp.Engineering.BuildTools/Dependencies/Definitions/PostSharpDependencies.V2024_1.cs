@@ -28,7 +28,7 @@ public static partial class PostSharpDependencies
                 : base(
                     Family,
                     "PostSharpPackage",
-                    $"release/{Family.Version}",
+                    $"refs/heads/release/{Family.Version}",
                     null,
                     new AzureDevOpsRepository( _projectName, _projectName ),
                     new CiProjectConfiguration(

@@ -26,7 +26,7 @@ public static partial class PostSharpDependencies
                 : base(
                     Family,
                     "PostSharpPackage",
-                    $"release/{Family.Version}",
+                    $"refs/heads/release/{Family.Version}",
                     null,
                     new GitHubRepository( _projectName, _projectName ),
                     new CiProjectConfiguration(
