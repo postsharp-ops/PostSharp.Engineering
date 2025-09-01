@@ -17,7 +17,7 @@ public static class BusinessSystemsDependencies
                 dependencyName,
                 "master",
                 null,
-                isGitHub ? new GitHubRepository( dependencyName ) : new AzureDevOpsRepository( Family.Name, dependencyName ),
+                isGitHub ? new GitHubRepository( dependencyName, "postsharp" ) : new AzureDevOpsRepository( Family.Name, dependencyName ),
                 TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ) ),
                 false ) { }
     }

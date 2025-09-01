@@ -22,7 +22,7 @@ public static class TemplateDependencies
                 dependencyName,
                 $"develop/{Family.Version}",
                 $"release/{Family.Version}",
-                new GitHubRepository( dependencyName ),
+                new GitHubRepository( dependencyName, "postsharp" ),
                 TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "NONE" ), isVersioned ),
                 isVersioned ) { }
     }

@@ -11,6 +11,7 @@ public static partial class PostSharpDependencies
 {
     // ReSharper disable once InconsistentNaming
 
+    [Obsolete("PostSharp 2024.1 is no longer maintained or built.")]
     [PublicAPI]
     public static class V2024_1
     {

@@ -32,7 +32,7 @@ public class GitHubRepository : VcsRepository
     
     public override bool IsSshAgentRequired => true;
 
-    public GitHubRepository( string name, string owner = "postsharp", string? defaultBranchParameter = null )
+    public GitHubRepository( string name, string owner, string? defaultBranchParameter = null )
         : base( defaultBranchParameter )
     {
         this.Name = name;

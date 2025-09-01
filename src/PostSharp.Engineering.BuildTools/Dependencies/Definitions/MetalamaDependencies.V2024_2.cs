@@ -14,6 +14,7 @@ public static partial class MetalamaDependencies
 {
     // ReSharper disable once InconsistentNaming
 
+    [Obsolete("Metalama 2024.2 is no longer maintained or built.")]
     [PublicAPI]
     public static class V2024_2
     {

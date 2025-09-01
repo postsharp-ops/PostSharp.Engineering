@@ -17,7 +17,7 @@ public static class DevelopmentDependencies
         "PostSharp.Engineering",
         $"develop/{Family.Version}",
         $"release/{Family.Version}",
-        new GitHubRepository( "PostSharp.Engineering" ),
+        new GitHubRepository( "PostSharp.Engineering", "postsharp" ),
         TeamCityHelper.CreateConfiguration(
             TeamCityHelper.GetProjectId( "PostSharp.Engineering", Family.Name ) ) )
     {

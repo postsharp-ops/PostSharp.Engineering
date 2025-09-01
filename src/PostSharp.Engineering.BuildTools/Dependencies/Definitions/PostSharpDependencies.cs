@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using PostSharpPackageDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies.V2025_0;
+using PostSharpPackageDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies.V2025_0_GitHub;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
@@ -23,7 +23,7 @@ public static partial class PostSharpDependencies
                 dependencyName,
                 "dev",
                 "master",
-                new GitHubRepository( dependencyName ),
+                new GitHubRepository( dependencyName, "postsharp" ),
                 TeamCityHelper.CreateConfiguration(
                     TeamCityHelper.GetProjectId( dependencyName, _projectName ),
                     false ),
