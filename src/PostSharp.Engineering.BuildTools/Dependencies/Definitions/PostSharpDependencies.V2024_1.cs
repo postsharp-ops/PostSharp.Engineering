@@ -18,8 +18,8 @@ public static partial class PostSharpDependencies
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
             private static readonly TeamCityProjectId _teamCityProjectId = new(
-                $"{_projectName}_{_projectName}{Family.VersionWithoutDots}",
-                _projectName );
+                $"PostSharpGitHub_PostSharp{Family.VersionWithoutDots}",
+                "PostSharpGitHub" );
 
             private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildDistribution";
 
