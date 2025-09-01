@@ -50,18 +50,12 @@ public static partial class MetalamaDependencies
                         isVersioned,
                         pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck,
                         vcsRootProjectId: vcsRootProjectId ),
-                    isVersioned )
-            { }
+                    isVersioned ) { }
         }
 
         public static ProductFamily Family { get; } = new( _projectName, "2025.0", DevelopmentDependencies.Family, PostSharpDependencies.V2025_0_GitHub.Family )
         {
-            DockerBaseImage = DockerImages.WindowsServerCore,
-            UpstreamProductFamily = V2024_2.Family,
-
-            // Downstream merge is explicitly disabled for because of repo merge.
-            // TODO: Implement SuppressDownstream for DependencyDefinition.
-            // DownstreamProductFamily = V2025_1.Family
+            DockerBaseImage = DockerImages.WindowsServerCore, DownstreamProductFamily = V2025_1.Family
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } =
@@ -107,7 +101,8 @@ public static partial class MetalamaDependencies
                 isVersioned: false,
                 pullRequestRequiresStatusCheck: false )
             {
-                GenerateSnapshotDependency = false,
+                GenerateSnapshotDependency = false
+
                 // SuppressDownstream = true
             };
 
@@ -118,7 +113,8 @@ public static partial class MetalamaDependencies
                 MetalamaGitHubOrganization.PostSharp,
                 customRepositoryName: "Metalama.Framework" )
             {
-                GenerateSnapshotDependency = false,
+                GenerateSnapshotDependency = false
+
                 // SuppressDownstream = true
             };
 
@@ -141,19 +137,13 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Samples",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama )
-            {
-                CodeStyle = "Metalama.Samples"
-            };
+                MetalamaGitHubOrganization.Metalama ) { CodeStyle = "Metalama.Samples" };
 
         public static DependencyDefinition TimelessDotNetEngineer { get; } =
             new MetalamaDependencyDefinition(
                 "TimelessDotNetEngineer",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp )
-            {
-                CodeStyle = "Metalama.Samples"
-            };
+                MetalamaGitHubOrganization.PostSharp ) { CodeStyle = "Metalama.Samples" };
 
         public static DependencyDefinition MetalamaMigration { get; } =
             new MetalamaDependencyDefinition(
