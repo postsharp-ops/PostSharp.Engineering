@@ -100,7 +100,10 @@ public static partial class MetalamaDependencies
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.PostSharp,
                 isVersioned: false,
-                pullRequestRequiresStatusCheck: false );
+                pullRequestRequiresStatusCheck: false )
+            {
+                GenerateSnapshotDependency = false
+            };
 
         public static DependencyDefinition Metalama { get; } =
             new MetalamaDependencyDefinition(
