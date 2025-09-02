@@ -12,7 +12,7 @@ public static partial class PostSharpDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2025_1_GitHub
+    public static class V2025_1
     {
         private class PostSharpDependencyDefinition : DependencyDefinition
         {

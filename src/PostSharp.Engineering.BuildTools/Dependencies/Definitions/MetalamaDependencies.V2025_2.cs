@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.IO;
+using System.Runtime.InteropServices.Marshalling;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
@@ -15,7 +16,7 @@ public static partial class MetalamaDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2025_0
+    public static class V2025_2
     {
         private class MetalamaDependencyDefinition : DependencyDefinition
         {
@@ -53,16 +54,12 @@ public static partial class MetalamaDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2025.0", DevelopmentDependencies.Family, PostSharpDependencies.V2025_0_GitHub.Family )
+        public static ProductFamily Family { get; } = new( _projectName, "2025.2", DevelopmentDependencies.Family, PostSharpDependencies.V2025_1.Family )
         {
-            DockerBaseImage = DockerImages.WindowsServerCore, DownstreamProductFamily = V2025_1.Family
+            DockerBaseImage = DockerImages.WindowsServerCore,
+            UpstreamProductFamily = V2025_1.Family,
+            DownstreamProductFamily = V2026_0.Family
         };
-
-        public static DependencyDefinition MetalamaBackstage { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.Backstage",
-                VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp );
 
         public static DependencyDefinition Consolidated { get; } =
             new MetalamaDependencyDefinition(
@@ -84,38 +81,22 @@ public static partial class MetalamaDependencies
                 PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
             };
 
-        public static DependencyDefinition MetalamaFrameworkRunTime { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.Framework.RunTime",
-                VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp )
-            {
-                // SuppressDownstream = true
-            };
-
-        public static DependencyDefinition MetalamaFrameworkPrivate { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.Framework.Private",
-                VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp,
-                isVersioned: false,
-                pullRequestRequiresStatusCheck: false )
-            {
-                GenerateSnapshotDependency = false
-
-                // SuppressDownstream = true
-            };
-
         public static DependencyDefinition Metalama { get; } =
             new MetalamaDependencyDefinition(
                 "Metalama",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp,
-                customRepositoryName: "Metalama.Framework" )
+                MetalamaGitHubOrganization.Metalama )
             {
-                GenerateSnapshotDependency = false
+                // SuppressUpstream = true
+            };
 
-                // SuppressDownstream = true
+        public static DependencyDefinition MetalamaPremium { get; } =
+            new MetalamaDependencyDefinition(
+                "Metalama.Premium",
+                VcsProvider.GitHub,
+                MetalamaGitHubOrganization.Metalama )
+            {
+                // SuppressUpstream = true
             };
 
         public static DependencyDefinition MetalamaVsx { get; } =
@@ -123,15 +104,6 @@ public static partial class MetalamaDependencies
                 "Metalama.Vsx",
                 VcsProvider.AzureDevOps,
                 null );
-
-        public static DependencyDefinition MetalamaExtensions { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.Extensions",
-                VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp )
-            {
-                // SuppressDownstream = true
-            };
 
         public static DependencyDefinition MetalamaSamples { get; } =
             new MetalamaDependencyDefinition(
@@ -145,24 +117,6 @@ public static partial class MetalamaDependencies
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.PostSharp ) { CodeStyle = "Metalama.Samples" };
 
-        public static DependencyDefinition MetalamaMigration { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.Migration",
-                VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp )
-            {
-                // SuppressDownstream = true
-            };
-
-        public static DependencyDefinition MetalamaLinqPad { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.LinqPad",
-                VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp )
-            {
-                // SuppressDownstream = true
-            };
-
         public static DependencyDefinition MetalamaCommunity { get; } =
             new MetalamaDependencyDefinition(
                 "Metalama.Community",
@@ -175,15 +129,6 @@ public static partial class MetalamaDependencies
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.Metalama,
                 false );
-
-        public static DependencyDefinition MetalamaPatterns { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.Patterns",
-                VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp )
-            {
-                // SuppressDownstream = true
-            };
 
         public static DependencyDefinition NopCommerce { get; } =
             new MetalamaDependencyDefinition(
@@ -208,7 +153,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Tests.DotNetSdk",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama,
+                MetalamaGitHubOrganization.PostSharp,
                 false,
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
                 vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" );
@@ -217,7 +162,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Performance",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama,
+                MetalamaGitHubOrganization.PostSharp,
                 false );
     }
 }
