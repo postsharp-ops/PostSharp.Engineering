@@ -14,7 +14,6 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Coverage;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -49,7 +48,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.DependencyDefinition = dependencyDefinition;
             this.ProductName = dependencyDefinition.Name;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
-            this.DockerBaseImage = dependencyDefinition.ProductFamily.DockerBaseImage;
         }
 
         public bool AddDefaultCommands { get; init; } = true;
@@ -126,10 +124,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 if ( this.OverriddenBuildAgentRequirements != null )
                 {
                     return this.OverriddenBuildAgentRequirements;
-                }
-                else if ( this.UseDockerInTeamcity )
-                {
-                    return this.DockerBaseImage!.HostRequirements.Combine( this.AdditionalBuildAgentRequirements );
                 }
                 else
                 {
@@ -213,12 +207,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 
-        public DockerImage? DockerBaseImage { get; init; }
-
-        public DockerImageComponent[] AdditionalDockerImageComponents { get; init; } = [];
-
-        public bool UseDockerInTeamcity { get; init; }
-
+        internal bool UseDockerInTeamcity => this.ResolvedBuildAgentRequirements.IsDockerHost;
+        
         public bool IsPublishingNonReleaseBranchesAllowed { get; init; }
 
         /// <summary>

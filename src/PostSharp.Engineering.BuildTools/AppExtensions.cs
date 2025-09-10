@@ -8,7 +8,6 @@ using PostSharp.Engineering.BuildTools.CodeStyle;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
-using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.DotNetTools;
 using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
@@ -91,31 +90,6 @@ namespace PostSharp.Engineering.BuildTools
                     root.AddCommand<GenerateThirdPartyNoticesCommand>( "third-party-notices" )
                         .WithData( data )
                         .WithDescription( "Generates THIRD-PARTY-NOTICES.md" );
-
-                    root.AddBranch(
-                        "docker",
-                        docker =>
-                        {
-                            docker.AddCommand<DockerPrepareCommand>( "prepare" )
-                                .WithData( data )
-                                .WithDescription( "Builds an image ready to run the product build." );
-
-                            docker.AddCommand<DockerBuildCommand>( "build" )
-                                .WithData( data )
-                                .WithDescription( "Builds the product inside docker." );
-
-                            docker.AddCommand<DockerTestCommand>( "test" )
-                                .WithData( data )
-                                .WithDescription( "Runs the product tests inside docker." );
-
-                            docker.AddCommand<DockerInteractiveCommand>( "interactive" )
-                                .WithData( data )
-                                .WithDescription( "Opens an interactive PowerShell session inside the docker container." );
-
-                            docker.AddCommand<DockerListImagesCommand>( "list-images" )
-                                .WithData( data )
-                                .WithDescription( "Prints the list of configured images." );
-                        } );
 
                     root.AddBranch(
                         "dependencies",

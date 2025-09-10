@@ -2,7 +2,7 @@
 
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Docker;
+namespace PostSharp.Engineering.BuildTools.Utilities;
 
 internal static class DockerHelper
 {

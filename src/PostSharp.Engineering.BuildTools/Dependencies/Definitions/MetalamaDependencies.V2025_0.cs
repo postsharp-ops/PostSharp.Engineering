@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.IO;
 
@@ -55,7 +54,7 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2025.0", DevelopmentDependencies.Family, PostSharpDependencies.V2025_0_GitHub.Family )
         {
-            DockerBaseImage = DockerImages.WindowsServerCore, DownstreamProductFamily = V2025_1.Family
+            DownstreamProductFamily = V2025_1.Family
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } =

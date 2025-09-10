@@ -6,10 +6,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildStep
 
 public class TeamCityEngineeringPublishBuildStep : TeamCityEngineeringCommandBuildStep
 {
-    public TeamCityEngineeringPublishBuildStep( BuildConfiguration configuration ) : base(
+    public TeamCityEngineeringPublishBuildStep( BuildConfiguration configuration, bool useDocker = false ) : base(
         "Publish",
         "Publish",
         "publish",
         $"--configuration {configuration}",
-        true ) { }
+        true, useDocker ) { }
 }

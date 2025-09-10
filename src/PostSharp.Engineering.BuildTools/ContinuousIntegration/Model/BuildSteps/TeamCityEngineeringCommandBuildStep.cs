@@ -17,8 +17,8 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         bool useDocker = false ) : base(
         id,
         name,
-        "Build.ps1",
-        $"{(useDocker ? "docker " : "")}{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}" )
+         useDocker ? "DockerBuild.ps1" : "Build.ps1",
+        $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}" )
     {
         if ( areCustomArgumentsAllowed )
         {
