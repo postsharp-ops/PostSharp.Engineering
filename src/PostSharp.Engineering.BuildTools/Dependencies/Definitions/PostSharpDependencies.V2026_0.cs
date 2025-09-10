@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
@@ -12,15 +11,13 @@ public static partial class PostSharpDependencies
 {
     // ReSharper disable once InconsistentNaming
 
-    [Obsolete("PostSharp 2024.1 is no longer maintained or built.")]
     [PublicAPI]
-    public static class V2024_1
+    public static class V2026_0
     {
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
             private static readonly TeamCityProjectId _teamCityProjectId = new(
-                $"PostSharpGitHub_PostSharp{Family.VersionWithoutDots}",
-                "PostSharpGitHub" );
+                $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}", "PostSharpGitHub" );
 
             private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildDistribution";
 
@@ -28,9 +25,9 @@ public static partial class PostSharpDependencies
                 : base(
                     Family,
                     "PostSharpPackage",
-                    $"release/{Family.Version}",
+                    $"refs/heads/release/{Family.Version}",
                     null,
-                    new AzureDevOpsRepository( _projectName, _projectName ),
+                    new GitHubRepository( _projectName, _projectName ),
                     new CiProjectConfiguration(
                         _teamCityProjectId,
                         new ConfigurationSpecific<string>( "not-used", _distributionBuildId, "not-used" ),
@@ -40,11 +37,11 @@ public static partial class PostSharpDependencies
                         TeamCityHelper.TeamCityCloudUrl ),
                     false )
             {
-                this.EngineeringDirectory = @"PrivateBuild\Distribution\eng";
+                this.EngineeringDirectory = @"Build\Distribution\eng";
             }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2024.1", DevelopmentDependencies.Family );
+        public static ProductFamily Family { get; } = new( _projectName, "2026.0", DevelopmentDependencies.Family );
 
         public static DependencyDefinition PostSharp { get; } = new PostSharpDependencyDefinition();
     }

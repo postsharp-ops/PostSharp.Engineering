@@ -9,16 +9,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
 public static partial class PostSharpDependencies
 {
-    // ReSharper disable InconsistentNaming
+    // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2025_0_GitHub
+    public static class V2025_0
     {
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
             private static readonly TeamCityProjectId _teamCityProjectId = new(
-                $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}",
-                "PostSharpGitHub" );
+                $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}", "PostSharpGitHub" );
 
             private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildDistribution";
 
@@ -26,7 +25,7 @@ public static partial class PostSharpDependencies
                 : base(
                     Family,
                     "PostSharpPackage",
-                    $"release/{Family.Version}",
+                    $"refs/heads/release/{Family.Version}",
                     null,
                     new GitHubRepository( _projectName, _projectName ),
                     new CiProjectConfiguration(

@@ -330,7 +330,7 @@ public static class DependenciesHelper
                 }
                 else if ( buildId != null )
                 {
-                    // We already have an resolved reference, but we need to update.
+                    // We already have a resolved reference, but we need to update.
                     // In this case, we do not change the BuildIdType.
 
                     ciBuildType = buildId.BuildTypeId ?? dependency.Dependency.CiConfiguration.BuildTypes[configuration];
@@ -338,6 +338,15 @@ public static class DependenciesHelper
                     if ( !teamCity.TryGetBranchFromBuildNumber( context.Console, buildId, out var previousBranchName ) )
                     {
                         return false;
+                    }
+
+                    // Normalize the branch prefix.
+                    const string prefix = "refs/heads/";
+
+                    if ( previousBranchName.StartsWith( prefix, StringComparison.OrdinalIgnoreCase )
+                         && !dependency.Dependency.Branch.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
+                    {
+                        previousBranchName = previousBranchName.Substring( prefix.Length );
                     }
 
                     branchName = previousBranchName;

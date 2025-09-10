@@ -93,13 +93,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             branch = build.Attribute( "branchName" )!.Value;
 
-            const string prefix = "refs/heads/";
-
-            if ( branch.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
-            {
-                branch = branch.Substring( prefix.Length );
-            }
-
             if ( string.IsNullOrEmpty( branch ) )
             {
                 console.WriteError( $"Cannot determine the branch of '{buildId}': the branch name is empty." );
@@ -150,11 +143,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                     .ToArray();
 
                 IEnumerable<(string Name, string Url, long Size)> files = artifacts
-                    .Select(
-                        a => (
-                            a.Name,
-                            a.Element.Element( "content" )?.Attribute( "href" )?.Value,
-                            long.Parse( a.Element.Attribute( "size" )?.Value ?? "0", NumberStyles.Integer, CultureInfo.InvariantCulture )) )
+                    .Select( a => (
+                                 a.Name,
+                                 a.Element.Element( "content" )?.Attribute( "href" )?.Value,
+                                 long.Parse( a.Element.Attribute( "size" )?.Value ?? "0", NumberStyles.Integer, CultureInfo.InvariantCulture )) )
                     .Where( a => a.Value != null )
                     .Select( a => (a.Name, a.Value!, a.Item3) );
 
@@ -347,10 +339,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool TryGetProjectDetails( ConsoleHelper console, string id ) => this.TryGetDetails( console, $"/app/rest/projects/id:{id}" );
 
-        public bool TryGetOrderedSubprojectsRecursively( ConsoleHelper console, string projectId, [NotNullWhen( true )] out IReadOnlyList<(string Id, string Name)>? subprojects )
+        public bool TryGetOrderedSubprojectsRecursively(
+            ConsoleHelper console,
+            string projectId,
+            [NotNullWhen( true )] out IReadOnlyList<(string Id, string Name)>? subprojects )
         {
             subprojects = null;
-            
+
             if ( !this.TryGet( $"/app/rest/projects/id:{projectId}", console, out var projectResponse ) )
             {
                 return false;
@@ -362,7 +357,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 projectRootElement.Element( "projects" )!.Attribute( "count" )!.Value,
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture );
-            
+
             var subprojectsList = new List<(string, string)>();
 
             if ( expectedCount > 0 )
@@ -419,13 +414,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             {
                 throw new InvalidOperationException( "Not all subprojects have been retrieved." );
             }
-            
+
             subprojects = subprojectsList.ToImmutableArray();
 
             return true;
         }
 
-        public bool TryGetProjectsBuildConfigurations( ConsoleHelper console, string projectId, [NotNullWhen( true )] out ImmutableArray<string>? buildConfigurations )
+        public bool TryGetProjectsBuildConfigurations(
+            ConsoleHelper console,
+            string projectId,
+            [NotNullWhen( true )] out ImmutableArray<string>? buildConfigurations )
         {
             int? expectedCount = null;
             buildConfigurations = null;
@@ -442,7 +440,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
                 var buildConfigurationsRootsElement = buildConfigurationsResponse.Content.ReadAsXDocument().Root!;
 
-                var newExpectedCount = int.Parse( buildConfigurationsRootsElement.Attribute( "count" )!.Value, NumberStyles.Integer, CultureInfo.InvariantCulture );
+                var newExpectedCount = int.Parse(
+                    buildConfigurationsRootsElement.Attribute( "count" )!.Value,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture );
 
                 if ( expectedCount == null )
                 {
@@ -476,8 +477,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             return true;
         }
-        
-        public bool TryGetBuildConfigurationsSnapshotDependencies( ConsoleHelper console, string buildConfigurationId, [NotNullWhen( true )] out ImmutableArray<string>? snapshotDependencies )
+
+        public bool TryGetBuildConfigurationsSnapshotDependencies(
+            ConsoleHelper console,
+            string buildConfigurationId,
+            [NotNullWhen( true )] out ImmutableArray<string>? snapshotDependencies )
         {
             int? expectedCount = null;
             snapshotDependencies = null;
@@ -494,7 +498,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
                 var snapshotDependenciesRootsElement = snapshotDependenciesResponse.Content.ReadAsXDocument().Root!;
 
-                var newExpectedCount = int.Parse( snapshotDependenciesRootsElement.Attribute( "count" )!.Value, NumberStyles.Integer, CultureInfo.InvariantCulture );
+                var newExpectedCount = int.Parse(
+                    snapshotDependenciesRootsElement.Attribute( "count" )!.Value,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture );
 
                 if ( expectedCount == null )
                 {
@@ -528,7 +535,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             return true;
         }
-        
+
         public bool TryCreateProject( ConsoleHelper console, string name, string id, string? parentId = null )
         {
             parentId ??= "_Root";
