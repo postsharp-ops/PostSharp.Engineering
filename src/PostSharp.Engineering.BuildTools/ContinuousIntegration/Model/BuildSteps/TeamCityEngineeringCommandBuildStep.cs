@@ -14,11 +14,11 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         string command,
         string? arguments = null,
         bool areCustomArgumentsAllowed = false,
-        bool useDocker = false ) : base(
+        DockerSpec? dockerSpec = null ) : base(
         id,
         name,
-         useDocker ? "DockerBuild.ps1" : "Build.ps1",
-        $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}" )
+        dockerSpec != null ? $"DockerBuild.ps1" : "Build.ps1",
+        GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, dockerSpec ) )
     {
         if ( areCustomArgumentsAllowed )
         {
@@ -31,5 +31,17 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
                     allowEmpty: true )
             ];
         }
+    }
+
+    private static string GetScriptArguments( string id, string command, string? arguments, bool areCustomArgumentsAllowed, DockerSpec? dockerSpec)
+    {
+        var args = $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}";
+
+        if ( dockerSpec != null )
+        {
+            args = $"-ImageName {dockerSpec.ImageName} -NoBuildImage " + args;
+        }
+
+        return args;
     }
 }

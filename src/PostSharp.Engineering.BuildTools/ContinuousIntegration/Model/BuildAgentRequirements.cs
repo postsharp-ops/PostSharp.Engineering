@@ -18,11 +18,11 @@ public sealed record BuildAgentRequirements
 
     public static BuildAgentRequirements Empty { get; } = new();
     
-    public static BuildAgentRequirements Default { get; } = BuildAgentRequirements.SelfHosted( "caravela04cloud" );
+    public static BuildAgentRequirements Default { get; } = SelfHosted( "caravela04cloud" );
     
-    public static BuildAgentRequirements WindowsDockerHost { get; } = BuildAgentRequirements.SelfHosted( "buildagent-docker-win-1", true );
+    public static BuildAgentRequirements WindowsDockerHost { get; } = SelfHosted( "docker-win-x64-md", true );
 
-    public static BuildAgentRequirements SelfHosted( string name, bool isDockerHost = false ) => new( new BuildAgentRequirement( "env.BuildAgentType", name )  ) { IsDockerHost = isDockerHost };
+    public static BuildAgentRequirements SelfHosted( string name, bool isDockerHost = false ) => new( new BuildAgentRequirement( "env.BuildAgentType", name ) ) { IsDockerHost = isDockerHost };
 
     public static BuildAgentRequirements JetBrainsHosted( string name ) => new( new BuildAgentRequirement( "teamcity.agent.name", name ) );
 

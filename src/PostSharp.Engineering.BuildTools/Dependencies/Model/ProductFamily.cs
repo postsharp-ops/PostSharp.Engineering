@@ -31,7 +31,7 @@ public class ProductFamily
 
     public ProductFamily? DownstreamProductFamily { get; init; }
 
-    public BuildAgentRequirements DefaultBuildAgentRequirements { get; init; } = BuildAgentRequirements.SelfHosted( "caravela04cloud" );
+    public BuildAgentRequirements DefaultBuildAgentRequirements { get; init; } = BuildAgentRequirements.Default;
 
     public bool HasConsolidatedBuild => this.TryGetDependencyDefinition( ConsolidatedProjectName, out _ );
 

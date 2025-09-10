@@ -207,7 +207,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 
-        internal bool UseDockerInTeamcity => this.ResolvedBuildAgentRequirements.IsDockerHost;
+        internal bool UseDocker => this.ResolvedBuildAgentRequirements.IsDockerHost;
+
+        internal DockerSpec? DockerSpec
+            => this.ResolvedBuildAgentRequirements.IsDockerHost ? new DockerSpec( $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() ) : null;
         
         public bool IsPublishingNonReleaseBranchesAllowed { get; init; }
 
@@ -2431,7 +2434,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var teamCityBuildSteps = new List<TeamCityBuildStep>();
 
-                if ( !this.UseDockerInTeamcity )
+                if ( this.UseDocker )
+                {
+                    teamCityBuildSteps.Add( new TeamCityEngineeringPrepareImageBuildStep( "PrepareImage", "Prepare the Docker image", this.DockerSpec! ) );
+                }
+                else
                 {
                     teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
                 }
@@ -2457,9 +2464,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             areCustomArgumentsAllowed: true ) );
                 }
 
-                teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, this.UseDockerInTeamcity ) );
+                teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, this.DockerSpec ) );
 
-                if ( !this.UseDockerInTeamcity )
+                if ( !this.UseDocker )
                 {
                     teamCityBuildSteps.Add(
                         new TeamCityEngineeringCommandBuildStep( "PostKill", "Kill background processes before next build", "tools kill" ) );
