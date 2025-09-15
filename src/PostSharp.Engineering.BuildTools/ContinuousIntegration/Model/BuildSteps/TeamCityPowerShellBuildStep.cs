@@ -29,7 +29,7 @@ public class TeamCityPowerShellBuildStep : TeamCityBuildStep
 
     public override string GenerateTeamCityCode()
     {
-        var parameters = this.TimeOut != null ? $"param(\"TimeOut\", \"{this.TimeOut}\")" : "";
+        var parameters = this.TimeOut != null ? $"param(\"TimeOut\", \"{this.TimeOut.Value.TotalSeconds}\")" : "";
 
         return $@"        powerShell {{
             name = ""{this.Name}""
