@@ -3,8 +3,6 @@
 // Refer to LICENSE.md in the repository root for complete details.
 
 #if !NETCOREAPP
-using JetBrains.Annotations;
-
 // ReSharper disable once CheckNamespace
 namespace System.Runtime.CompilerServices;
 
@@ -16,7 +14,6 @@ internal sealed class CallerArgumentExpressionAttribute : Attribute
         this.ParameterName = parameterName;
     }
 
-    [UsedImplicitly]
     public string ParameterName { get; }
 }
 

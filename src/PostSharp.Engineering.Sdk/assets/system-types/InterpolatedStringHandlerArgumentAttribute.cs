@@ -3,12 +3,9 @@
 // Refer to LICENSE.md in the repository root for complete details.
 
 #if !NET6_0_OR_GREATER
-using JetBrains.Annotations;
-
 // ReSharper disable once CheckNamespace
 namespace System.Runtime.CompilerServices;
 
-[PublicAPI]
 [AttributeUsage( AttributeTargets.Parameter )]
 public sealed class InterpolatedStringHandlerArgumentAttribute : Attribute
 {
