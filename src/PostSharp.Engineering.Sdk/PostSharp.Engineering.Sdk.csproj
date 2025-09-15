@@ -13,6 +13,7 @@
         <None Include="*.targets;*.props;*.snk" Pack="True" PackagePath="sdk" />
         <None Include="assets/*" Pack="True" PackagePath="sdk/assets" />
         <None Include="assets/system-types/*" Pack="True" PackagePath="sdk/assets/system-types" />
+        <None Include="assets/embedded-system-types/*" Pack="True" PackagePath="sdk/assets/embedded-system-types" />
         <Compile Remove="assets/**/*.cs" />
     </ItemGroup>
 

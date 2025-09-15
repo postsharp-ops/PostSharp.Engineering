@@ -1,0 +1,12 @@
+<Project>
+
+    <ItemGroup>
+        <Compile Include="$(MSBuildThisFileDirectory)assets\embedded-system-types\*.cs" Link="(System Types)\%(Filename)" />
+    </ItemGroup>
+
+    <!-- MSBuild should discover the .editorconfig itself from Microsoft.Managed.Core.targets. If it does not, the IncludeSystemTypesEditorConfig property can be set.  -->
+    <ItemGroup Condition="'$(IncludeSystemTypesEditorConfig)'=='True'">
+        <EditorConfigFiles Include="$(MSBuildThisFileDirectory)assets\embedded-system-types\.editorconfig" />
+    </ItemGroup>
+
+</Project>
