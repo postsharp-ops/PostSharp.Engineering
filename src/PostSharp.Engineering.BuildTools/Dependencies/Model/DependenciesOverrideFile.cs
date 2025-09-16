@@ -1,4 +1,6 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
@@ -27,8 +29,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         private DependenciesOverrideFile( string path, BuildConfiguration configuration )
         {
-            FilePath = path;
-            Configuration = configuration;
+            this.FilePath = path;
+            this.Configuration = configuration;
         }
 
         /// <summary>
@@ -41,14 +43,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             BuildContext context,
             CommonCommandSettings settings )
         {
-            if (!VersionFile.TryRead( context, settings, out var versionFile ))
+            if ( !VersionFile.TryRead( context, settings, out var versionFile ) )
             {
                 return false;
             }
 
-            foreach (var dependency in versionFile.Dependencies)
+            foreach ( var dependency in versionFile.Dependencies )
             {
-                Dependencies[dependency.Key] = dependency.Value;
+                this.Dependencies[dependency.Key] = dependency.Value;
             }
 
             return true;
@@ -64,7 +66,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             file = new DependenciesOverrideFile( configurationSpecificVersionFilePath, configuration );
 
-            if (!file.TryLoadDefaultDependencies( context, settings ))
+            if ( !file.TryLoadDefaultDependencies( context, settings ) )
             {
                 file = null;
 
@@ -80,14 +82,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             BuildConfiguration configuration,
             [NotNullWhen( true )] out DependenciesOverrideFile? file )
         {
-            if (!TryLoadDefaultsOnly( context, settings, configuration, out file ))
+            if ( !TryLoadDefaultsOnly( context, settings, configuration, out file ) )
             {
                 return false;
             }
 
             var filePath = file.FilePath;
 
-            if (!File.Exists( filePath ))
+            if ( !File.Exists( filePath ) )
             {
                 return true;
             }
@@ -105,7 +107,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             var productFamily = project.Element( "PropertyGroup" )?.Element( "ProductFamily" )?.Value;
             var productFamilyVersion = project.Element( "PropertyGroup" )?.Element( "ProductFamilyVersion" )?.Value;
 
-            if (( productFamily != context.Product.ProductFamily.Name || productFamilyVersion != context.Product.ProductFamily.Version ) && !settings.Force)
+            if ( (productFamily != context.Product.ProductFamily.Name || productFamilyVersion != context.Product.ProductFamily.Version) && !settings.Force )
             {
                 context.Console.WriteError(
                     $"The file '{filePath}' was generated for a different version of this repo ({productFamily} {productFamilyVersion}). Clean your repo or use --force." );
@@ -116,21 +118,21 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             // Load dependencies.
             var itemGroup = project.Element( "ItemGroup" );
 
-            if (itemGroup != null)
+            if ( itemGroup != null )
             {
-                foreach (var item in itemGroup.Elements())
+                foreach ( var item in itemGroup.Elements() )
                 {
                     var name = item.Attribute( "Include" )?.Value;
                     var kindString = item.Element( "Kind" )?.Value;
 
-                    if (name == null || kindString == null)
+                    if ( name == null || kindString == null )
                     {
                         context.Console.WriteMessage( $"Invalid dependency file." );
 
                         continue;
                     }
 
-                    if (!Enum.TryParse<DependencySourceKind>( kindString, out var kind ))
+                    if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
                     {
                         context.Console.WriteWarning(
                             $"The dependency kind '{kindString}' defined in '{filePath}' is not supported. Skipping the parsing of this dependency." );
@@ -140,7 +142,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                     var originString = item.Element( "Origin" )?.Value;
 
-                    if (originString == null || !Enum.TryParse( originString, out DependencyConfigurationOrigin origin ))
+                    if ( originString == null || !Enum.TryParse( originString, out DependencyConfigurationOrigin origin ) )
                     {
                         origin = DependencyConfigurationOrigin.Unknown;
                     }
@@ -152,9 +154,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
                         versionFile1 = item.Element( "VersionFile" )?.Value;
 
-                        if (!string.IsNullOrEmpty( buildNumber ))
+                        if ( !string.IsNullOrEmpty( buildNumber ) )
                         {
-                            if (string.IsNullOrEmpty( ciBuildTypeId ))
+                            if ( string.IsNullOrEmpty( ciBuildTypeId ) )
                             {
                                 context.Console.WriteError( $"The property CiBuildTypeId of dependency {name} is required in '{filePath}'." );
 
@@ -165,7 +167,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                             ciBuildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
                         }
-                        else if (!string.IsNullOrEmpty( branch ))
+                        else if ( !string.IsNullOrEmpty( branch ) )
                         {
                             ciBuildSpec = new CiLatestBuildOfBranch( branch );
                         }
@@ -177,7 +179,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         return true;
                     }
 
-                    switch (kind)
+                    switch ( kind )
                     {
                         case DependencySourceKind.Feed:
                             var version = item.Element( "Version" )?.Value;
@@ -189,94 +191,94 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                             break;
 
                         case DependencySourceKind.Local:
-                        {
-                            var dependencySource = DependencySource.CreateLocalRepo( origin );
-
-                            dependencySource.VersionFile = Path.GetFullPath(
-                                Path.Combine(
-                                    context.RepoDirectory,
-                                    "..",
-                                    name,
-                                    name + ".Import.props" ) );
-
-                            file.Dependencies[name] = dependencySource;
-
-                            break;
-                        }
-
-                        case DependencySourceKind.RestoredDependency:
-                        {
-                            if (!TryGetBuildId( out var versionFile, out var buildSpec ))
                             {
-                                return false;
-                            }
-
-                            if (TeamCityHelper.IsTeamCityBuild( settings ))
-                            {
-                                if (buildSpec == null)
-                                {
-                                    throw new InvalidOperationException( "CiBuildId cannot be null when running under TeamCity." );
-                                }
-
-                                var dependencySource = DependencySource.CreateRestoredDependency( (CiBuildId)buildSpec, origin );
+                                var dependencySource = DependencySource.CreateLocalRepo( origin );
 
                                 dependencySource.VersionFile = Path.GetFullPath(
                                     Path.Combine(
                                         context.RepoDirectory,
-                                        "dependencies",
+                                        "..",
                                         name,
-                                        name + ".version.props" ) );
+                                        name + ".Import.props" ) );
 
                                 file.Dependencies[name] = dependencySource;
+
+                                break;
                             }
-                            else
+
+                        case DependencySourceKind.RestoredDependency:
                             {
-                                DependencySource dependencySource;
-
-                                if (buildSpec != null)
+                                if ( !TryGetBuildId( out var versionFile, out var buildSpec ) )
                                 {
-                                    // We can have a restored dependency on a developer machine because of transitive dependencies
-                                    // of TeamCity build. In this case, we consider that the source is the CI build itself
-                                    // -- the exact build number with which the first-level dependency was built.
+                                    return false;
+                                }
 
-                                    dependencySource = DependencySource.CreateBuildServerSource( buildSpec, origin );
+                                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+                                {
+                                    if ( buildSpec == null )
+                                    {
+                                        throw new InvalidOperationException( "CiBuildId cannot be null when running under TeamCity." );
+                                    }
+
+                                    var dependencySource = DependencySource.CreateRestoredDependency( (CiBuildId) buildSpec, origin );
+
+                                    dependencySource.VersionFile = Path.GetFullPath(
+                                        Path.Combine(
+                                            context.RepoDirectory,
+                                            "dependencies",
+                                            name,
+                                            name + ".version.props" ) );
+
+                                    file.Dependencies[name] = dependencySource;
                                 }
                                 else
                                 {
-                                    // On Docker, the local dependencies of the host are copied as restored dependencies in the container.
+                                    DependencySource dependencySource;
 
-                                    dependencySource = DependencySource.CreateRestoredDependency( null, origin );
+                                    if ( buildSpec != null )
+                                    {
+                                        // We can have a restored dependency on a developer machine because of transitive dependencies
+                                        // of TeamCity build. In this case, we consider that the source is the CI build itself
+                                        // -- the exact build number with which the first-level dependency was built.
+
+                                        dependencySource = DependencySource.CreateBuildServerSource( buildSpec, origin );
+                                    }
+                                    else
+                                    {
+                                        // On Docker, the local dependencies of the host are copied as restored dependencies in the container.
+
+                                        dependencySource = DependencySource.CreateRestoredDependency( null, origin );
+                                    }
+
+                                    dependencySource.VersionFile = versionFile;
+                                    file.Dependencies[name] = dependencySource;
                                 }
+
+                                break;
+                            }
+
+                        case DependencySourceKind.BuildServer:
+                            {
+                                if ( !TryGetBuildId( out var versionFile, out var buildSpec ) )
+                                {
+                                    return false;
+                                }
+
+                                if ( buildSpec == null )
+                                {
+                                    throw new InvalidOperationException( "CiBuildId cannot be null when the source kind is BuildServer." );
+                                }
+
+                                var dependencySource =
+                                    DependencySource.CreateBuildServerSource(
+                                        buildSpec,
+                                        origin );
 
                                 dependencySource.VersionFile = versionFile;
                                 file.Dependencies[name] = dependencySource;
+
+                                break;
                             }
-
-                            break;
-                        }
-
-                        case DependencySourceKind.BuildServer:
-                        {
-                            if (!TryGetBuildId( out var versionFile, out var buildSpec ))
-                            {
-                                return false;
-                            }
-
-                            if (buildSpec == null)
-                            {
-                                throw new InvalidOperationException( "CiBuildId cannot be null when the source kind is BuildServer." );
-                            }
-
-                            var dependencySource =
-                                DependencySource.CreateBuildServerSource(
-                                    buildSpec,
-                                    origin );
-
-                            dependencySource.VersionFile = versionFile;
-                            file.Dependencies[name] = dependencySource;
-
-                            break;
-                        }
 
                         default:
                             throw new InvalidVersionFileException();
@@ -289,18 +291,33 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public bool TrySave( BuildContext context, CommonCommandSettings settings )
         {
-            context.Console.WriteMessage( $"Writing '{FilePath}'." );
+            context.Console.WriteMessage( $"Writing '{this.FilePath}'." );
+
+            StreamWriter? dockerMountsWriter;
+
+            if ( context.Product.UseDocker )
+            {
+                var dockersMountsPath = Path.Combine( Path.GetDirectoryName( this.FilePath )!, "DockerMounts.g.ps1" );
+                context.Console.WriteMessage( $"Writing '{dockersMountsPath}'." );
+                dockerMountsWriter = File.CreateText( dockersMountsPath );
+                dockerMountsWriter.WriteLine( $"# File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}, method {nameof(DependenciesOverrideFile)}.{nameof(this.TrySave)}." ) ;
+                dockerMountsWriter.WriteLine();
+            }
+            else
+            {
+                dockerMountsWriter = null;
+            }
 
             var project = new XElement( "Project", new XAttribute( "InitialTargets", "VerifyProductDependencies" ) );
             var document = new XDocument( project );
 
             project.Add(
                 new XComment(
-                    $"File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}, method {nameof(DependenciesOverrideFile)}.{nameof(TrySave)}." ) );
+                    $"File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}, method {nameof(DependenciesOverrideFile)}.{nameof(this.TrySave)}." ) );
 
             var requiredFiles = new List<string>();
 
-            void AddImport( string file, bool required = true, string? label = null )
+            void AddImport( string file, bool required = true, string? label = null, bool addDockerMountPoint = true )
             {
                 // We used to generate relative paths and not absolute because the filesystem could be accessed from a different machine or virtual
                 // machine. Now, we are using absolute path because we want to support junctions in source dependencies. It seems that both
@@ -308,28 +325,37 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 var element = new XElement( "Import", new XAttribute( "Project", file ), new XAttribute( "Condition", $"Exists( '{file}' )" ) );
 
-                if (label != null)
+                if ( label != null )
                 {
                     element.Add( new XAttribute( "Label", label ) );
                 }
 
                 project.Add( element );
 
-                if (required)
+                if ( required )
                 {
                     requiredFiles.Add( file );
                 }
+
+                if ( context.Product.UseDocker && addDockerMountPoint )
+                {
+                    var mountPoint = Path.GetDirectoryName( file )!;
+                    dockerMountsWriter!.WriteLine($"# {file}");
+                    dockerMountsWriter.WriteLine( $"$VolumeMappings += @(\"-v\", \"{mountPoint}:{mountPoint}:ro\")" );
+                    dockerMountsWriter.WriteLine( $"$MountPoints += \"{mountPoint}\"" );
+                    dockerMountsWriter.WriteLine();
+                }
             }
 
-            if (LocalBuildFile != null)
+            if ( this.LocalBuildFile != null )
             {
-                AddImport( LocalBuildFile, false, "Current" );
+                AddImport( this.LocalBuildFile, false, "Current", false );
             }
 
             var itemGroup = new XElement( "ItemGroup" );
             project.Add( itemGroup );
 
-            foreach (var dependency in Dependencies.OrderBy( d => d.Key ))
+            foreach ( var dependency in this.Dependencies.OrderBy( d => d.Key ) )
             {
                 var ignoreDependency = false;
 
@@ -342,7 +368,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 void AddIfNotNull( string name, string? value )
                 {
-                    if (value != null)
+                    if ( value != null )
                     {
                         item.Add( new XElement( name, value ) );
                     }
@@ -350,7 +376,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 void WriteBuildServerSource()
                 {
-                    switch (dependencySource.BuildServerSource)
+                    switch ( dependencySource.BuildServerSource )
                     {
                         case CiLatestBuildOfBranch branch:
                             AddIfNotNull( "Branch", branch.Name );
@@ -365,71 +391,71 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     }
                 }
 
-                switch (dependencySource.SourceKind)
+                switch ( dependencySource.SourceKind )
                 {
                     case DependencySourceKind.BuildServer:
                     case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild( settings ):
-                    {
-                        var dependencyDefinition = context.Product.ParametrizedDependencies.SingleOrDefault( p => p.Name == dependency.Key )?.Definition;
-
-                        if (dependencyDefinition == null
-                            && !context.Product.ProductFamily.TryGetDependencyDefinition( dependency.Key, out dependencyDefinition ))
                         {
-                            context.Console.WriteWarning( $"The dependency '{dependency.Key}' is not configured. Ignoring." );
-                            ignoreDependency = true;
-                        }
-                        else
-                        {
-                            var versionFile = dependencySource.VersionFile;
+                            var dependencyDefinition = context.Product.ParametrizedDependencies.SingleOrDefault( p => p.Name == dependency.Key )?.Definition;
 
-                            if (versionFile == null)
+                            if ( dependencyDefinition == null
+                                 && !context.Product.ProductFamily.TryGetDependencyDefinition( dependency.Key, out dependencyDefinition ) )
                             {
-                                throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
+                                context.Console.WriteWarning( $"The dependency '{dependency.Key}' is not configured. Ignoring." );
+                                ignoreDependency = true;
                             }
+                            else
+                            {
+                                var versionFile = dependencySource.VersionFile;
 
-                            WriteBuildServerSource();
+                                if ( versionFile == null )
+                                {
+                                    throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
+                                }
 
-                            AddIfNotNull( "VersionFile", versionFile );
-                            AddImport( versionFile );
+                                WriteBuildServerSource();
+
+                                AddIfNotNull( "VersionFile", versionFile );
+                                AddImport( versionFile );
+                            }
                         }
-                    }
 
                         break;
 
                     case DependencySourceKind.Local:
-                    {
-                        var importProjectFile = Path.GetFullPath(
-                            Path.Combine(
-                                context.RepoDirectory,
-                                "..",
-                                dependency.Key,
-                                dependency.Key + ".Import.props" ) );
+                        {
+                            var importProjectFile = Path.GetFullPath(
+                                Path.Combine(
+                                    context.RepoDirectory,
+                                    "..",
+                                    dependency.Key,
+                                    dependency.Key + ".Import.props" ) );
 
-                        AddImport( importProjectFile );
-                    }
+                            AddImport( importProjectFile );
+                        }
 
                         break;
 
                     case DependencySourceKind.RestoredDependency:
-                    {
-                        var importProjectFile = Path.GetFullPath(
-                            Path.Combine(
-                                context.RepoDirectory,
-                                "dependencies",
-                                dependency.Key,
-                                dependency.Key + ".version.props" ) );
+                        {
+                            var importProjectFile = Path.GetFullPath(
+                                Path.Combine(
+                                    context.RepoDirectory,
+                                    "dependencies",
+                                    dependency.Key,
+                                    dependency.Key + ".version.props" ) );
 
-                        AddImport( importProjectFile );
+                            AddImport( importProjectFile );
 
-                        WriteBuildServerSource();
-                    }
+                            WriteBuildServerSource();
+                        }
 
                         break;
 
                     case DependencySourceKind.Feed:
-                    {
-                        AddIfNotNull( "Version", dependencySource.Version );
-                    }
+                        {
+                            AddIfNotNull( "Version", dependencySource.Version );
+                        }
 
                         break;
 
@@ -439,7 +465,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 item.Add( new XElement( "Origin", dependencySource.Origin ) );
 
-                if (!ignoreDependency)
+                if ( !ignoreDependency )
                 {
                     itemGroup.Add( item );
                 }
@@ -457,7 +483,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             var msbuild = MSBuildHelper.FindLatestMSBuildExe( context );
 
-            if (msbuild != null)
+            if ( msbuild != null )
             {
                 properties.Add( new XElement( "MSBuildExePath", "\"" + msbuild + "\"" ) );
             }
@@ -469,7 +495,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             project.Add( verifyFilesTarget );
 
-            foreach (var requiredFile in requiredFiles)
+            foreach ( var requiredFile in requiredFiles )
             {
                 verifyFilesTarget.Add(
                     new XElement(
@@ -478,7 +504,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         new XAttribute( "Condition", $"!Exists( '{requiredFile}' )" ) ) );
             }
 
-            document.Save( FilePath );
+            document.Save( this.FilePath );
+            dockerMountsWriter?.Dispose();
 
             return true;
         }
@@ -493,13 +520,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             table.AddColumn( "Path" );
 
             // Add direct dependencies.
-            for (var i = 0; i < context.Product.ParametrizedDependencies.Length; i++)
+            for ( var i = 0; i < context.Product.ParametrizedDependencies.Length; i++ )
             {
                 var name = context.Product.ParametrizedDependencies[i].Name;
 
-                var rowNumber = ( i + 1 ).ToString( CultureInfo.InvariantCulture );
+                var rowNumber = (i + 1).ToString( CultureInfo.InvariantCulture );
 
-                if (!Dependencies.TryGetValue( name, out var source ))
+                if ( !this.Dependencies.TryGetValue( name, out var source ) )
                 {
                     table.AddRow( rowNumber, name, "<missing>", "" );
                 }
@@ -510,9 +537,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             }
 
             // Add implicit dependencies (if previously fetched).
-            foreach (var dependency in Dependencies)
+            foreach ( var dependency in this.Dependencies )
             {
-                if (context.Product.ParametrizedDependencies.Any( d => d.Name == dependency.Key ))
+                if ( context.Product.ParametrizedDependencies.Any( d => d.Name == dependency.Key ) )
                 {
                     continue;
                 }
@@ -526,11 +553,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public bool Fetch( BuildContext context )
         {
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
-            if (Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ))
+            if ( this.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
             {
-                context.Console.WriteMessage( $"Fetching dependencies for configuration {Configuration}." );
+                context.Console.WriteMessage( $"Fetching dependencies for configuration {this.Configuration}." );
 
-                if (!DependenciesHelper.UpdateOrFetchDependencies( context, Configuration, this, false ))
+                if ( !DependenciesHelper.UpdateOrFetchDependencies( context, this.Configuration, this, false ) )
                 {
                     return false;
                 }
