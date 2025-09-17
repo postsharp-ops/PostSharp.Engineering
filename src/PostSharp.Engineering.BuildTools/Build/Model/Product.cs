@@ -1450,10 +1450,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     // Skip any feed dependency, so it will be fall back to the default package source.
                     continue;
                 }
+                else if ( dependencySource.Value.VersionFile == null )
+                {
+                    context.Console.WriteWarning( $"Cannot determine the package directory for dependency '{dependencySource.Key}'." );
+
+                    continue;
+                }
                 
                 var dependencyDefinition = product.GetDependencyDefinition( dependencySource.Key );
                 var parametrizedDependency = product.ParametrizedDependencies.Single( d => d.Name == dependencySource.Key );
-                var dependencyDirectory = Path.GetDirectoryName( dependencySource.Value.VersionFile );
+                var dependencyDirectory = Path.GetDirectoryName( dependencySource.Value.VersionFile )!;
 
                 if ( dependencySource.Value.SourceKind == DependencySourceKind.Local )
                 {
