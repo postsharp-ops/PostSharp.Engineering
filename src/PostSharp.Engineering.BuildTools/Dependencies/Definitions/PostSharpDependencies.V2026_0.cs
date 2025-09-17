@@ -39,11 +39,6 @@ public static partial class PostSharpDependencies
                     false )
             {
                 this.EngineeringDirectory = @"Build\Distribution\eng";
-
-                // We intentionally exclude PostSharp.Engineering.Sdk because it is referenced from global.json
-                // which is not often updated referencing PostSharp.Engineering locally, so exact the package version
-                // is not present in the local artifact directory.
-                this.PackagePatterns = ["PostSharp.Engineering.BuildTools.*"];
             }
         }
 

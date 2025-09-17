@@ -89,10 +89,10 @@ public static partial class MetalamaDependencies
                 PackagePatterns =
                 [
                     "Metalama.Backstage*",
-                    "Metalama.Framework*", 
-                    "Metalama.Extensions*", 
+                    "Metalama.Framework*",
+                    "Metalama.Extensions*",
                     "Metalama.Patterns*",
-                    "Metalama.LinqPad*", 
+                    "Metalama.LinqPad*",
                     "Metalama.Migration*",
                     "Metalama.Testing.*",
                     "Metalama.Tool"
@@ -107,6 +107,8 @@ public static partial class MetalamaDependencies
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.Metalama )
             {
+                PackagePatterns = ["Metalama.Patterns.*"]
+
                 // SuppressUpstream = true
             };
 
