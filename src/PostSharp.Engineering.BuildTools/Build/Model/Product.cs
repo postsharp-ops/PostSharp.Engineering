@@ -1392,13 +1392,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool TryGenerateNuGetConfig( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile, BuildSettings buildSettings )
         {
-            if ( dependenciesOverrideFile.Dependencies.Values.Any( d => d.VersionFile == null ) )
+            // Fetch to resolve the VersionFile properties.
+            if ( !dependenciesOverrideFile.Fetch( context ) )
             {
-                // Fetch to resolve the VersionFile properties.
-                if ( !dependenciesOverrideFile.Fetch( context ) )
-                {
-                    return false;
-                }
+                return false;
             }
 
             var product = context.Product;
