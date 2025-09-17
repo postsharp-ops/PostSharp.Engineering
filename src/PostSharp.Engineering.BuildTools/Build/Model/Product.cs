@@ -1443,13 +1443,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             AddDirectory( product.ProductName, artifactDirectory, product.DependencyDefinition.PackagePatterns );
 
             // Add dependencies.
-            foreach ( var dependency in dependenciesOverrideFile.Dependencies )
+            foreach ( var dependencySource in dependenciesOverrideFile.Dependencies )
             {
-                var dependencyDefinition = product.GetDependencyDefinition( dependency.Key );
-                var parametrizedDependency = product.ParametrizedDependencies.Single( d => d.Name == dependency.Key );
-                var dependencyDirectory = Path.GetDirectoryName( dependency.Value.VersionFile )!;
+                if ( dependencySource.Value.SourceKind == DependencySourceKind.Feed )
+                {
+                    // Skip any feed dependency, so it will be fall back to the default package source.
+                    continue;
+                }
+                
+                var dependencyDefinition = product.GetDependencyDefinition( dependencySource.Key );
+                var parametrizedDependency = product.ParametrizedDependencies.Single( d => d.Name == dependencySource.Key );
+                var dependencyDirectory = Path.GetDirectoryName( dependencySource.Value.VersionFile );
 
-                if ( dependency.Value.SourceKind == DependencySourceKind.Local )
+                if ( dependencySource.Value.SourceKind == DependencySourceKind.Local )
                 {
                     dependencyDirectory = Path.Combine(
                         dependencyDirectory,
@@ -1461,7 +1467,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 null ) ) );
                 }
 
-                if ( !AddDirectory( dependency.Key, dependencyDirectory, dependencyDefinition.PackagePatterns ) )
+                if ( !AddDirectory( dependencySource.Key, dependencyDirectory, dependencyDefinition.PackagePatterns ) )
                 {
                     return false;
                 }
