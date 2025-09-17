@@ -4,8 +4,7 @@ namespace PostSharp.Engineering.BuildTools;
 
 public static class EnvironmentVariableNames
 {
-    public const string TeamCityOnPremToken = "TEAMCITY_TOKEN";
-    public const string TeamCityCloudToken = "TEAMCITY_CLOUD_TOKEN";
+    public const string TeamCityToken = "TEAMCITY_CLOUD_TOKEN";
     public const string VsMarketplaceAccessToken = "VS_MARKETPLACE_ACCESS_TOKEN";
     public const string GitHubToken = "GITHUB_TOKEN";
     public const string IsPostSharpOwned = "IS_POSTSHARP_OWNED";
@@ -25,8 +24,7 @@ public static class EnvironmentVariableNames
 
     public static readonly string[] All =
     [
-        TeamCityOnPremToken,
-        TeamCityCloudToken,
+        TeamCityToken,
         VsMarketplaceAccessToken,
         GitHubToken,
         IsPostSharpOwned,
@@ -44,5 +42,4 @@ public static class EnvironmentVariableNames
         TypeSenseApiKey,
         AzIdentityUserName
     ];
-
 }

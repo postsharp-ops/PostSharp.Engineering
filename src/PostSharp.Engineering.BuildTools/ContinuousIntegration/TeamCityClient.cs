@@ -241,7 +241,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool IsBuildQueued( ConsoleHelper console, string buildId )
         {
-            if ( !this.TryGet( TeamCityHelper.TeamcityApiBuildQueuePath, console, out var response ) )
+            if ( !this.TryGet( TeamCityHelper.TeamCityApiBuildQueuePath, console, out var response ) )
             {
                 return false;
             }

@@ -23,21 +23,22 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class TeamCityHelper
 {
-    public const string TeamCityOnPremUrl = "https://tc.postsharp.net";
     public const string TeamCityCloudUrl = "https://postsharp.teamcity.com";
     public const string TeamCityUsername = "teamcity@postsharp.net";
-    public const string TeamcityApiBuildQueuePath = $"/app/rest/buildQueue";
+    public const string TeamCityApiBuildQueuePath = $"/app/rest/buildQueue";
     public const string TeamCityApiRunningBuildsPath = "/app/rest/builds?locator=state:running";
     public const string TeamCityApiFinishedBuildsPath = "/app/rest/builds?locator=state:finished";
 
     public static bool IsTeamCityBuild( CommonCommandSettings settings )
-        => settings.SimulateContinuousIntegration || Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() == "true";
+        => settings.SimulateContinuousIntegration
+           || Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() == "true";
 
     public static ImmutableDictionary<string, string?> GetSimulatedContinuousIntegrationEnvironmentVariables( CommonCommandSettings settings )
     {
         if ( settings.SimulateContinuousIntegration )
         {
-            var isIsTeamCityAgentEnvironmentVariableSet = Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() == "true";
+            var isIsTeamCityAgentEnvironmentVariableSet =
+                Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() == "true";
 
             if ( !isIsTeamCityAgentEnvironmentVariableSet )
             {
@@ -290,7 +291,6 @@ public static class TeamCityHelper
     public static CiProjectConfiguration CreateConfiguration(
         TeamCityProjectId teamCityProjectId,
         bool hasVersionBump = true,
-        bool isCloudInstance = true,
         bool pullRequestRequiresStatusCheck = true,
         string? pullRequestStatusCheckBuildType = null,
         string? vcsRootProjectId = null )
@@ -308,19 +308,9 @@ public static class TeamCityHelper
         }
 
         var deploymentBuildType = $"{teamCityProjectId}_PublicDeployment";
-        string tokenEnvironmentVariableName;
-        string baseUrl;
 
-        if ( isCloudInstance )
-        {
-            tokenEnvironmentVariableName = EnvironmentVariableNames.TeamCityCloudToken;
-            baseUrl = TeamCityCloudUrl;
-        }
-        else
-        {
-            tokenEnvironmentVariableName = EnvironmentVariableNames.TeamCityOnPremToken;
-            baseUrl = TeamCityOnPremUrl;
-        }
+        var tokenEnvironmentVariableName = EnvironmentVariableNames.TeamCityToken;
+        var baseUrl = TeamCityCloudUrl;
 
         return new CiProjectConfiguration(
             teamCityProjectId,
@@ -767,8 +757,8 @@ public static class TeamCityHelper
             List<TeamCitySnapshotDependency> dependencies = new();
             consolidatedBuildConfiguration = null;
             nuGetBuildConfiguration = null;
-            dependenciesByProjectId = new();
-            nuGetDependencies = new();
+            dependenciesByProjectId = new Dictionary<string, HashSet<string>>();
+            nuGetDependencies = new List<TeamCitySnapshotDependency>();
             buildArtifactRules = null;
 
             foreach ( var buildConfiguration in buildConfigurationsByKind[consolidatedBuildObjectName] )
@@ -811,16 +801,16 @@ public static class TeamCityHelper
                     ];
 
                     var artifactRules = string.Join( "\\n", rules );
-                    
+
                     nuGetDependencies.Add(
-                        new(
+                        new TeamCitySnapshotDependency(
                             buildConfiguration.BuildConfigurationId,
                             true,
                             artifactRules ) );
                 }
 
                 dependencies.Add(
-                    new(
+                    new TeamCitySnapshotDependency(
                         buildConfiguration.BuildConfigurationId,
                         true ) );
 
@@ -851,7 +841,7 @@ public static class TeamCityHelper
 
             var nuGetBuildCiId = $"{consolidatedProjectIdPrefix}{nuGetBuildObjectName}";
 
-            dependencies.Add( new( nuGetBuildCiId, true ) );
+            dependencies.Add( new TeamCitySnapshotDependency( nuGetBuildCiId, true ) );
 
             var defaultBuildBranch = configuration switch
             {
@@ -861,10 +851,12 @@ public static class TeamCityHelper
             };
 
             consolidatedBuildConfiguration =
-                new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, defaultBuildBranch, defaultBranchParameter, vcsRootId )
-                {
-                    SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers
-                };
+                new TeamCityBuildConfiguration(
+                    consolidatedBuildObjectName,
+                    consolidatedBuildConfigurationName,
+                    defaultBuildBranch,
+                    defaultBranchParameter,
+                    vcsRootId ) { SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers };
 
             DockerSpec? dockerSpec = null;
 
@@ -872,12 +864,12 @@ public static class TeamCityHelper
             {
                 dockerSpec = new DockerSpec( $"{product.ProductNameWithoutDot}-{product.ProductFamily.Version}" );
             }
-            
+
             var nuGetBuildSteps =
                 new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, dockerSpec ) };
 
             // The default branch is the same as for public build of any other project - see the build configuration of a regular project.
-            nuGetBuildConfiguration = new(
+            nuGetBuildConfiguration = new TeamCityBuildConfiguration(
                 nuGetBuildObjectName,
                 nuGetBuildConfigurationName,
                 defaultBranch,
@@ -977,8 +969,7 @@ public static class TeamCityHelper
                         // The nightly build is done on the develop branch to find issues early and to prepare for the deployment.
                         // The manually triggered build is done on the release branch to allow for deployment without merge freeze.
                         // Any successful build of the same commit done on the develop branch is reused by TeamCity when deploying from the release branch.
-                        BranchFilter = $"+:{defaultBranch}",
-                        Parameters = [new TeamCityBuildConfigurationParameter( "DefaultBranch", defaultBranch )]
+                        BranchFilter = $"+:{defaultBranch}", Parameters = [new TeamCityBuildConfigurationParameter( "DefaultBranch", defaultBranch )]
                     }
                 ],
                 MarkNuGetObjectId( publicBuildObjectName ),
@@ -1038,10 +1029,7 @@ public static class TeamCityHelper
                     $"Bump{bumpedProjectId.Split( '_' ).Last()}",
                     $"Bump version of {bumpedProjectName}",
                     "bump",
-                    areCustomArgumentsAllowed: true )
-                {
-                    WorkingDirectory = $"source-dependencies/{bumpedProjectName}"
-                } );
+                    areCustomArgumentsAllowed: true ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
 
             consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefinition( dependencyDefinition ) );
 
@@ -1123,10 +1111,10 @@ public static class TeamCityHelper
                     if ( dependencyBranch == null )
                     {
                         context.Console.WriteError( $"The '{projectDependencyDefinition.Name}' doesn't have the required branch set for {command}ing." );
-                        
+
                         return false;
                     }
-                    
+
                     parameters.Add(
                         new TeamCityTextBuildConfigurationParameterBase(
                             projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
@@ -1143,10 +1131,7 @@ public static class TeamCityHelper
                         $"{commandName} deployment of {project.Name}",
                         command,
                         "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies",
-                        areCustomArgumentsAllowed: true )
-                    {
-                        WorkingDirectory = $"source-dependencies/{project.Name}"
-                    } );
+                        areCustomArgumentsAllowed: true ) { WorkingDirectory = $"source-dependencies/{project.Name}" } );
 
                 // Dependencies outside of the product family are fetched from the artifacts.
                 if ( buildConfigurationsById.TryGetValue( $"{project.Id}_{publicBuildObjectName}", out var publicBuildConfiguration ) )
@@ -1178,7 +1163,7 @@ public static class TeamCityHelper
                             var artifactRules =
                                 $"+:{dependencyPrivateArtifactsDirectory}/{dependencyName}.version.props=>source-dependencies/{project.Name}/dependencies/{dependencyName}";
 
-                            snapshotDependencies.Add( new( dependencyConfigurationId, true, artifactRules ) );
+                            snapshotDependencies.Add( new TeamCitySnapshotDependency( dependencyConfigurationId, true, artifactRules ) );
                         }
                     }
                 }
@@ -1195,13 +1180,13 @@ public static class TeamCityHelper
                 {
                     WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
                 } );
-            
+
             var branch = getBranch( product.DependencyDefinition );
 
             if ( branch == null )
             {
                 context.Console.WriteError( $"The consolidated project doesn't have the required branch set for {command}ing." );
-                        
+
                 return false;
             }
 
@@ -1250,15 +1235,14 @@ public static class TeamCityHelper
         //       Here we include all Public builds which will cause download of all artifacts.
         var nuGetPublicDeploymentDependencies =
             nuGetPublicBuildDependencies
-                .Select(
-                    d => new TeamCitySnapshotDependency(
-                        d.ObjectId.Replace( $"_{publicBuildObjectName}", $"_{publicDeploymentObjectName}", StringComparison.Ordinal ),
-                        true ) )
+                .Select( d => new TeamCitySnapshotDependency(
+                             d.ObjectId.Replace( $"_{publicBuildObjectName}", $"_{publicDeploymentObjectName}", StringComparison.Ordinal ),
+                             true ) )
                 .Concat( nuGetPublicBuildDependencies )
-                .Append( new( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
+                .Append( new TeamCitySnapshotDependency( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
 
         nuGetConfigurations.Add(
-            new(
+            new TeamCityBuildConfiguration(
                 MarkNuGetObjectId( publicDeploymentObjectName ),
                 publicDeploymentName,
                 deploymentBranch,
@@ -1286,14 +1270,14 @@ public static class TeamCityHelper
             publicDeploymentBuildConfigurationIds
                 .Concat( publicDeploymentDependants )
                 .Select( c => new TeamCitySnapshotDependency( c, true ) )
-                .Append( new( publicConsolidatedBuildCiId, true ) )
-                .Append( new( publicNuGetDeploymentCiId, true ) );
+                .Append( new TeamCitySnapshotDependency( publicConsolidatedBuildCiId, true ) )
+                .Append( new TeamCitySnapshotDependency( publicNuGetDeploymentCiId, true ) );
 
         tcConfigurations.Add(
             new TeamCityBuildConfiguration(
                 publicDeploymentObjectName,
                 $"4. {publicDeploymentName}",
-                
+
                 // We should use deploymentBranch here, but TeamCity doesn't support parameterized branches in snapshot dependencies.
                 defaultBranch,
                 defaultBranchParameter,

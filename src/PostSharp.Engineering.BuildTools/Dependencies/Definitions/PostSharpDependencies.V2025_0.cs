@@ -17,7 +17,8 @@ public static partial class PostSharpDependencies
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
             private static readonly TeamCityProjectId _teamCityProjectId = new(
-                $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}", "PostSharpGitHub" );
+                $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}",
+                "PostSharpGitHub" );
 
             private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildDistribution";
 
@@ -33,7 +34,7 @@ public static partial class PostSharpDependencies
                         new ConfigurationSpecific<string>( "not-used", _distributionBuildId, "not-used" ),
                         null,
                         null,
-                        TeamCityHelper.TeamCityCloudTokenEnvironmentVariableName,
+                        EnvironmentVariableNames.TeamCityToken,
                         TeamCityHelper.TeamCityCloudUrl ),
                     false )
             {

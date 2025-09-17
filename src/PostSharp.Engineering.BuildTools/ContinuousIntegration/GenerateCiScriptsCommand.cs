@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
@@ -29,26 +30,34 @@ public class GenerateCiScriptsCommand : BaseCommand<CommonCommandSettings>
             }
         }
 
-        var dockerBuildScriptPath = Path.Combine( context.RepoDirectory, "DockerBuild.ps1" );
-        
         if ( product.UseDocker )
         {
-            // Extract DockerBuild.ps1.
-            using var resource = this.GetType().Assembly.GetManifestResourceStream( "PostSharp.Engineering.BuildTools.Resources.DockerBuild.ps1" )
-                                 ?? throw new InvalidOperationException( "Cannot find the resource DockerBuild.ps1." );
-            
-            using var reader = new StreamReader( resource );
-            var script = reader.ReadToEnd();
-            script = script.Replace( "<ENG_PATH>", product.EngineeringDirectory, StringComparison.Ordinal );
-
-            if ( !File.Exists( dockerBuildScriptPath ) || File.ReadAllText( dockerBuildScriptPath ) != script )
-            {
-                context.Console.WriteMessage( $"Writing '{dockerBuildScriptPath}'." );
-
-                File.WriteAllText( dockerBuildScriptPath, script );
-            }
+            ExtractScript( "DockerBuild.ps1", "" );
+            ExtractScript( "ReadSecrets.ps1", Path.Combine( product.EngineeringDirectory, "docker-context" ) );
         }
 
         return true;
+
+        void ExtractScript( string fileName, string targetDirectory )
+        {
+            var targetPath = Path.Combine( context.RepoDirectory, targetDirectory, fileName );
+
+            using var resource = this.GetType().Assembly.GetManifestResourceStream( $"PostSharp.Engineering.BuildTools.Resources.{fileName}" )
+                                 ?? throw new InvalidOperationException( $"Cannot find the resource {fileName}." );
+
+            using var reader = new StreamReader( resource );
+            var script = reader.ReadToEnd();
+
+            script = script
+                .Replace( "<ENG_PATH>", product.EngineeringDirectory, StringComparison.Ordinal )
+                .Replace( "<ENVIRONMENT_VARIABLES>", string.Join( ",", EnvironmentVariableNames.All.OrderBy( x => x ) ), StringComparison.Ordinal );
+
+            if ( !File.Exists( targetPath ) || File.ReadAllText( targetPath ) != script )
+            {
+                context.Console.WriteMessage( $"Writing '{targetPath}'." );
+
+                File.WriteAllText( targetPath, script );
+            }
+        }
     }
 }
