@@ -93,7 +93,9 @@ public static partial class MetalamaDependencies
                     "Metalama.Extensions*", 
                     "Metalama.Patterns*",
                     "Metalama.LinqPad*", 
-                    "Metalama.Migration*"
+                    "Metalama.Migration*",
+                    "Metalama.Testing.*",
+                    "Metalama.Tool"
                 ]
 
                 // SuppressUpstream = true
