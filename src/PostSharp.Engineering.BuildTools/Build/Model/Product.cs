@@ -1392,6 +1392,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool TryGenerateNuGetConfig( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile, BuildSettings buildSettings )
         {
+            if ( dependenciesOverrideFile.Dependencies.Values.Any( d => d.VersionFile == null ) )
+            {
+                // Fetch to resolve the VersionFile properties.
+                if ( !dependenciesOverrideFile.Fetch( context ) )
+                {
+                    return false;
+                }
+            }
+
             var product = context.Product;
             var baseFilePath = Path.Combine( context.RepoDirectory, "nuget.base.config" );
             var targetFilePath = Path.Combine( context.RepoDirectory, "nuget.config" );
@@ -1467,6 +1476,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             bool AddDirectory( string name, string directory, string[]? patterns )
             {
+                if ( directory == null )
+                {
+                    throw new ArgumentNullException( nameof(directory), $"Null directory for source '{name}'." );
+                }
+
                 var addElement = new XElement( "add" );
                 addElement.Add( new XAttribute( "key", name ) );
                 addElement.Add( new XAttribute( "value", directory ) );
