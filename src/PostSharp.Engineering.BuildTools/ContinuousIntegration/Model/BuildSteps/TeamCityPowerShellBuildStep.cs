@@ -29,13 +29,10 @@ public class TeamCityPowerShellBuildStep : TeamCityBuildStep
 
     public override string GenerateTeamCityCode()
     {
-        var parameters = this.TimeOut != null ? $"param(\"TimeOut\", \"{this.TimeOut.Value.TotalSeconds}\")" : "";
-
         return $@"        powerShell {{
             name = ""{this.Name}""
             id = ""{this.Id}""{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
-            {parameters}
             scriptMode = file {{
                 path = ""{this.ScriptPath}""
             }}

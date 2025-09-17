@@ -53,12 +53,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
                 return SuccessCode.Fatal;
             }
 
-            const string azEndpointsEnvironmentVariableName = "VSS_NUGET_EXTERNAL_FEED_ENDPOINTS";
-
-            if ( apiKey == "az" && Environment.GetEnvironmentVariable( azEndpointsEnvironmentVariableName ) == null )
+            
+            if ( apiKey == "az" && Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzEndpoints ) == null )
             {
                 context.Console.WriteImportantMessage(
-                    $"{azEndpointsEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable or sign in interactively. See https://github.com/microsoft/artifacts-credprovider#use for details." );
+                    $"{EnvironmentVariableNames.AzEndpoints} environment variable not set. If the authorization fails, set this variable or sign in interactively. See https://github.com/microsoft/artifacts-credprovider#use for details." );
             }
 
             var exe = "dotnet";

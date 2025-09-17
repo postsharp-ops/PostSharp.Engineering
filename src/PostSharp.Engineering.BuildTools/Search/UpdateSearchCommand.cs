@@ -48,12 +48,11 @@ public class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
         }
         else
         {
-            const string apiKeyEnvironmentVariableName = "TYPESENSE_API_KEY";
-            var apiKey = Environment.GetEnvironmentVariable( apiKeyEnvironmentVariableName );
+            var apiKey = Environment.GetEnvironmentVariable( EnvironmentVariableNames.TypeSenseApiKey );
 
             if ( apiKey == null )
             {
-                console.WriteError( $"{apiKeyEnvironmentVariableName} environment variable not set." );
+                console.WriteError( $"{EnvironmentVariableNames.TypeSenseApiKey} environment variable not set." );
 
                 return false;
             }

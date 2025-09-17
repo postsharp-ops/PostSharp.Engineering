@@ -71,7 +71,7 @@ public class UpdateSearchProductExtension : ProductExtension
         this.Source = source;
         this.SourceUrl = sourceUrl;
         this.BuildConfigurations = buildConfigurations ?? [BuildConfiguration.Public];
-        this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 5 );
+        this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 30 );
         this.CustomBuildConfigurationName = customBuildConfigurationName;
         this.BuildTriggers = buildTriggers;
     }

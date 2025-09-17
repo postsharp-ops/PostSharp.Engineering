@@ -40,13 +40,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         private static bool Login( ConsoleHelper console, bool dry )
         {
-            const string identityUserNameEnvironmentVariableName = "AZ_IDENTITY_USERNAME";
-            var identityUserName = Environment.GetEnvironmentVariable( identityUserNameEnvironmentVariableName );
+            var identityUserName = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzIdentityUserName );
 
             if ( identityUserName == null )
             {
                 console.WriteImportantMessage(
-                    $"{identityUserNameEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
+                    $"{EnvironmentVariableNames.AzIdentityUserName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
 
                 return true;
             }

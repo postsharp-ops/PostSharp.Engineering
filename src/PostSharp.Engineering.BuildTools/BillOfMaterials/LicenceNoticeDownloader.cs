@@ -28,7 +28,7 @@ public static class LicenceNoticeDownloader
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli
         };
 
-        var gitHubToken = Environment.GetEnvironmentVariable( "GITHUB_TOKEN" );
+        var gitHubToken = Environment.GetEnvironmentVariable( EnvironmentVariableNames.GitHubToken );
 
         if ( string.IsNullOrEmpty( gitHubToken ) )
         {

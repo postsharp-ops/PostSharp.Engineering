@@ -34,13 +34,13 @@ namespace PostSharp.Engineering.BuildTools.S3.Publishers
             var packageConfiguration = this._configuration.Single( c => c.PackageFileName.ToString( buildInfo ) == fileName );
             var hasEnvironmentError = false;
 
-            if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( "AWS_ACCESS_KEY_ID" ) ) )
+            if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( EnvironmentVariableNames.AwsAccessKeyId ) ) )
             {
                 context.Console.WriteError( $"The AWS_ACCESS_KEY_ID environment variable is not defined." );
                 hasEnvironmentError = true;
             }
 
-            if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( "AWS_SECRET_ACCESS_KEY" ) ) )
+            if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( EnvironmentVariableNames.AwsAccessKeySecret ) ) )
             {
                 context.Console.WriteError( $"The AWS_SECRET_ACCESS_KEY environment variable is not defined." );
                 hasEnvironmentError = true;
@@ -51,8 +51,8 @@ namespace PostSharp.Engineering.BuildTools.S3.Publishers
                 return SuccessCode.Fatal;
             }
 
-            var awsAccessKeyId = Environment.GetEnvironmentVariable( "AWS_ACCESS_KEY_ID" );
-            var awsSecretAccessKey = Environment.GetEnvironmentVariable( "AWS_SECRET_ACCESS_KEY" );
+            var awsAccessKeyId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AwsAccessKeyId );
+            var awsSecretAccessKey = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AwsAccessKeySecret );
 
             var message =
                 $"Publishing '{file}' file to '{packageConfiguration.KeyName}' in '{packageConfiguration.BucketName}' bucket in '{packageConfiguration.RegionEndpoint}' region. AWS access key ID: '{awsAccessKeyId}'.";

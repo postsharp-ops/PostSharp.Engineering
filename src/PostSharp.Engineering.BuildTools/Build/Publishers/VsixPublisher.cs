@@ -33,7 +33,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
                 hasEnvironmentError = true;
             }
 
-            if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( "VS_MARKETPLACE_ACCESS_TOKEN" ) ) )
+            if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( EnvironmentVariableNames.VsMarketplaceAccessToken ) ) )
             {
                 context.Console.WriteError( $"The VS_MARKETPLACE_ACCESS_TOKEN environment variable is not defined." );
                 hasEnvironmentError = true;

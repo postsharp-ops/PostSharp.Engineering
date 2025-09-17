@@ -19,15 +19,14 @@ public static class AzureDevOpsHelper
 {
     private static bool TryConnect( ConsoleHelper console, string url, [NotNullWhen( true )] out VssConnection? connection )
     {
-        var user = Environment.GetEnvironmentVariable( "AZURE_DEVOPS_USER" ) ?? "teamcity@postsharp.net";
+        var user = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureDevOpsUser ) ?? "teamcity@postsharp.net";
 
-        const string tokenEnvironmentVariableName = "AZURE_DEVOPS_TOKEN";
-
-        var token = Environment.GetEnvironmentVariable( tokenEnvironmentVariableName );
+        
+        var token = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureDevOpsToken );
 
         if ( string.IsNullOrEmpty( token ) )
         {
-            console.WriteError( $"The '{tokenEnvironmentVariableName}' environment variable is not defined." );
+            console.WriteError( $"The '{EnvironmentVariableNames.AzureDevOpsToken}' environment variable is not defined." );
             connection = null;
 
             return false;

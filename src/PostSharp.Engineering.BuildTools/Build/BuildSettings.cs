@@ -177,7 +177,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         [Description( "Overrides the user name." )]
         [CommandOption( "--user" )]
-        public string UserName { get; set; } = Environment.GetEnvironmentVariable( "ENG_USERNAME" ) ?? Environment.UserName;
+        public string UserName { get; set; } = Environment.GetEnvironmentVariable( EnvironmentVariableNames.EngUserName ) ?? Environment.UserName;
 
         public BuildSettings WithIncludeTests( bool value )
         {

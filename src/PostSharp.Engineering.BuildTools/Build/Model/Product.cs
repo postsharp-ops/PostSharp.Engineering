@@ -134,15 +134,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
-        public TimeSpan BuildTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
+        public TimeSpan BuildTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 60 );
 
-        public TimeSpan DeploymentTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
+        public TimeSpan DeploymentTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 30 );
 
-        public TimeSpan SwapTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
+        public TimeSpan SwapTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 15 );
 
-        public TimeSpan VersionBumpTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
+        public TimeSpan VersionBumpTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 15 );
 
-        public TimeSpan DownstreamMergeTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
+        public TimeSpan DownstreamMergeTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 15 );
 
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
             =
@@ -488,7 +488,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     context.Console.WriteHeading( "Signing artifacts" );
 
-                    var signToolSecret = Environment.GetEnvironmentVariable( "SIGNSERVER_SECRET" );
+                    var signToolSecret = Environment.GetEnvironmentVariable( EnvironmentVariableNames.SignServerSecret );
 
                     if ( signToolSecret == null )
                     {

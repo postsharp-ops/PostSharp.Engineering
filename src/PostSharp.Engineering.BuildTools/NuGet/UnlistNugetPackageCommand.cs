@@ -108,13 +108,12 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
 
     private static bool UnlistPackage( ConsoleHelper console, string packageName, List<string> packageVersions )
     {
-        var nugetUnlistApiKeyEnvironmentVariable = "NUGET_ORG_UNLIST_API_KEY";
-        var nugetUnlistApiKey = Environment.GetEnvironmentVariable( nugetUnlistApiKeyEnvironmentVariable );
+        var nugetUnlistApiKey = Environment.GetEnvironmentVariable( EnvironmentVariableNames.NuGetOrgApiKey );
 
         if ( string.IsNullOrEmpty( nugetUnlistApiKey ) )
         {
             console.WriteImportantMessage(
-                $"'{nugetUnlistApiKeyEnvironmentVariable}' environment variable required for unlisting the package from NuGet.org is not set." );
+                $"'{EnvironmentVariableNames.NuGetOrgApiKey}' environment variable required for unlisting the package from NuGet.org is not set." );
 
             return false;
         }

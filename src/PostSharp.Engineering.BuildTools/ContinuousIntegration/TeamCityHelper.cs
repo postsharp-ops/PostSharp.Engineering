@@ -24,26 +24,24 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 public static class TeamCityHelper
 {
     public const string TeamCityOnPremUrl = "https://tc.postsharp.net";
-    public const string TeamCityOnPremTokenEnvironmentVariableName = "TEAMCITY_TOKEN";
     public const string TeamCityCloudUrl = "https://postsharp.teamcity.com";
-    public const string TeamCityCloudTokenEnvironmentVariableName = "TEAMCITY_CLOUD_TOKEN";
     public const string TeamCityUsername = "teamcity@postsharp.net";
     public const string TeamcityApiBuildQueuePath = $"/app/rest/buildQueue";
     public const string TeamCityApiRunningBuildsPath = "/app/rest/builds?locator=state:running";
     public const string TeamCityApiFinishedBuildsPath = "/app/rest/builds?locator=state:finished";
 
     public static bool IsTeamCityBuild( CommonCommandSettings settings )
-        => settings.SimulateContinuousIntegration || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
+        => settings.SimulateContinuousIntegration || Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() == "true";
 
     public static ImmutableDictionary<string, string?> GetSimulatedContinuousIntegrationEnvironmentVariables( CommonCommandSettings settings )
     {
         if ( settings.SimulateContinuousIntegration )
         {
-            var isIsTeamCityAgentEnvironmentVariableSet = Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
+            var isIsTeamCityAgentEnvironmentVariableSet = Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() == "true";
 
             if ( !isIsTeamCityAgentEnvironmentVariableSet )
             {
-                return new Dictionary<string, string?> { { "IS_TEAMCITY_AGENT", "true" } }.ToImmutableDictionary();
+                return new Dictionary<string, string?> { { EnvironmentVariableNames.IsTeamCityAgent, "true" } }.ToImmutableDictionary();
             }
         }
 
@@ -315,12 +313,12 @@ public static class TeamCityHelper
 
         if ( isCloudInstance )
         {
-            tokenEnvironmentVariableName = TeamCityCloudTokenEnvironmentVariableName;
+            tokenEnvironmentVariableName = EnvironmentVariableNames.TeamCityCloudToken;
             baseUrl = TeamCityCloudUrl;
         }
         else
         {
-            tokenEnvironmentVariableName = TeamCityOnPremTokenEnvironmentVariableName;
+            tokenEnvironmentVariableName = EnvironmentVariableNames.TeamCityOnPremToken;
             baseUrl = TeamCityOnPremUrl;
         }
 

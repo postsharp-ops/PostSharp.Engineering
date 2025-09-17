@@ -20,15 +20,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class GitHubHelper
 {
-    private const string _tokenEnvironmentVariableName = "GITHUB_TOKEN";
-    private const string _reviewerTokenEnvironmentVariableName = "GITHUB_REVIEWER_TOKEN";
     private const string _productHeaderName = "PostSharp.Engineering";
     private static readonly string _productHeaderVersion = typeof(GitHubHelper).Assembly.GetName().Version!.ToString();
 
     private static bool TryGetToken(
         ConsoleHelper console,
         [NotNullWhen( true )] out string? token,
-        string tokenEnvironmentVariableName = _tokenEnvironmentVariableName )
+        string tokenEnvironmentVariableName = EnvironmentVariableNames.GitHubToken )
     {
         token = Environment.GetEnvironmentVariable( tokenEnvironmentVariableName );
 
@@ -49,7 +47,7 @@ public static class GitHubHelper
     private static bool TryConnectRestApi(
         ConsoleHelper console,
         [NotNullWhen( true )] out GitHubClient? client,
-        string tokenEnvironmentVariableName = _tokenEnvironmentVariableName )
+        string tokenEnvironmentVariableName = EnvironmentVariableNames.GitHubToken )
     {
         if ( !TryGetToken( console, out var token, tokenEnvironmentVariableName ) )
         {
@@ -109,7 +107,7 @@ public static class GitHubHelper
                 return false;
             }
 
-            if ( !TryGetToken( console, out var reviewerToken, _reviewerTokenEnvironmentVariableName ) )
+            if ( !TryGetToken( console, out var reviewerToken, EnvironmentVariableNames.GitHubReviewerToken ) )
             {
                 return false;
             }
@@ -157,7 +155,7 @@ public static class GitHubHelper
 
         var pullRequestId = await graphQl.Run( pullRequestQuery );
 
-        var authorEmail = Environment.GetEnvironmentVariable( "GITHUB_AUTHOR_EMAIL" ) ?? "teamcity@postsharp.net";
+        var authorEmail = Environment.GetEnvironmentVariable( EnvironmentVariableNames.GitHubAuthorEmail ) ?? "teamcity@postsharp.net";
 
         var enableAutoMergeMutation = new Mutation()
             .EnablePullRequestAutoMerge(

@@ -113,9 +113,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             {
                 var timeOutParameter = new TeamCityTextBuildConfigurationParameterBase(
                     "TimeOut",
-                    "Time-Out Threshold",
-                    "Seconds after the duration of the last successful build.",
-                    $"{(int) this.BuildTimeOutThreshold.Value.TotalSeconds}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
+                    "Time-Out",
+                    "Timeout, in minutes.",
+                    $"{(int) this.BuildTimeOutThreshold.Value.TotalMinutes}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
 
                 buildParameters.Add( timeOutParameter );
             }
@@ -185,19 +185,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             if ( this.BuildTimeOutThreshold.HasValue )
             {
                 writer.WriteLine(
-                    @$"
-    failureConditions {{
-        failOnMetricChange {{
-            metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
-            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
-            comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = build {{
-                buildRule = lastSuccessful()
-            }}
-            stopBuildOnFailure = true
-            param(""metricThreshold"", ""%TimeOut%"")
-        }}
-    }}" );
+                    $$"""
+                          failureConditions {
+                               executionTimeoutMin = {{(int) this.BuildTimeOutThreshold.Value.TotalMinutes}}
+                          }
+                      """ );
             }
 
             if ( !this.IsComposite && this.BuildAgentRequirements != null )
