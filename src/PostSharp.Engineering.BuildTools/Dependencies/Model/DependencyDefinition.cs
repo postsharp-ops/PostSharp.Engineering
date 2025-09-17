@@ -17,6 +17,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
     [PublicAPI]
     public class DependencyDefinition
     {
+        private readonly string[]? _packagePatterns;
+
         [return: NotNullIfNotNull( "dependency" )]
         public static implicit operator DependencyDefinition?( ParametrizedDependency? dependency ) => dependency?.Definition;
 
@@ -62,6 +64,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
 
         public ParametricString PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
+
+        public string[] PackagePatterns
+        {
+            get => this._packagePatterns ?? [this.Name, this.Name + "*"];
+            init => this._packagePatterns = value;
+        }
 
         /// <summary>
         /// Gets or sets the order in which products in the same family should be built. This is a poorman version of a recursive build

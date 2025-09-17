@@ -210,8 +210,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         internal bool UseDocker => this.ResolvedBuildAgentRequirements.IsDockerHost;
 
         internal DockerSpec? DockerSpec
-            => this.ResolvedBuildAgentRequirements.IsDockerHost ? new DockerSpec( $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() ) : null;
-        
+            => this.ResolvedBuildAgentRequirements.IsDockerHost
+                ? new DockerSpec( $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() )
+                : null;
+
         public bool IsPublishingNonReleaseBranchesAllowed { get; init; }
 
         /// <summary>
@@ -235,6 +237,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// The pattern is appended to the default pattern.
         /// </summary>
         public Pattern ConsumableDepsFiles { get; init; } = Pattern.Empty;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the <c>prepare</c> should generate the <c>nuget.config</c> file.
+        /// </summary>
+        public bool GenerateNuGetConfig { get; init; }
+
+        public string[] OwnPackagePatterns { get; init; } = [];
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
@@ -625,7 +634,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private BuildInfo ReadGeneratedVersionFile( string path )
         {
             var versionFilePath = path;
-            var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
+            var versionFile = Project.FromFile( versionFilePath, MSBuildLoadOptions.IgnoreImportErrors );
 
             string packageVersion;
 
@@ -716,7 +725,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var versionFile = Project.FromFile( mainVersionFilePath, new ProjectOptions() );
+            var versionFile = Project.FromFile( mainVersionFilePath, MSBuildLoadOptions.IgnoreImportErrors );
 
             var mainVersion = versionFile
                 .Properties
@@ -975,7 +984,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return null;
             }
 
-            var versionFile = Project.FromFile( path, new ProjectOptions() );
+            var versionFile = Project.FromFile( path, MSBuildLoadOptions.IgnoreImportErrors );
 
             var configuration = versionFile.Properties.SingleOrDefault( p => p.Name == "EngineeringConfiguration" )
                 ?.UnevaluatedValue;
@@ -1147,12 +1156,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var configuration = settings.BuildConfiguration;
 
-            context.Console.WriteMessage( "Preparing the version file" );
+            context.Console.WriteMessage( "Preparing the version file." );
 
             var propsFilePath = this.GetVersionPropertiesFilePath( context, settings );
             Directory.CreateDirectory( Path.GetDirectoryName( propsFilePath )! );
 
-            // Load Versions.g.props.
+            // Load Versions.<Configuration>.g.props.
             if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
             {
                 return false;
@@ -1195,6 +1204,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Generate Versions.g.props.
             if ( !this.TryGenerateManifestFileContent( version, configuration, dependenciesOverrideFile, context, settings, buildDate, out var props ) )
+            {
+                return false;
+            }
+
+            // Generate nuget.config.
+            if ( this.GenerateNuGetConfig && !TryGenerateNuGetConfig( context, dependenciesOverrideFile, settings ) )
             {
                 return false;
             }
@@ -1263,7 +1278,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
                 else
                 {
-                    var versionFile = Project.FromFile( dependencySource.VersionFile, new ProjectOptions() );
+                    var versionFile = Project.FromFile( dependencySource.VersionFile, MSBuildLoadOptions.IgnoreImportErrors );
 
                     var propertyName = this.MainVersionDependency!.NameWithoutDot + "MainVersion";
 
@@ -1373,6 +1388,129 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             version = new VersionComponents( mainVersion ?? mainVersionFileInfo.MainVersion, versionPrefix, patchNumber, versionSuffix );
 
             return true;
+        }
+
+        private static bool TryGenerateNuGetConfig( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile, BuildSettings buildSettings )
+        {
+            var product = context.Product;
+            var baseFilePath = Path.Combine( context.RepoDirectory, "nuget.base.config" );
+            var targetFilePath = Path.Combine( context.RepoDirectory, "nuget.config" );
+
+            context.Console.WriteMessage( $"Writing '{targetFilePath}'." );
+
+            XDocument document;
+            XElement rootElement;
+
+            if ( File.Exists( baseFilePath ) )
+            {
+                document = XDocument.Load( baseFilePath );
+                rootElement = document.Root!;
+            }
+            else
+            {
+                document = new XDocument();
+                rootElement = new XElement( "configuration" );
+                document.Add( rootElement );
+            }
+
+            var packageSourceMappingElement = rootElement.Element( "packageSourceMapping" );
+
+            if ( packageSourceMappingElement == null )
+            {
+                packageSourceMappingElement = new XElement( "packageSourceMapping" );
+                rootElement.Add( packageSourceMappingElement );
+            }
+
+            var packageSourcesElement = rootElement.Element( "packageSources" );
+
+            if ( packageSourcesElement == null )
+            {
+                packageSourcesElement = new XElement( "packageSources" );
+                rootElement.Add( packageSourcesElement );
+            }
+
+            // Add the current artifact directory.
+            var artifactDirectory = Path.Combine(
+                context.RepoDirectory,
+                product.PrivateArtifactsDirectory.ToString( new BuildInfo( null, buildSettings.BuildConfiguration, product, null ) ) );
+
+            AddDirectory( product.ProductName, artifactDirectory, product.DependencyDefinition.PackagePatterns );
+
+            // Add dependencies.
+            foreach ( var dependency in dependenciesOverrideFile.Dependencies )
+            {
+                var dependencyDefinition = product.GetDependencyDefinition( dependency.Key );
+                var parametrizedDependency = product.ParametrizedDependencies.Single( d => d.Name == dependency.Key );
+                var dependencyDirectory = Path.GetDirectoryName( dependency.Value.VersionFile )!;
+
+                if ( dependency.Value.SourceKind == DependencySourceKind.Local )
+                {
+                    dependencyDirectory = Path.Combine(
+                        dependencyDirectory,
+                        dependencyDefinition.PrivateArtifactsDirectory.ToString(
+                            new BuildInfo(
+                                null,
+                                parametrizedDependency.ConfigurationMapping[buildSettings.BuildConfiguration],
+                                dependencyDefinition,
+                                null ) ) );
+                }
+
+                if ( !AddDirectory( dependency.Key, dependencyDirectory, dependencyDefinition.PackagePatterns ) )
+                {
+                    return false;
+                }
+            }
+
+            document.Save( targetFilePath );
+
+            return true;
+
+            bool AddDirectory( string name, string directory, string[]? patterns )
+            {
+                var addElement = new XElement( "add" );
+                addElement.Add( new XAttribute( "key", name ) );
+                addElement.Add( new XAttribute( "value", directory ) );
+                packageSourcesElement.Add( addElement );
+
+                var packageSourceElement = new XElement( "packageSource" );
+                packageSourceElement.Add( new XAttribute( "key", name ) );
+                packageSourceMappingElement.Add( packageSourceElement );
+
+                foreach ( var pattern in patterns ?? [] )
+                {
+                    AddPattern( pattern );
+                }
+
+                return true;
+
+                void AddPattern( string pattern )
+                {
+                    var packageElement = new XElement( "package" );
+                    packageElement.Add( new XAttribute( "pattern", pattern ) );
+                    packageSourceElement.Add( packageElement );
+                }
+            }
+        }
+
+        private static string? ParsePackageName( string packageFile )
+        {
+            var fileName = Path.GetFileNameWithoutExtension( packageFile );
+
+            // Use NuGet.Versioning to properly extract package name without version suffix
+            var packageNameParts = fileName.Split( '-' )[0].Split( '.' );
+            string? packageName = null;
+
+            for ( var i = packageNameParts.Length - 1; i > 0; i-- )
+            {
+                if ( !int.TryParse( packageNameParts[i], out _ ) )
+                {
+                    packageName = string.Join( ".", packageNameParts.Take( i + 1 ) );
+
+                    break;
+                }
+            }
+
+            return packageName;
         }
 
         private bool TryGenerateManifestFileContent(
@@ -1518,7 +1656,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             foreach ( var kvp in this.ExportedProperties )
             {
                 var propsFilePath = Path.Combine( context.RepoDirectory, kvp.Key );
-                var propsFile = Project.FromFile( propsFilePath, new ProjectOptions() );
+                var propsFile = Project.FromFile( propsFilePath, MSBuildLoadOptions.IgnoreImportErrors );
 
                 foreach ( var exportedPropertyName in kvp.Value )
                 {
@@ -2330,7 +2468,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 var document = XDocument.Parse( mainVersionContent );
-                var project = Project.FromXmlReader( document.CreateReader(), new ProjectOptions() );
+                var project = Project.FromXmlReader( document.CreateReader(), MSBuildLoadOptions.IgnoreImportErrors );
                 var mainVersionPropertyValue = project.Properties.FirstOrDefault( p => p.Name == "MainVersion" )?.EvaluatedValue;
 
                 if ( string.IsNullOrEmpty( mainVersionPropertyValue ) )
@@ -2682,7 +2820,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 throw new InvalidOperationException( $"The dependency '{definition.Name}' is not resolved. " );
             }
 
-            var project = Project.FromFile( source.VersionFile, new ProjectOptions() );
+            var project = Project.FromFile( source.VersionFile, MSBuildLoadOptions.IgnoreImportErrors );
             var property = project.AllEvaluatedProperties.Single( p => p.Name == $"{definition.NameWithoutDot}BuildConfiguration" );
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();

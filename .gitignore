@@ -11,3 +11,4 @@ eng/tools
 .teamcity/target
 /.config/dotnet-tools.json
 /.tools
+nuget.config

@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
@@ -16,8 +17,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         public BuildInfo( string? packageVersion, BuildConfiguration configuration, Product product, string? packagePreviewVersion ) : this(
             packageVersion,
+            configuration,
+            product.DependencyDefinition,
+            packagePreviewVersion ) { }
+
+        public BuildInfo( string? packageVersion, BuildConfiguration configuration, DependencyDefinition dependencyDefinition, string? packagePreviewVersion ) : this(
+            packageVersion,
             configuration.ToString(),
-            product.DependencyDefinition.MSBuildConfiguration[configuration],
+            dependencyDefinition.MSBuildConfiguration[configuration],
             packagePreviewVersion ) { }
 
         public bool IsPrerelease => this.PackageVersion?.Contains( "-", StringComparison.Ordinal ) ?? throw new InvalidOperationException();

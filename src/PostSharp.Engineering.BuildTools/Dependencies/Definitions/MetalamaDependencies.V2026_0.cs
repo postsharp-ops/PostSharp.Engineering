@@ -56,6 +56,7 @@ public static partial class MetalamaDependencies
         public static ProductFamily Family { get; } = new( _projectName, "2026.0", DevelopmentDependencies.Family, PostSharpDependencies.V2026_0.Family )
         {
             UpstreamProductFamily = V2025_2.Family
+
             // DownstreamProductFamily = V2026_1.Family
         };
 
@@ -85,6 +86,16 @@ public static partial class MetalamaDependencies
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.Metalama )
             {
+                PackagePatterns =
+                [
+                    "Metalama.Backstage*",
+                    "Metalama.Framework*", 
+                    "Metalama.Extensions*", 
+                    "Metalama.Patterns*",
+                    "Metalama.LinqPad*", 
+                    "Metalama.Migration*"
+                ]
+
                 // SuppressUpstream = true
             };
 

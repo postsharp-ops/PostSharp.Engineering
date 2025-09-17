@@ -124,7 +124,7 @@ public static class DependenciesHelper
                 continue;
             }
 
-            var versionFile = Project.FromFile( directDependency.Source.VersionFile!, new ProjectOptions() );
+            var versionFile = Project.FromFile( directDependency.Source.VersionFile!, MSBuildLoadOptions.IgnoreImportErrors );
 
             var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == directDependency.Dependency.NameWithoutDot + "Dependencies" );
 
