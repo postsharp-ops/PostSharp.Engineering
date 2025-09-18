@@ -207,10 +207,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 
-        internal bool UseDocker => this.ResolvedBuildAgentRequirements.IsDockerHost;
+        internal bool UseDocker => this.ResolvedBuildAgentRequirements.IsDockerized;
 
         internal DockerSpec? DockerSpec
-            => this.ResolvedBuildAgentRequirements.IsDockerHost
+            => this.ResolvedBuildAgentRequirements.IsDockerized
                 ? new DockerSpec( $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() )
                 : null;
 
@@ -1456,7 +1456,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     continue;
                 }
-                
+
                 var dependencyDefinition = product.GetDependencyDefinition( dependencySource.Key );
                 var parametrizedDependency = product.ParametrizedDependencies.Single( d => d.Name == dependencySource.Key );
                 var dependencyDirectory = Path.GetDirectoryName( dependencySource.Value.VersionFile )!;

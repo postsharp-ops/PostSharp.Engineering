@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -38,40 +39,61 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             return true;
         }
 
-        private static bool Login( ConsoleHelper console, bool dry )
+        public static bool Login( ConsoleHelper console, bool dry = false )
         {
-            var identityUserName = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzIdentityUserName );
+            string azArgs;
 
-            if ( identityUserName == null )
+            if ( DockerHelper.IsDockerBuild() )
             {
-                console.WriteImportantMessage(
-                    $"{EnvironmentVariableNames.AzIdentityUserName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
+                var azureTenantId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureTenantId );
+                var azureClientId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureClientId );
+                var azureClientSecret = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureClientSecret );
+
+                if ( string.IsNullOrEmpty( azureTenantId ) || string.IsNullOrEmpty( azureClientId ) || string.IsNullOrEmpty( azureClientSecret ) )
+                {
+                    console.WriteWarning( $"Cannot do `az login`: The environment variables {EnvironmentVariableNames.AzureTenantId}, {EnvironmentVariableNames.AzureClientId}, {EnvironmentVariableNames.AzureClientSecret} must be defined." );
+
+                    return false;
+                }
+
+                azArgs =
+                    $"login --service-principal --username {azureClientId} --password %{EnvironmentVariableNames.AzureClientSecret}% --tenant {azureTenantId}";
+            }
+            else
+            {
+                var identityUserName = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzIdentityUserName );
+
+                if ( identityUserName == null )
+                {
+                    console.WriteImportantMessage(
+                        $"{EnvironmentVariableNames.AzIdentityUserName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
+
+                    return true;
+                }
+            
+                azArgs = $"login --identity --username {identityUserName}";  
+            }
+
+          
+
+            if ( !TryFormatCmdArgs( console, azArgs, out var cmdArgs ) )
+            {
+                return false;
+            }
+
+            if ( dry )
+            {
+                console.WriteImportantMessage( $"Dry run: {_exe} {cmdArgs}" );
 
                 return true;
             }
             else
             {
-                var azArgs = $"login --identity --username {identityUserName}";
-
-                if ( !TryFormatCmdArgs( console, azArgs, out var cmdArgs ) )
-                {
-                    return false;
-                }
-
-                if ( dry )
-                {
-                    console.WriteImportantMessage( $"Dry run: {_exe} {cmdArgs}" );
-
-                    return true;
-                }
-                else
-                {
-                    return ToolInvocationHelper.InvokeTool(
-                        console,
-                        _exe,
-                        cmdArgs,
-                        Environment.CurrentDirectory );
-                }
+                return ToolInvocationHelper.InvokeTool(
+                    console,
+                    _exe,
+                    cmdArgs,
+                    Environment.CurrentDirectory );
             }
         }
 

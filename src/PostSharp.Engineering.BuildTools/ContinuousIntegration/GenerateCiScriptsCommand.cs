@@ -2,6 +2,8 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Docker;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.IO;
 using System.Linq;
@@ -32,32 +34,17 @@ public class GenerateCiScriptsCommand : BaseCommand<CommonCommandSettings>
 
         if ( product.UseDocker )
         {
-            ExtractScript( "DockerBuild.ps1", "" );
-            ExtractScript( "ReadSecrets.ps1", Path.Combine( product.EngineeringDirectory, "docker-context" ) );
-        }
+            EmbeddedResourceHelper.ExtractScript( context, "DockerBuild.ps1", "" );
+            var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
-        return true;
-
-        void ExtractScript( string fileName, string targetDirectory )
-        {
-            var targetPath = Path.Combine( context.RepoDirectory, targetDirectory, fileName );
-
-            using var resource = this.GetType().Assembly.GetManifestResourceStream( $"PostSharp.Engineering.BuildTools.Resources.{fileName}" )
-                                 ?? throw new InvalidOperationException( $"Cannot find the resource {fileName}." );
-
-            using var reader = new StreamReader( resource );
-            var script = reader.ReadToEnd();
-
-            script = script
-                .Replace( "<ENG_PATH>", product.EngineeringDirectory, StringComparison.Ordinal )
-                .Replace( "<ENVIRONMENT_VARIABLES>", string.Join( ",", EnvironmentVariableNames.All.OrderBy( x => x ) ), StringComparison.Ordinal );
-
-            if ( !File.Exists( targetPath ) || File.ReadAllText( targetPath ) != script )
+            if ( !image.Prepare( context ) )
             {
-                context.Console.WriteMessage( $"Writing '{targetPath}'." );
-
-                File.WriteAllText( targetPath, script );
+                return false;
             }
         }
+
+        context.Console.WriteSuccess( "Generating build scripts was successful." );
+
+        return true;
     }
 }

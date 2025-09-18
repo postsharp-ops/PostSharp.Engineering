@@ -4,6 +4,7 @@ using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,16 +14,15 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 [PublicAPI]
 public static class TestLicenseKeyDownloader
 {
-    public static void Download( BuildContext context )
+    public static bool Download( BuildContext context, BuildSettings settings )
     {
-        const string visualStudioTenantId = "171276b2-7a8c-4c9b-bc49-57889e2e4f42";
         const string keyVaultUri = "https://testserviceskeyvault.vault.azure.net/";
 
         if ( BuildContext.IsGuestDevice )
         {
             context.Console.WriteWarning( "Skipping fetching of test license keys. Some licensing tests are going to fail." );
 
-            return;
+            return true;
         }
 
         // Should the content of the file change, change the file name, to keep older builds consistent.
@@ -33,7 +33,19 @@ public static class TestLicenseKeyDownloader
         {
             context.Console.WriteMessage( "Test license keys are already fetched." );
 
-            return;
+            return true;
+        }
+
+        var azureTenantId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureTenantId );
+
+        if ( !AzHelper.Login( context.Console ) )
+        {
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                context.Console.WriteError( "Cannot download test license keys." );
+            }
+
+            return false;
         }
 
         if ( !Directory.Exists( testLicensesCacheDirectory ) )
@@ -47,7 +59,7 @@ public static class TestLicenseKeyDownloader
         var o = new DefaultAzureCredentialOptions()
         {
             // We se the tenant explicitly, to avoid issues where the user is logged in to various tenants at the same time. 
-            VisualStudioTenantId = visualStudioTenantId
+            VisualStudioTenantId = azureTenantId
         };
 
         var keyVault = new SecretClient( new Uri( keyVaultUri ), new DefaultAzureCredential( o ) );
@@ -89,10 +101,10 @@ public static class TestLicenseKeyDownloader
             }
             catch ( Exception ex )
             {
-                context.Console.WriteWarning( $"Could not get license key {licenseKeyName}, some licensing tests are going to fail." );
+                context.Console.WriteError( $"Could not get license key '{licenseKeyName}'." );
                 context.Console.WriteMessage( ex.Message );
 
-                return;
+                return false;
             }
 
             lines.Add( $"    <{licenseKeyName}LicenseKey>{licenseKey}</{licenseKeyName}LicenseKey>" );
@@ -104,5 +116,7 @@ public static class TestLicenseKeyDownloader
         File.WriteAllLines( licensesFile, lines );
 
         context.Console.WriteMessage( "Test license keys fetched successfully." );
+
+        return true;
     }
 }

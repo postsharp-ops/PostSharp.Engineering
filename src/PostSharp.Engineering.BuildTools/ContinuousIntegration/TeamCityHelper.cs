@@ -29,9 +29,9 @@ public static class TeamCityHelper
     public const string TeamCityApiRunningBuildsPath = "/app/rest/builds?locator=state:running";
     public const string TeamCityApiFinishedBuildsPath = "/app/rest/builds?locator=state:finished";
 
-    public static bool IsTeamCityBuild( CommonCommandSettings settings )
-        => settings.SimulateContinuousIntegration
-           || Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() == "true";
+    public static bool IsTeamCityBuild( CommonCommandSettings? settings = null )
+        => settings?.SimulateContinuousIntegration == true
+           || Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() is "true" or "1";
 
     public static ImmutableDictionary<string, string?> GetSimulatedContinuousIntegrationEnvironmentVariables( CommonCommandSettings settings )
     {
@@ -653,7 +653,7 @@ public static class TeamCityHelper
             resultMessage = $"File '{filePath}' was up to date.";
         }
 
-        context.Console.WriteSuccess( $"{name} generated. {resultMessage}" );
+        context.Console.WriteMessage( $"{name} generated. {resultMessage}" );
     }
 
     internal static bool TryGenerateConsolidatedTeamcityConfiguration( BuildContext context )

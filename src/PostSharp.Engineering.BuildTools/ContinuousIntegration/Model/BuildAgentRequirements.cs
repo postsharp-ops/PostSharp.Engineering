@@ -1,6 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using PostSharp.Engineering.BuildTools.Docker;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,7 +11,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 public record BuildAgentRequirement( string Name, string Value );
 
 [PublicAPI]
-public sealed record BuildAgentRequirements
+public record BuildAgentRequirements
 {
     public BuildAgentRequirements( params BuildAgentRequirement[] items )
     {
@@ -17,18 +19,16 @@ public sealed record BuildAgentRequirements
     }
 
     public static BuildAgentRequirements Empty { get; } = new();
-    
-    public static BuildAgentRequirements Default { get; } = SelfHosted( "caravela04cloud" );
-    
-    public static BuildAgentRequirements WindowsDockerHost { get; } = SelfHosted( "docker-win-x64-md", true );
 
-    public static BuildAgentRequirements SelfHosted( string name, bool isDockerHost = false ) => new( new BuildAgentRequirement( "env.BuildAgentType", name ) ) { IsDockerHost = isDockerHost };
+    public static BuildAgentRequirements Default { get; } = SelfHosted( "caravela04cloud" );
+
+    public static BuildAgentRequirements SelfHosted( string name ) => new( new BuildAgentRequirement( "env.BuildAgentType", name ) );
 
     public static BuildAgentRequirements JetBrainsHosted( string name ) => new( new BuildAgentRequirement( "teamcity.agent.name", name ) );
 
     public IReadOnlyList<BuildAgentRequirement> Items { get; init; }
 
     public BuildAgentRequirements Combine( BuildAgentRequirements other ) => new( this.Items.Concat( other.Items ).ToArray() );
-    
-    public bool IsDockerHost { get; init; }
+
+    public virtual bool IsDockerized => false;
 }

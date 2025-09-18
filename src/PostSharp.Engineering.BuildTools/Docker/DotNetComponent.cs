@@ -1,0 +1,74 @@
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace PostSharp.Engineering.BuildTools.Docker;
+
+public class DotNetComponent : ContainerComponent
+{
+    public string Version { get; }
+
+    public DotNetComponentKind DotNetComponentKind { get; }
+
+    public DotNetComponent( string version, DotNetComponentKind dotNetComponentKind )
+    {
+        this.Version = version;
+        this.DotNetComponentKind = dotNetComponentKind;
+    }
+
+    public override string Name => $"Install .NET {this.DotNetComponentKind} {this.Version}";
+
+    public override ContainerComponentKind Kind => ContainerComponentKind.DotNet;
+
+    public override void AddRequirements( IReadOnlyList<ContainerComponent> components, Action<ContainerComponent> add )
+    {
+        if ( !components.OfType<DotNetInstallerComponent>().Any() )
+        {
+            add( new DotNetInstallerComponent() );
+        }
+    }
+
+    public override void WriteDockerfile( StreamWriter writer )
+    {
+        if ( this.DotNetComponentKind == DotNetComponentKind.Sdk )
+        {
+            writer.WriteLine(
+                $"""
+                 RUN powershell -ExecutionPolicy Bypass -File dotnet-install.ps1 -Version {this.Version} -InstallDir 'C:\Program Files\dotnet'; 
+                 """ );
+        }
+        else
+        {
+            var runtime = this.DotNetComponentKind switch
+            {
+                DotNetComponentKind.Runtime => "dotnet",
+                _ => throw new InvalidOperationException()
+            };
+
+            writer.WriteLine(
+                $"""
+                 RUN powershell -ExecutionPolicy Bypass -File dotnet-install.ps1 -Version {this.Version} -Runtime {runtime} -InstallDir 'C:\Program Files\dotnet'; 
+                 """ );
+        }
+    }
+    
+    public override string ToString() => $"{this.Kind} {this.DotNetComponentKind} {this.Version}";
+
+
+    public override int CompareTo( ContainerComponent? other )
+    {
+        var compareBase = base.CompareTo( other );
+
+        if ( compareBase != 0 )
+        {
+            return compareBase;
+        }
+
+        var otherDotNetComponent = (DotNetComponent) other!;
+
+        return string.Compare( this.Version, otherDotNetComponent.Version, StringComparison.Ordinal );
+    }
+}
