@@ -44,7 +44,9 @@ public class DotNetComponent : ContainerComponent
         {
             var runtime = this.DotNetComponentKind switch
             {
-                DotNetComponentKind.Runtime => "dotnet",
+                DotNetComponentKind.DotNetRuntime => "dotnet",
+                DotNetComponentKind.WindowsDesktopRuntime => "windowsdesktop",
+                DotNetComponentKind.AspNetCoreRuntime => "aspnetcore",
                 _ => throw new InvalidOperationException()
             };
 

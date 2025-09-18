@@ -5,5 +5,7 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 public enum DotNetComponentKind
 {
     Sdk,
-    Runtime
+    DotNetRuntime,
+    AspNetCoreRuntime,
+    WindowsDesktopRuntime
 }
