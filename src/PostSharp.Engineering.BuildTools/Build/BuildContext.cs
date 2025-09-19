@@ -1,6 +1,8 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
@@ -71,7 +73,8 @@ namespace PostSharp.Engineering.BuildTools.Build
             BaseCommandData commandData,
             string branch,
             CommandContext commandContext,
-            bool useProjectDirectoryAsWorkingDirectory )
+            bool useProjectDirectoryAsWorkingDirectory,
+            CommonCommandSettings settings )
         {
             this.Console = console;
             this.RepoDirectory = repoDirectory;
@@ -79,6 +82,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             this.Branch = branch;
             this.CommandContext = commandContext;
             this.UseProjectDirectoryAsWorkingDirectory = useProjectDirectoryAsWorkingDirectory;
+            this.Settings = settings;
         }
 
         /// <summary>
@@ -86,6 +90,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// </summary>
         public static bool TryCreate(
             CommandContext commandContext,
+            CommonCommandSettings settings,
             [NotNullWhen( true )] out BuildContext? buildContext )
         {
             buildContext = null;
@@ -110,7 +115,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 (BaseCommandData) commandContext.Data!,
                 currentBranch,
                 commandContext,
-                useProjectDirectoryAsWorkingDirectory: false );
+                useProjectDirectoryAsWorkingDirectory: false,
+                settings );
 
             return true;
         }
@@ -147,9 +153,19 @@ namespace PostSharp.Engineering.BuildTools.Build
         }
 
         public BuildContext WithConsoleHelper( ConsoleHelper consoleHelper )
-            => new( consoleHelper, this.RepoDirectory, this.CommandData, this.Branch, this.CommandContext, this.UseProjectDirectoryAsWorkingDirectory );
+            => new( consoleHelper, this.RepoDirectory, this.CommandData, this.Branch, this.CommandContext, this.UseProjectDirectoryAsWorkingDirectory, this.Settings );
 
         public BuildContext WithUseProjectDirectoryAsWorkingDirectory( bool useProjectDirectoryAsWorkingDirectory )
-            => new( this.Console, this.RepoDirectory, this.CommandData, this.Branch, this.CommandContext, useProjectDirectoryAsWorkingDirectory );
+            => new( this.Console, this.RepoDirectory, this.CommandData, this.Branch, this.CommandContext, useProjectDirectoryAsWorkingDirectory, this.Settings );
+
+        [PublicAPI]
+#pragma warning disable CA1822
+        public bool IsRunningUnderContainer => DockerHelper.IsDockerBuild();
+#pragma warning restore CA1822
+
+        public bool IsContinuousIntegrationBuild => TeamCityHelper.IsTeamCityBuild( this.Settings );
+        
+        [PublicAPI]
+        public CommonCommandSettings Settings { get; }
     }
 }

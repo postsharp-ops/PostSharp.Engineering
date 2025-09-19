@@ -94,7 +94,7 @@ public class DotNetComponent : ContainerComponent
             }
         }
 
-        // Compare the string part of the version number..
+        // Compare the string part of the version number.
         return -string.Compare( this.Version, otherDotNetComponent.Version, StringComparison.Ordinal );
     }
 }

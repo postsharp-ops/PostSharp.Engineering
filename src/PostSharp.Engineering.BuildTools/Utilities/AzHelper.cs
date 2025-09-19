@@ -51,7 +51,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
                 if ( string.IsNullOrEmpty( azureTenantId ) || string.IsNullOrEmpty( azureClientId ) || string.IsNullOrEmpty( azureClientSecret ) )
                 {
-                    console.WriteWarning( $"Cannot do `az login`: The environment variables {EnvironmentVariableNames.AzureTenantId}, {EnvironmentVariableNames.AzureClientId}, {EnvironmentVariableNames.AzureClientSecret} must be defined." );
+                    console.WriteWarning(
+                        $"Cannot do `az login`: The environment variables {EnvironmentVariableNames.AzureTenantId}, {EnvironmentVariableNames.AzureClientId}, {EnvironmentVariableNames.AzureClientSecret} must be defined." );
 
                     return false;
                 }
@@ -70,11 +71,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
                     return true;
                 }
-            
-                azArgs = $"login --identity --username {identityUserName}";  
-            }
 
-          
+                azArgs = $"login --identity --username {identityUserName}";
+            }
 
             if ( !TryFormatCmdArgs( console, azArgs, out var cmdArgs ) )
             {

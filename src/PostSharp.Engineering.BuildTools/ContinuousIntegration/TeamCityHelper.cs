@@ -29,7 +29,7 @@ public static class TeamCityHelper
     public const string TeamCityApiRunningBuildsPath = "/app/rest/builds?locator=state:running";
     public const string TeamCityApiFinishedBuildsPath = "/app/rest/builds?locator=state:finished";
 
-    public static bool IsTeamCityBuild( CommonCommandSettings? settings = null )
+    public static bool IsTeamCityBuild( CommonCommandSettings? settings )
         => settings?.SimulateContinuousIntegration == true
            || Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent )?.ToLowerInvariant() is "true" or "1";
 
