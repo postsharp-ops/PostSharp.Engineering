@@ -30,6 +30,7 @@ public class PrologComponent : ContainerComponent
             ENV POWERSHELL_UPDATECHECK=FALSE
             ENV TEMP=C:\Temp
             ENV TMP=C:\Temp
+            ENV RUNNING_IN_DOCKER=TRUE
 
             # Enable long path support
             RUN Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1

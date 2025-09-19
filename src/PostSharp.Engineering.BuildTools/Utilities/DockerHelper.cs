@@ -8,7 +8,7 @@ internal static class DockerHelper
 {
     public static bool IsDockerBuild()
     {
-        var s = Environment.GetEnvironmentVariable( "COMPLUS_RUNNING_IN_CONTAINER" );
+        var s = Environment.GetEnvironmentVariable( "RUNNING_IN_DOCKER" );
 
         return s != null && ((bool.TryParse( s, out var b ) && b) || (int.TryParse( s, out var i ) && i != 0));
     }
