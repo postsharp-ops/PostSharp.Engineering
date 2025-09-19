@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System;
@@ -9,6 +10,7 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
+[PublicAPI]
 public record ContainerRequirements : BuildAgentRequirements
 {
     public ContainerRequirements( ContainerHostKind hostKind ) : base( new BuildAgentRequirement( "env.BuildAgentType", GetBuildAgentType( hostKind ) ) ) { }

@@ -52,7 +52,7 @@ internal static class EmbeddedResourceHelper
         else
 
         {
-            context.Console.WriteMessage( $"File '{targetPath}' is already correct." );
+            context.Console.WriteMessage( $"File '{targetPath}' is up to date." );
         }
     }
 }

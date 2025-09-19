@@ -11,12 +11,25 @@ public class DotNetComponent : ContainerComponent
 {
     public string Version { get; }
 
+    public Version? ParsedVersion
+    {
+        get;
+
+    }
+
     public DotNetComponentKind DotNetComponentKind { get; }
 
     public DotNetComponent( string version, DotNetComponentKind dotNetComponentKind )
     {
         this.Version = version;
         this.DotNetComponentKind = dotNetComponentKind;
+        
+            var v = this.Version.Split( "-" )[0];
+
+        if ( System.Version.TryParse( v, out var parsedVersion ) )
+        {
+            this.ParsedVersion = parsedVersion;
+        }
     }
 
     public override string Name => $"Install .NET {this.DotNetComponentKind} {this.Version}";
@@ -59,7 +72,6 @@ public class DotNetComponent : ContainerComponent
     
     public override string ToString() => $"{this.Kind} {this.DotNetComponentKind} {this.Version}";
 
-
     public override int CompareTo( ContainerComponent? other )
     {
         var compareBase = base.CompareTo( other );
@@ -71,6 +83,18 @@ public class DotNetComponent : ContainerComponent
 
         var otherDotNetComponent = (DotNetComponent) other!;
 
-        return string.Compare( this.Version, otherDotNetComponent.Version, StringComparison.Ordinal );
+        // Compare the version number.
+        if ( this.ParsedVersion != null && otherDotNetComponent.ParsedVersion != null )
+        {
+            var compareParsedVersion = this.ParsedVersion.CompareTo( otherDotNetComponent.ParsedVersion );
+
+            if ( compareParsedVersion != 0 )
+            {
+                return compareParsedVersion;
+            }
+        }
+
+        // Compare the string part of the version number..
+        return -string.Compare( this.Version, otherDotNetComponent.Version, StringComparison.Ordinal );
     }
 }

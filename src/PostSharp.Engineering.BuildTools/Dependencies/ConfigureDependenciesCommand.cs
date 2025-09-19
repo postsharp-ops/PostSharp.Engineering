@@ -113,6 +113,12 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
 
         // Writing the configurations neutral file.
         context.Product.PrepareConfigurationNeutralVersionsFile( context, settings, configuration );
+        
+        // Generate nuget.config.
+        if ( !context.Product.TryGenerateNuGetConfig( context, dependenciesOverrideFile, configuration ) )
+        {
+            return false;
+        }
 
         context.Console.WriteLine();
 

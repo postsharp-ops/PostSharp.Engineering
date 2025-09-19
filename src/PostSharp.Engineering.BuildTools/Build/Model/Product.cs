@@ -1209,7 +1209,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Generate nuget.config.
-            if ( this.GenerateNuGetConfig && !TryGenerateNuGetConfig( context, dependenciesOverrideFile, settings ) )
+            if ( !this.TryGenerateNuGetConfig( context, dependenciesOverrideFile, settings.BuildConfiguration ) )
             {
                 return false;
             }
@@ -1390,15 +1390,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool TryGenerateNuGetConfig( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile, BuildSettings buildSettings )
+        internal bool TryGenerateNuGetConfig( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile, BuildConfiguration configuration )
         {
+            if ( !this.GenerateNuGetConfig  )
+            {
+                return true;
+            }
+            
             // Fetch to resolve the VersionFile properties.
             if ( !dependenciesOverrideFile.Fetch( context ) )
             {
                 return false;
             }
 
-            var product = context.Product;
             var baseFilePath = Path.Combine( context.RepoDirectory, "nuget.base.config" );
             var targetFilePath = Path.Combine( context.RepoDirectory, "nuget.config" );
 
@@ -1438,9 +1442,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Add the current artifact directory.
             var artifactDirectory = Path.Combine(
                 context.RepoDirectory,
-                product.PrivateArtifactsDirectory.ToString( new BuildInfo( null, buildSettings.BuildConfiguration, product, null ) ) );
+                this.PrivateArtifactsDirectory.ToString( new BuildInfo( null, configuration, this, null ) ) );
 
-            AddDirectory( product.ProductName, artifactDirectory, product.DependencyDefinition.PackagePatterns );
+            AddDirectory( this.ProductName, artifactDirectory, this.DependencyDefinition.PackagePatterns );
 
             // Add dependencies.
             foreach ( var dependencySource in dependenciesOverrideFile.Dependencies )
@@ -1457,8 +1461,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     continue;
                 }
 
-                var dependencyDefinition = product.GetDependencyDefinition( dependencySource.Key );
-                var parametrizedDependency = product.ParametrizedDependencies.Single( d => d.Name == dependencySource.Key );
+                var dependencyDefinition = this.GetDependencyDefinition( dependencySource.Key );
+                var parametrizedDependency = this.ParametrizedDependencies.Single( d => d.Name == dependencySource.Key );
                 var dependencyDirectory = Path.GetDirectoryName( dependencySource.Value.VersionFile )!;
 
                 if ( dependencySource.Value.SourceKind == DependencySourceKind.Local )
@@ -1468,7 +1472,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         dependencyDefinition.PrivateArtifactsDirectory.ToString(
                             new BuildInfo(
                                 null,
-                                parametrizedDependency.ConfigurationMapping[buildSettings.BuildConfiguration],
+                                parametrizedDependency.ConfigurationMapping[configuration],
                                 dependencyDefinition,
                                 null ) ) );
                 }
