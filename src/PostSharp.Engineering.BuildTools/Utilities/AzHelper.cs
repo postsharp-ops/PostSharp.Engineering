@@ -58,7 +58,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 }
 
                 azArgs =
-                    $"login --service-principal --client-id {azureClientId} --password %{EnvironmentVariableNames.AzureClientSecret}% --tenant {azureTenantId}";
+                    $"login --service-principal --username {azureClientId} --password %{EnvironmentVariableNames.AzureClientSecret}% --tenant {azureTenantId}";
             }
             else
             {

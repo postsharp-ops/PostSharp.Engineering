@@ -91,7 +91,7 @@ namespace PostSharp.Engineering.BuildTools
                             .Color( Color.Purple ) );
 
                     buildContext.Console.Out.WriteLine();
-                    buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}." );
+                    buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}. TeamCity: {buildContext.IsContinuousIntegrationBuild}. Docker: {buildContext.IsRunningUnderContainer}." );
                     buildContext.Console.Out.WriteLine();
                 }
 
