@@ -67,7 +67,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string[] PackagePatterns
         {
-            get => this._packagePatterns ?? [this.Name, this.Name + "*"];
+            get => this._packagePatterns ?? [this.Name, this.Name + ".*"];
             init => this._packagePatterns = value;
         }
 
