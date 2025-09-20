@@ -1414,6 +1414,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
+                if ( this.GenerateNuGetConfig )
+                {
+                    context.Console.WriteError( $"If GenerateNuGetConfig is set, GlobalJson must be set too." );
+
+                    return false;
+                }
+
                 return true;
             }
 

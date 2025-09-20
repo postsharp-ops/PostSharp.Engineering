@@ -32,10 +32,5 @@ public static class DevelopmentDependencies
             BuildConfiguration.Debug,
             BuildConfiguration.Debug ),
         BuildOrder = int.MinValue,
-
-        // We intentionally exclude PostSharp.Engineering.Sdk because it is referenced from global.json
-        // which is not automatically updated when referencing PostSharp.Engineering locally, so exact the package version
-        // is not present in the local artifact directory.
-        PackagePatterns = ["PostSharp.Engineering.BuildTools", "PostSharp.Engineering.DocFx"]
     };
 }
