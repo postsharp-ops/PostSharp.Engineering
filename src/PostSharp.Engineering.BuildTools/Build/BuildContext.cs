@@ -125,15 +125,15 @@ namespace PostSharp.Engineering.BuildTools.Build
         {
             if ( Directory.Exists( Path.Combine( directory, ".git" ) ) )
             {
-                var globalJson = Path.Combine( directory, "global.json" );
+                var gitIgnorePath = Path.Combine( directory, ".gitignore" );
 
-                if ( !File.Exists( globalJson ) )
+                if ( !File.Exists( gitIgnorePath ) )
                 {
-                    throw new FileNotFoundException( $"The file '{globalJson}' must exist, even empty." );
+                    throw new FileNotFoundException( $"The file '{gitIgnorePath}' must exist, even empty." );
                 }
 
                 // Resolve links and junctions.
-                var realPath = FileSystemHelper.GetFinalPath( globalJson );
+                var realPath = FileSystemHelper.GetFinalPath( gitIgnorePath );
 
                 return Path.GetDirectoryName( realPath );
             }
