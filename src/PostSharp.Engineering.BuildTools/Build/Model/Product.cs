@@ -1432,6 +1432,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                   """;
 
             TextFileHelper.WriteIfDifferent( Path.Combine( context.RepoDirectory, "global.json" ), globalJson, context );
+
+            return true;
         }
 
         internal bool TryGenerateNuGetConfig( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile, BuildConfiguration configuration )
