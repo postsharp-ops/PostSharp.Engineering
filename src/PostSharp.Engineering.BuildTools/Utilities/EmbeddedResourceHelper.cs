@@ -16,7 +16,7 @@ internal static class EmbeddedResourceHelper
         var replacements = new Dictionary<string, string>();
         replacements.Add( "<ENG_PATH>", product.EngineeringDirectory );
         replacements.Add( "<ENVIRONMENT_VARIABLES>", string.Join( ",", EnvironmentVariableNames.All.OrderBy( x => x ) ) );
-        
+
         ExtractResource( context, fileName, targetDirectory, replacements );
     }
 
@@ -42,17 +42,6 @@ internal static class EmbeddedResourceHelper
             }
         }
 
-        if ( !File.Exists( targetPath ) || File.ReadAllText( targetPath ) != text )
-        {
-            context.Console.WriteMessage( $"Writing '{targetPath}'." );
-
-            File.WriteAllText( targetPath, text );
-        }
-
-        else
-
-        {
-            context.Console.WriteMessage( $"File '{targetPath}' is up to date." );
-        }
+        TextFileHelper.WriteIfDifferent( targetPath, text, context );
     }
 }

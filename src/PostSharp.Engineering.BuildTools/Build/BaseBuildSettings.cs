@@ -29,6 +29,10 @@ public class BaseBuildSettings : CommonCommandSettings
         set => this._resolvedConfiguration = value;
     }
 
+    [Description( "Overrides the .NET SDK version." )]
+    [CommandOption( "--sdk-version" )]
+    public string? SdkVersion { get; init; }
+
     protected override void AppendSettings( StringBuilder stringBuilder )
     {
         base.AppendSettings( stringBuilder );
@@ -36,6 +40,11 @@ public class BaseBuildSettings : CommonCommandSettings
         if ( this._resolvedConfiguration != null )
         {
             stringBuilder.Append( $"-c {this._resolvedConfiguration} " );
+        }
+
+        if ( !string.IsNullOrEmpty( this.SdkVersion ) )
+        {
+            stringBuilder.Append( $"--sdk-version {this.SdkVersion} " );
         }
     }
 

@@ -15,19 +15,23 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
 {
     protected override bool ExecuteCore( BuildContext context, T settings )
     {
-        // Validates the command line options.
-        context.Console.WriteHeading( "Setting the local dependencies" );
+        var console = context.Console;
+        var product = context.Product;
 
-        if ( context.Product.ParametrizedDependencies is not { Length: > 0 } )
+        // Validates the command line options.
+
+        console.WriteHeading( "Setting the local dependencies" );
+
+        if ( product.ParametrizedDependencies is not { Length: > 0 } )
         {
-            context.Console.WriteError( "This product has no dependency." );
+            console.WriteError( "This product has no dependency." );
 
             return false;
         }
 
         if ( settings.GetDependencies().Length == 0 && !settings.GetAllFlag() )
         {
-            context.Console.WriteError( "No dependency was specified. Specify a dependency or use --all." );
+            console.WriteError( "No dependency was specified. Specify a dependency or use --all." );
 
             return false;
         }
@@ -50,7 +54,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Iterate all matching dependencies.
-        var dependencies = settings.GetAllFlag() ? context.Product.ParametrizedDependencies.Select( x => x.Name ) : settings.GetDependencies();
+        var dependencies = settings.GetAllFlag() ? product.ParametrizedDependencies.Select( x => x.Name ) : settings.GetDependencies();
 
         foreach ( var dependencyName in dependencies )
         {
@@ -60,22 +64,22 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             {
                 // The dependency was given by position.
 
-                if ( index < 1 || index > context.Product.ParametrizedDependencies.Length )
+                if ( index < 1 || index > product.ParametrizedDependencies.Length )
                 {
-                    context.Console.WriteError( $"'{index}' is not a valid dependency index. Use the 'dependencies list' command." );
+                    console.WriteError( $"'{index}' is not a valid dependency index. Use the 'dependencies list' command." );
 
                     return false;
                 }
 
-                dependency = context.Product.ParametrizedDependencies[index - 1];
+                dependency = product.ParametrizedDependencies[index - 1];
             }
             else
             {
                 // The dependency was given by name.
 
-                if ( !context.Product.TryGetDependency( dependencyName, out dependency ) )
+                if ( !product.TryGetDependency( dependencyName, out dependency ) )
                 {
-                    context.Console.WriteError( $"'{dependencyName}' is not a valid dependency name for this product. Use the 'dependencies list' command." );
+                    console.WriteError( $"'{dependencyName}' is not a valid dependency name for this product. Use the 'dependencies list' command." );
 
                     return false;
                 }
@@ -93,12 +97,12 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
                      .Where( dependency => !defaultDependenciesOverrideFile.Dependencies.ContainsKey( dependency ) )
                      .ToList() )
         {
-            context.Console.WriteMessage( $"Resetting transitive dependency '{transitiveDependency}'." );
+            console.WriteMessage( $"Resetting transitive dependency '{transitiveDependency}'." );
             dependenciesOverrideFile.Dependencies.Remove( transitiveDependency );
         }
 
         // Updating dependencies.
-        context.Console.WriteImportantMessage( "Updating dependencies" );
+        console.WriteImportantMessage( "Updating dependencies" );
 
         if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true ) )
         {
@@ -112,19 +116,20 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Writing the configurations neutral file.
-        context.Product.PrepareConfigurationNeutralVersionsFile( context, settings, configuration );
-        
+        product.PrepareConfigurationNeutralVersionsFile( context, settings, configuration );
+
         // Generate nuget.config.
-        if ( !context.Product.TryGenerateNuGetConfig( context, dependenciesOverrideFile, configuration ) )
+        if ( !product.TryGenerateNuGetConfig( context, dependenciesOverrideFile, configuration ) ||
+             !product.TryGenerateGlobalJson( context ) )
         {
             return false;
         }
 
-        context.Console.WriteLine();
+        console.WriteLine();
 
         dependenciesOverrideFile.Print( context );
 
-        context.Console.WriteSuccess( "Setting dependencies was successful." );
+        console.WriteSuccess( "Setting dependencies was successful." );
 
         return true;
     }
