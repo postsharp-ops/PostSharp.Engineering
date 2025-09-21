@@ -9,6 +9,6 @@ public abstract class Tester
     public abstract SuccessCode Execute(
         BuildContext context,
         string artifactsDirectory,
-        BuildInfo buildInfo,
+        BuildArguments buildArguments,
         bool dry );
 }

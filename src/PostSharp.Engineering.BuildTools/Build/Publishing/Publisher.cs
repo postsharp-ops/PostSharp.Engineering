@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             PublishSettings settings,
             (string Private, string Public) directories,
             BuildConfigurationInfo configuration,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             bool isPublic,
             ref bool hasTarget );
 
@@ -30,7 +30,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             PublishSettings settings,
             (string Private, string Public) directories,
             BuildConfigurationInfo configuration,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             bool isPublic,
             ref bool hasTarget )
         {
@@ -45,9 +45,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
             foreach ( var publisher in publishers )
             {
-                if ( buildInfo.IsPrerelease && !publisher.PublishPrerelease )
+                if ( buildArguments.IsPrerelease && !publisher.PublishPrerelease )
                 {
-                    context.Console.WriteWarning( $"Skip publishing by '{publisher.GetType().Name}' because '{buildInfo.PackageVersion}' is a pre-release." );
+                    context.Console.WriteWarning(
+                        $"Skip publishing by '{publisher.GetType().Name}' because '{buildArguments.PackageVersion}' is a pre-release." );
 
                     continue;
                 }
@@ -57,7 +58,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                         settings,
                         directories,
                         configuration,
-                        buildInfo,
+                        buildArguments,
                         isPublic,
                         ref hasTarget ) )
                 {

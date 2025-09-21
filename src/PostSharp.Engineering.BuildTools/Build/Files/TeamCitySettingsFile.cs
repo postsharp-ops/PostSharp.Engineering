@@ -48,7 +48,7 @@ internal static class TeamCitySettingsFile
                 continue;
             }
 
-            var versionInfo = new BuildInfo( null, configuration, product, null );
+            var versionInfo = new BuildArguments( null, configuration, product, null );
 
             // Set artifact rules.
             var publicArtifactsDirectory =
@@ -98,7 +98,7 @@ internal static class TeamCitySettingsFile
                 .Select( d => new TeamCitySnapshotDependency(
                              d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                              true,
-                             $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( null, d.Configuration, product, null ) ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
+                             $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildArguments( null, d.Configuration, product, null ) ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
                 .ToList();
 
             var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
@@ -469,7 +469,7 @@ internal static class TeamCitySettingsFile
                      && !projectsWithNoNuGetArtifacts.Any( p => dependencyDefinition.Name.Contains( p, StringComparison.Ordinal ) ) )
                 {
                     var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
-                    var dependencyBuildInfo = new BuildInfo( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
+                    var dependencyBuildInfo = new BuildArguments( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
 
                     var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
                         .Replace( Path.DirectorySeparatorChar, '/' );
@@ -521,7 +521,7 @@ internal static class TeamCitySettingsFile
                         .Select( c => c! ) );
             }
 
-            var buildInfo = new BuildInfo( null, configuration, product, null );
+            var buildInfo = new BuildArguments( null, configuration, product, null );
 
             var privateArtifactsDirectory =
                 product.PrivateArtifactsDirectory.ToString( buildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
@@ -848,7 +848,7 @@ internal static class TeamCitySettingsFile
                             var dependencyName = dependencyDefinition.Name;
                             var configuration = BuildConfiguration.Public;
                             var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
-                            var dependencyBuildInfo = new BuildInfo( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
+                            var dependencyBuildInfo = new BuildArguments( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
 
                             var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
                                 .Replace( Path.DirectorySeparatorChar, '/' );

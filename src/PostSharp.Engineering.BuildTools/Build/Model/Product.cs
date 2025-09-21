@@ -297,15 +297,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool IsBundle { get; init; }
 
-        internal string GetPrivateArtifactsDirectory( BuildContext context, BuildInfo buildInfo )
+        internal string GetPrivateArtifactsDirectory( BuildContext context, BuildArguments buildArguments )
             => Path.Combine(
                 context.RepoDirectory,
-                this.PrivateArtifactsDirectory.ToString( buildInfo ) );
+                this.PrivateArtifactsDirectory.ToString( buildArguments ) );
 
-        internal string GetPublicArtifactsDirectory( BuildContext context, BuildInfo buildInfo )
+        internal string GetPublicArtifactsDirectory( BuildContext context, BuildArguments buildArguments )
             => Path.Combine(
                 context.RepoDirectory,
-                this.PublicArtifactsDirectory.ToString( buildInfo ) );
+                this.PublicArtifactsDirectory.ToString( buildArguments ) );
 
         /// <summary>
         /// An event raised when the build is completed, before creating ZIP files and preparing public artifacts.
@@ -338,11 +338,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.PrepareCompleted?.Invoke( args );
         }
 
-        internal (string Private, string Public) GetArtifactsDirectories( BuildContext context, BuildInfo buildInfo )
+        internal (string Private, string Public) GetArtifactsDirectories( BuildContext context, BuildArguments buildArguments )
         {
             return (
-                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( buildInfo ) ),
-                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( buildInfo ) )
+                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( buildArguments ) ),
+                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( buildArguments ) )
             );
         }
     }

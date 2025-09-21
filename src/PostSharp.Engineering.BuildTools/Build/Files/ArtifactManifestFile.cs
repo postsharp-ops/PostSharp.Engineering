@@ -207,7 +207,7 @@ internal static class ArtifactManifestFile
         var product = context.Product;
 
         var privateArtifactsRelativeDir =
-            product.PrivateArtifactsDirectory.ToString( new BuildInfo( null, configuration, product, null ) );
+            product.PrivateArtifactsDirectory.ToString( new BuildArguments( null, configuration, product, null ) );
 
         var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
 
@@ -222,10 +222,18 @@ internal static class ArtifactManifestFile
     /// </summary>
     public static bool TryRead(
         BuildContext context,
-        MainVersionFile mainVersionFile,
+        BuildConfiguration configuration,
         [NotNullWhen( true )] out ArtifactManifestVersionInfo? artifactManifestVersionInfo )
     {
         var product = context.Product;
+
+        if ( !MainVersionFile.TryRead( context, out var mainVersionFile ) )
+        {
+            artifactManifestVersionInfo = null;
+
+            return false;
+        }
+
         var overriddenPatchVersion = mainVersionFile.OverriddenPatchVersion;
 
         string? mainVersion;
@@ -251,15 +259,12 @@ internal static class ArtifactManifestFile
             {
                 // If no OverridenPatchVersion is defined, we use MainVersion property from private artifact.
 
-                var artifactVersionFile = Path.Combine(
-                    context.RepoDirectory,
-                    context.Product.PrivateArtifactsDirectory.ToString(),
-                    context.Product.ProductName + ".version.props" );
+                var artifactVersionFile = context.GetManifestFilePath( configuration );
 
                 var document = XDocument.Load( artifactVersionFile );
                 var project = document.Root;
                 var properties = project?.Element( "PropertyGroup" );
-                var propertyName = $"{context.Product.ProductNameWithoutDot}MainVersion";
+                var propertyName = $"{product.ProductNameWithoutDot}MainVersion";
                 mainVersion = properties?.Element( propertyName )?.Value;
 
                 if ( mainVersion == null )
@@ -280,5 +285,68 @@ internal static class ArtifactManifestFile
         artifactManifestVersionInfo = new ArtifactManifestVersionInfo( currentVersion, mainVersionFile.PackageVersionSuffix );
 
         return true;
+    }
+
+    public static BuildArguments CreateParametricStringArguments( BuildContext context, BuildConfiguration buildConfiguration )
+    {
+        var product = context.Product;
+        var versionFilePath = context.GetManifestFilePath( buildConfiguration );
+
+        if ( !File.Exists( versionFilePath ) )
+        {
+            throw new FileNotFoundException( $"The file '{versionFilePath}' should exist before calling this method." );
+        }
+
+        var versionFile = Project.FromFile( versionFilePath, MSBuildLoadOptions.IgnoreImportErrors );
+
+        string packageVersion;
+
+        if ( product.GenerateArcadeProperties )
+        {
+            packageVersion = versionFile.Properties
+                .Single( p => p.Name == product.ProductNameWithoutDot + "VersionPrefix" )
+                .EvaluatedValue;
+
+            var suffix = versionFile
+                .Properties
+                .Single( p => p.Name == product.ProductNameWithoutDot + "VersionSuffix" )
+                .EvaluatedValue;
+
+            if ( !string.IsNullOrWhiteSpace( suffix ) )
+            {
+                packageVersion = packageVersion + "-" + suffix;
+            }
+        }
+        else
+        {
+            packageVersion = versionFile
+                .Properties
+                .Single( p => p.Name == product.ProductNameWithoutDot + "Version" )
+                .EvaluatedValue;
+        }
+
+        if ( string.IsNullOrEmpty( packageVersion ) )
+        {
+            throw new InvalidOperationException( "PackageVersion should not be null." );
+        }
+
+        var configuration = versionFile
+            .Properties
+            .Single( p => p.Name == product.ProductNameWithoutDot + "BuildConfiguration" )
+            .EvaluatedValue;
+
+        var packagePreviewVersion = versionFile
+            .Properties
+            .Single( p => p.Name == product.ProductNameWithoutDot + "PreviewVersion" )
+            .EvaluatedValue;
+
+        if ( string.IsNullOrEmpty( configuration ) )
+        {
+            throw new InvalidOperationException( "BuildConfiguration should not be null." );
+        }
+
+        ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+
+        return new BuildArguments( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), product, packagePreviewVersion );
     }
 }

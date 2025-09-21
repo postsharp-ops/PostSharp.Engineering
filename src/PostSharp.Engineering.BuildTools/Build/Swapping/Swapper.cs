@@ -16,7 +16,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
         /// When set to false, the swapper will not swap when the product is pre-release. Default is true.
         /// </summary>
         public bool SwapPrerelease { get; init; } = true;
-        
+
         /// <summary>
         /// Gets or sets the list of testers that should be successfully executed before the swap is initiated.
         /// </summary>
@@ -25,18 +25,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
         /// <summary>
         /// Executes the swap operation.
         /// </summary>
-        public SuccessCode Execute( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration, BuildInfo buildInfo )
+        public SuccessCode Execute( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration, BuildArguments buildArguments )
         {
-            if ( buildInfo.IsPrerelease && !this.SwapPrerelease )
+            if ( buildArguments.IsPrerelease && !this.SwapPrerelease )
             {
-                context.Console.WriteWarning( $"Skip swapping by '{this.GetType().Name}' because '{buildInfo.PackageVersion}' is a pre-release." );
+                context.Console.WriteWarning( $"Skip swapping by '{this.GetType().Name}' because '{buildArguments.PackageVersion}' is a pre-release." );
 
                 return SuccessCode.Success;
             }
 
-            return this.ExecuteCore( context, settings, configuration, buildInfo );
+            return this.ExecuteCore( context, settings, configuration, buildArguments );
         }
-        
-        protected abstract SuccessCode ExecuteCore( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration, BuildInfo buildInfo );
+
+        protected abstract SuccessCode ExecuteCore(
+            BuildContext context,
+            SwapSettings settings,
+            BuildConfigurationInfo configuration,
+            BuildArguments buildArguments );
     }
 }

@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 
@@ -7,18 +8,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     // ReSharper disable once InconsistentNaming
 
+    [Obsolete( "Renamed to BuildArguments." )]
+    public record BuildInfo : BuildArguments;
+
     /// <summary>
     /// Information about a build, required to format a <see cref="ParametricString"/>.
     /// </summary>
-    public record BuildInfo
+    public record BuildArguments
     {
-        internal BuildInfo( string? packageVersion, BuildConfiguration configuration, Product product, string? packagePreviewVersion ) : this(
+        public BuildArguments() { }
+
+        internal BuildArguments( string? packageVersion, BuildConfiguration configuration, Product product, string? packagePreviewVersion ) : this(
             packageVersion,
             configuration,
             product.DependencyDefinition,
             packagePreviewVersion ) { }
 
-        internal BuildInfo(
+        internal BuildArguments(
             string? packageVersion,
             BuildConfiguration configuration,
             DependencyDefinition dependencyDefinition,
@@ -28,7 +34,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             dependencyDefinition.MSBuildConfiguration[configuration],
             packagePreviewVersion ) { }
 
-        internal BuildInfo( string? packageVersion, string configuration, string msBuildConfiguration, string? packagePreviewVersion )
+        internal BuildArguments( string? packageVersion, string configuration, string msBuildConfiguration, string? packagePreviewVersion )
         {
             this.PackageVersion = packageVersion;
             this.Configuration = configuration;
@@ -42,19 +48,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string? PackageVersion { get; init; }
 
         /// <summary>Configuration name.</summary>
-        public string Configuration { get; init; }
+        public string? Configuration { get; init; }
 
         /// <summary>MSBuild configuration name.</summary>
-        public string MSBuildConfiguration { get; init; }
+        public string? MSBuildConfiguration { get; init; }
 
         public string? PackagePreviewVersion { get; init; }
 
-        public void Deconstruct( out string? PackageVersion, out string Configuration, out string MSBuildConfiguration, out string? PackagePreviewVersion )
-        {
-            PackageVersion = this.PackageVersion;
-            Configuration = this.Configuration;
-            MSBuildConfiguration = this.MSBuildConfiguration;
-            PackagePreviewVersion = this.PackagePreviewVersion;
-        }
+        public static BuildArguments Read( BuildContext context, BuildConfiguration buildConfiguration )
+            => ArtifactManifestFile.CreateParametricStringArguments( context, buildConfiguration );
     }
 }

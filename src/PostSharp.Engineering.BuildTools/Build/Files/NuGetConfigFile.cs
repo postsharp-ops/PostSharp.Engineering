@@ -67,7 +67,7 @@ internal static class NuGetConfigFile
         // Add the current artifact directory.
         var artifactDirectory = Path.Combine(
             context.RepoDirectory,
-            product.PrivateArtifactsDirectory.ToString( new BuildInfo( null, configuration, product, null ) ) );
+            product.PrivateArtifactsDirectory.ToString( new BuildArguments( null, configuration, product, null ) ) );
 
         AddDirectory( product.ProductName, artifactDirectory, product.DependencyDefinition.PackagePatterns );
 
@@ -95,7 +95,7 @@ internal static class NuGetConfigFile
                 dependencyDirectory = Path.Combine(
                     dependencyDirectory,
                     dependencyDefinition.PrivateArtifactsDirectory.ToString(
-                        new BuildInfo(
+                        new BuildArguments(
                             null,
                             parametrizedDependency.ConfigurationMapping[configuration],
                             dependencyDefinition,

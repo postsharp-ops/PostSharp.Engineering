@@ -16,63 +16,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Files;
 
 internal static class VersionFileHelper
 {
-    public static BuildInfo ReadGeneratedVersionFile( BuildContext context, BuildConfiguration buildConfiguration )
-    {
-        var product = context.Product;
-        var versionFilePath = context.GetManifestFilePath( buildConfiguration );
-        var versionFile = Project.FromFile( versionFilePath, MSBuildLoadOptions.IgnoreImportErrors );
-
-        string packageVersion;
-
-        if ( product.GenerateArcadeProperties )
-        {
-            packageVersion = versionFile.Properties
-                .Single( p => p.Name == product.ProductNameWithoutDot + "VersionPrefix" )
-                .EvaluatedValue;
-
-            var suffix = versionFile
-                .Properties
-                .Single( p => p.Name == product.ProductNameWithoutDot + "VersionSuffix" )
-                .EvaluatedValue;
-
-            if ( !string.IsNullOrWhiteSpace( suffix ) )
-            {
-                packageVersion = packageVersion + "-" + suffix;
-            }
-        }
-        else
-        {
-            packageVersion = versionFile
-                .Properties
-                .Single( p => p.Name == product.ProductNameWithoutDot + "Version" )
-                .EvaluatedValue;
-        }
-
-        if ( string.IsNullOrEmpty( packageVersion ) )
-        {
-            throw new InvalidOperationException( "PackageVersion should not be null." );
-        }
-
-        var configuration = versionFile
-            .Properties
-            .Single( p => p.Name == product.ProductNameWithoutDot + "BuildConfiguration" )
-            .EvaluatedValue;
-
-        var packagePreviewVersion = versionFile
-            .Properties
-            .Single( p => p.Name == product.ProductNameWithoutDot + "PreviewVersion" )
-            .EvaluatedValue;
-
-        if ( string.IsNullOrEmpty( configuration ) )
-        {
-            throw new InvalidOperationException( "BuildConfiguration should not be null." );
-        }
-
-        ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
-
-        return new BuildInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), product, packagePreviewVersion );
-    }
-
     public static BuildConfiguration GetDependencyConfiguration( DependencyDefinition definition, DependencySource source )
     {
         if ( source.SourceKind == DependencySourceKind.Feed )

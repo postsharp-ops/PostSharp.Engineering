@@ -22,15 +22,15 @@ public class BuildCompletedEventArgs : EventArgs
     public BuildSettings Settings { get; }
 
     /// <summary>
-    /// Gets the current <see cref="BuildInfo"/>.
+    /// Gets the current <see cref="BuildArguments"/>.
     /// </summary>
-    public BuildInfo BuildInfo { get; }
+    public BuildArguments BuildArguments { get; }
 
     /// <summary>
     /// Gets the full path to the directory containing private artefacts.
     /// </summary>
     public string PrivateArtifactsDirectory { get; }
-    
+
     /// <summary>
     /// Gets the full path to the directory containing public artefacts.
     /// </summary>
@@ -42,11 +42,16 @@ public class BuildCompletedEventArgs : EventArgs
     /// </summary>
     public bool IsFailed { get; set; }
 
-    internal BuildCompletedEventArgs( BuildContext context, BuildSettings settings, BuildInfo buildInfo, string privateArtifactsDirectory, string publicArtifactsDirectory )
+    internal BuildCompletedEventArgs(
+        BuildContext context,
+        BuildSettings settings,
+        BuildArguments buildArguments,
+        string privateArtifactsDirectory,
+        string publicArtifactsDirectory )
     {
         this.Context = context;
         this.Settings = settings;
-        this.BuildInfo = buildInfo;
+        this.BuildArguments = buildArguments;
         this.PrivateArtifactsDirectory = privateArtifactsDirectory;
         this.PublicArtifactsDirectory = publicArtifactsDirectory;
     }

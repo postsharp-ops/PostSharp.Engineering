@@ -20,7 +20,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public override string ToString() => this._value ?? "<null>";
 
-        public string ToString( BuildInfo parameters )
+        public string ToString( BuildArguments parameters )
         {
             var value = this._value;
 

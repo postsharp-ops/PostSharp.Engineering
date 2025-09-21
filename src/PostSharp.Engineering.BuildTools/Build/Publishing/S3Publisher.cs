@@ -26,11 +26,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             BuildConfigurationInfo configuration )
         {
             var fileName = Path.GetFileName( file );
-            var packageConfiguration = this._configuration.Single( c => c.PackageFileName.ToString( buildInfo ) == fileName );
+            var packageConfiguration = this._configuration.Single( c => c.PackageFileName.ToString( buildArguments ) == fileName );
             var hasEnvironmentError = false;
 
             if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( EnvironmentVariableNames.AwsAccessKeyId ) ) )
@@ -68,7 +68,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                 {
                     var putRequest = new PutObjectRequest
                     {
-                        BucketName = packageConfiguration.BucketName, Key = packageConfiguration.KeyName.ToString( buildInfo ), FilePath = file
+                        BucketName = packageConfiguration.BucketName, Key = packageConfiguration.KeyName.ToString( buildArguments ), FilePath = file
                     };
 
                     context.Console.WriteImportantMessage( message );

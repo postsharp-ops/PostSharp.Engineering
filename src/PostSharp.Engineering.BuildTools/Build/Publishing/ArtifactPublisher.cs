@@ -32,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             BuildConfigurationInfo configuration );
 
         protected override bool Publish(
@@ -40,7 +40,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             PublishSettings settings,
             (string Private, string Public) directories,
             BuildConfigurationInfo configuration,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             bool isPublic,
             ref bool hasTarget )
         {
@@ -50,7 +50,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
             var files = new List<FilePatternMatch>();
 
-            if ( !this.Files.TryGetFiles( directory, buildInfo, files ) )
+            if ( !this.Files.TryGetFiles( directory, buildArguments, files ) )
             {
                 context.Console.WriteWarning( $"Created artifact files do not match the publisher pattern(s): '{this.Files}'" );
 
@@ -72,7 +72,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
                 var filePath = Path.Combine( directory, file.Path );
 
-                switch ( this.PublishFile( context, settings, filePath, buildInfo, configuration ) )
+                switch ( this.PublishFile( context, settings, filePath, buildArguments, configuration ) )
                 {
                     case SuccessCode.Success:
                         break;
@@ -95,7 +95,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             {
                 foreach ( var tester in this.Testers )
                 {
-                    switch ( tester.Execute( context, directories.Private, buildInfo, settings.Dry ) )
+                    switch ( tester.Execute( context, directories.Private, buildArguments, settings.Dry ) )
                     {
                         case SuccessCode.Success:
                             break;

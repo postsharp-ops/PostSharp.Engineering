@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Helpers;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Swapping;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -29,7 +30,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
 
         if ( !ArtifactManifestFile.TryRead(
                 context,
-                mainVersionFileInfo,
+                settings.BuildConfiguration,
                 out var preparedVersionInfo ) )
         {
             return false;
@@ -57,7 +58,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
             else
             {
                 // To check if version was bumped manually we get full prepared version info.
-                var currentVersion = preparedVersionInfo.Version + preparedVersionInfo.PackageVersionSuffix;
+                var currentVersion = preparedVersionInfo.PackageVersion;
 
                 // Publishing fails if there are changes and the version has not been bumped since the last deployment.
                 if ( !hasBumpSinceLastDeployment && currentVersion == lastVersionTag )
@@ -110,8 +111,8 @@ internal class PublishCommand : BaseCommand<PublishSettings>
         // }
 
         var configuration = settings.BuildConfiguration;
-        var buildInfo = VersionFileHelper.ReadGeneratedVersionFile( context, configuration );
-        var directories = product.GetArtifactsDirectories( context, buildInfo );
+        var buildArguments = BuildArguments.Read( context, configuration );
+        var directories = product.GetArtifactsDirectories( context, buildArguments );
         var configurationInfo = product.Configurations.GetValue( configuration );
         var hasTarget = false;
 
@@ -120,7 +121,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
                 settings,
                 directories,
                 configurationInfo,
-                buildInfo,
+                buildArguments,
                 false,
                 ref hasTarget ) )
         {
@@ -132,7 +133,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
                 settings,
                 directories,
                 configurationInfo,
-                buildInfo,
+                buildArguments,
                 true,
                 ref hasTarget ) )
         {

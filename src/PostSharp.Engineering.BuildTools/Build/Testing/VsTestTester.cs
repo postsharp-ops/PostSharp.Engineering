@@ -28,7 +28,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Testing
         public override SuccessCode Execute(
             BuildContext context,
             string artifactsDirectory,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             bool dry )
         {
             var tempDirectory = Path.Combine( Path.GetTempPath(), Path.GetRandomFileName() );
@@ -36,7 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Testing
 
             try
             {
-                var packagePath = Path.Combine( artifactsDirectory, this.TestPackageName.ToString( buildInfo ) );
+                var packagePath = Path.Combine( artifactsDirectory, this.TestPackageName.ToString( buildArguments ) );
                 ZipFile.ExtractToDirectory( packagePath, tempDirectory );
 
                 var exe = @"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\Extensions\TestPlatform\vstest.console.exe";

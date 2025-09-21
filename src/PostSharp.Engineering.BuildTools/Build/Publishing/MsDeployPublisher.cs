@@ -61,11 +61,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             BuildConfigurationInfo configuration )
         {
             var fileName = Path.GetFileName( file );
-            var packageConfiguration = this._configurations.Single( c => c.PackageFileName.ToString( buildInfo ) == fileName );
+            var packageConfiguration = this._configurations.Single( c => c.PackageFileName.ToString( buildArguments ) == fileName );
 
             if ( !QueryPublishProfile( context, settings, packageConfiguration, out var publishProfile ) )
             {

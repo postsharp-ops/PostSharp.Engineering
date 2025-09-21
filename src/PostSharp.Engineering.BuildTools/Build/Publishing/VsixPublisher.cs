@@ -22,7 +22,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;

@@ -111,7 +111,7 @@ internal class TestCommand : BaseCommand<BuildSettings>
         }
 
         // Raise the post-test event.
-        var buildInfo = VersionFileHelper.ReadGeneratedVersionFile( context, settings.BuildConfiguration );
+        var buildInfo = BuildArguments.Read( context, settings.BuildConfiguration );
         var privateArtifactsDirectory = product.GetPrivateArtifactsDirectory( context, buildInfo );
         var publicArtifactsDirectory = product.GetPublicArtifactsDirectory( context, buildInfo );
 

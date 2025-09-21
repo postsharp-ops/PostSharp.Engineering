@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.Tools.NuGet;
 
@@ -20,8 +21,8 @@ internal class VerifyCommand : BaseCommand<PublishSettings>
 
         if ( configuration == BuildConfiguration.Public )
         {
-            var versionFile = VersionFileHelper.ReadGeneratedVersionFile( context, configuration );
-            var directories = product.GetArtifactsDirectories( context, versionFile );
+            var buildArguments = BuildArguments.Read( context, configuration );
+            var directories = product.GetArtifactsDirectories( context, buildArguments );
 
             // Verify that public packages have no private dependencies.
             if ( !VerifyPublicPackageCommand.Execute(

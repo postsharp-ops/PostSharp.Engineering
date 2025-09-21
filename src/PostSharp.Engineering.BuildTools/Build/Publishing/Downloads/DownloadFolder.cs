@@ -19,14 +19,14 @@ public record DownloadFolder(
 {
     public static DownloadFolder Create(
         BuildContext context,
-        BuildInfo buildInfo,
+        BuildArguments buildArguments,
         string? description = null,
         string? longDescription = null,
         string? instructions = null,
         IEnumerable<DownloadFile>? files = null )
     {
         var familyName = context.Product.ProductFamily.Name;
-        var packageVersion = buildInfo.PackageVersion!;
+        var packageVersion = buildArguments.PackageVersion!;
         var name = $"{familyName} {packageVersion}";
         var order = packageVersion.Split( '-' )[0];
         var createdAt = DateTime.UtcNow;

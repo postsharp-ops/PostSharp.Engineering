@@ -4,4 +4,7 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.Build.Files;
 
-internal record ArtifactManifestVersionInfo( Version Version, string PackageVersionSuffix );
+internal record ArtifactManifestVersionInfo( Version Version, string PackageVersionSuffix )
+{
+    public string PackageVersion => this.Version.ToString() + this.PackageVersionSuffix;
+}

@@ -27,13 +27,13 @@ internal static class GitIntegrationHelper
 
         if ( !ArtifactManifestFile.TryRead(
                 context,
-                mainVersionFileInfo,
+                settings.BuildConfiguration,
                 out var preparedVersionInfo ) )
         {
             return false;
         }
 
-        var versionTag = string.Concat( "release/", preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
+        var versionTag = $"release/{preparedVersionInfo.PackageVersion}";
 
         ToolInvocationHelper.InvokeTool(
             context.Console,

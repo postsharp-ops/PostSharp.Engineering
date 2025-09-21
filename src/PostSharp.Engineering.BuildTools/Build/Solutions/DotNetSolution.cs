@@ -21,17 +21,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public override bool Build( BuildContext context, BuildSettings settings ) => this.RunBuildOrTests( context, settings, test: false );
 
-        public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "pack", "", addConfigurationFlag: true );
+        public override bool Pack( BuildContext context, BuildSettings settings )
+            => this.RunDotNet( context, settings, "pack", "", addConfigurationFlag: true );
 
         public override bool Test( BuildContext context, BuildSettings settings ) => this.RunBuildOrTests( context, settings, test: true );
 
-        public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache", addConfigurationFlag: false );
+        public override bool Restore( BuildContext context, BuildSettings settings )
+            => this.RunDotNet( context, settings, "restore", "--no-cache", addConfigurationFlag: false );
 
         private string GetFinalSolutionPath( BuildContext context )
             => FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
-        
-        private ToolInvocationOptions CreateInvocationOptions()
-            => new ToolInvocationOptions( this.EnvironmentVariables );
+
+        private ToolInvocationOptions CreateInvocationOptions() => new( this.EnvironmentVariables );
 
         private bool RunDotNet(
             BuildContext context,
@@ -47,14 +48,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 arguments,
                 addConfigurationFlag,
                 this.CreateInvocationOptions() );
-        
+
         private bool RunBuildOrTests(
             BuildContext context,
             BuildSettings settings,
             bool test )
         {
             var resultsRelativeDirectory =
-                context.Product.TestResultsDirectory.ToString( new BuildInfo( null, settings.BuildConfiguration, context.Product, null ) );
+                context.Product.TestResultsDirectory.ToString( new BuildArguments( null, settings.BuildConfiguration, context.Product, null ) );
 
             var resultsDirectory = Path.Combine( context.RepoDirectory, resultsRelativeDirectory );
             var projectOrSolution = this.GetFinalSolutionPath( context );
@@ -104,14 +105,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
                     return false;
                 }
-                
+
                 if ( test && testOptions.BuildOnly )
                 {
                     context.Console.WriteMessage( $"dotnet test skipped for '{projectOrSolution}' as configured in '{testJsonFile}'." );
-                    
+
                     return true;
                 }
-                
+
                 context.Console.WriteMessage( $"Running {(test ? "test" : "build")} as configured in '{testJsonFile}'." );
 
                 _ = DotNetHelper.Run(
@@ -130,9 +131,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
                 if ( testOptions.ExpectedDiagnosticsRegexes != null || testOptions.FailOnUnexpectedDiagnostics )
                 {
-                    var diagnostics = output.Split( '\n' ).Select( l => l.Trim() ).Where( l => l.Contains( ": error ", StringComparison.Ordinal ) || l.Contains( ": warning ", StringComparison.Ordinal ) ).ToArray();
+                    var diagnostics = output.Split( '\n' )
+                        .Select( l => l.Trim() )
+                        .Where( l => l.Contains( ": error ", StringComparison.Ordinal ) || l.Contains( ": warning ", StringComparison.Ordinal ) )
+                        .ToArray();
+
                     var isDiagnosticExpected = new bool[diagnostics.Length];
-                        
+
                     foreach ( var regex in testOptions.ExpectedDiagnosticsRegexes ?? [] )
                     {
                         var found = false;
@@ -140,7 +145,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                         for ( var i = 0; i < diagnostics.Length; i++ )
                         {
                             var line = diagnostics[i];
-                                
+
                             if ( Regex.IsMatch( line, regex, RegexOptions.IgnoreCase ) )
                             {
                                 isDiagnosticExpected[i] = true;
@@ -203,7 +208,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                         }
                     }
                 }
-                
+
                 if ( success && writeOutputOnSuccess )
                 {
                     context.Console.WriteMessage( output );

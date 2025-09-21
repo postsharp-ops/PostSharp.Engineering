@@ -53,7 +53,8 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// Gets a value indicating whether the current device is a guest device, as opposed to a device owned and configured by PostSharp.
         /// The main difference is that guest devices use feed packages while company devices use TeamCity artefacts.
         /// </summary>
-        public static bool IsGuestDevice => !bool.TryParse( Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsPostSharpOwned ), out var value ) || !value;
+        public static bool IsGuestDevice
+            => !bool.TryParse( Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsPostSharpOwned ), out var value ) || !value;
 
         /// <summary>
         /// Gets the full path of the current manifest file (i.e. the file called <c>My.Product.version.props</c>)
@@ -64,7 +65,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             return Path.Combine(
                 this.RepoDirectory,
                 this.Product.PrivateArtifactsDirectory.ToString(
-                    new BuildInfo( null, configuration.ToString(), this.Product.DependencyDefinition.MSBuildConfiguration[configuration], null ) ),
+                    new BuildArguments( null, configuration.ToString(), this.Product.DependencyDefinition.MSBuildConfiguration[configuration], null ) ),
                 $"{this.Product.ProductName}.version.props" );
         }
 
@@ -154,10 +155,24 @@ namespace PostSharp.Engineering.BuildTools.Build
         }
 
         public BuildContext WithConsoleHelper( ConsoleHelper consoleHelper )
-            => new( consoleHelper, this.RepoDirectory, this.CommandData, this.Branch, this.CommandContext, this.UseProjectDirectoryAsWorkingDirectory, this.Settings );
+            => new(
+                consoleHelper,
+                this.RepoDirectory,
+                this.CommandData,
+                this.Branch,
+                this.CommandContext,
+                this.UseProjectDirectoryAsWorkingDirectory,
+                this.Settings );
 
         public BuildContext WithUseProjectDirectoryAsWorkingDirectory( bool useProjectDirectoryAsWorkingDirectory )
-            => new( this.Console, this.RepoDirectory, this.CommandData, this.Branch, this.CommandContext, useProjectDirectoryAsWorkingDirectory, this.Settings );
+            => new(
+                this.Console,
+                this.RepoDirectory,
+                this.CommandData,
+                this.Branch,
+                this.CommandContext,
+                useProjectDirectoryAsWorkingDirectory,
+                this.Settings );
 
         [PublicAPI]
 #pragma warning disable CA1822
@@ -165,7 +180,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 #pragma warning restore CA1822
 
         public bool IsContinuousIntegrationBuild => TeamCityHelper.IsTeamCityBuild( this.Settings );
-        
+
         [PublicAPI]
         public CommonCommandSettings Settings { get; }
     }

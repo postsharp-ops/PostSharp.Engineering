@@ -55,7 +55,7 @@ internal static class DependencyWalker
 
         if ( !depsFilesPattern.TryGetFiles(
                 context.RepoDirectory,
-                new BuildInfo( null, defaultConfiguration, context.Product, null ),
+                new BuildArguments( null, defaultConfiguration, context.Product, null ),
                 depsFiles ) )
         {
             return [];

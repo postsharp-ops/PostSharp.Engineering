@@ -116,7 +116,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 DeleteDirectory( Path.Combine( context.RepoDirectory, directory ) );
             }
 
-            var stringParameters = new BuildInfo( null, settings.BuildConfiguration, product, null );
+            var stringParameters = new BuildArguments( null, settings.BuildConfiguration, product, null );
 
             DeleteDirectory(
                 Path.Combine(

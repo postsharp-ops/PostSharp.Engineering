@@ -79,7 +79,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string GetResolvedPrivateArtifactsDirectory( BuildConfiguration configuration )
             => this.PrivateArtifactsDirectory.ToString(
-                new BuildInfo( null, configuration.ToString().ToLowerInvariant(), this.MSBuildConfiguration[configuration], null ) );
+                new BuildArguments( null, configuration.ToString().ToLowerInvariant(), this.MSBuildConfiguration[configuration], null ) );
 
         // ReSharper disable once InconsistentNaming
         public ConfigurationSpecific<string> MSBuildConfiguration { get; init; } = new( "Debug", "Release", "Release" );

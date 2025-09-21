@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Files;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using System;
 
@@ -26,8 +27,8 @@ internal class SwapCommand : BaseCommand<SwapSettings>
     {
         var product = context.Product;
         var configuration = product.Configurations.GetValue( settings.BuildConfiguration );
-        var buildInfo = VersionFileHelper.ReadGeneratedVersionFile( context, settings.BuildConfiguration );
-        var directories = product.GetArtifactsDirectories( context, buildInfo );
+        var buildArguments = BuildArguments.Read( context, settings.BuildConfiguration );
+        var directories = product.GetArtifactsDirectories( context, buildArguments );
 
         var success = true;
 
@@ -35,12 +36,12 @@ internal class SwapCommand : BaseCommand<SwapSettings>
         {
             foreach ( var swapper in configuration.Swappers )
             {
-                switch ( swapper.Execute( context, settings, configuration, buildInfo ) )
+                switch ( swapper.Execute( context, settings, configuration, buildArguments ) )
                 {
                     case SuccessCode.Success:
                         foreach ( var tester in swapper.Testers )
                         {
-                            switch ( tester.Execute( context, directories.Private, buildInfo, settings.Dry ) )
+                            switch ( tester.Execute( context, directories.Private, buildArguments, settings.Dry ) )
                             {
                                 case SuccessCode.Success:
                                     break;
@@ -49,7 +50,7 @@ internal class SwapCommand : BaseCommand<SwapSettings>
                                 case SuccessCode.Error:
                                     context.Console.WriteError( $"Tester failed after swapping staging and production slots. Attempting to revert the swap." );
 
-                                    switch ( swapper.Execute( context, settings, configuration, buildInfo ) )
+                                    switch ( swapper.Execute( context, settings, configuration, buildArguments ) )
                                     {
                                         case SuccessCode.Success:
                                             context.Console.WriteMessage( "Successfully reverted swap." );

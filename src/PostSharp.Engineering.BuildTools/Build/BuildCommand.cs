@@ -125,7 +125,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             ImportFile.Delete( context );
 
             // We have to read the version from the file we have generated - using MSBuild, because it contains properties.
-            var buildInfo = VersionFileHelper.ReadGeneratedVersionFile( context, settings.BuildConfiguration );
+            var buildInfo = BuildArguments.Read( context, settings.BuildConfiguration );
 
             var privateArtifactsDirectory = product.GetPrivateArtifactsDirectory( context, buildInfo );
 

@@ -57,8 +57,13 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
         // Execute the event.
         product.OnPrepareCompleted( new PrepareCompletedEventArgs( context, settings ) );
 
+        if ( !ArtifactManifestFile.TryRead( context, settings.BuildConfiguration, out var artifactManifestVersionInfo ) )
+        {
+            return false;
+        }
+
         context.Console.WriteSuccess(
-            $"Preparing the build was successful. {product.ProductNameWithoutDot}Version={VersionFileHelper.ReadGeneratedVersionFile( context, settings.BuildConfiguration ).PackageVersion}" );
+            $"Preparing the build was successful. {product.ProductNameWithoutDot}Version={artifactManifestVersionInfo.PackageVersion}" );
 
         return true;
     }

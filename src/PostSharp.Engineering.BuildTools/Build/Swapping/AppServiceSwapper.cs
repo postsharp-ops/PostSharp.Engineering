@@ -39,7 +39,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
             }
         }
 
-        protected override SuccessCode ExecuteCore( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration, BuildInfo buildInfo )
+        protected override SuccessCode ExecuteCore(
+            BuildContext context,
+            SwapSettings settings,
+            BuildConfigurationInfo configuration,
+            BuildArguments buildArguments )
         {
             context.Console.WriteMessage( $"Swapping {this.SourceSlot} slot with {this.TargetSlot} slot of {this.AppServiceName} app service." );
 

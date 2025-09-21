@@ -57,7 +57,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// Verifies that every item of the current pattern matches some files on the file system,
         /// and writes an error to the console when one does not.
         /// </summary>
-        public bool Verify( BuildContext context, string directory, BuildInfo buildInfo )
+        public bool Verify( BuildContext context, string directory, BuildArguments buildArguments )
         {
             var success = true;
 
@@ -69,7 +69,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
-                var expandedPattern = pattern.Pattern.ToString( buildInfo );
+                var expandedPattern = pattern.Pattern.ToString( buildArguments );
                 matcher.AddInclude( expandedPattern );
 
                 var matchingResult =
@@ -88,13 +88,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets the files in a given directory matching the current pattern.
         /// </summary>
-        public bool TryGetFiles( string directory, BuildInfo buildInfo, List<FilePatternMatch> files )
+        public bool TryGetFiles( string directory, BuildArguments buildArguments, List<FilePatternMatch> files )
         {
             var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
 
             foreach ( var pattern in this.Items )
             {
-                var file = pattern.Pattern.ToString( buildInfo );
+                var file = pattern.Pattern.ToString( buildArguments );
 
                 if ( pattern.IsExclude )
                 {

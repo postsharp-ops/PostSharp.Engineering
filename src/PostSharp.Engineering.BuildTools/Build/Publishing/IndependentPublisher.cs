@@ -16,7 +16,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
         public abstract SuccessCode Execute(
             BuildContext context,
             PublishSettings settings,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             BuildConfigurationInfo configuration );
 
         protected sealed override bool Publish(
@@ -24,13 +24,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             PublishSettings settings,
             (string Private, string Public) directories,
             BuildConfigurationInfo configuration,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             bool isPublic,
             ref bool hasTarget )
         {
             var success = true;
 
-            switch ( this.Execute( context, settings, buildInfo, configuration ) )
+            switch ( this.Execute( context, settings, buildArguments, configuration ) )
             {
                 case SuccessCode.Success:
                     break;

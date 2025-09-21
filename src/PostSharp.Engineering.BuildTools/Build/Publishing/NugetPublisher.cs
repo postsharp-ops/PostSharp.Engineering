@@ -24,7 +24,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildContext context,
             PublishSettings settings,
             string file,
-            BuildInfo buildInfo,
+            BuildArguments buildArguments,
             BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;
@@ -53,7 +53,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                 return SuccessCode.Fatal;
             }
 
-            
             if ( apiKey == "az" && Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzEndpoints ) == null )
             {
                 context.Console.WriteImportantMessage(

@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishing;
@@ -20,11 +21,11 @@ public class InvalidatingS3Publisher(
         PublishSettings settings,
         (string Private, string Public) directories,
         BuildConfigurationInfo configuration,
-        BuildInfo buildInfo,
+        BuildArguments buildArguments,
         bool isPublic,
         ref bool hasTarget )
     {
-        if ( !base.Publish( context, settings, directories, configuration, buildInfo, isPublic, ref hasTarget ) )
+        if ( !base.Publish( context, settings, directories, configuration, buildArguments, isPublic, ref hasTarget ) )
         {
             return false;
         }
@@ -40,7 +41,7 @@ public class InvalidatingS3Publisher(
         using var httpClient = new HttpClient();
         var invalidationResponse = httpClient.GetAsync( url ).GetAwaiter().GetResult();
 
-        if ( invalidationResponse.StatusCode != System.Net.HttpStatusCode.OK )
+        if ( invalidationResponse.StatusCode != HttpStatusCode.OK )
         {
             context.Console.WriteError(
                 $"Failed to invalidate {invalidatedUrl}: {invalidationResponse.StatusCode} {invalidationResponse.ReasonPhrase} / {invalidationResponse.Content.ReadAsString()}" );
