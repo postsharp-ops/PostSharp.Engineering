@@ -16,10 +16,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     {
         protected override bool ConfigureDependency(
             BuildContext context,
-            DependenciesOverrideFile dependenciesOverrideFile,
+            DependenciesConfigurationFile dependenciesConfigurationFile,
             DependencyDefinition dependencyDefinition,
             SetDependenciesCommandSettings settings,
-            DependenciesOverrideFile defaultDependenciesOverrideFile )
+            DependenciesConfigurationFile defaultDependenciesConfigurationFile )
         {
             DependencySource dependencySource;
 
@@ -91,7 +91,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     throw new InvalidOperationException();
             }
 
-            dependenciesOverrideFile.Dependencies[dependencyDefinition.Name] = dependencySource;
+            dependenciesConfigurationFile.Dependencies[dependencyDefinition.Name] = dependencySource;
 
             return true;
         }

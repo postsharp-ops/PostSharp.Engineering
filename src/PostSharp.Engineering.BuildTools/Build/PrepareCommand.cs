@@ -19,7 +19,7 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
     public static bool Execute(
         BuildContext context,
         BuildSettings settings,
-        [NotNullWhen( true )] out DependenciesOverrideFile? dependenciesOverrideFile )
+        [NotNullWhen( true )] out DependenciesConfigurationFile? dependenciesOverrideFile )
     {
         if ( !settings.NoDependencies )
         {

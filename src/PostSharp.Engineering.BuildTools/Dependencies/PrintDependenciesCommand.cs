@@ -18,7 +18,7 @@ internal class PrintDependenciesCommand : BaseCommand<CommonCommandSettings>
     {
         var path = Path.Combine(
             context.RepoDirectory,
-            DependenciesOverrideFile.GetPath(
+            DependenciesConfigurationFile.GetPath(
                 context,
                 settings,
                 ConfigurationNeutralVersionFile.ReadDefaultConfiguration( context ) ?? BuildConfiguration.Debug ) );

@@ -134,13 +134,13 @@ public class VersionFile
         return true;
     }
 
-    public static bool Validate( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile )
+    internal static bool Validate( BuildContext context, DependenciesConfigurationFile dependenciesConfigurationFile )
     {
         var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
         var document = XDocument.Load( versionsPath );
         var hasError = false;
 
-        foreach ( var dependency in dependenciesOverrideFile.Dependencies.Keys )
+        foreach ( var dependency in dependenciesConfigurationFile.Dependencies.Keys )
         {
             var dependencyDefinition = context.Product.ProductFamily.GetDependencyDefinition( dependency );
 

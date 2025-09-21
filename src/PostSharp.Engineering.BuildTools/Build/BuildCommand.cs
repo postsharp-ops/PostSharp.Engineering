@@ -63,7 +63,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             }
 
             // Build dependencies.
-            DependenciesOverrideFile? dependenciesOverrideFile;
+            DependenciesConfigurationFile? dependenciesOverrideFile;
 
             if ( !settings.NoDependencies )
             {
@@ -75,7 +75,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             else
             {
                 // Read the resolved dependencies.
-                if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
+                if ( !DependenciesConfigurationFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
                 {
                     return false;
                 }

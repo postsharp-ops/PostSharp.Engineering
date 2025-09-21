@@ -41,7 +41,7 @@ internal static class VersionFileHelper
         BuildSettings settings,
         BuildConfiguration configuration,
         MainVersionFile mainVersionFile,
-        DependenciesOverrideFile dependenciesOverrideFile,
+        DependenciesConfigurationFile dependenciesConfigurationFile,
         [NotNullWhen( true )] out VersionComponents? version )
     {
         var product = context.Product;
@@ -56,7 +56,7 @@ internal static class VersionFileHelper
 
             // The main version is defined in a dependency. Load the import file.
 
-            if ( !dependenciesOverrideFile.Dependencies.TryGetValue( mainVersionDependencyName, out var dependencySource ) )
+            if ( !dependenciesConfigurationFile.Dependencies.TryGetValue( mainVersionDependencyName, out var dependencySource ) )
             {
                 context.Console.WriteError( $"Cannot find a dependency named '{mainVersionDependencyName}'." );
 

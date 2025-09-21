@@ -13,4 +13,5 @@ eng/tools
 /.tools
 nuget.config
 global.json
-eng/docker-context/env.g.json
+*.g.json
+*.g.ps1

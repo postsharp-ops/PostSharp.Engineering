@@ -22,7 +22,7 @@ internal static class ArtifactManifestFile
     public static bool TryWrite(
         VersionComponents version,
         BuildConfiguration configuration,
-        DependenciesOverrideFile dependenciesOverrideFile,
+        DependenciesConfigurationFile dependenciesConfigurationFile,
         BuildContext context,
         BuildSettings buildSettings,
         string buildDate )
@@ -110,7 +110,7 @@ internal static class ArtifactManifestFile
     </PropertyGroup>
     <ItemGroup>";
 
-        foreach ( var dependency in dependenciesOverrideFile.Dependencies )
+        foreach ( var dependency in dependenciesConfigurationFile.Dependencies )
         {
             var buildSpec = dependency.Value.BuildServerSource;
 
@@ -150,7 +150,7 @@ internal static class ArtifactManifestFile
     <PropertyGroup>
 ";
 
-        foreach ( var dependency in dependenciesOverrideFile.Dependencies.Where( d => d.Value.SourceKind == DependencySourceKind.Feed ) )
+        foreach ( var dependency in dependenciesConfigurationFile.Dependencies.Where( d => d.Value.SourceKind == DependencySourceKind.Feed ) )
         {
             var nameWithoutDot = dependency.Key.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 

@@ -19,12 +19,12 @@ using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
-public static class DependenciesHelper
+internal static class DependenciesHelper
 {
     public static bool UpdateOrFetchDependencies(
         BuildContext context,
         BuildConfiguration configuration,
-        DependenciesOverrideFile dependenciesOverrideFile,
+        DependenciesConfigurationFile dependenciesConfigurationFile,
         bool update )
     {
         DependencyDefinition? GetDependencyDefinition( KeyValuePair<string, DependencySource> dependencyPair )
@@ -37,7 +37,7 @@ public static class DependenciesHelper
             return dependency;
         }
 
-        var dependencies = dependenciesOverrideFile
+        var dependencies = dependenciesConfigurationFile
             .Dependencies
             .Where( d => d.Value.Origin != DependencyConfigurationOrigin.Transitive )
             .Select( d => (d.Value, GetDependencyDefinition( d )) )
@@ -90,7 +90,7 @@ public static class DependenciesHelper
                     context,
                     dependencyDictionary,
                     iterationDependencies,
-                    dependenciesOverrideFile,
+                    dependenciesConfigurationFile,
                     out var newDependencies ) )
             {
                 return false;
@@ -109,7 +109,7 @@ public static class DependenciesHelper
         BuildContext context,
         ImmutableDictionary<string, ResolvedDependency> allDependencies,
         ImmutableDictionary<string, ResolvedDependency> directDependencies,
-        DependenciesOverrideFile dependenciesOverrideFile,
+        DependenciesConfigurationFile dependenciesConfigurationFile,
         [NotNullWhen( true )] out ImmutableDictionary<string, ResolvedDependency>? newDependencies )
     {
         var newDependenciesBuilder = ImmutableDictionary.CreateBuilder<string, ResolvedDependency>();
@@ -249,7 +249,7 @@ public static class DependenciesHelper
 
                 var newDependency = new ResolvedDependency( dependencySource, dependencyDefinition );
                 newDependenciesBuilder.Add( newDependency.Dependency.Name, newDependency );
-                dependenciesOverrideFile.Dependencies[name] = dependencySource;
+                dependenciesConfigurationFile.Dependencies[name] = dependencySource;
             }
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();

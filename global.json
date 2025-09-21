@@ -6,6 +6,6 @@
     "allowPrerelease": false
   },
   "msbuild-sdks": {
-    "PostSharp.Engineering.Sdk": "2023.2.200"
+    "PostSharp.Engineering.Sdk": "2023.2.200.1000-local-GaelFraiteur-debug"
   }
 }

@@ -43,13 +43,13 @@ internal abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Loads the default dependencies.
-        if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings, configuration, out var defaultDependenciesOverrideFile ) )
+        if ( !DependenciesConfigurationFile.TryLoadDefaultsOnly( context, settings, configuration, out var defaultDependenciesOverrideFile ) )
         {
             return false;
         }
 
         // Loads the current version file.
-        if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out var dependenciesOverrideFile ) )
+        if ( !DependenciesConfigurationFile.TryLoad( context, settings, configuration, out var dependenciesOverrideFile ) )
         {
             return false;
         }
@@ -137,8 +137,8 @@ internal abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
 
     protected abstract bool ConfigureDependency(
         BuildContext context,
-        DependenciesOverrideFile dependenciesOverrideFile,
+        DependenciesConfigurationFile dependenciesConfigurationFile,
         DependencyDefinition dependencyDefinition,
         T settings,
-        DependenciesOverrideFile defaultDependenciesOverrideFile );
+        DependenciesConfigurationFile defaultDependenciesConfigurationFile );
 }

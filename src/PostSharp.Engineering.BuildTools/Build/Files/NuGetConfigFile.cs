@@ -15,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Files;
 /// </summary>
 internal static class NuGetConfigFile
 {
-    internal static bool TryWrite( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile, BuildConfiguration configuration )
+    internal static bool TryWrite( BuildContext context, DependenciesConfigurationFile dependenciesConfigurationFile, BuildConfiguration configuration )
     {
         var product = context.Product;
 
@@ -25,7 +25,7 @@ internal static class NuGetConfigFile
         }
 
         // Fetch to resolve the VersionFile properties.
-        if ( !dependenciesOverrideFile.Fetch( context ) )
+        if ( !dependenciesConfigurationFile.Fetch( context ) )
         {
             return false;
         }
@@ -85,7 +85,7 @@ internal static class NuGetConfigFile
         AddDirectory( product.ProductName, artifactDirectory, product.DependencyDefinition.PackagePatterns );
 
         // Add dependencies.
-        foreach ( var dependencySource in dependenciesOverrideFile.Dependencies )
+        foreach ( var dependencySource in dependenciesConfigurationFile.Dependencies )
         {
             if ( dependencySource.Value.SourceKind == DependencySourceKind.Feed )
             {

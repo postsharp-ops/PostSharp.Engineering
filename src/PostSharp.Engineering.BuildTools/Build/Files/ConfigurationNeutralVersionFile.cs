@@ -54,7 +54,7 @@ internal static class ConfigurationNeutralVersionFile
         BuildConfiguration buildConfiguration )
     {
         var configurationNeutralVersionsFilePath = GetPath( context );
-        var configurationSpecificVersionFilePath = DependenciesOverrideFile.GetPath( context, settings, buildConfiguration );
+        var configurationSpecificVersionFilePath = DependenciesConfigurationFile.GetPath( context, settings, buildConfiguration );
 
         context.Console.WriteMessage( $"Writing '{configurationNeutralVersionsFilePath}'." );
 

@@ -21,7 +21,7 @@ internal static class AutoUpdatedDependenciesHelper
         dependenciesUpdated = false;
 
         // Get dependenciesOverrideFile from Versions.Public.g.props.
-        if ( !DependenciesOverrideFile.TryLoad( context, settings, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
+        if ( !DependenciesConfigurationFile.TryLoad( context, settings, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
         {
             return false;
         }

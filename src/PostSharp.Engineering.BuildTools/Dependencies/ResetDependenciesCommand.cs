@@ -14,18 +14,18 @@ internal class ResetDependenciesCommand : ConfigureDependenciesCommand<ResetDepe
 {
     protected override bool ConfigureDependency(
         BuildContext context,
-        DependenciesOverrideFile dependenciesOverrideFile,
+        DependenciesConfigurationFile dependenciesConfigurationFile,
         DependencyDefinition dependencyDefinition,
         ResetDependenciesCommandSettings settings,
-        DependenciesOverrideFile defaultDependenciesOverrideFile )
+        DependenciesConfigurationFile defaultDependenciesConfigurationFile )
     {
-        if ( defaultDependenciesOverrideFile.Dependencies.TryGetValue( dependencyDefinition.Name, out var defaultSource ) )
+        if ( defaultDependenciesConfigurationFile.Dependencies.TryGetValue( dependencyDefinition.Name, out var defaultSource ) )
         {
-            dependenciesOverrideFile.Dependencies[dependencyDefinition.Name] = defaultSource;
+            dependenciesConfigurationFile.Dependencies[dependencyDefinition.Name] = defaultSource;
         }
         else
         {
-            dependenciesOverrideFile.Dependencies.Remove( dependencyDefinition.Name );
+            dependenciesConfigurationFile.Dependencies.Remove( dependencyDefinition.Name );
         }
 
         return true;

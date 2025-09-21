@@ -11,7 +11,7 @@ internal static class MasterGenerator
     public static bool TryWriteFiles(
         BuildContext context,
         BuildSettings settings,
-        [NotNullWhen( true )] out DependenciesOverrideFile? dependenciesOverrideFile )
+        [NotNullWhen( true )] out DependenciesConfigurationFile? dependenciesOverrideFile )
     {
         var configuration = settings.BuildConfiguration;
 
@@ -20,7 +20,7 @@ internal static class MasterGenerator
         var propsFilePath = ArtifactManifestFile.GetPath( context, settings.BuildConfiguration );
 
         // Load Versions.<Configuration>.g.props.
-        if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
+        if ( !DependenciesConfigurationFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
         {
             return false;
         }
