@@ -75,5 +75,4 @@ ARG SRC_DIR
 RUN echo $env:PATH
 RUN git config --global --add safe.directory $env:SRC_DIR/; `
     git config --global user.name $env:GIT_USER_NAME; `
-    git config --global user.email $env:GIT_USER_EMAIL; `
-
+    git config --global user.email $env:GIT_USER_EMAIL;
