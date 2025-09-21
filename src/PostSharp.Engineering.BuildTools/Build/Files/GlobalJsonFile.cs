@@ -55,7 +55,7 @@ internal static class GlobalJsonFile
                 "sdk": {
                   "version": "{{overrideSdkVersion ?? product.DotNetSdkVersion.Version}}",
                   "rollForward": "{{rollForward}}",
-                  "allowPrerelease": "{{product.DotNetSdkVersion.AllowPrerelease.ToString().ToLowerInvariant()}}"
+                  "allowPrerelease": {{product.DotNetSdkVersion.AllowPrerelease.ToString().ToLowerInvariant()}}
                 },
                 "msbuild-sdks": {
                   "PostSharp.Engineering.Sdk": "{{VersionHelper.EngineeringVersion}}"

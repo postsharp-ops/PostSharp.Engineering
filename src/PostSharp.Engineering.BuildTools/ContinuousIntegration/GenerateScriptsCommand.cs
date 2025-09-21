@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Docker;
-using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -13,26 +12,18 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings ) => Execute( context, settings );
-    
+
     public static bool Execute( BuildContext context, CommonCommandSettings settings )
     {
         var product = context.Product;
 
-        if ( product.IsBundle )
+        // TeamCity
+        if ( !TeamCitySettingsFile.TryWrite( context, settings ) )
         {
-            if ( !TeamCityHelper.TryGenerateConsolidatedTeamcityConfiguration( context ) )
-            {
-                return false;
-            }
-        }
-        else
-        {
-            if ( !TeamCitySettingsFile.TryWrite( context, settings ) )
-            {
-                return false;
-            }
+            return false;
         }
 
+        // Docket.
         if ( product.UseDocker )
         {
             EmbeddedResourceHelper.ExtractScript( context, "DockerBuild.ps1", "" );
