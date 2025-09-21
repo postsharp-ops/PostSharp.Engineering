@@ -95,6 +95,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 return true;
             }
+            
+            var product = context.Product;
+            var console = context.Console;
+
 
             // Override defaults from the version file.
             var document = XDocument.Load( filePath );
@@ -109,9 +113,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             var productFamily = project.Element( "PropertyGroup" )?.Element( "ProductFamily" )?.Value;
             var productFamilyVersion = project.Element( "PropertyGroup" )?.Element( "ProductFamilyVersion" )?.Value;
 
-            if ( (productFamily != context.Product.ProductFamily.Name || productFamilyVersion != context.Product.ProductFamily.Version) && !settings.Force )
+
+            if ( (productFamily != product.ProductFamily.Name || productFamilyVersion != product.ProductFamily.Version) && !settings.Force )
             {
-                context.Console.WriteError(
+                console.WriteError(
                     $"The file '{filePath}' was generated for a different version of this repo ({productFamily} {productFamilyVersion}). Clean your repo or use --force." );
 
                 return false;
@@ -129,14 +134,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                     if ( name == null || kindString == null )
                     {
-                        context.Console.WriteMessage( $"Invalid dependency file." );
+                        console.WriteMessage( $"Invalid dependency file." );
 
                         continue;
                     }
 
                     if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
                     {
-                        context.Console.WriteWarning(
+                        console.WriteWarning(
                             $"The dependency kind '{kindString}' defined in '{filePath}' is not supported. Skipping the parsing of this dependency." );
 
                         continue;
@@ -160,7 +165,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         {
                             if ( string.IsNullOrEmpty( ciBuildTypeId ) )
                             {
-                                context.Console.WriteError( $"The property CiBuildTypeId of dependency {name} is required in '{filePath}'." );
+                                console.WriteError( $"The property CiBuildTypeId of dependency {name} is required in '{filePath}'." );
 
                                 ciBuildSpec = null;
 
@@ -293,14 +298,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public bool TrySave( BuildContext context, CommonCommandSettings settings )
         {
-            context.Console.WriteMessage( $"Writing '{this.FilePath}'." );
+            var console = context.Console;
+            var product = context.Product;
+            
+            console.WriteMessage( $"Writing '{this.FilePath}'." );
 
             StreamWriter? dockerMountsWriter;
 
             if ( context.Product.UseDocker )
             {
                 var dockersMountsPath = Path.Combine( Path.GetDirectoryName( this.FilePath )!, "DockerMounts.g.ps1" );
-                context.Console.WriteMessage( $"Writing '{dockersMountsPath}'." );
+                console.WriteMessage( $"Writing '{dockersMountsPath}'." );
                 dockerMountsWriter = File.CreateText( dockersMountsPath );
 
                 dockerMountsWriter.WriteLine(
@@ -406,7 +414,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                             if ( dependencyDefinition == null
                                  && !context.Product.ProductFamily.TryGetDependencyDefinition( dependency.Key, out dependencyDefinition ) )
                             {
-                                context.Console.WriteWarning( $"The dependency '{dependency.Key}' is not configured. Ignoring." );
+                                console.WriteWarning( $"The dependency '{dependency.Key}' is not configured. Ignoring." );
                                 ignoreDependency = true;
                             }
                             else
@@ -485,12 +493,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             // The following properties are NOT related to dependencies. They are put here (instead of in a separate file) for convenience.
             properties.Add( new XElement( "PostSharpEngineeringExePath", context.Product.BuildExePath ) );
             properties.Add( new XElement( "PostSharpEngineeringDataDirectory", PathHelper.GetEngineeringDataDirectory() ) );
-
-            var msbuild = MSBuildHelper.FindMSBuildExe( context );
-
-            if ( msbuild != null )
+            
+            if ( product.MSBuildVersion != null )
             {
-                properties.Add( new XElement( "MSBuildExePath", "\"" + msbuild + "\"" ) );
+                var msbuild = MSBuildHelper.FindMSBuildExe( context );
+                
+                if ( msbuild != null )
+                {
+                    properties.Add( new XElement( "MSBuildExePath", "\"" + msbuild + "\"" ) );
+                }
             }
 
             var verifyFilesTarget = new XElement(

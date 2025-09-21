@@ -12,3 +12,5 @@ eng/tools
 /.config/dotnet-tools.json
 /.tools
 nuget.config
+global.json
+eng/docker-context/env.g.json

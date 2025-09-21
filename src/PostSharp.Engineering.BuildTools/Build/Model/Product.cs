@@ -235,8 +235,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         /// <summary>
         /// Gets or sets the version of MSBuild used by <see cref="PostSharp.Engineering.BuildTools.Build.Solutions.MsbuildSolution"/>.
-        /// The highest version that matches the specified version components of this property is chosed. If this property is not set,
-        /// the default is to use the instance with the higher version number.
+        /// The highest version that matches the specified version components of this property is chosen. If this property is not set,
+        /// MSBuild cannot be used.
         /// </summary>
         public Version? MSBuildVersion { get; init; }
 

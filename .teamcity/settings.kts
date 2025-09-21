@@ -32,7 +32,7 @@ object DebugBuild : BuildType({
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
+        text("TimeOut", "60", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -41,49 +41,30 @@ object DebugBuild : BuildType({
 
     steps {
         powerShell {
-            name = "Kill background processes before cleanup"
-            id = "PreKill"
+            name = "Prepare the Docker image"
+            id = "PrepareImage"
             scriptMode = file {
-                path = "Build.ps1"
+                path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "tools kill"
+            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
         }
         powerShell {
             name = "Build"
             id = "Build"
             scriptMode = file {
-                path = "Build.ps1"
+                path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
-        }
-        powerShell {
-            name = "Kill background processes before next build"
-            id = "PostKill"
-            scriptMode = file {
-                path = "Build.ps1"
-            }
-            noProfile = false
-            scriptArgs = "tools kill"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
         }
     }
-
     failureConditions {
-        failOnMetricChange {
-            metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
-            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
-            comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = build {
-                buildRule = lastSuccessful()
-            }
-            stopBuildOnFailure = true
-            param("metricThreshold", "%TimeOut%")
-        }
+         executionTimeoutMin = 60
     }
 
     requirements {
-        equals("env.BuildAgentType", "caravela04cloud")
+        equals("env.BuildAgentType", "docker-win-x64-md")
     }
 
     features {
@@ -113,7 +94,7 @@ object ReleaseBuild : BuildType({
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
+        text("TimeOut", "60", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -122,49 +103,30 @@ object ReleaseBuild : BuildType({
 
     steps {
         powerShell {
-            name = "Kill background processes before cleanup"
-            id = "PreKill"
+            name = "Prepare the Docker image"
+            id = "PrepareImage"
             scriptMode = file {
-                path = "Build.ps1"
+                path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "tools kill"
+            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
         }
         powerShell {
             name = "Build"
             id = "Build"
             scriptMode = file {
-                path = "Build.ps1"
+                path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
-        }
-        powerShell {
-            name = "Kill background processes before next build"
-            id = "PostKill"
-            scriptMode = file {
-                path = "Build.ps1"
-            }
-            noProfile = false
-            scriptArgs = "tools kill"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
         }
     }
-
     failureConditions {
-        failOnMetricChange {
-            metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
-            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
-            comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = build {
-                buildRule = lastSuccessful()
-            }
-            stopBuildOnFailure = true
-            param("metricThreshold", "%TimeOut%")
-        }
+         executionTimeoutMin = 60
     }
 
     requirements {
-        equals("env.BuildAgentType", "caravela04cloud")
+        equals("env.BuildAgentType", "docker-win-x64-md")
     }
 
     features {
@@ -185,7 +147,7 @@ object PublicBuild : BuildType({
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
+        text("TimeOut", "60", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -194,49 +156,30 @@ object PublicBuild : BuildType({
 
     steps {
         powerShell {
-            name = "Kill background processes before cleanup"
-            id = "PreKill"
+            name = "Prepare the Docker image"
+            id = "PrepareImage"
             scriptMode = file {
-                path = "Build.ps1"
+                path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "tools kill"
+            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
         }
         powerShell {
             name = "Build"
             id = "Build"
             scriptMode = file {
-                path = "Build.ps1"
+                path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
-        }
-        powerShell {
-            name = "Kill background processes before next build"
-            id = "PostKill"
-            scriptMode = file {
-                path = "Build.ps1"
-            }
-            noProfile = false
-            scriptArgs = "tools kill"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
         }
     }
-
     failureConditions {
-        failOnMetricChange {
-            metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
-            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
-            comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = build {
-                buildRule = lastSuccessful()
-            }
-            stopBuildOnFailure = true
-            param("metricThreshold", "%TimeOut%")
-        }
+         executionTimeoutMin = 60
     }
 
     requirements {
-        equals("env.BuildAgentType", "caravela04cloud")
+        equals("env.BuildAgentType", "docker-win-x64-md")
     }
 
     features {
@@ -257,7 +200,7 @@ object PublicDeployment : BuildType({
     params {
         text("PublishArguments", "", label = "Publish Arguments", description = "Arguments to append to the 'Publish' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
+        text("TimeOut", "30", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -275,22 +218,12 @@ object PublicDeployment : BuildType({
             scriptArgs = "publish --configuration Public %PublishArguments%"
         }
     }
-
     failureConditions {
-        failOnMetricChange {
-            metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
-            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
-            comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = build {
-                buildRule = lastSuccessful()
-            }
-            stopBuildOnFailure = true
-            param("metricThreshold", "%TimeOut%")
-        }
+         executionTimeoutMin = 30
     }
 
     requirements {
-        equals("env.BuildAgentType", "caravela04cloud")
+        equals("env.BuildAgentType", "docker-win-x64-md")
     }
 
     features {
@@ -326,7 +259,7 @@ object VersionBump : BuildType({
     params {
         text("BumpArguments", "", label = "Bump Arguments", description = "Arguments to append to the 'Bump' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
+        text("TimeOut", "15", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -344,22 +277,12 @@ object VersionBump : BuildType({
             scriptArgs = "bump %BumpArguments%"
         }
     }
-
     failureConditions {
-        failOnMetricChange {
-            metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
-            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
-            comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = build {
-                buildRule = lastSuccessful()
-            }
-            stopBuildOnFailure = true
-            param("metricThreshold", "%TimeOut%")
-        }
+         executionTimeoutMin = 15
     }
 
     requirements {
-        equals("env.BuildAgentType", "caravela04cloud")
+        equals("env.BuildAgentType", "docker-win-x64-md")
     }
 
     features {

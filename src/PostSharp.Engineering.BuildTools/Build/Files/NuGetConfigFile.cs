@@ -48,20 +48,33 @@ internal static class NuGetConfigFile
             document.Add( rootElement );
         }
 
-        var packageSourceMappingElement = rootElement.Element( "packageSourceMapping" );
-
-        if ( packageSourceMappingElement == null )
-        {
-            packageSourceMappingElement = new XElement( "packageSourceMapping" );
-            rootElement.Add( packageSourceMappingElement );
-        }
-
         var packageSourcesElement = rootElement.Element( "packageSources" );
 
         if ( packageSourcesElement == null )
         {
             packageSourcesElement = new XElement( "packageSources" );
             rootElement.Add( packageSourcesElement );
+
+            // If the element is not present (typical if no nuget.base.config), add default values.
+            packageSourcesElement.Add( new XElement( "clear" ) );
+            var defaultSource = new XElement( "add" );
+            packageSourcesElement.Add( defaultSource );
+            defaultSource.Add( new XAttribute( "key", "nuget.org" ) );
+            defaultSource.Add( new XAttribute( "value", "https://api.nuget.org/v3/index.json" ) );
+        }
+
+        var packageSourceMappingElement = rootElement.Element( "packageSourceMapping" );
+
+        if ( packageSourceMappingElement == null )
+        {
+            packageSourceMappingElement = new XElement( "packageSourceMapping" );
+            rootElement.Add( packageSourceMappingElement );
+
+            // If the element is not present (typical if no nuget.base.config), add default values.
+            var defaultSourceMapping = new XElement( "packageSource" );
+            defaultSourceMapping.Add( new XAttribute( "key", "nuget.org" ) );
+            defaultSourceMapping.Add( new XElement( "package", new XAttribute( "pattern", "*" ) ) );
+            packageSourceMappingElement.Add( defaultSourceMapping );
         }
 
         // Add the current artifact directory.

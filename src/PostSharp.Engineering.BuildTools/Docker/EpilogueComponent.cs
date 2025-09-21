@@ -6,7 +6,7 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
-public class EpilogueComponent : ContainerComponent
+internal class EpilogueComponent : ContainerComponent
 {
     public override string Name => "Epilogue";
 

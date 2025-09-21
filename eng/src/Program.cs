@@ -4,10 +4,18 @@ using PostSharp.Engineering.BuildTools;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
+using PostSharp.Engineering.BuildTools.Docker;
 using Spectre.Console.Cli;
 
+const string sdkVersion = "9.0.305";
 var product = new Product( DevelopmentDependencies.PostSharpEngineering )
 {
+    GenerateNuGetConfig = true,
+    DotNetSdkVersion = new DotNetSdkVersion( sdkVersion ),
+    OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows )
+    {
+        Components = [ new DotNetComponent( sdkVersion, DotNetComponentKind.Sdk )]
+    },
     Solutions =
     [
         new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true }

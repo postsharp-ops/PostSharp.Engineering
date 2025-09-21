@@ -2,6 +2,7 @@
 
 using Microsoft.Build.Locator;
 using Microsoft.VisualStudio.Setup.Configuration;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -55,7 +56,7 @@ internal static class MSBuildHelper
 
         if ( requestedVersion == null )
         {
-            instance = instances.FirstOrDefault();
+            throw new InvalidOperationException( $"Cannot use MSBuild because the Product.{nameof(Product.MSBuildVersion)} property is not defined." );
         }
         else
         {

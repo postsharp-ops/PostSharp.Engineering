@@ -1,10 +1,12 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
-public class AzureCliComponent : ContainerComponent
+[PublicAPI]
+public sealed class AzureCliComponent : ContainerComponent
 {
     public override string Name => "Install Azure CLI";
 

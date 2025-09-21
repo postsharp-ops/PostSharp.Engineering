@@ -4,7 +4,7 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
-public class PrologComponent : ContainerComponent
+internal class PrologComponent : ContainerComponent
 {
     public override string Name => "Prolog";
 

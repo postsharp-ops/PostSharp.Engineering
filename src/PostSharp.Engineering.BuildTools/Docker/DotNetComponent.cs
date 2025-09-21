@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,15 +8,12 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
-public class DotNetComponent : ContainerComponent
+[PublicAPI]
+public sealed class DotNetComponent : ContainerComponent
 {
     public string Version { get; }
 
-    public Version? ParsedVersion
-    {
-        get;
-
-    }
+    public Version? ParsedVersion { get; }
 
     public DotNetComponentKind DotNetComponentKind { get; }
 
@@ -23,8 +21,8 @@ public class DotNetComponent : ContainerComponent
     {
         this.Version = version;
         this.DotNetComponentKind = dotNetComponentKind;
-        
-            var v = this.Version.Split( "-" )[0];
+
+        var v = this.Version.Split( "-" )[0];
 
         if ( System.Version.TryParse( v, out var parsedVersion ) )
         {
@@ -69,7 +67,7 @@ public class DotNetComponent : ContainerComponent
                  """ );
         }
     }
-    
+
     public override string ToString() => $"{this.Kind} {this.DotNetComponentKind} {this.Version}";
 
     public override int CompareTo( ContainerComponent? other )
