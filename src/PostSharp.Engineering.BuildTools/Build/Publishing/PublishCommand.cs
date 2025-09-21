@@ -95,6 +95,13 @@ internal class PublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
+        if ( !GitHelper.ConfigureAuthentication( context ) )
+        {
+            context.Console.WriteError( "Cannot configure git credentials." );
+
+            return false;
+        }
+
         if ( !MasterGenerator.TryWriteFiles( context, settings, out _ ) )
         {
             return false;

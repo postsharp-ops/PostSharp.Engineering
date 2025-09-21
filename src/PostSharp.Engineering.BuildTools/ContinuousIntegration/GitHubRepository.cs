@@ -14,8 +14,8 @@ public class GitHubRepository : VcsRepository
     // E.g.
     // git@github.com:postsharp/Metalama.Documentation.git // Used on TeamCity
     // https://github.com/postsharp/Metalama.Documentation.git // Used locally
-    private static readonly Regex _urlRegex = new Regex( "^(?:git@github.com:|https://github.com/)(?<owner>[^/]+)/(?<repo>[^/]+)\\.git$" );
-    
+    private static readonly Regex _urlRegex = new( "^(?:git@github.com:|https://github.com/)(?<owner>[^/]+)/(?<repo>[^/]+)\\.git$" );
+
     public override string Name { get; }
 
     public override VcsProvider Provider => VcsProvider.GitHub;
@@ -25,12 +25,14 @@ public class GitHubRepository : VcsRepository
     public override string SshUrl => $"git@github.com:{this.Owner}/{this.Name}.git";
 
     public override string HttpUrl => $"https://github.com/{this.Owner}/{this.Name}.git";
-    
+
     public override string DeveloperMachineRemoteUrl => this.HttpUrl;
 
     public override string TeamCityRemoteUrl => this.SshUrl;
-    
+
     public override bool IsSshAgentRequired => true;
+
+    public override string TokenEnvironmentVariableName => EnvironmentVariableNames.GitHubToken;
 
     public GitHubRepository( string name, string owner, string? defaultBranchParameter = null )
         : base( defaultBranchParameter )
@@ -38,7 +40,7 @@ public class GitHubRepository : VcsRepository
         this.Name = name;
         this.Owner = owner;
     }
-    
+
     public static bool TryParse( string repoUrl, [NotNullWhen( true )] out GitHubRepository? repository )
     {
         var match = _urlRegex.Match( repoUrl );
@@ -46,10 +48,10 @@ public class GitHubRepository : VcsRepository
         if ( !match.Success )
         {
             repository = null;
-            
+
             return false;
         }
-        
+
         var owner = match.Groups["owner"].Value;
         var name = match.Groups["repo"].Value;
         repository = new GitHubRepository( name, owner );

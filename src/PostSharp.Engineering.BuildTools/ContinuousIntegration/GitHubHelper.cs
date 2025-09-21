@@ -23,7 +23,7 @@ public static class GitHubHelper
     private const string _productHeaderName = "PostSharp.Engineering";
     private static readonly string _productHeaderVersion = typeof(GitHubHelper).Assembly.GetName().Version!.ToString();
 
-    private static bool TryGetToken(
+    internal static bool TryGetToken(
         ConsoleHelper console,
         [NotNullWhen( true )] out string? token,
         string tokenEnvironmentVariableName = EnvironmentVariableNames.GitHubToken )
@@ -286,26 +286,25 @@ public static class GitHubHelper
             .Repository( gitHubRepository.Name )
             .BranchProtectionRules()
             .AllPages()
-            .Select(
-                r => new
-                {
-                    // For this code, use the output of the loop above.
-                    r.AllowsDeletions,
-                    r.AllowsForcePushes,
-                    r.BlocksCreations,
-                    r.DismissesStaleReviews,
-                    r.IsAdminEnforced,
-                    r.Pattern,
-                    r.RequiresApprovingReviews,
-                    r.RequiresCodeOwnerReviews,
-                    r.RequiresCommitSignatures,
-                    r.RequiresConversationResolution,
-                    r.RequiresLinearHistory,
-                    r.RequiresStatusChecks,
-                    r.RequiresStrictStatusChecks,
-                    r.RestrictsPushes,
-                    r.RestrictsReviewDismissals
-                } )
+            .Select( r => new
+            {
+                // For this code, use the output of the loop above.
+                r.AllowsDeletions,
+                r.AllowsForcePushes,
+                r.BlocksCreations,
+                r.DismissesStaleReviews,
+                r.IsAdminEnforced,
+                r.Pattern,
+                r.RequiresApprovingReviews,
+                r.RequiresCodeOwnerReviews,
+                r.RequiresCommitSignatures,
+                r.RequiresConversationResolution,
+                r.RequiresLinearHistory,
+                r.RequiresStatusChecks,
+                r.RequiresStrictStatusChecks,
+                r.RestrictsPushes,
+                r.RestrictsReviewDismissals
+            } )
             .Compile();
 
         var rules = await graphQl.Run( branchProtectionRulesQuery );

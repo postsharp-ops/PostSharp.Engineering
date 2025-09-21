@@ -13,39 +13,41 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 public abstract class VcsRepository
 {
     public const string DefaultDefaultBranchParameter = "DefaultBranch";
-    
+
     protected VcsRepository( string? defaultBranchParameter )
     {
         this.DefaultBranchParameter = defaultBranchParameter ?? DefaultDefaultBranchParameter;
     }
 
     public abstract string Name { get; }
-    
+
     /// <summary>
     /// Parameter name used to specify the default branch in TeamCity build configurations.
     /// </summary>
     public string DefaultBranchParameter { get; }
-    
+
     public abstract VcsProvider Provider { get; }
-    
+
     public abstract string SshUrl { get; }
 
     public abstract string HttpUrl { get; }
-    
+
     /// <summary>
     /// Gets the repository URL used by developers on their machines to access the repository.
     /// </summary>
     public abstract string DeveloperMachineRemoteUrl { get; }
-    
+
     /// <summary>
     /// Gets the repository URL used by TeamCity server and agents to access the repository.
     /// </summary>
     public abstract string TeamCityRemoteUrl { get; }
-    
+
     public abstract bool IsSshAgentRequired { get; }
-    
+
+    public abstract string TokenEnvironmentVariableName { get; }
+
     public abstract bool TryDownloadTextFile( ConsoleHelper console, string branch, string path, [NotNullWhen( true )] out string? text );
-    
+
     public abstract Task<bool> TrySetBranchPoliciesAsync( BuildContext context, string buildStatusGenre, string? buildStatusName, bool dry );
 
     public abstract Task<string?> TryCreatePullRequestAsync( ConsoleHelper console, string sourceBranch, string targetBranch, string title );

@@ -20,14 +20,22 @@ internal class BumpCommand : BaseCommand<BumpSettings>
     public static bool Execute( BuildContext context, BumpSettings settings )
     {
         var product = context.Product;
-        context.Console.WriteHeading( $"Bumping the '{product.ProductName}' version" );
+        var console = context.Console;
+        console.WriteHeading( $"Bumping the '{product.ProductName}' version" );
 
         var developmentBranch = product.DependencyDefinition.Branch;
 
         if ( context.Branch != developmentBranch )
         {
-            context.Console.WriteError(
+            console.WriteError(
                 $"The version bump can only be executed on the development branch ('{developmentBranch}'). The current branch is '{context.Branch}'." );
+
+            return false;
+        }
+
+        if ( !GitHelper.ConfigureAuthentication( context ) )
+        {
+            console.WriteError( "Cannot configure git credentials." );
 
             return false;
         }
@@ -39,11 +47,11 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
         if ( releaseBranch == null )
         {
-            context.Console.WriteMessage( "Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
+            console.WriteMessage( "Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
         }
         else
         {
-            context.Console.WriteMessage( $"Checking for pending changes from the release branch ('{releaseBranch}')." );
+            console.WriteMessage( $"Checking for pending changes from the release branch ('{releaseBranch}')." );
 
             if ( !GitHelper.TryCheckoutAndPull( context, releaseBranch ) )
             {
@@ -62,9 +70,9 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
             if ( count > 0 )
             {
-                context.Console.WriteError( $"There are pending changes from the '{releaseBranch}' branch." );
-                context.Console.WriteError( $"Check the relevancy of the changes and merge the '{releaseBranch}' branch to the '{developmentBranch}'." );
-                context.Console.WriteError( "Failing to do so could result in invalid version number of this product." );
+                console.WriteError( $"There are pending changes from the '{releaseBranch}' branch." );
+                console.WriteError( $"Check the relevancy of the changes and merge the '{releaseBranch}' branch to the '{developmentBranch}'." );
+                console.WriteError( "Failing to do so could result in invalid version number of this product." );
 
                 return false;
             }
@@ -88,7 +96,7 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
         if ( hasBumpSinceLastDeployment && !settings.OverridePreviousBump )
         {
-            context.Console.WriteWarning( "Version has already been bumped since the last deployment." );
+            console.WriteWarning( "Version has already been bumped since the last deployment." );
 
             return true;
         }
@@ -112,7 +120,7 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
         if ( !hasChangesInDependencies && !hasChangesSinceLastDeployment )
         {
-            context.Console.WriteWarning( $"There are no changes since the last deployment." );
+            console.WriteWarning( $"There are no changes since the last deployment." );
 
             return true;
         }
@@ -120,7 +128,7 @@ internal class BumpCommand : BaseCommand<BumpSettings>
         // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
         if ( hasChangesInDependencies )
         {
-            context.Console.WriteMessage(
+            console.WriteMessage(
                 $"'{bumpInfoFilePath}' contents are outdated. Overwriting its old content '{oldBumpFileContent}' with new content '{newBumpInfoFile}'." );
 
             File.WriteAllText( bumpInfoFilePath, newBumpInfoFile.ToString() );
@@ -145,12 +153,12 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
                 if ( settings.Force )
                 {
-                    context.Console.WriteImportantMessage( $"{message} This is being ignored using --force." );
+                    console.WriteImportantMessage( $"{message} This is being ignored using --force." );
 
                     return true;
                 }
 
-                context.Console.WriteError( $"{message} Do a fake change in a parent repo or use --force." );
+                console.WriteError( $"{message} Do a fake change in a parent repo or use --force." );
 
                 return false;
             }

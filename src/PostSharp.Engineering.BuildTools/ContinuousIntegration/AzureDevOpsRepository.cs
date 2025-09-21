@@ -19,7 +19,7 @@ public class AzureDevOpsRepository : VcsRepository
     // E.g.
     // https://postsharp@dev.azure.com/postsharp/Caravela/_git/Caravela.Repo
     // https://dev.azure.com/postsharp/Caravela/_git/Caravela.Repo
-    private static readonly Regex _urlRegex = new Regex(
+    private static readonly Regex _urlRegex = new(
         @"^(?<protocol>https)://(?:(?<user>[^/@]+)@)?(?<domain>[^/]+)/(?<organization>[^/]+)?/(?<project>[^/]+)/_git/(?<repo>[^/]+)$" );
 
     public override string Name { get; }
@@ -44,7 +44,14 @@ public class AzureDevOpsRepository : VcsRepository
 
     public override bool IsSshAgentRequired => false;
 
-    public AzureDevOpsRepository( string project, string name, string organisation = "postsharp", string domain = "dev.azure.com", string? defaultBranchParameter = null )
+    public override string TokenEnvironmentVariableName => EnvironmentVariableNames.AzureDevOpsToken;
+
+    public AzureDevOpsRepository(
+        string project,
+        string name,
+        string organisation = "postsharp",
+        string domain = "dev.azure.com",
+        string? defaultBranchParameter = null )
         : base( defaultBranchParameter )
     {
         this.Name = name;
@@ -83,7 +90,7 @@ public class AzureDevOpsRepository : VcsRepository
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Basic", authString );
 
         var uri = $"{this.BaseUrl}/{this.Project}/_apis/git/repositories/{this.Name}/items?path={path}&versionDescriptor.version={branch}";
-        
+
         console.WriteMessage( $"Downloading {uri}." );
         text = httpClient.GetString( uri );
 

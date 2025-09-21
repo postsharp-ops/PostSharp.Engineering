@@ -8,7 +8,9 @@ using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
@@ -32,7 +34,7 @@ public static class GitHelper
     }
 
     public static bool TryFetch( BuildContext context, string? branch ) => TryFetch( context.Console, context.RepoDirectory, branch );
-    
+
     public static bool TryFetch( ConsoleHelper console, string repoDirectory, string? branch )
     {
         if ( branch != null && !TryAddOrigin( console, repoDirectory, branch ) )
@@ -89,7 +91,7 @@ public static class GitHelper
         }
 
         context.Console.WriteMessage( $"Merging branch '{sourceBranch}' to '{targetBranch}'." );
-        
+
         // Checkout to target branch branch and pull to update the local repository.
         if ( !TryCheckoutAndPull( context, targetBranch ) )
         {
@@ -107,7 +109,7 @@ public static class GitHelper
         {
             return false;
         }
-        
+
         context.Console.WriteMessage( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
 
         return true;
@@ -181,7 +183,7 @@ public static class GitHelper
 
     public static bool TryGetCurrentCommitHash( BuildContext context, string reference, out string? currentCommitHash )
         => TryGetCurrentCommitHash( context.Console, context.RepoDirectory, reference, out currentCommitHash );
-    
+
     public static bool TryGetCurrentCommitHash( ConsoleHelper console, string repoDirectory, string reference, out string? currentCommitHash )
     {
         ToolInvocationHelper.InvokeTool(
@@ -224,7 +226,7 @@ public static class GitHelper
         {
             context.Console.WriteError( output );
             count = -1;
-            
+
             return false;
         }
 
@@ -265,7 +267,7 @@ public static class GitHelper
 
         return regex;
     }
-    
+
     public static bool TryGetCommitsCount( BuildContext context, string from, string to, ProductFamily sourceFamily, out int count )
     {
         // This is to consider only version bumps from the source family release. (E.g. 2023.1)
@@ -310,14 +312,14 @@ public static class GitHelper
 
         // This command doesn't have a porcelain switch and git can include warnings in the output,
         // so we filter out lines that don't represent a reference.
-        
+
         // Example of an output of this command:
         // git: 'credential-manager' is not a git command. See 'git --help'.
         //
         // The most similar command is
         //    credential-manager-core
         // ef0e24989cea502b873ec2b8db308eb57e014e47        refs/heads/merge/2023.2/2023.1-e23e936ad5de5d979187dc90cd352a69275fb2d7
-        
+
         var lsRegex = new Regex( @"^(?<commit>[^\s]+)[\s]+(?<ref>[^\s]+)$" );
 
         references = output.Split( "\n", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries )
@@ -373,8 +375,8 @@ public static class GitHelper
         }
 
         var command = "git";
-        var arguments = $"merge {sourceBranch} {options}"; 
-        
+        var arguments = $"merge {sourceBranch} {options}";
+
         if ( ignoreConflicts )
         {
             var success = ToolInvocationHelper.InvokeTool(
@@ -527,13 +529,13 @@ public static class GitHelper
              || exitCode != 0 )
         {
             isMergeInProgress = false;
-            
+
             // Exit code 1 with no output means that a merge is not in progress. Otherwise, something unexpected has happened.
             if ( exitCode == 1 && output == "" )
             {
                 return true;
             }
-            
+
             context.Console.WriteError( output );
 
             return false;
@@ -616,6 +618,36 @@ public static class GitHelper
             context.Console.WriteError( $"Cannot find any commits from *@postsharp.net on this branch." );
 
             return false;
+        }
+
+        return true;
+    }
+
+    public static bool ConfigureAuthentication( BuildContext context )
+    {
+        var console = context.Console;
+        var environmentVariable = context.Product.DependencyDefinition.VcsRepository.TokenEnvironmentVariableName;
+        
+        console.WriteMessage( "Configuring git credentials." );
+
+        if ( RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
+        {
+            var tempFileName = Path.Combine( Path.GetTempPath(), "git-askpass.cmd" );
+            File.WriteAllText( tempFileName, $"@echo off`r`necho %{environmentVariable}%" );
+
+            if ( !ToolInvocationHelper.InvokeTool( console, "git", "config --global credential.helper \"\"" ) )
+            {
+                return false;
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool( console, "git", $"config --global core.askPass \"{tempFileName}\"" ) )
+            {
+                return false;
+            }
+        }
+        else
+        {
+            throw new PlatformNotSupportedException();
         }
 
         return true;
