@@ -623,17 +623,26 @@ public static class GitHelper
         return true;
     }
 
-    public static bool ConfigureAuthentication( BuildContext context )
+    public static bool ConfigureCredentials( BuildContext context )
     {
         var console = context.Console;
-        var environmentVariable = context.Product.DependencyDefinition.VcsRepository.TokenEnvironmentVariableName;
+        var environmentVariableName = context.Product.DependencyDefinition.VcsRepository.TokenEnvironmentVariableName;
 
         console.WriteMessage( "Configuring git credentials." );
 
         if ( RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
         {
+            var environmentVariableValue = Environment.GetEnvironmentVariable( environmentVariableName );
+
+            if ( string.IsNullOrEmpty( environmentVariableValue ) )
+            {
+                console.WriteError( $"The environment variable {environmentVariableName} is not defined." );
+
+                return false;
+            }
+            
             var tempFileName = Path.Combine( Path.GetTempPath(), "git-askpass.cmd" );
-            File.WriteAllText( tempFileName, $"@echo off\r\necho %{environmentVariable}%" );
+            File.WriteAllText( tempFileName, $"@echo off\r\necho %{environmentVariableName}%" );
 
             if ( !ToolInvocationHelper.InvokeTool( console, "git", "config --global credential.helper \"\"" ) )
             {

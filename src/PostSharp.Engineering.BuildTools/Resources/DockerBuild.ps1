@@ -99,7 +99,6 @@ if (-not $KeepEnv)
     }
 
     $env:GIT_USER_EMAIL = git config --global user.email
-
     $env:GIT_USER_NAME = git config --global user.name
 
     if ( $env:IS_TEAMCITY_AGENT )
