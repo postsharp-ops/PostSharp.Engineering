@@ -30,7 +30,7 @@ public class GitHubRepository : VcsRepository
 
     public override string TeamCityRemoteUrl => this.SshUrl;
 
-    public override bool IsSshAgentRequired => true;
+    public override bool IsSshAgentRequired => false;
 
     public override string TokenEnvironmentVariableName => EnvironmentVariableNames.GitHubToken;
 
