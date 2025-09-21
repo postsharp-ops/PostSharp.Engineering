@@ -10,7 +10,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// Lists dependencies.
     /// </summary>
     [UsedImplicitly]
-    public class ListDependenciesCommand : BaseCommand<BaseDependenciesCommandSettings>
+    internal class ListDependenciesCommand : BaseCommand<BaseDependenciesCommandSettings>
     {
         protected override bool ExecuteCore( BuildContext context, BaseDependenciesCommandSettings settings )
         {

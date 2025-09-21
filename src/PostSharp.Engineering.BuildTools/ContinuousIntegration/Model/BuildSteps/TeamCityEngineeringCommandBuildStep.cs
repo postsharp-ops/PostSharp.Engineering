@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
+using PostSharp.Engineering.BuildTools.Docker;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
@@ -14,7 +15,7 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         string command,
         string? arguments = null,
         bool areCustomArgumentsAllowed = false,
-        DockerSpec? dockerSpec = null ) : base(
+        ContainerImageSpec? dockerSpec = null ) : base(
         id,
         name,
         dockerSpec != null ? $"DockerBuild.ps1" : "Build.ps1",
@@ -33,7 +34,7 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         }
     }
 
-    private static string GetScriptArguments( string id, string command, string? arguments, bool areCustomArgumentsAllowed, DockerSpec? dockerSpec)
+    private static string GetScriptArguments( string id, string command, string? arguments, bool areCustomArgumentsAllowed, ContainerImageSpec? dockerSpec)
     {
         var args = $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}";
 

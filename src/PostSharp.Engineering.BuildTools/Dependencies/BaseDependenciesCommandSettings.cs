@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Files;
 using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
@@ -15,7 +16,7 @@ public class BaseDependenciesCommandSettings : CommonCommandSettings
     [CommandOption( "-c|--configuration" )]
     [Obsolete( "Use the BuildConfiguration property. " )]
     public BuildConfiguration? BuildConfiguration { get; set; }
-    
+
     public bool TryGetBuildConfiguration( BuildContext context, out BuildConfiguration configuration )
     {
 #pragma warning disable CS0618
@@ -27,7 +28,7 @@ public class BaseDependenciesCommandSettings : CommonCommandSettings
         }
 #pragma warning restore CS0618
 
-        var defaultConfiguration = context.Product.ReadDefaultConfiguration( context );
+        var defaultConfiguration = ConfigurationNeutralVersionFile.ReadDefaultConfiguration( context );
 
         if ( defaultConfiguration == null )
         {

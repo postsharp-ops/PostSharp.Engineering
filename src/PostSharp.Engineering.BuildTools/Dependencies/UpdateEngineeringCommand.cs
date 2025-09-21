@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
 using System.IO;
 using System.Linq;
@@ -15,7 +16,7 @@ using System.Xml.XPath;
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
 [UsedImplicitly]
-public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
+internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
     {
@@ -38,61 +39,71 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
 
         var lastVersion = versions.Last();
 
-        // Update global.json.
-        context.Console.WriteImportantMessage( $"Updating engineering to version {lastVersion}." );
+        var product = context.Product;
+        var console = context.Console;
 
-        // Update all global.jsons in the repo. (This is the case for Metalama.Try, for example.)
-        var globalJsonName = "global.json";
-        var globalJsonPaths = Directory.EnumerateFiles( context.RepoDirectory, globalJsonName, SearchOption.AllDirectories );
-
-        foreach ( var globalJsonPath in globalJsonPaths )
+        if ( !product.GenerateNuGetConfig )
         {
-            var globalJsonRelativePath = Path.GetRelativePath( context.RepoDirectory, globalJsonPath );
+            // Update global.json.
+            console.WriteImportantMessage( $"Updating engineering to version {lastVersion}." );
 
-            // Skip files contained in other repositories, eg. those in source-dependencies.
-            if ( globalJsonRelativePath != globalJsonName )
+            // Update all global.jsons in the repo. (This is the case for Metalama.Try, for example.)
+            var globalJsonName = "global.json";
+            var globalJsonPaths = Directory.EnumerateFiles( context.RepoDirectory, globalJsonName, SearchOption.AllDirectories );
+
+            foreach ( var globalJsonPath in globalJsonPaths )
             {
-                var globalJsonPathParts = globalJsonRelativePath.Split( Path.DirectorySeparatorChar );
-                
-                if ( Directory.EnumerateDirectories(
-                        Path.Combine( context.RepoDirectory, globalJsonPathParts[0] ),
-                        ".git",
-                        SearchOption.AllDirectories )
-                    .Any() )
-                {
-                    context.Console.WriteWarning( $"File '{globalJsonPath}' not updated because it is contained in another repository." );
+                var globalJsonRelativePath = Path.GetRelativePath( context.RepoDirectory, globalJsonPath );
 
-                    continue;
+                // Skip files contained in other repositories, eg. those in source-dependencies.
+                if ( globalJsonRelativePath != globalJsonName )
+                {
+                    var globalJsonPathParts = globalJsonRelativePath.Split( Path.DirectorySeparatorChar );
+
+                    if ( Directory.EnumerateDirectories(
+                            Path.Combine( context.RepoDirectory, globalJsonPathParts[0] ),
+                            ".git",
+                            SearchOption.AllDirectories )
+                        .Any() )
+                    {
+                        console.WriteWarning( $"File '{globalJsonPath}' not updated because it is contained in another repository." );
+
+                        continue;
+                    }
+                }
+
+                var globalJson = JObject.Parse( File.ReadAllText( globalJsonPath ) );
+                var globalJsonProperty = globalJson["msbuild-sdks"]?["PostSharp.Engineering.Sdk"];
+
+                if ( globalJsonProperty != null )
+                {
+                    console.WriteMessage( $"Writing '{globalJsonPath}'." );
+
+                    globalJsonProperty.Replace( new JValue( lastVersion ) );
+                    using var writer = new StreamWriter( globalJsonPath );
+                    var jsonTextWriter = new JsonTextWriter( writer ) { Formatting = Formatting.Indented };
+
+                    globalJson.WriteTo( jsonTextWriter );
+                }
+                else
+                {
+                    console.WriteWarning( $"File '{globalJsonPath}' not updated because there is no reference to PostSharp.Engineering.Sdk." );
                 }
             }
-
-            var globalJson = JObject.Parse( File.ReadAllText( globalJsonPath ) );
-            var globalJsonProperty = globalJson["msbuild-sdks"]?["PostSharp.Engineering.Sdk"];
-
-            if ( globalJsonProperty != null )
-            {
-                context.Console.WriteMessage( $"Writing '{globalJsonPath}'." );
-
-                globalJsonProperty.Replace( new JValue( lastVersion ) );
-                using var writer = new StreamWriter( globalJsonPath );
-                var jsonTextWriter = new JsonTextWriter( writer ) { Formatting = Formatting.Indented };
-
-                globalJson.WriteTo( jsonTextWriter );
-            }
-            else
-            {
-                context.Console.WriteWarning( $"File '{globalJsonPath}' not updated because there is no reference to PostSharp.Engineering.Sdk." );
-            }
+        }
+        else
+        {
+            console.WriteMessage( "File 'global.json' not updated because it is auto-generated." );
         }
 
         // Update Directory.Packages.props or Versions.props
-        var centralPackageManangementVersionsPath = Path.Combine( context.RepoDirectory, "Directory.Packages.props" );
+        var centralPackageManagementVersionsPath = Path.Combine( context.RepoDirectory, "Directory.Packages.props" );
 
-        var versionsFilePath = File.Exists( centralPackageManangementVersionsPath )
-            ? centralPackageManangementVersionsPath
+        var versionsFilePath = File.Exists( centralPackageManagementVersionsPath )
+            ? centralPackageManagementVersionsPath
             : Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
 
-        context.Console.WriteMessage( $"Writing '{versionsFilePath}'." );
+        console.WriteMessage( $"Writing '{versionsFilePath}'." );
         var versionsFile = XDocument.Load( versionsFilePath, LoadOptions.PreserveWhitespace );
         var versionProperties = versionsFile.XPathSelectElements( "/Project/PropertyGroup/PostSharpEngineeringVersion" ).ToList();
 
@@ -102,13 +113,19 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
         }
         else
         {
-            context.Console.WriteWarning(
+            console.WriteWarning(
                 $"File '{versionsFilePath}' not updated because there are {versionProperties.Count} properties named PostSharpEngineeringVersion." );
         }
 
         versionsFile.Save( versionsFilePath );
 
-        context.Console.WriteSuccess( "Engineering successfully updated." );
+        console.WriteSuccess( "Engineering successfully updated." );
+
+        // Generate scripts.
+        if ( !GenerateScriptsCommand.Execute( context, settings ) )
+        {
+            return false;
+        }
 
         return true;
     }

@@ -2,6 +2,8 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Files;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
@@ -10,13 +12,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies;
 /// Prints the content of <c>Versions.g.props</c> to the console.
 /// </summary>
 [UsedImplicitly]
-public class PrintDependenciesCommand : BaseCommand<CommonCommandSettings>
+internal class PrintDependenciesCommand : BaseCommand<CommonCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
     {
         var path = Path.Combine(
             context.RepoDirectory,
-            context.Product.GetConfigurationNeutralVersionsFilePath( context ) );
+            DependenciesOverrideFile.GetPath(
+                context,
+                settings,
+                ConfigurationNeutralVersionFile.ReadDefaultConfiguration( context ) ?? BuildConfiguration.Debug ) );
 
         if ( File.Exists( path ) )
         {

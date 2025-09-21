@@ -2,9 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 

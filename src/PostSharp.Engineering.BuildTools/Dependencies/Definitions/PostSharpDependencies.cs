@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharpPackageDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies.V2025_1;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;

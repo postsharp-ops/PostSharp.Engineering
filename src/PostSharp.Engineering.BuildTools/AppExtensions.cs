@@ -3,15 +3,22 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.BillOfMaterials;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Bumping;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.MSBuild;
+using PostSharp.Engineering.BuildTools.Build.Publishing;
+using PostSharp.Engineering.BuildTools.Build.Swapping;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.CodeStyle;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.DotNetTools;
-using PostSharp.Engineering.BuildTools.Git;
-using PostSharp.Engineering.BuildTools.NuGet;
-using PostSharp.Engineering.BuildTools.XmlDoc;
+using PostSharp.Engineering.BuildTools.Tools;
+using PostSharp.Engineering.BuildTools.Tools.Csproj;
+using PostSharp.Engineering.BuildTools.Tools.Git;
+using PostSharp.Engineering.BuildTools.Tools.NuGet;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
+using PostSharp.Engineering.BuildTools.Tools.XmlDoc;
 using Spectre.Console.Cli;
 using System;
 using System.Linq;
@@ -48,9 +55,9 @@ namespace PostSharp.Engineering.BuildTools
                         .WithData( data )
                         .WithDescription( "Builds all packages in the product (implies 'prepare')" );
 
-                    root.AddCommand<GenerateCiScriptsCommand>( "generate-scripts" )
+                    root.AddCommand<GenerateScriptsCommand>( "generate-scripts" )
                         .WithData( data )
-                        .WithDescription( "Generates the continuous integration scripts" );
+                        .WithDescription( "Generates the CI and Docker scripts" );
 
                     root.AddCommand<ListSolutionsCommand>( "list-solutions" )
                         .WithData( data )

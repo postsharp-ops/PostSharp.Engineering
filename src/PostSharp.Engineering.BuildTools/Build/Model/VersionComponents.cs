@@ -2,7 +2,7 @@
 
 namespace PostSharp.Engineering.BuildTools.Build.Model;
 
-public record VersionComponents(
+internal record VersionComponents(
     string MainVersion,
     string VersionPrefix,
     int PatchNumber,

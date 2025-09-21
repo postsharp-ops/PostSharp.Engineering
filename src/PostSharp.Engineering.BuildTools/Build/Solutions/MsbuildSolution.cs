@@ -2,7 +2,9 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Globalization;
@@ -13,25 +15,30 @@ using System.Text;
 namespace PostSharp.Engineering.BuildTools.Build.Solutions
 {
     /// <summary>
-    /// An implementation of <see cref="Solution"/> that uses the <c>msbuild</c> utility to build projects.
+    /// An implementation of <see cref="Solution"/> that uses the <c>msbuild.exe</c> utility (shipped with Visual Studio) to build projects.
     /// </summary>
     [PublicAPI]
     public class MsbuildSolution : Solution
     {
         public MsbuildSolution( string solutionPath ) : base( solutionPath ) { }
 
+        /// <summary>
+        /// Gets or sets the MSBuild version used for this solution. Overrides the <see cref="Product.MSBuildVersion"/> property of the <see cref="Product"/> class.
+        /// </summary>
+        public Version? MSBuildVersion { get; init; }
+
         public override bool Build( BuildContext context, BuildSettings settings )
-            => this.RunMsbuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
+            => this.RunMSBuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
 
         public override bool Pack( BuildContext context, BuildSettings settings )
-            => this.RunMsbuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
+            => this.RunMSBuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
 
         public override bool Test( BuildContext context, BuildSettings settings )
-            => this.RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+            => this.RunMSBuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
 
         public override bool Restore( BuildContext context, BuildSettings settings )
         {
-            if ( !this.RunMsbuild( context, settings, this.SolutionPath, "Restore" ) )
+            if ( !this.RunMSBuild( context, settings, this.SolutionPath, "Restore" ) )
             {
                 return false;
             }
@@ -43,7 +50,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 var exe = "dotnet";
                 var args = $"sln \"{this.SolutionPath}\" list";
 
-                if ( !ToolInvocationHelper.InvokeTool( context.Console, exe, args, context.RepoDirectory, out var _, out var slnListOutput ) )
+                if ( !ToolInvocationHelper.InvokeTool( context.Console, exe, args, context.RepoDirectory, out _, out var slnListOutput ) )
                 {
                     context.Console.WriteError( $"Error executing {exe} {args}" );
                     context.Console.WriteError( slnListOutput );
@@ -62,17 +69,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 {
                     context.Console.WriteMessage( $"Restoring packages.config of '{project}' project" );
 
-                    if ( !this.RunMsbuild( context, settings, project, "Restore" ) )
+                    if ( !this.RunMSBuild( context, settings, project, "Restore" ) )
                     {
                         return false;
                     }
                 }
             }
-            
+
             return true;
         }
 
-        private bool RunMsbuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
+        private bool RunMSBuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
         {
             if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
             {
@@ -82,7 +89,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 return false;
             }
 
-            var msbuildPath = MSBuildHelper.FindLatestMSBuildExe( context );
+            var msbuildPath = MSBuildHelper.FindMSBuildExe( context, this.MSBuildVersion );
 
             if ( msbuildPath == null )
             {
@@ -90,7 +97,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
                 return false;
             }
-            
+
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, project );
 

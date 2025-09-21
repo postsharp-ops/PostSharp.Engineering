@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
 [UsedImplicitly]
-public class FetchDependencyCommand : BaseFetchDependencyCommand
+internal class FetchDependencyCommand : BaseFetchDependencyCommand
 {
     protected override bool Update => false;
 }

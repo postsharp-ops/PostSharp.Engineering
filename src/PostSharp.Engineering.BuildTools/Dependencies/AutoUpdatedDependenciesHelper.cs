@@ -1,7 +1,9 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -53,16 +55,16 @@ internal static class AutoUpdatedDependenciesHelper
             if ( dependencyOverride.Value.SourceKind == DependencySourceKind.Local )
             {
                 var localImportDocumentPath = dependencySource.VersionFile;
-                
+
                 if ( !File.Exists( localImportDocumentPath ) )
                 {
                     context.Console.WriteError( $"Local import document of '{dependency.Name}' does not exist." );
 
                     return false;
                 }
-                
+
                 var localImportDocument = XDocument.Load( localImportDocumentPath );
-                
+
                 var dependencyVersionRelativePath = localImportDocument.Root!.Element( "Import" )!.Attribute( "Project" )!.Value;
                 var localImportDocumentDirectory = Path.GetDirectoryName( localImportDocumentPath )!;
                 dependencyVersionPath = Path.Combine( localImportDocumentDirectory, dependencyVersionRelativePath );
@@ -71,7 +73,7 @@ internal static class AutoUpdatedDependenciesHelper
             {
                 dependencyVersionPath = dependencySource.VersionFile;
             }
-            
+
             if ( !File.Exists( dependencyVersionPath ) )
             {
                 context.Console.WriteError( $"'{dependencyVersionPath}' version file of '{dependency.Name}' does not exist." );
@@ -106,7 +108,7 @@ internal static class AutoUpdatedDependenciesHelper
 
             if ( versionElement == null )
             {
-                versionElement = new( versionElementName );
+                versionElement = new XElement( versionElementName );
                 currentVersionPropertyGroup.Add( versionElement );
             }
 
@@ -128,6 +130,68 @@ internal static class AutoUpdatedDependenciesHelper
                 using ( var xmlWriter = XmlWriter.Create( autoUpdatedVersionsFilePath, xmlWriterSettings ) )
                 {
                     currentVersionDocument.Save( xmlWriter );
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public static bool TryUpdateAutoUpdatedDependencies( BuildContext context, PublishSettings settings )
+    {
+        // Go through all dependencies and update their fixed version in AutoUpdatedVersions.props file.
+        if ( !TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
+        {
+            return false;
+        }
+
+        // Commit and push if dependencies versions were updated in previous step.
+        if ( dependenciesUpdated )
+        {
+            if ( settings.Dry )
+            {
+                context.Console.WriteImportantMessage( "Dry run: Updating auto-updated dependencies." );
+            }
+            else
+            {
+                // Adds AutoUpdatedVersions.props with updated dependencies versions to Git staging area.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        $"add {context.Product.AutoUpdatedVersionsFilePath}",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                // Returns the remote origin.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "remote get-url origin",
+                        context.RepoDirectory,
+                        out _,
+                        out var gitOrigin ) )
+                {
+                    return false;
+                }
+
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "commit -m \"<<DEPENDENCIES_UPDATED>>\"",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        $"push {gitOrigin.Trim()}",
+                        context.RepoDirectory ) )
+                {
+                    return false;
                 }
             }
         }

@@ -8,7 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// <summary>
     /// Fetches the artifacts of the build dependencies.
     /// </summary>
-    public abstract class BaseFetchDependencyCommand : BaseCommand<FetchDependenciesCommandSettings>
+    internal abstract class BaseFetchDependencyCommand : BaseCommand<FetchDependenciesCommandSettings>
     {
         protected abstract bool Update { get; }
 

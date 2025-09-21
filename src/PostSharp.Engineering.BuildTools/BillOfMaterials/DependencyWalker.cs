@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -41,7 +42,7 @@ internal static class DependencyWalker
 
     private static IReadOnlyList<PackageDependencyInfo> GetPackageDependencies( BuildContext context )
     {
-        var defaultConfiguration = context.Product.ReadDefaultConfiguration( context ) ?? BuildConfiguration.Debug;
+        var defaultConfiguration = ConfigurationNeutralVersionFile.ReadDefaultConfiguration( context ) ?? BuildConfiguration.Debug;
 
         var list = new List<PackageDependencyInfo>();
 

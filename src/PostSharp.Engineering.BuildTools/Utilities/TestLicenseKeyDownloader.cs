@@ -5,6 +5,7 @@ using Azure.Security.KeyVault.Secrets;
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System;
 using System.Collections.Generic;
 using System.IO;

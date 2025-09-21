@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -99,6 +100,38 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         protected Solution( string solutionPath )
         {
             this.SolutionPath = solutionPath;
+        }
+
+        /// <summary>
+        /// Executes a specified <see cref="Model.BuildMethod"/>.
+        /// </summary>
+        public bool Execute( BuildContext context, BuildSettings settings, BuildMethod buildMethod )
+        {
+            switch ( buildMethod )
+            {
+                case Model.BuildMethod.None:
+                    return true;
+
+                case Model.BuildMethod.Build:
+                    return this.Build( context, settings );
+
+                case Model.BuildMethod.Pack:
+                    if ( this.PackRequiresExplicitBuild && !settings.NoDependencies )
+                    {
+                        if ( !this.Build( context, settings ) )
+                        {
+                            return false;
+                        }
+                    }
+
+                    return this.Pack( context, settings );
+
+                case Model.BuildMethod.Test:
+                    return this.Test( context, settings );
+
+                default:
+                    throw new ArgumentOutOfRangeException( nameof(buildMethod) );
+            }
         }
     }
 }

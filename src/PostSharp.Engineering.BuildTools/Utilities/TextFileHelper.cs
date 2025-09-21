@@ -16,6 +16,7 @@ internal static class TextFileHelper
         else
         {
             context.Console.WriteMessage( $"Writing '{path}'." );
+            Directory.CreateDirectory( Path.GetDirectoryName( path )! );
             File.WriteAllText( path, content );
         }
     }

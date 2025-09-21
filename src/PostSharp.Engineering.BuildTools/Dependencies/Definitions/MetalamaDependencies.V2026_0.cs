@@ -4,9 +4,9 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System;
 using System.IO;
-using System.Runtime.InteropServices.Marshalling;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 

@@ -8,7 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies;
 /// Updates configuration of all dependencies in the version file.
 /// </summary>
 [UsedImplicitly]
-public class UpdateDependencyCommand : BaseFetchDependencyCommand
+internal class UpdateDependencyCommand : BaseFetchDependencyCommand
 {
     protected override bool Update => true;
 }

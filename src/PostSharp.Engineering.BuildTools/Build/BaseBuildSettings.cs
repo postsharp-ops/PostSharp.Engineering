@@ -1,6 +1,8 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using PostSharp.Engineering.BuildTools.Build.Files;
+using PostSharp.Engineering.BuildTools.Build.Publishing;
 using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
@@ -55,7 +57,7 @@ public class BaseBuildSettings : CommonCommandSettings
             return;
         }
 
-        var defaultConfiguration = context.Product.ReadDefaultConfiguration( context );
+        var defaultConfiguration = ConfigurationNeutralVersionFile.ReadDefaultConfiguration( context );
 
         if ( defaultConfiguration == null )
         {

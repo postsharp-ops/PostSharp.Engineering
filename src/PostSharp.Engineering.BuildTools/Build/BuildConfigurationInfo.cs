@@ -1,6 +1,9 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Publishing;
+using PostSharp.Engineering.BuildTools.Build.Swapping;
+using PostSharp.Engineering.BuildTools.Build.Triggers;
 using System;
 
 namespace PostSharp.Engineering.BuildTools.Build;

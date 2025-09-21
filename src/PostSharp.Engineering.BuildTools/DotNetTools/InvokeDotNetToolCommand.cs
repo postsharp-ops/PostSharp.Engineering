@@ -7,7 +7,7 @@ using System.Linq;
 namespace PostSharp.Engineering.BuildTools.DotNetTools;
 
 [UsedImplicitly]
-public class InvokeDotNetToolCommand : BaseCommand<InvokeDotNetToolCommandSettings>
+internal class InvokeDotNetToolCommand : BaseCommand<InvokeDotNetToolCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, InvokeDotNetToolCommandSettings settings )
     {

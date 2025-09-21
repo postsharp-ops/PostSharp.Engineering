@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System.Linq;
 
@@ -10,7 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies;
 /// Base class for <see cref="SetDependenciesCommand"/> and <see cref="ResetDependenciesCommand"/>.
 /// </summary>
 /// <typeparam name="T"></typeparam>
-public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
+internal abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
     where T : ConfigureDependenciesCommandSettings
 {
     protected override bool ExecuteCore( BuildContext context, T settings )
@@ -116,11 +117,11 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Writing the configurations neutral file.
-        product.PrepareConfigurationNeutralVersionsFile( context, settings, configuration );
+        ConfigurationNeutralVersionFile.Write( context, settings, configuration );
 
         // Generate nuget.config.
-        if ( !product.TryGenerateNuGetConfig( context, dependenciesOverrideFile, configuration ) ||
-             !product.TryGenerateGlobalJson( context ) )
+        if ( !NuGetConfigFile.TryWrite( context, dependenciesOverrideFile, configuration ) ||
+             !GlobalJsonFile.TryWrite( context ) )
         {
             return false;
         }

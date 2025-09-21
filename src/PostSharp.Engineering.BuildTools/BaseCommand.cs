@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -9,6 +10,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace PostSharp.Engineering.BuildTools
@@ -91,7 +93,10 @@ namespace PostSharp.Engineering.BuildTools
                             .Color( Color.Purple ) );
 
                     buildContext.Console.Out.WriteLine();
-                    buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}. TeamCity: {buildContext.IsContinuousIntegrationBuild}. Docker: {buildContext.IsRunningUnderContainer}." );
+
+                    buildContext.Console.WriteMessage(
+                        $"Using PostSharp.Engineering v{myVersion}. TeamCity: {buildContext.IsContinuousIntegrationBuild}. Docker: {buildContext.IsRunningUnderContainer}. Runtime: {RuntimeInformation.FrameworkDescription} {RuntimeInformation.RuntimeIdentifier}." );
+
                     buildContext.Console.Out.WriteLine();
                 }
 

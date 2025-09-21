@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace PostSharp.Engineering.BuildTools.Search;
 
 [UsedImplicitly]
-public class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
+internal class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, UpdateSearchCommandSettings settings )
         => ExecuteCoreAsync( context, settings ).GetAwaiter().GetResult();

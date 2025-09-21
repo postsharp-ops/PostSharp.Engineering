@@ -12,7 +12,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// or <see cref="DependencySourceKind.Feed"/>.
     /// </summary>
     [UsedImplicitly]
-    public class SetDependenciesCommand : ConfigureDependenciesCommand<SetDependenciesCommandSettings>
+    internal class SetDependenciesCommand : ConfigureDependenciesCommand<SetDependenciesCommandSettings>
     {
         protected override bool ConfigureDependency(
             BuildContext context,

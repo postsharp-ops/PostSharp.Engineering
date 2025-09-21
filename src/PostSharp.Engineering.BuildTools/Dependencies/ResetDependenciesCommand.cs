@@ -10,7 +10,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies;
 /// Removes the configuration of a dependency from the version file.
 /// </summary>
 [UsedImplicitly]
-public class ResetDependenciesCommand : ConfigureDependenciesCommand<ResetDependenciesCommandSettings>
+internal class ResetDependenciesCommand : ConfigureDependenciesCommand<ResetDependenciesCommandSettings>
 {
     protected override bool ConfigureDependency(
         BuildContext context,
