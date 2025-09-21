@@ -66,7 +66,6 @@ public record ContainerRequirements : BuildAgentRequirements
         var orderedComponents = allComponents.OrderBy( x => x ).ToList();
 
         var dockerfilePath = Path.Combine( context.RepoDirectory, "Dockerfile" );
-        context.Console.WriteMessage( $"Writing '{dockerfilePath}'." );
         using var dockerfileContent = new StringWriter();
 
         foreach ( var component in orderedComponents )
