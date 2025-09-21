@@ -16,11 +16,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public string ObjectName { get; }
 
         public string Name { get; }
-        
+
         public string DefaultBranch { get; }
-        
+
         public string DefaultBranchParameter { get; }
-        
+
         public string VcsRootId { get; }
 
         public BuildAgentRequirements? BuildAgentRequirements { get; }
@@ -46,10 +46,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public bool IsDefaultVcsRootUsed { get; init; } = true;
 
         public TimeSpan? BuildTimeOutThreshold { get; init; }
-        
+
         public TeamCityBuildConfigurationParameterBase[]? Parameters { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, string defaultBranchParameter, string vcsRootId, BuildAgentRequirements? buildAgentRequirements = null )
+        public TeamCityBuildConfiguration(
+            string objectName,
+            string name,
+            string defaultBranch,
+            string defaultBranchParameter,
+            string vcsRootId,
+            BuildAgentRequirements? buildAgentRequirements = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
@@ -171,11 +177,27 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     throw new InvalidOperationException( "Composite build cannot have build steps. Check if the build agent type is set." );
                 }
 
+                // Add required build steps.
+                var allBuildSteps = new List<TeamCityBuildStep>();
+
+                for ( var index = 0; index < this.BuildSteps!.Length; index++ )
+                {
+                    var step = this.BuildSteps![index];
+
+                    AddBuildStep( step );
+
+                    void AddBuildStep( TeamCityBuildStep newStep )
+                    {
+                        newStep.InsertPrerequisites( allBuildSteps, AddBuildStep );
+                        allBuildSteps.Add( newStep );
+                    }
+                }
+
                 writer.WriteLine(
                     $@"
     steps {{" );
 
-                foreach ( var buildStep in this.BuildSteps! )
+                foreach ( var buildStep in allBuildSteps )
                 {
                     writer.WriteLine( buildStep.GenerateTeamCityCode() );
                 }
@@ -285,8 +307,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     writer.WriteLine( $@"        }}" );
                 }
 
-                writer.WriteLine(
-                    $@"     }}" );
+                writer.WriteLine( $@"     }}" );
             }
 
             writer.WriteLine(

@@ -7,10 +7,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildStep
 
 public class TeamCityEngineeringPublishBuildStep : TeamCityEngineeringCommandBuildStep
 {
-    public TeamCityEngineeringPublishBuildStep( BuildConfiguration configuration, ContainerImageSpec? dockerSpec = null ) : base(
+    public TeamCityEngineeringPublishBuildStep( BuildConfiguration configuration, DockerSpec? dockerSpec ) : base(
         "Publish",
         "Publish",
         "publish",
         $"--configuration {configuration}",
-        true, dockerSpec ) { }
+        true,
+        dockerSpec ) { }
 }

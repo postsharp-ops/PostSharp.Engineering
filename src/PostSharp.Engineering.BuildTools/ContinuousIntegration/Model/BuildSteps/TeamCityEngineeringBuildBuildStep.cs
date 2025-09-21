@@ -7,7 +7,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildStep
 
 public class TeamCityEngineeringBuildBuildStep : TeamCityEngineeringCommandBuildStep
 {
-    public TeamCityEngineeringBuildBuildStep( BuildConfiguration configuration, bool testOnBuild, ContainerImageSpec? dockerSpec = null ) : base(
+    public TeamCityEngineeringBuildBuildStep( BuildConfiguration configuration, bool testOnBuild, DockerSpec? dockerSpec ) : base(
         "Build",
         "Build",
         testOnBuild ? "test" : "build",

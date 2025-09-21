@@ -41,7 +41,7 @@ object DebugBuild : BuildType({
 
     steps {
         powerShell {
-            name = "Prepare the Docker image"
+            name = "Prepare Docker image postsharpengineering-2023.2"
             id = "PrepareImage"
             scriptMode = file {
                 path = "DockerBuild.ps1"
@@ -103,7 +103,7 @@ object ReleaseBuild : BuildType({
 
     steps {
         powerShell {
-            name = "Prepare the Docker image"
+            name = "Prepare Docker image postsharpengineering-2023.2"
             id = "PrepareImage"
             scriptMode = file {
                 path = "DockerBuild.ps1"
@@ -156,7 +156,7 @@ object PublicBuild : BuildType({
 
     steps {
         powerShell {
-            name = "Prepare the Docker image"
+            name = "Prepare Docker image postsharpengineering-2023.2"
             id = "PrepareImage"
             scriptMode = file {
                 path = "DockerBuild.ps1"
@@ -209,13 +209,22 @@ object PublicDeployment : BuildType({
 
     steps {
         powerShell {
+            name = "Prepare Docker image postsharpengineering-2023.2"
+            id = "PrepareImage"
+            scriptMode = file {
+                path = "DockerBuild.ps1"
+            }
+            noProfile = false
+            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+        }
+        powerShell {
             name = "Publish"
             id = "Publish"
             scriptMode = file {
-                path = "Build.ps1"
+                path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "publish --configuration Public %PublishArguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public %PublishArguments%"
         }
     }
     failureConditions {
@@ -268,13 +277,22 @@ object VersionBump : BuildType({
 
     steps {
         powerShell {
+            name = "Prepare Docker image postsharpengineering-2023.2"
+            id = "PrepareImage"
+            scriptMode = file {
+                path = "DockerBuild.ps1"
+            }
+            noProfile = false
+            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+        }
+        powerShell {
             name = "Bump"
             id = "Bump"
             scriptMode = file {
-                path = "Build.ps1"
+                path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "bump %BumpArguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage bump %BumpArguments%"
         }
     }
     failureConditions {

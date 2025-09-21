@@ -2,4 +2,4 @@
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
-public record ContainerImageSpec( string ImageName );
+public record DockerSpec( string ImageName );

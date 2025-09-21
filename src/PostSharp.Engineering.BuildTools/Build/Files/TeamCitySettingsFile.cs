@@ -114,11 +114,7 @@ internal static class TeamCitySettingsFile
 
             var teamCityBuildSteps = new List<TeamCityBuildStep>();
 
-            if ( product.UseDocker )
-            {
-                teamCityBuildSteps.Add( new TeamCityEngineeringPrepareImageBuildStep( "PrepareImage", "Prepare the Docker image", product.DockerSpec! ) );
-            }
-            else
+            if ( !product.UseDocker )
             {
                 teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
             }
@@ -141,7 +137,8 @@ internal static class TeamCitySettingsFile
                         "UpstreamCheck",
                         "Check pending upstream changes",
                         "tools git check-upstream",
-                        areCustomArgumentsAllowed: true ) );
+                        areCustomArgumentsAllowed: true,
+                        dockerSpec: product.DockerSpec ) );
             }
 
             teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, product.DockerSpec ) );
@@ -190,7 +187,8 @@ internal static class TeamCitySettingsFile
                         "Publish",
                         "publish",
                         $"--configuration {configuration}{(isStandalone ? " --standalone" : "")}",
-                        true );
+                        true,
+                        product.DockerSpec );
 
                 if ( configurationInfo.ExportsToTeamCityDeploy )
                 {
@@ -268,7 +266,7 @@ internal static class TeamCitySettingsFile
                     {
                         BuildSteps =
                         [
-                            new TeamCityEngineeringCommandBuildStep( "Swap", "Swap", "swap", $"--configuration {configuration}", true )
+                            new TeamCityEngineeringCommandBuildStep( "Swap", "Swap", "swap", $"--configuration {configuration}", true, product.DockerSpec )
                         ],
                         IsDeployment = true,
                         SnapshotDependencies = swapDependencies.OrderBy( d => d.ObjectId ).ToArray(),
@@ -294,7 +292,9 @@ internal static class TeamCitySettingsFile
                         buildAgentRequirements: product.ResolvedBuildAgentRequirements )
                     {
                         BuildSteps =
-                            [new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true )],
+                        [
+                            new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true, dockerSpec: product.DockerSpec )
+                        ],
                         BuildTimeOutThreshold = product.VersionBumpTimeOutThreshold,
                         IsSshAgentRequired = isRepoRemoteSsh
                     } );
@@ -323,7 +323,8 @@ internal static class TeamCitySettingsFile
                             "DownstreamMerge",
                             "Merge downstream",
                             "tools git merge-downstream",
-                            areCustomArgumentsAllowed: true )
+                            areCustomArgumentsAllowed: true,
+                            dockerSpec: product.DockerSpec )
                     ],
                     SnapshotDependencies = snapshotDependencies,
                     BuildTriggers = [new SourceBuildTrigger()],
@@ -551,11 +552,11 @@ internal static class TeamCitySettingsFile
                     defaultBranchParameter,
                     vcsRootId ) { SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers };
 
-            ContainerImageSpec? dockerSpec = null;
+            DockerSpec? dockerSpec = null;
 
             if ( product.UseDocker )
             {
-                dockerSpec = new ContainerImageSpec( $"{product.ProductNameWithoutDot}-{product.ProductFamily.Version}" );
+                dockerSpec = new DockerSpec( $"{product.ProductNameWithoutDot}-{product.ProductFamily.Version}" );
             }
 
             var nuGetBuildSteps =
@@ -722,7 +723,8 @@ internal static class TeamCitySettingsFile
                     $"Bump{bumpedProjectId.Split( '_' ).Last()}",
                     $"Bump version of {bumpedProjectName}",
                     "bump",
-                    areCustomArgumentsAllowed: true ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
+                    areCustomArgumentsAllowed: true,
+                    dockerSpec: product.DockerSpec ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
 
             consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefinition( dependencyDefinition ) );
 
@@ -824,7 +826,8 @@ internal static class TeamCitySettingsFile
                         $"{commandName} deployment of {project.Name}",
                         command,
                         "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies",
-                        areCustomArgumentsAllowed: true ) { WorkingDirectory = $"source-dependencies/{project.Name}" } );
+                        areCustomArgumentsAllowed: true,
+                        dockerSpec: product.DockerSpec ) { WorkingDirectory = $"source-dependencies/{project.Name}" } );
 
                 // Dependencies outside of the product family are fetched from the artifacts.
                 if ( buildConfigurationsById.TryGetValue( $"{project.Id}_{publicBuildObjectName}", out var publicBuildConfiguration ) )
@@ -869,10 +872,8 @@ internal static class TeamCitySettingsFile
                     $"{objectName}_{consolidatedProjectId.Id}",
                     $"{commandName} consolidated deployment",
                     command,
-                    "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies" )
-                {
-                    WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
-                } );
+                    "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies",
+                    dockerSpec: product.DockerSpec ) { WorkingDirectory = $"source-dependencies/{consolidatedProjectName}" } );
 
             var branch = getBranch( product.DependencyDefinition );
 
@@ -922,7 +923,7 @@ internal static class TeamCitySettingsFile
         var publicNuGetBuildCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicBuildObjectName )}";
         var publicNuGetDeploymentCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicDeploymentObjectName )}";
 
-        var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration ) };
+        var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration, product.DockerSpec ) };
 
         // TODO: Only Public builds of dependencies that define version need to be included.
         //       Here we include all Public builds which will cause download of all artifacts.

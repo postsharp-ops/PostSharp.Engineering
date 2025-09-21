@@ -2,11 +2,16 @@
 
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
 using PostSharp.Engineering.BuildTools.Docker;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
 public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
 {
+    private readonly DockerSpec? _dockerSpec;
+
     private static string GetCustomArgumentsParameterName( string objectName ) => $"{objectName}Arguments";
 
     public TeamCityEngineeringCommandBuildStep(
@@ -15,12 +20,14 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         string command,
         string? arguments = null,
         bool areCustomArgumentsAllowed = false,
-        ContainerImageSpec? dockerSpec = null ) : base(
+        DockerSpec? dockerSpec = null ) : base(
         id,
         name,
         dockerSpec != null ? $"DockerBuild.ps1" : "Build.ps1",
         GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, dockerSpec ) )
     {
+        this._dockerSpec = dockerSpec;
+
         if ( areCustomArgumentsAllowed )
         {
             this.BuildConfigurationParameters =
@@ -34,7 +41,7 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         }
     }
 
-    private static string GetScriptArguments( string id, string command, string? arguments, bool areCustomArgumentsAllowed, ContainerImageSpec? dockerSpec)
+    private static string GetScriptArguments( string id, string command, string? arguments, bool areCustomArgumentsAllowed, DockerSpec? dockerSpec )
     {
         var args = $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}";
 
@@ -44,5 +51,22 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         }
 
         return args;
+    }
+
+    public override void InsertPrerequisites( IReadOnlyList<TeamCityBuildStep> previousSteps, Action<TeamCityBuildStep> addStep )
+    {
+        base.InsertPrerequisites( previousSteps, addStep );
+
+        if ( this._dockerSpec != null )
+        {
+            var prepareImageStep = previousSteps
+                .OfType<TeamCityEngineeringPrepareImageBuildStep>()
+                .SingleOrDefault( i => i.DockerSpec.ImageName == this._dockerSpec.ImageName );
+
+            if ( prepareImageStep == null )
+            {
+                addStep( new TeamCityEngineeringPrepareImageBuildStep( "PrepareImage", this._dockerSpec ) );
+            }
+        }
     }
 }

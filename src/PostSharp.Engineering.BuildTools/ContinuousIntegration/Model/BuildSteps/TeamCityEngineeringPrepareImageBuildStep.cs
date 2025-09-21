@@ -5,19 +5,19 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
-public class TeamCityEngineeringPrepareImageBuildStep : TeamCityPowerShellBuildStep
+internal class TeamCityEngineeringPrepareImageBuildStep : TeamCityPowerShellBuildStep
 {
-    private static string GetCustomArgumentsParameterName( string objectName ) => $"{objectName}Arguments";
+    public DockerSpec DockerSpec { get; }
 
     public TeamCityEngineeringPrepareImageBuildStep(
         string id,
-        string name,
-        ContainerImageSpec containerImageSpec ) : base(
+        DockerSpec dockerSpec ) : base(
         id,
-        name,
+        $"Prepare Docker image {dockerSpec.ImageName}",
         $"DockerBuild.ps1",
-        $"-BuildImage -ImageName {containerImageSpec.ImageName}" )
+        $"-BuildImage -ImageName {dockerSpec.ImageName}" )
     {
+        this.DockerSpec = dockerSpec;
         this.TimeOut = TimeSpan.FromHours( 2 );
     }
 }
