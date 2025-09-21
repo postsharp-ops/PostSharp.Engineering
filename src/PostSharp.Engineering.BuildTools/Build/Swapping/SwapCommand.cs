@@ -23,7 +23,7 @@ internal class SwapCommand : BaseCommand<SwapSettings>
         return Execute( context, swapSettings );
     }
 
-    public static bool Execute( BuildContext context, SwapSettings settings )
+    private static bool Execute( BuildContext context, SwapSettings settings )
     {
         var product = context.Product;
         var configuration = product.Configurations.GetValue( settings.BuildConfiguration );

@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -33,6 +34,8 @@ public class ConfigurationSpecific<T>
             BuildConfiguration.Public => this.Public,
             _ => throw new ArgumentOutOfRangeException()
         };
+
+    public IReadOnlyList<T> All => [this.Debug, this.Release, this.Public];
 
     public T GetValue( BuildConfiguration configuration ) => this[configuration];
 
