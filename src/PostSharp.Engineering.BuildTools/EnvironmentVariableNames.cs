@@ -21,6 +21,10 @@ public static class EnvironmentVariableNames
 
     // NuGet.org
     public const string NuGetOrgApiKey = "NUGET_ORG_API_KEY";
+    
+    // Git - set by DockerBuild.ps1 from current git config.
+    public const string GitUserName = "GIT_USER_NAME";
+    public const string GitUserEmail = "GIT_USER_EMAIL";
 
     // GitHub
     public const string GitHubToken = "GITHUB_TOKEN";
@@ -58,6 +62,8 @@ public static class EnvironmentVariableNames
         AzureDevOpsToken,
         GitHubReviewerToken,
         GitHubAuthorEmail,
+        GitUserEmail,
+        GitUserName,
         NuGetOrgApiKey,
         AwsAccessKeyId,
         AwsAccessKeySecret,

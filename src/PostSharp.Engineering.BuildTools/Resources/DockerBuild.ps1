@@ -97,6 +97,9 @@ if (-not $KeepEnv)
     {
         $env:ENG_USERNAME = $env:USERNAME
     }
+
+    $env:GIT_USER_NAME = git config --global user.name
+    $env:GIT_USER_EMAIL = git config --global user.email
     
     New-EnvJson -EnvironmentVariableList $EnvironmentVariables
 }
