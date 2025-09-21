@@ -77,7 +77,7 @@ public static partial class MetalamaDependencies
                 MetalamaGitHubOrganization.Metalama )
             {
                 EngineeringDirectory = "eng-Metalama",
-                PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
+                PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSBuildConfiguration)", "Shipping" )
             };
 
         public static DependencyDefinition Metalama { get; } =
