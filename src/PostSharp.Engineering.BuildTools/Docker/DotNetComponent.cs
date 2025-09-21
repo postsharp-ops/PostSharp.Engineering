@@ -44,7 +44,7 @@ public class DotNetComponent : ContainerComponent
         }
     }
 
-    public override void WriteDockerfile( StreamWriter writer )
+    public override void WriteDockerfile( TextWriter writer )
     {
         if ( this.DotNetComponentKind == DotNetComponentKind.Sdk )
         {

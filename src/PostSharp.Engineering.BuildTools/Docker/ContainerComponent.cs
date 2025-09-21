@@ -13,7 +13,7 @@ public abstract class ContainerComponent : IComparable<ContainerComponent>
 
     public abstract ContainerComponentKind Kind { get; }
 
-    public abstract void WriteDockerfile( StreamWriter writer );
+    public abstract void WriteDockerfile( TextWriter writer );
 
     public virtual void AddRequirements( IReadOnlyList<ContainerComponent> components, Action<ContainerComponent> add ) { }
 

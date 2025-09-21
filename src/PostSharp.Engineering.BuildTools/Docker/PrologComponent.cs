@@ -10,7 +10,7 @@ public class PrologComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Prolog;
 
-    public override void WriteDockerfile( StreamWriter writer )
+    public override void WriteDockerfile( TextWriter writer )
     {
         writer.WriteLine(
             """

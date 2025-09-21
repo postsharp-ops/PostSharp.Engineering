@@ -10,7 +10,7 @@ public class AzureCliComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.AzureCli;
 
-    public override void WriteDockerfile( StreamWriter writer )
+    public override void WriteDockerfile( TextWriter writer )
     {
         writer.WriteLine(
             """

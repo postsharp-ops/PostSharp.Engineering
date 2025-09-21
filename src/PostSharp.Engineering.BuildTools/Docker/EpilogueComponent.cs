@@ -12,7 +12,7 @@ public class EpilogueComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Epilogue;
 
-    public override void WriteDockerfile( StreamWriter writer )
+    public override void WriteDockerfile( TextWriter writer )
     {
         writer.WriteLine(
             """

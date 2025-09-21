@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -66,7 +67,7 @@ public record ContainerRequirements : BuildAgentRequirements
 
         var dockerfilePath = Path.Combine( context.RepoDirectory, "Dockerfile" );
         context.Console.WriteMessage( $"Writing '{dockerfilePath}'." );
-        using var dockerfile = File.CreateText( dockerfilePath );
+        using var dockerfileContent = new StringWriter();
 
         foreach ( var component in orderedComponents )
         {
@@ -74,14 +75,16 @@ public record ContainerRequirements : BuildAgentRequirements
 
             if ( component.Kind != ContainerComponentKind.Prolog )
             {
-                dockerfile.WriteLine();
-                dockerfile.WriteLine();
-                dockerfile.WriteLine( $"# {component.Name}" );
+                dockerfileContent.WriteLine();
+                dockerfileContent.WriteLine();
+                dockerfileContent.WriteLine( $"# {component.Name}" );
             }
 
             component.PopulateContextDirectory( context, contextDirectory );
-            component.WriteDockerfile( dockerfile );
+            component.WriteDockerfile( dockerfileContent );
         }
+        
+        TextFileHelper.WriteIfDifferent( dockerfilePath, dockerfileContent.ToString(), context );
 
         return true;
     }

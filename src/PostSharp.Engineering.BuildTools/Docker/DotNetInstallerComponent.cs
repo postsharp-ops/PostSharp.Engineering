@@ -10,7 +10,7 @@ public class DotNetInstallerComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.DotNetInstaller;
 
-    public override void WriteDockerfile( StreamWriter writer )
+    public override void WriteDockerfile( TextWriter writer )
     {
         writer.WriteLine(
             """

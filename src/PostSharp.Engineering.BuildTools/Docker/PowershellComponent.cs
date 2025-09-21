@@ -10,7 +10,7 @@ public class PowershellComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Powershell;
 
-    public override void WriteDockerfile( StreamWriter writer )
+    public override void WriteDockerfile( TextWriter writer )
     {
         writer.WriteLine(
             """

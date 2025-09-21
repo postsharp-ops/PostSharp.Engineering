@@ -24,7 +24,7 @@ public class VisualStudioBuildToolsComponent : ContainerComponent
         this._vsComponents = vsComponents;
     }
 
-    public override void WriteDockerfile( StreamWriter writer )
+    public override void WriteDockerfile( TextWriter writer )
     {
         var components = string.Join( ", ", this._vsComponents.Select( x => $"\"--add\", \"{x}\"" ) );
 
