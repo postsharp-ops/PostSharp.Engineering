@@ -306,7 +306,7 @@ internal static class DownstreamMerge
         // Push the branch now to avoid issues when the DownstreamMergeCommand
         // is executed again with the same upstream changes
         // or when developers are required to resolve conflicts.
-        if ( !GitHelper.TryPush( context, settings ) )
+        if ( !GitHelper.TryPush( context ) )
         {
             return false;
         }
@@ -428,7 +428,7 @@ internal static class DownstreamMerge
         }
 
         // We push even if there's nothing to merge as there could be commits from manual conflict resolution.
-        if ( !GitHelper.TryPush( context, settings ) )
+        if ( !GitHelper.TryPush( context ) )
         {
             areChangesPending = false;
 

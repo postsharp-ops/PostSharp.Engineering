@@ -174,6 +174,15 @@ internal class BumpCommand : BaseCommand<BumpSettings>
             return false;
         }
 
+        // If we are running in TeamCity, push.
+        if ( context.IsContinuousIntegrationBuild )
+        {
+            if ( !GitHelper.TryPush( context ) )
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 

@@ -105,7 +105,7 @@ public static class GitHelper
         }
 
         // Push the target branch.
-        if ( !TryPush( context, settings ) )
+        if ( !TryPush( context ) )
         {
             return false;
         }
@@ -292,7 +292,7 @@ public static class GitHelper
     {
         references = null;
 
-        if ( !TryGetOriginUrl( context, settings, out var originUrl ) )
+        if ( !TryGetOriginUrl( context, out var originUrl ) )
         {
             return false;
         }
@@ -432,7 +432,7 @@ public static class GitHelper
         return true;
     }
 
-    private static bool TryGetOriginUrl( BuildContext context, BaseBuildSettings settings, [NotNullWhen( true )] out string? url )
+    private static bool TryGetOriginUrl( BuildContext context, [NotNullWhen( true )] out string? url )
     {
         url = null;
 
@@ -456,7 +456,7 @@ public static class GitHelper
         var isHttps = url.StartsWith( "https", StringComparison.InvariantCulture );
 
         // When on TeamCity, origin will be updated to form including Git authentication credentials.
-        if ( isHttps && TeamCityHelper.IsTeamCityBuild( settings ) )
+        if ( isHttps && context.IsContinuousIntegrationBuild )
         {
             if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
                     out var teamcitySourceWriteTokenEnvironmentVariableName,
@@ -474,9 +474,9 @@ public static class GitHelper
         return true;
     }
 
-    public static bool TryPush( BuildContext context, BaseBuildSettings settings )
+    public static bool TryPush( BuildContext context )
     {
-        if ( !TryGetOriginUrl( context, settings, out var originUrl ) )
+        if ( !TryGetOriginUrl( context, out var originUrl ) )
         {
             return false;
         }
@@ -627,7 +627,7 @@ public static class GitHelper
     {
         var console = context.Console;
         var environmentVariable = context.Product.DependencyDefinition.VcsRepository.TokenEnvironmentVariableName;
-        
+
         console.WriteMessage( "Configuring git credentials." );
 
         if ( RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
