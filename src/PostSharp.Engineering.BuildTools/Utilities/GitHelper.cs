@@ -633,7 +633,7 @@ public static class GitHelper
         if ( RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
         {
             var tempFileName = Path.Combine( Path.GetTempPath(), "git-askpass.cmd" );
-            File.WriteAllText( tempFileName, $"@echo off`r`necho %{environmentVariable}%" );
+            File.WriteAllText( tempFileName, $"@echo off\r\necho %{environmentVariable}%" );
 
             if ( !ToolInvocationHelper.InvokeTool( console, "git", "config --global credential.helper \"\"" ) )
             {
