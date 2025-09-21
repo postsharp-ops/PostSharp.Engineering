@@ -41,7 +41,7 @@ public static class TestLicenseKeyDownloader
 
         if ( !AzHelper.Login( context.Console ) )
         {
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            if ( context.IsContinuousIntegrationBuild )
             {
                 context.Console.WriteError( "Cannot download test license keys." );
             }

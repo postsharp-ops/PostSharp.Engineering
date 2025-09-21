@@ -169,7 +169,7 @@ internal class BumpCommand : BaseCommand<BumpSettings>
         }
 
         // Commit the version bump.
-        if ( !GitIntegrationHelper.TryCommitVersionBump( context, oldVersion, newVersion, settings ) )
+        if ( !GitIntegrationHelper.TryCommitVersionBump( context, oldVersion, newVersion ) )
         {
             return false;
         }

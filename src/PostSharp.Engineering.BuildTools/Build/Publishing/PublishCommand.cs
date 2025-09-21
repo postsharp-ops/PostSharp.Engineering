@@ -150,7 +150,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
         // For consolidated deployments, this is part of the post-deployment step.
         if ( !product.ProductFamily.HasConsolidatedBuild && !settings.IsStandalone )
         {
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            if ( context.IsContinuousIntegrationBuild )
             {
                 // When on TeamCity, Git user credentials are set to TeamCity.
                 if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )

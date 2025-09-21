@@ -135,7 +135,7 @@ internal static class DownstreamMerge
     public static bool MergeDownstream( BuildContext context, DownstreamMergeSettings settings )
     {
         // When on TeamCity, Git user credentials are set to TeamCity.
-        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+        if ( context.IsContinuousIntegrationBuild )
         {
             if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
             {

@@ -218,7 +218,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     return false;
                                 }
 
-                                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+                                if ( context.IsContinuousIntegrationBuild )
                                 {
                                     if ( buildSpec == null )
                                     {
@@ -405,7 +405,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 switch ( dependencySource.SourceKind )
                 {
                     case DependencySourceKind.BuildServer:
-                    case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild( settings ):
+                    case DependencySourceKind.RestoredDependency when !context.IsContinuousIntegrationBuild:
                         {
                             var dependencyDefinition = context.Product.ParametrizedDependencies.SingleOrDefault( p => p.Name == dependency.Key )?.Definition;
 
@@ -584,6 +584,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             => Path.Combine(
                 context.RepoDirectory,
                 context.Product.EngineeringDirectory,
-                $"Versions.{configuration}.{(TeamCityHelper.IsTeamCityBuild( settings ) ? "ci." : "")}g.props" );
+                $"Versions.{configuration}.{(context.IsContinuousIntegrationBuild ? "ci." : "")}g.props" );
     }
 }

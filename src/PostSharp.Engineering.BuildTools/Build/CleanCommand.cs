@@ -101,7 +101,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             }
 
             // NugetCache must be automatically deleted only on TeamCity.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) && !DockerHelper.IsDockerBuild() && !settings.NoNuGetCacheCleanup )
+            if ( context is { IsContinuousIntegrationBuild: true, IsRunningUnderContainer: false } && !settings.NoNuGetCacheCleanup )
             {
                 context.Console.WriteHeading( "Cleaning NuGet cache" );
                 context.Console.WriteMessage( "The NuGet cache cleanup can be skipped using --no-nuget-cache-cleanup." );

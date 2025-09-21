@@ -226,7 +226,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                     options );
             }
 
-            if ( test && TeamCityHelper.IsTeamCityBuild( settings ) )
+            if ( test && context.IsContinuousIntegrationBuild )
             {
                 // Export test result files to TeamCity.
                 TeamCityHelper.SendImportDataMessage(

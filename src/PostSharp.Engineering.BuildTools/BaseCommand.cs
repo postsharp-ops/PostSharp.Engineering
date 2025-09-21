@@ -44,7 +44,7 @@ namespace PostSharp.Engineering.BuildTools
 
                 MSBuildHelper.InitializeLocator();
 
-                if ( DockerHelper.IsDockerBuild() )
+                if ( buildContext.IsRunningUnderContainer )
                 {
                     buildContext.Console.WriteMessage( "Docker detected." );
                 }

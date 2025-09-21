@@ -83,7 +83,7 @@ internal static class GitIntegrationHelper
         var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
 
         // When on TeamCity, if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
-        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+        if ( context.IsContinuousIntegrationBuild )
         {
             if ( isHttps )
             {
@@ -116,7 +116,7 @@ internal static class GitIntegrationHelper
         return true;
     }
 
-    public static bool TryCommitVersionBump( BuildContext context, Version? currentVersion, Version newVersion, CommonCommandSettings settings )
+    public static bool TryCommitVersionBump( BuildContext context, Version? currentVersion, Version newVersion )
     {
         var product = context.Product;
 
@@ -150,7 +150,7 @@ internal static class GitIntegrationHelper
         var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
 
         // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
-        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+        if ( context.IsContinuousIntegrationBuild )
         {
             if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
             {

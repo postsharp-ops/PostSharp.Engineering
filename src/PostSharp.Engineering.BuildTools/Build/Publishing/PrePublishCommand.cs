@@ -38,7 +38,7 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+        if ( context.IsContinuousIntegrationBuild )
         {
             // When on TeamCity, Git user credentials are set to TeamCity.
             if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )

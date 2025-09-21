@@ -26,7 +26,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                 return false;
             }
 
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            if ( context.IsContinuousIntegrationBuild )
             {
                 // When on TeamCity, Git user credentials are set to TeamCity.
                 if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )

@@ -112,7 +112,7 @@ public class VersionFile
             {
                 dependencySource = DependencySource.CreateLocalRepo( DependencyConfigurationOrigin.Default );
             }
-            else if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            else if ( context.IsContinuousIntegrationBuild )
             {
                 dependencySource = DependencySource.CreateRestoredDependency(
                     context,

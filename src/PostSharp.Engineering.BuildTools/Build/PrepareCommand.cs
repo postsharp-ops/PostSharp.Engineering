@@ -33,7 +33,7 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
 
         var product = context.Product;
 
-        if ( settings.BuildConfiguration == BuildConfiguration.Public && !TeamCityHelper.IsTeamCityBuild( settings ) && !settings.Force )
+        if ( settings.BuildConfiguration == BuildConfiguration.Public && !context.IsContinuousIntegrationBuild && !settings.Force )
         {
             context.Console.WriteError( "Cannot prepare a public configuration on a local machine without --force because it may corrupt the package cache." );
 
