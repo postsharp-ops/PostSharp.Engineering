@@ -109,7 +109,7 @@ if (-not $KeepEnv)
         }
         if (-not $env:GIT_USER_NAME)
         {
-            $env:GIT_USER_EMAIL = 'teamcity'
+            $env:GIT_USER_NAME = 'teamcity'
         }
     }
 
@@ -160,6 +160,27 @@ if (-not $NoNuGetCache)
 # We must add a MountPoint anyway so the directory is created in the container.
 $MountPoints += "c:\packages"
 
+# Discover symbolic links in source-dependencies and add their targets to mount points
+$sourceDependenciesDir = Join-Path $SourceDirName "source-dependencies"
+if (Test-Path $sourceDependenciesDir)
+{
+    $symbolicLinks = Get-ChildItem -Path $sourceDependenciesDir -Force | Where-Object { $_.LinkType -eq 'SymbolicLink' }
+
+    foreach ($link in $symbolicLinks)
+    {
+        $targetPath = $link.Target
+        if (-not [string]::IsNullOrEmpty($targetPath) -and (Test-Path $targetPath))
+        {
+            Write-Host "Found symbolic link '$($link.Name)' -> '$targetPath'" -ForegroundColor Cyan
+            $volumeMappings += @("-v", "${targetPath}:${targetPath}:ro")
+            $MountPoints += $targetPath
+        }
+        else
+        {
+            Write-Host "Warning: Symbolic link '$($link.Name)' target '$targetPath' does not exist or is invalid" -ForegroundColor Yellow
+        }
+    }
+}
 
 # Execute auto-generated DockerMounts.g.ps1 script to add more directory mounts.
 $dockerMountsScript = Join-Path $EngPath 'DockerMounts.g.ps1'
