@@ -172,7 +172,7 @@ if (Test-Path $sourceDependenciesDir)
         if (-not [string]::IsNullOrEmpty($targetPath) -and (Test-Path $targetPath))
         {
             Write-Host "Found symbolic link '$($link.Name)' -> '$targetPath'" -ForegroundColor Cyan
-            $volumeMappings += @("-v", "${targetPath}:${targetPath}")
+            $volumeMappings += @("-v", "${targetPath}:${targetPath}:ro")
             $MountPoints += $targetPath
         }
         else
