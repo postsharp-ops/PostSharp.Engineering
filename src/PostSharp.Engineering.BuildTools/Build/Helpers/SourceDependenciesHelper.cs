@@ -10,6 +10,7 @@ internal static class SourceDependenciesHelper
     internal static bool RestoreSourceDependencies( BuildContext context )
     {
         var product = context.Product;
+        var console = context.Console;
 
         if ( product.SourceDependencies.Length == 0 )
         {
@@ -25,7 +26,7 @@ internal static class SourceDependenciesHelper
 
         foreach ( var dependency in product.SourceDependencies )
         {
-            context.Console.WriteMessage( $"Restoring '{dependency.Name}' source dependency." );
+            console.WriteMessage( $"Restoring '{dependency.Name}' source dependency." );
 
             var localDirectory = Path.Combine( context.RepoDirectory, "..", dependency.Name );
 
@@ -35,28 +36,43 @@ internal static class SourceDependenciesHelper
             {
                 if ( !Directory.Exists( targetDirectory ) )
                 {
-                    context.Console.WriteMessage( $"Creating symbolic link to '{localDirectory}' in '{targetDirectory}'." );
+                    if ( context.IsContinuousIntegrationBuild )
+                    {
+                        console.WriteError( "Cannot restore source dependencies in a Docker container. Prepare the build in the host first." );
+
+                        return false;
+                    }
+
+                    console.WriteMessage( $"Creating symbolic link to '{localDirectory}' in '{targetDirectory}'." );
                     Directory.CreateSymbolicLink( targetDirectory, localDirectory );
 
                     if ( !Directory.Exists( targetDirectory ) )
                     {
-                        context.Console.WriteError( $"Symbolic link was not created for '{targetDirectory}'." );
+                        console.WriteError( $"Symbolic link was not created for '{targetDirectory}'." );
 
                         return false;
                     }
                 }
                 else
                 {
-                    context.Console.WriteMessage( $"Directory '{targetDirectory}' already exists." );
+                    console.WriteMessage( $"Directory '{targetDirectory}' already exists." );
                 }
             }
             else
             {
                 if ( !Directory.Exists( targetDirectory ) )
                 {
+                    if ( context.IsContinuousIntegrationBuild )
+                    {
+                        // Avoid creating a mess in the host.
+                        console.WriteError( "Cannot restore source dependencies in a Docker container. Prepare the build in the host first." );
+
+                        return false;
+                    }
+
                     // If the target directory doesn't exist, we clone it to the source-dependencies directory with depth of 1 to mitigate the impact of cloning the whole history.
                     if ( !ToolInvocationHelper.InvokeTool(
-                            context.Console,
+                            console,
                             "git",
                             $"clone {dependency.VcsRepository.DeveloperMachineRemoteUrl} --branch {dependency.Branch} --depth 1",
                             sourceDependenciesDirectory ) )
@@ -66,7 +82,7 @@ internal static class SourceDependenciesHelper
                 }
                 else
                 {
-                    context.Console.WriteMessage( $"Directory '{targetDirectory}' already exists." );
+                    console.WriteMessage( $"Directory '{targetDirectory}' already exists." );
                 }
             }
         }

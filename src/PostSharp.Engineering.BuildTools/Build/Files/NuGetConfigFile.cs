@@ -90,6 +90,8 @@ internal static class NuGetConfigFile
             if ( dependencySource.Value.SourceKind == DependencySourceKind.Feed )
             {
                 // Skip any feed dependency, so it will be fall back to the default package source.
+                packageSourcesElement.Add( new XComment( $" {dependencySource.Key} maps to the default nuget.org. " ) );
+
                 continue;
             }
             else if ( dependencySource.Value.VersionFile == null )
