@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Diagnostics.CodeAnalysis;
@@ -8,6 +9,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Files;
 
 internal static class MasterGenerator
 {
+    public static bool TryWriteFiles(
+        BuildContext context,
+        BuildSettings settings )
+        => TryWriteFiles( context, settings, out _ );
+
     public static bool TryWriteFiles(
         BuildContext context,
         BuildSettings settings,

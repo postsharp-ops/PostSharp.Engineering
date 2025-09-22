@@ -102,7 +102,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        if ( !MasterGenerator.TryWriteFiles( context, settings, out _ ) )
+        if ( !MasterGenerator.TryWriteFiles( context, settings ) )
         {
             return false;
         }

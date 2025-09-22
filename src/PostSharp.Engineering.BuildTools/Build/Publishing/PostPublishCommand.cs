@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
         {
             context.Console.WriteHeading( "Finishing publishing." );
 
-            if ( !MasterGenerator.TryWriteFiles( context, settings, out _ ) )
+            if ( !MasterGenerator.TryWriteFiles( context, settings ) )
             {
                 return false;
             }

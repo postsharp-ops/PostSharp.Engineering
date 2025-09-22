@@ -4,9 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Helpers;
 using PostSharp.Engineering.BuildTools.Build.Model;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System.Diagnostics.CodeAnalysis;
 
 namespace PostSharp.Engineering.BuildTools.Build;
@@ -62,8 +60,7 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
             return false;
         }
 
-        context.Console.WriteSuccess(
-            $"Preparing the build was successful. {product.ProductNameWithoutDot}Version={artifactManifestVersionInfo.PackageVersion}" );
+        context.Console.WriteSuccess( $"Preparing the build was successful. {product.ProductNameWithoutDot}Version={artifactManifestVersionInfo.PackageVersion}" );
 
         return true;
     }

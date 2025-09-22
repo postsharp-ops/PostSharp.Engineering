@@ -226,63 +226,38 @@ internal static class ArtifactManifestFile
         [NotNullWhen( true )] out ArtifactManifestVersionInfo? artifactManifestVersionInfo )
     {
         var product = context.Product;
+        var artifactVersionFile = context.GetManifestFilePath( configuration );
 
-        if ( !MainVersionFile.TryRead( context, out var mainVersionFile ) )
+        var document = XDocument.Load( artifactVersionFile );
+        var project = document.Root;
+        var properties = project?.Element( "PropertyGroup" );
+        var mainVersionPropertyName = $"{product.ProductNameWithoutDot}MainVersion";
+        var mainVersion = properties?.Element( mainVersionPropertyName )?.Value;
+
+        if ( mainVersion == null )
         {
+            context.Console.WriteError(
+                $"Cannot load '{product.MainVersionFilePath}': the property '{mainVersionPropertyName}' in '{artifactVersionFile}' is not defined." );
+
             artifactManifestVersionInfo = null;
 
             return false;
         }
 
-        var overriddenPatchVersion = mainVersionFile.OverriddenPatchVersion;
+        var packageVersionPropertyName = $"{product.ProductNameWithoutDot}Version";
+        var packageVersion = properties?.Element( packageVersionPropertyName )?.Value;
 
-        string? mainVersion;
-        Version? currentVersion;
-
-        // The MainVersionDependency is not defined.
-        if ( product.MainVersionDependency == null )
+        if ( packageVersion == null )
         {
-            // The current version defaults to MainVersion.
+            context.Console.WriteError(
+                $"Cannot load '{product.MainVersionFilePath}': the property '{packageVersionPropertyName}' in '{artifactVersionFile}' is not defined." );
 
-            mainVersion = mainVersionFile.MainVersion;
+            artifactManifestVersionInfo = null;
 
-            currentVersion = Version.Parse( mainVersion );
-        }
-        else
-        {
-            // If MainVersionDependency and OverriddenPatchVersion properties are defined, we use OverriddenPatchVersion value.
-            if ( !string.IsNullOrEmpty( overriddenPatchVersion ) )
-            {
-                currentVersion = new Version( overriddenPatchVersion );
-            }
-            else
-            {
-                // If no OverridenPatchVersion is defined, we use MainVersion property from private artifact.
-
-                var artifactVersionFile = context.GetManifestFilePath( configuration );
-
-                var document = XDocument.Load( artifactVersionFile );
-                var project = document.Root;
-                var properties = project?.Element( "PropertyGroup" );
-                var propertyName = $"{product.ProductNameWithoutDot}MainVersion";
-                mainVersion = properties?.Element( propertyName )?.Value;
-
-                if ( mainVersion == null )
-                {
-                    context.Console.WriteError(
-                        $"Cannot load '{product.MainVersionFilePath}': the property '{propertyName}' in '{artifactVersionFile}' is not defined." );
-
-                    artifactManifestVersionInfo = null;
-
-                    return false;
-                }
-
-                // Set the current version to dependency version.
-                currentVersion = new Version( mainVersion );
-            }
+            return false;
         }
 
-        artifactManifestVersionInfo = new ArtifactManifestVersionInfo( currentVersion, mainVersionFile.PackageVersionSuffix );
+        artifactManifestVersionInfo = new ArtifactManifestVersionInfo( new Version( mainVersion ), packageVersion );
 
         return true;
     }

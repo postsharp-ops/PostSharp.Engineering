@@ -22,7 +22,7 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
     {
         var product = context.Product;
 
-        if ( !MasterGenerator.TryWriteFiles( context, settings, out _ ) )
+        if ( !MasterGenerator.TryWriteFiles( context, settings ) )
         {
             return false;
         }
