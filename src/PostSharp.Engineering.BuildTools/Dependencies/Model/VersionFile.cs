@@ -36,7 +36,7 @@ public class VersionFile
         versionFile = null;
         var dependenciesBuilder = ImmutableDictionary.CreateBuilder<string, DependencySource>();
         var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
-        var centralPackageManangementVersionsPath = Path.Combine( context.RepoDirectory, "Directory.Packages.props" );
+        var centralPackageManagementVersionsPath = Path.Combine( context.RepoDirectory, "Directory.Packages.props" );
 
         if ( !File.Exists( versionsPath ) )
         {
@@ -48,18 +48,18 @@ public class VersionFile
         var projectOptions = new ProjectOptions { GlobalProperties = new Dictionary<string, string>() { ["DoNotLoadGeneratedVersionFiles"] = "True" } };
 
         var versionsProject = Project.FromFile( versionsPath, projectOptions );
-        Project? centralPackageManangementVersionsProject = null;
+        Project? centralPackageManagementVersionsProject = null;
 
-        if ( File.Exists( centralPackageManangementVersionsPath ) )
+        if ( File.Exists( centralPackageManagementVersionsPath ) )
         {
-            centralPackageManangementVersionsProject = Project.FromFile( centralPackageManangementVersionsPath, projectOptions );
+            centralPackageManagementVersionsProject = Project.FromFile( centralPackageManagementVersionsPath, projectOptions );
         }
 
         var defaultDependencyProperties = context.Product.ParametrizedDependencies
             .ToDictionary(
                 d => d.Name,
                 d => versionsProject.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue
-                     ?? centralPackageManangementVersionsProject?.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue );
+                     ?? centralPackageManagementVersionsProject?.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue );
 
         ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
@@ -80,7 +80,7 @@ public class VersionFile
             dependencyVersion = dependencyVersion.Trim();
 
             // The property value can be either empty or a semantic version, but empty values are not allowed on guest devices,
-            // i.e. for build outside of our VPN.
+            // i.e. for build outside our VPN.
 
             if ( dependencyVersion != "" && !Regex.IsMatch( dependencyVersion, @"^\d+.*$" ) )
             {
@@ -110,7 +110,7 @@ public class VersionFile
             }
             else if ( settings.UseLocalDependencies && dependencyDefinition.Definition.ProductFamily == context.Product.ProductFamily )
             {
-                dependencySource = DependencySource.CreateLocalRepo( DependencyConfigurationOrigin.Default );
+                dependencySource = DependencySource.CreateLocalDependency( DependencyConfigurationOrigin.Default, null );
             }
             else if ( context.IsContinuousIntegrationBuild )
             {

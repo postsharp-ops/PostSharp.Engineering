@@ -208,9 +208,12 @@ internal static class DependenciesHelper
                         break;
 
                     case DependencySourceKind.Local:
-                        dependencySource = DependencySource.CreateLocalRepo( DependencyConfigurationOrigin.Transitive );
+                        {
+                            var localPath = transitiveDependency.GetMetadata( "Path" )?.EvaluatedValue;
+                            dependencySource = DependencySource.CreateLocalDependency( DependencyConfigurationOrigin.Transitive, localPath );
 
-                        break;
+                            break;
+                        }
 
                     case DependencySourceKind.RestoredDependency:
                         {
@@ -442,12 +445,10 @@ internal static class DependenciesHelper
         {
             if ( dependency.Source.VersionFile == null )
             {
-                dependency.Source.VersionFile = Path.GetFullPath(
+                dependency.Source.VersionFile =
                     Path.Combine(
-                        context.RepoDirectory,
-                        "..",
-                        dependency.Dependency.Name,
-                        dependency.Dependency.Name + ".Import.props" ) );
+                        dependency.Source.GetResolvedLocalPath( context, dependency.Dependency.Name ),
+                        dependency.Dependency.Name + ".Import.props" );
             }
 
             if ( !File.Exists( dependency.Source.VersionFile ) )

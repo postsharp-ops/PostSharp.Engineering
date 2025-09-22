@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Xml.Linq;
@@ -19,12 +20,31 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         internal string? VersionFile { get; set; }
 
-        public DependencySourceKind SourceKind { get; internal set; }
+        public DependencySourceKind SourceKind { get; private init; }
 
-        public DependencyConfigurationOrigin Origin { get; internal init; }
+        public DependencyConfigurationOrigin Origin { get; private init; }
 
-        public static DependencySource CreateLocalRepo( DependencyConfigurationOrigin origin )
-            => new() { Origin = origin, SourceKind = DependencySourceKind.Local };
+        public string? LocalPath { get; private init; }
+
+        public string GetResolvedLocalPath( BuildContext context, string dependencyKey )
+        {
+            if ( this.SourceKind != DependencySourceKind.Local )
+            {
+                throw new InvalidOperationException( "The dependency source must be local." );
+            }
+
+            var localPath = this.LocalPath == null
+                ? Path.Combine(
+                    context.RepoDirectory,
+                    "..",
+                    dependencyKey )
+                : Path.Combine( context.RepoDirectory, this.LocalPath );
+
+            return Path.GetFullPath( localPath );
+        }
+
+        public static DependencySource CreateLocalDependency( DependencyConfigurationOrigin origin, string? path )
+            => new() { Origin = origin, SourceKind = DependencySourceKind.Local, LocalPath = path };
 
         /// <summary>
         /// Creates a <see cref="DependencySource"/> that represents a build server artifact dependency that has been restored,

@@ -197,14 +197,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                         case DependencySourceKind.Local:
                             {
-                                var dependencySource = DependencySource.CreateLocalRepo( origin );
+                                var localPath = item.Element( "Path" )?.Value;
+                                var dependencySource = DependencySource.CreateLocalDependency( origin, localPath );
 
-                                dependencySource.VersionFile = Path.GetFullPath(
-                                    Path.Combine(
-                                        context.RepoDirectory,
-                                        "..",
-                                        name,
-                                        name + ".Import.props" ) );
+                                dependencySource.VersionFile = Path.Combine(
+                                    dependencySource.GetResolvedLocalPath( context, name ),
+                                    name + ".Import.props" );
 
                                 file.Dependencies[name] = dependencySource;
 
@@ -435,12 +433,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                     case DependencySourceKind.Local:
                         {
+                            AddIfNotNull( "Path", dependencySource.LocalPath );
+
                             var importProjectFile = Path.GetFullPath(
-                                Path.Combine(
-                                    context.RepoDirectory,
-                                    "..",
-                                    dependency.Key,
-                                    dependency.Key + ".Import.props" ) );
+                                Path.Combine( dependencySource.GetResolvedLocalPath( context, dependency.Key ), dependency.Key + ".Import.props" ) );
 
                             AddImport( importProjectFile );
                         }

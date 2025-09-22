@@ -39,6 +39,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         [CommandOption( "--buildTypeId" )]
         public string? CiBuildTypeId { get; protected set; }
 
+        [Description( "Specifies the path of the local dependency. By default, the dependency is assumed to be in the parent directory of the current repo." )]
+        [CommandOption( "--path" )]
+        public string? LocalPath { get; protected set; }
+
         public override string[] GetDependencies() => this.Dependencies;
 
         public override bool GetAllFlag() => this.All;
