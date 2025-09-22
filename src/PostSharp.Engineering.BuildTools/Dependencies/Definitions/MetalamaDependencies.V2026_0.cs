@@ -95,22 +95,16 @@ public static partial class MetalamaDependencies
                     "Metalama.LinqPad*",
                     "Metalama.Migration*",
                     "Metalama.Testing.*",
-                    "Metalama.Tool"
+                    "Metalama.Tool",
+                    "Flashtrace*"
                 ]
-
-                // SuppressUpstream = true
             };
 
         public static DependencyDefinition MetalamaPremium { get; } =
             new MetalamaDependencyDefinition(
                 "Metalama.Premium",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama )
-            {
-                PackagePatterns = ["Metalama.Patterns.*"]
-
-                // SuppressUpstream = true
-            };
+                MetalamaGitHubOrganization.Metalama ) { PackagePatterns = ["Metalama.Patterns.*"] };
 
         public static DependencyDefinition MetalamaVsx { get; } =
             new MetalamaDependencyDefinition(

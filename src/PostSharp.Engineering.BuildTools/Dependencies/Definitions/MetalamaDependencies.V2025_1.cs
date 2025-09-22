@@ -85,17 +85,25 @@ public static partial class MetalamaDependencies
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.Metalama )
             {
-                // SuppressUpstream = true
+                PackagePatterns =
+                [
+                    "Metalama.Backstage*",
+                    "Metalama.Framework*",
+                    "Metalama.Extensions.*",
+                    "Metalama.Patterns.*",
+                    "Metalama.LinqPad",
+                    "Metalama.Migration",
+                    "Metalama.Testing.*",
+                    "Metalama.Tool",
+                    "Flashtrace*"
+                ]
             };
 
         public static DependencyDefinition MetalamaPremium { get; } =
             new MetalamaDependencyDefinition(
                 "Metalama.Premium",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama )
-            {
-                // SuppressUpstream = true
-            };
+                MetalamaGitHubOrganization.Metalama ) { PackagePatterns = ["Metalama.Patterns.*"] };
 
         public static DependencyDefinition MetalamaVsx { get; } =
             new MetalamaDependencyDefinition(

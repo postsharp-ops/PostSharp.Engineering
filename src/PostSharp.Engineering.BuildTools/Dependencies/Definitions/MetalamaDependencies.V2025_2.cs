@@ -55,8 +55,7 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2025.2", DevelopmentDependencies.Family, PostSharpDependencies.V2025_1.Family )
         {
-            UpstreamProductFamily = V2025_1.Family,
-            DownstreamProductFamily = V2026_0.Family
+            UpstreamProductFamily = V2025_1.Family, DownstreamProductFamily = V2026_0.Family
         };
 
         public static DependencyDefinition Consolidated { get; } =
@@ -85,17 +84,25 @@ public static partial class MetalamaDependencies
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.Metalama )
             {
-                // SuppressUpstream = true
+                PackagePatterns =
+                [
+                    "Metalama.Backstage*",
+                    "Metalama.Framework*",
+                    "Metalama.Extensions*",
+                    "Metalama.Patterns*",
+                    "Metalama.LinqPad*",
+                    "Metalama.Migration*",
+                    "Metalama.Testing.*",
+                    "Metalama.Tool",
+                    "Flashtrace*"
+                ]
             };
 
         public static DependencyDefinition MetalamaPremium { get; } =
             new MetalamaDependencyDefinition(
                 "Metalama.Premium",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama )
-            {
-                // SuppressUpstream = true
-            };
+                MetalamaGitHubOrganization.Metalama ) { PackagePatterns = ["Metalama.Patterns.*"] };
 
         public static DependencyDefinition MetalamaVsx { get; } =
             new MetalamaDependencyDefinition(
