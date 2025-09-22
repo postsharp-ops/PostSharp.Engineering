@@ -18,6 +18,7 @@ internal static class NuGetConfigFile
     internal static bool TryWrite( BuildContext context, DependenciesConfigurationFile dependenciesConfigurationFile, BuildConfiguration configuration )
     {
         var product = context.Product;
+        var console = context.Console;
 
         if ( !product.GenerateNuGetConfig )
         {
@@ -87,6 +88,7 @@ internal static class NuGetConfigFile
         // Add dependencies.
         foreach ( var dependencySource in dependenciesConfigurationFile.Dependencies )
         {
+
             if ( dependencySource.Value.SourceKind == DependencySourceKind.Feed )
             {
                 // Skip any feed dependency, so it will be fall back to the default package source.
@@ -102,19 +104,20 @@ internal static class NuGetConfigFile
             }
 
             var dependencyDefinition = product.GetDependencyDefinition( dependencySource.Key );
-            var parametrizedDependency = product.ParametrizedDependencies.SingleOrDefault( d => d.Name == dependencySource.Key );
-
-            if ( parametrizedDependency == null )
-            {
-                context.Console.WriteWarning( $"Cannot find ParametrizedDependencies for {dependencySource.Key}." );
-
-                continue;
-            }
-
             var dependencyDirectory = Path.GetDirectoryName( dependencySource.Value.VersionFile )!;
 
             if ( dependencySource.Value.SourceKind == DependencySourceKind.Local )
             {
+                var parametrizedDependency = product.ParametrizedDependencies.SingleOrDefault( d => d.Name == dependencySource.Key );
+
+                if ( parametrizedDependency == null )
+                {
+                    // This case is not implemented.
+                    context.Console.WriteWarning( $"Cannot find ParametrizedDependencies for {dependencySource.Key}. Probably a transitive dependency." );
+
+                    continue;
+                }
+                
                 dependencyDirectory = Path.Combine(
                     dependencyDirectory,
                     dependencyDefinition.PrivateArtifactsDirectory.ToString(
