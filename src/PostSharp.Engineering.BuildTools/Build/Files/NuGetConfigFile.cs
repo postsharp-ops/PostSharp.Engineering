@@ -102,7 +102,15 @@ internal static class NuGetConfigFile
             }
 
             var dependencyDefinition = product.GetDependencyDefinition( dependencySource.Key );
-            var parametrizedDependency = product.ParametrizedDependencies.Single( d => d.Name == dependencySource.Key );
+            var parametrizedDependency = product.ParametrizedDependencies.SingleOrDefault( d => d.Name == dependencySource.Key );
+
+            if ( parametrizedDependency == null )
+            {
+                context.Console.WriteWarning( $"Cannot find ParametrizedDependencies for {dependencySource.Key}." );
+
+                continue;
+            }
+
             var dependencyDirectory = Path.GetDirectoryName( dependencySource.Value.VersionFile )!;
 
             if ( dependencySource.Value.SourceKind == DependencySourceKind.Local )
