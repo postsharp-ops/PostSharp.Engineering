@@ -111,7 +111,7 @@ internal abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Writing the version file.
-        if ( !dependenciesOverrideFile.TrySave( context, settings ) )
+        if ( !dependenciesOverrideFile.TryWrite( context ) )
         {
             return false;
         }

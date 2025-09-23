@@ -31,7 +31,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( !dependenciesOverrideFile.TrySave( context, settings ) )
+            if ( !dependenciesOverrideFile.TryWrite( context ) )
             {
                 return false;
             }

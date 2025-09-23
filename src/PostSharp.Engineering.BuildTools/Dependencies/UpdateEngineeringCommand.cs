@@ -122,10 +122,7 @@ internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
         console.WriteSuccess( "Engineering successfully updated." );
 
         // Generate scripts.
-        if ( !GenerateScriptsCommand.Execute( context, settings ) )
-        {
-            return false;
-        }
+        console.WriteWarning( "Now run `./Build.ps1 generate-scripts` with this new version." );
 
         return true;
     }

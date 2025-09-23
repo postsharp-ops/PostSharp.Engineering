@@ -46,7 +46,7 @@ internal static class MasterGenerator
         // We always save the Versions.g.props because it may not exist, and it may have been changed by the previous step.
         dependenciesOverrideFile.LocalBuildFile = propsFilePath;
 
-        if ( !dependenciesOverrideFile.TrySave( context, settings ) )
+        if ( !dependenciesOverrideFile.TryWrite( context ) )
         {
             return false;
         }
