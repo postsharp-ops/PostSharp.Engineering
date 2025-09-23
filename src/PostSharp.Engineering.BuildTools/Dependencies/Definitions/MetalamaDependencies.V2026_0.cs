@@ -104,7 +104,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Premium",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama ) { PackagePatterns = ["Metalama.Patterns.*"] };
+                MetalamaGitHubOrganization.Metalama ) { PackagePatterns = ["Metalama.Extensions.*", "Metalama.Patterns.*", "Metalama.Licensing"] };
 
         public static DependencyDefinition MetalamaVsx { get; } =
             new MetalamaDependencyDefinition(
