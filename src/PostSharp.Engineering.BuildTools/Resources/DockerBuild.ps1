@@ -93,7 +93,7 @@ if (-not $env:IS_TEAMCITY_AGENT -and -not $NoClean)
 # Create secrets JSON file.
 if (-not $KeepEnv)
 {
-    if ( -not $env:ENG_USERNAME )
+    if (-not $env:ENG_USERNAME)
     {
         $env:ENG_USERNAME = $env:USERNAME
     }
@@ -101,7 +101,7 @@ if (-not $KeepEnv)
     $env:GIT_USER_EMAIL = git config --global user.email
     $env:GIT_USER_NAME = git config --global user.name
 
-    if ( $env:IS_TEAMCITY_AGENT )
+    if ($env:IS_TEAMCITY_AGENT)
     {
         if (-not $env:GIT_USER_EMAIL)
         {
@@ -171,13 +171,13 @@ if (Test-Path $sourceDependenciesDir)
         $targetPath = $link.Target
         if (-not [string]::IsNullOrEmpty($targetPath) -and (Test-Path $targetPath))
         {
-            Write-Host "Found symbolic link '$($link.Name)' -> '$targetPath'" -ForegroundColor Cyan
+            Write-Host "Found symbolic link '$( $link.Name )' -> '$targetPath'" -ForegroundColor Cyan
             $volumeMappings += @("-v", "${targetPath}:${targetPath}:ro")
             $MountPoints += $targetPath
         }
         else
         {
-            Write-Host "Warning: Symbolic link '$($link.Name)' target '$targetPath' does not exist or is invalid" -ForegroundColor Yellow
+            Write-Host "Warning: Symbolic link '$( $link.Name )' target '$targetPath' does not exist or is invalid" -ForegroundColor Yellow
         }
     }
 }

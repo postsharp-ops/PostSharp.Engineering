@@ -155,7 +155,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
                         if ( !found )
                         {
-                            context.Console.WriteError( $"Expected disagnostic not found for pattern '{regex}'." );
+                            context.Console.WriteError( $"Expected diagnostic not found for pattern '{regex}'." );
 
                             success = false;
                         }
