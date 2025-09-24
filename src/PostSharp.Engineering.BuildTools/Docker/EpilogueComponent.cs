@@ -35,14 +35,21 @@ internal class EpilogueComponent : ContainerComponent
 
             # Configure NuGet
             ENV NUGET_PACKAGES=c:\packages
-            
+
             # Configure .NET SDK
             ENV DOTNET_NOLOGO=1
 
             # Configure git
-            ARG SRC_DIR
-            RUN git config --global --add safe.directory $env:SRC_DIR/; `
-                git config --global user.name $env:GIT_USER_NAME; `
+            ARG GITDIRS
+            RUN if ($env:GITDIRS) { `
+                    $gitdirs = $env:GITDIRS -split ';'; `
+                    foreach ($dir in $gitdirs) { `
+                        if ($dir) { `
+                            git config --global --add safe.directory $dir/; `
+                        } `
+                    } `
+                }
+            RUN git config --global user.name $env:GIT_USER_NAME; `
                 git config --global user.email $env:GIT_USER_EMAIL;
             """ );
     }
