@@ -16,17 +16,19 @@ if (Test-Path $lastExecutionFile) {
     }
 }
 
-if ($shouldExecute) {
-    Write-Host "Executing daily maintenance..."
-    
-    # Update the last execution timestamp by touching the file
-    "Last maintenance executed at $(Get-Date)" | Out-File $lastExecutionFile -Encoding UTF8
-    
-    # Remove all Docker images that have not been used for 7 days.
-    docker image prune -a --filter "until=168h" --force
-
-    # Pull this repo.
-    git pull
-    
-    Write-Host "Daily maintenance completed successfully."
+if (-not $shouldExecute) {
+    exit 0
 }
+
+Write-Host "Executing daily maintenance..."
+
+# Update the last execution timestamp by touching the file
+"Last maintenance executed at $(Get-Date)" | Out-File $lastExecutionFile -Encoding UTF8
+
+# Remove all Docker images that have not been used for 7 days.
+docker image prune -a --filter "until=168h" --force
+
+# Pull this repo.
+git pull
+
+Write-Host "Daily maintenance completed successfully."
