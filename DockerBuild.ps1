@@ -67,7 +67,7 @@ function New-EnvJson
             $envVariables[$envName] = $envValue
         }
     }
-    
+
     # Convert to JSON and save
     $jsonPath = Join-Path $dockerContextDirectory "env.g.json"
 
@@ -195,14 +195,14 @@ if ( $VsDebug)
         Write-Host "Environment variable 'DevEnvDir' is not defined." -ForegroundColor Red
         exit 1
     }
-    
+
     $remoteDebuggerHostDir = "$($env:DevEnvDir)Remote Debugger\x64"
     if ( -not (Test-Path $remoteDebuggerHostDir))
     {
         Write-Host "Directory '$remoteDebuggerHostDir' does not exist." -ForegroundColor Red
         exit 1
     }
-    
+
     $remoteDebuggerContainerDir = "C:\msvsmon"
     $volumeMappings += @("-v", "${remoteDebuggerHostDir}:${remoteDebuggerContainerDir}:ro")
     $MountPoints += $remoteDebuggerContainerDir
@@ -269,26 +269,31 @@ if (-not $BuildImage)
     Write-Host "Building the product in the container." -ForegroundColor Green
 
     # Prepare Build.ps1 arguments
-    $buildCommand = "$SourceDirName\Build.ps1"
     if ( $VsDebug )
     {
-        $BuildArgs = @("-VsDebug") + $BuildArgs 
+        $BuildArgs = @("-VsDebug") + $BuildArgs
     }
-    $buildArgsString = $BuildArgs -join " "
-    $buildCommand += " $buildArgsString"
-    
+
     if ( $Interactive )
     {
         $pwshArgs = "-NoExit"
+        $BuildArgs = @("-Interactive") + $BuildArgs
+        $dockerArgs = @("-it")
     }
     else
     {
         $pwshArgs = "-NonInteractive"
+        $dockerArgs = @()
     }
-    
-    Write-Host "Executing in container: `".\Build.ps1 $buildArgsString`"." -ForegroundColor Cyan
 
-    docker run --rm --memory=12g @volumeMappings -w $SourceDirName $ImageName pwsh $pwshArgs -Command $buildCommand
+    $buildArgsString = $BuildArgs -join " "
+    $volumeMappingsAsString = $volumeMappings -join " "
+    $dockerArgsAsString = $dockerArgs -join " "
+
+
+    Write-Host "Executing: ``docker run --rm --memory=12g $volumeMappingsAsString -w $SourceDirName $dockerArgsAsString $ImageName pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`"``." -ForegroundColor Cyan
+
+    docker run --rm --memory=12g @volumeMappings -w $SourceDirName @dockerArgs $ImageName pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString"
     if ($LASTEXITCODE -ne 0)
     {
         Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red

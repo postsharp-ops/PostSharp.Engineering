@@ -278,20 +278,22 @@ if (-not $BuildImage)
     {
         $pwshArgs = "-NoExit"
         $BuildArgs = @("-Interactive") + $BuildArgs
-        $dockerArgs = "-it"
+        $dockerArgs = @("-it")
     }
     else
     {
         $pwshArgs = "-NonInteractive"
-        $dockerArgs = ""
+        $dockerArgs = @()
     }
 
     $buildArgsString = $BuildArgs -join " "
+    $volumeMappingsAsString = $volumeMappings -join " "
+    $dockerArgsAsString = $dockerArgs -join " "
 
 
-    Write-Host "Executing in container: ``pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`"``." -ForegroundColor Cyan
+    Write-Host "Executing: ``docker run --rm --memory=12g $volumeMappingsAsString -w $SourceDirName $dockerArgsAsString $ImageName pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`"``." -ForegroundColor Cyan
 
-    docker run --rm --memory=12g @volumeMappings -w $SourceDirName $dockerArgs $ImageName pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString"
+    docker run --rm --memory=12g @volumeMappings -w $SourceDirName @dockerArgs $ImageName pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString"
     if ($LASTEXITCODE -ne 0)
     {
         Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red
