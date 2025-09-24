@@ -35,6 +35,9 @@ internal class EpilogueComponent : ContainerComponent
 
             # Configure NuGet
             ENV NUGET_PACKAGES=c:\packages
+            
+            # Configure .NET SDK
+            ENV DOTNET_NOLOGO=1
 
             # Configure git
             ARG SRC_DIR

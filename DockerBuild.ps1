@@ -12,6 +12,7 @@ param(
     [string]$ImageName, # Image name (defaults to a name based on the directory).
     [string]$BuildAgentPath = 'C:\BuildAgent',
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
+    [switch]$VsDebug, # Enable the remote debugger.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container.
 )
@@ -36,13 +37,13 @@ function New-EnvJson
     $envVarNames = $EnvironmentVariableList -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
     # Build hashtable with environment variable values
-    $secrets = @{ }
+    $envVariables = @{ }
     foreach ($envVarName in $envVarNames)
     {
         $value = [Environment]::GetEnvironmentVariable($envVarName)
         if (-not [string]::IsNullOrEmpty($value))
         {
-            $secrets[$envVarName] = $value
+            $envVariables[$envVarName] = $value
         }
     }
 
@@ -63,10 +64,10 @@ function New-EnvJson
             $secretWithValue = Get-AzKeyVaultSecret -VaultName "PostSharpBuildEnv" -Name $secret.Name
             $envName = $secretWithValue.Name -Replace "-", "_"
             $envValue = (ConvertFrom-SecureString $secretWithValue.SecretValue -AsPlainText)
-            $secrets[$envName] = $envValue
+            $envVariables[$envName] = $envValue
         }
     }
-
+    
     # Convert to JSON and save
     $jsonPath = Join-Path $dockerContextDirectory "env.g.json"
 
@@ -81,7 +82,7 @@ function New-EnvJson
         exit 1
     }
 
-    $secrets | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonPath -Encoding UTF8
+    $envVariables | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonPath -Encoding UTF8
     Write-Host "Created secrets file: $jsonPath" -ForegroundColor Cyan
 
 
@@ -160,6 +161,9 @@ if (-not (Test-Path $dockerContextDirectory))
 $volumeMappings = @("-v", "${SourceDirName}:${SourceDirName}")
 $MountPoints = @($SourceDirName)
 
+# We must add a MountPoint anyway so the directory is created in the container.
+$MountPoints += "c:\packages"
+
 # Define static Git system directory for mapping
 $gitSystemDir = "$BuildAgentPath\system\git"
 
@@ -183,8 +187,27 @@ if (-not $NoNuGetCache)
     $volumeMappings += @("-v", "${nugetCacheDir}:c:\packages")
 }
 
-# We must add a MountPoint anyway so the directory is created in the container.
-$MountPoints += "c:\packages"
+# Mount VS Remote Debugger
+if ( $VsDebug)
+{
+    if ( -not $env:DevEnvDir)
+    {
+        Write-Host "Environment variable 'DevEnvDir' is not defined." -ForegroundColor Red
+        exit 1
+    }
+    
+    $remoteDebuggerHostDir = "$($env:DevEnvDir)Remote Debugger\x64"
+    if ( -not (Test-Path $remoteDebuggerHostDir))
+    {
+        Write-Host "Directory '$remoteDebuggerHostDir' does not exist." -ForegroundColor Red
+        exit 1
+    }
+    
+    $remoteDebuggerContainerDir = "C:\msvsmon"
+    $volumeMappings += @("-v", "${remoteDebuggerHostDir}:${remoteDebuggerContainerDir}:ro")
+    $MountPoints += $remoteDebuggerContainerDir
+
+}
 
 # Discover symbolic links in source-dependencies and add their targets to mount points
 $sourceDependenciesDir = Join-Path $SourceDirName "source-dependencies"
@@ -241,33 +264,37 @@ else
 # Run the build within the container
 if (-not $BuildImage)
 {
-    if ($Interactive)
+
+    # Delete now and not in the container because it's much faster and lock error messages are more relevant.
+    Write-Host "Building the product in the container." -ForegroundColor Green
+
+    # Prepare Build.ps1 arguments
+    $buildCommand = "$SourceDirName\Build.ps1"
+    if ( $VsDebug )
     {
-        docker run --rm -it --memory=12g @volumeMappings -w $SourceDirName $ImageName pwsh
-        if ($LASTEXITCODE -ne 0)
-        {
-            Write-Host "Docker run (interactive) failed with exit code $LASTEXITCODE" -ForegroundColor Red
-            exit $LASTEXITCODE
-        }
+        $BuildArgs = @("-VsDebug") + $BuildArgs 
+    }
+    $buildArgsString = $BuildArgs -join " "
+    $buildCommand += " $buildArgsString"
+    
+    if ( $Interactive )
+    {
+        $pwshArgs = "-NoExit"
     }
     else
     {
-        # Delete now and not in the container because it's much faster and lock error messages are more relevant.
-        Write-Host "Building the product in the container." -ForegroundColor Green
-
-        # Prepare Build.ps1 arguments
-        $buildCommand = "$SourceDirName\Build.ps1"
-        $buildArgsString = $BuildArgs -join " "
-        $buildCommand += " $buildArgsString"
-        Write-Host "Executing in container: `".\Build.ps1 $buildArgsString`"." -ForegroundColor Cyan
-
-        docker run --rm --memory=12g @volumeMappings -w $SourceDirName $ImageName pwsh -NonInteractive -Command $buildCommand
-        if ($LASTEXITCODE -ne 0)
-        {
-            Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red
-            exit $LASTEXITCODE
-        }
+        $pwshArgs = "-NonInteractive"
     }
+    
+    Write-Host "Executing in container: `".\Build.ps1 $buildArgsString`"." -ForegroundColor Cyan
+
+    docker run --rm --memory=12g @volumeMappings -w $SourceDirName $ImageName pwsh $pwshArgs -Command $buildCommand
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+
 }
 else
 {

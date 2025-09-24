@@ -11,11 +11,11 @@ param(
 
 ####
 # These settings are replaced by the generate-scripts command.
-$EngPath = 'eng'
-$ProductName = 'PostSharpEngineering'
+$EngPath = '<ENG_PATH>'
+$ProductName = '<PRODUCT_NAME>'
 ####
 
-if ( $env:RUNNING_IN_DOCKER -and $env:START_REMOTE_DEBUGGER  )
+if ( $VsDebug  )
 {
     $vsmonport = 4024
     Write-Host "Starting Visual Studio Remote Debugger, listening at port $vsmonport." -ForegroundColor Cyan
@@ -24,7 +24,17 @@ if ( $env:RUNNING_IN_DOCKER -and $env:START_REMOTE_DEBUGGER  )
         -NoNewWindow
 }
 
-if ( -not $Interactive )
+# Change the prompt and window title in Docker.
+if ( $env:RUNNING_IN_DOCKER  )
 {
-    & dotnet run --project "$PSScriptRoot\$EngPath\src\Build$ProductName.csproj" -- $args
+    function global:prompt {
+        $host.UI.RawUI.WindowTitle = "[docker] " + (Get-Location).Path
+        "[docker] $(Get-Location)> "
+    }
+}
+
+
+if ( -not $Interactive -or $BuildArgs )
+{
+    & dotnet run --project "$PSScriptRoot\$EngPath\src\Build$ProductName.csproj" -- $BuildArgs
 }

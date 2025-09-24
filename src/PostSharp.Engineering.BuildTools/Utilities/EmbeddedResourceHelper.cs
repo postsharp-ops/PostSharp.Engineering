@@ -16,6 +16,7 @@ internal static class EmbeddedResourceHelper
         var replacements = new Dictionary<string, string>();
         replacements.Add( "<ENG_PATH>", product.EngineeringDirectory );
         replacements.Add( "<ENVIRONMENT_VARIABLES>", string.Join( ",", EnvironmentVariableNames.All.OrderBy( x => x ) ) );
+        replacements.Add( "<PRODUCT_NAME>", product.ProductNameWithoutDot );
 
         ExtractResource( context, fileName, targetDirectory, replacements );
     }
