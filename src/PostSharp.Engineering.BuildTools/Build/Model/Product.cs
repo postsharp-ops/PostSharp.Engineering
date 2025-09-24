@@ -135,7 +135,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
             =
             [
-                new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
+                new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", $"%{EnvironmentVariableNames.NuGetOrgApiKey}%" ),
                 new VsixPublisher( Pattern.Create( "*.vsix" ) )
             ];
 

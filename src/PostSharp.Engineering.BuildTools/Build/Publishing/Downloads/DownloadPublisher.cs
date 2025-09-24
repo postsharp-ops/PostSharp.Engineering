@@ -10,5 +10,5 @@ public class DownloadPublisher : InvalidatingS3Publisher
 {
     public DownloadPublisher( IReadOnlyCollection<S3PublisherConfiguration> configurations ) : base(
         configurations,
-        "https://www.postsharp.net/download/Refresh.ashx?p=%DOWNLOADS_API_KEY%" ) { }
+        $"https://www.postsharp.net/download/Refresh.ashx?p=%{EnvironmentVariableNames.DownloadsInvalidationKey}%" ) { }
 }

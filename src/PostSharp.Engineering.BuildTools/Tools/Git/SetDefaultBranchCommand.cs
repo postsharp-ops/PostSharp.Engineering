@@ -14,7 +14,10 @@ internal class SetDefaultBranchCommand : BaseCommand<SetDefaultBranchSettings>
 {
     protected override bool ExecuteCore( BuildContext context, SetDefaultBranchSettings settings )
     {
-        context.Console.WriteHeading( "Setting default branch" );
+        var console = context.Console;
+        var product = context.Product;
+
+        console.WriteHeading( "Setting default branch" );
 
         if ( !GitHelper.TryGetRemoteUrl( context, out var remoteUrl ) )
         {
@@ -33,25 +36,25 @@ internal class SetDefaultBranchCommand : BaseCommand<SetDefaultBranchSettings>
                 // because on Azure DevOps, most pull requests usually go to the development version.
                 if ( defaultBranch == null )
                 {
-                    var defaultProductFamily = context.Product.ProductFamily.DownstreamProductFamily;
+                    var defaultProductFamily = product.ProductFamily.DownstreamProductFamily;
 
                     if ( defaultProductFamily == null )
                     {
-                        context.Console.WriteError( "Default branch was not given and cannot be determined." );
+                        console.WriteError( "Default branch was not given and cannot be determined." );
 
                         return false;
                     }
 
-                    if ( !defaultProductFamily.TryGetDependencyDefinition( context.Product.DependencyDefinition.Name, out var defaultDependencyDefinition ) )
+                    if ( !defaultProductFamily.TryGetDependencyDefinition( product.DependencyDefinition.Name, out var defaultDependencyDefinition ) )
                     {
                         return false;
                     }
 
                     defaultBranch = defaultDependencyDefinition.Branch;
                 }
-                
+
                 setBranchPoliciesTask = AzureDevOpsHelper.TrySetDefaultBranchAsync(
-                    context.Console,
+                    context,
                     azureDevOpsRepository,
                     defaultBranch,
                     settings.Dry );
@@ -60,24 +63,24 @@ internal class SetDefaultBranchCommand : BaseCommand<SetDefaultBranchSettings>
             {
                 // Implicitly, we set the default branch to the current release branch,
                 // as this is what user should get by default when approaching a public GitHub repository.
-                var defaultBranch = settings.DefaultBranch ?? context.Product.DependencyDefinition.ReleaseBranch;
+                var defaultBranch = settings.DefaultBranch ?? product.DependencyDefinition.ReleaseBranch;
 
                 if ( defaultBranch == null )
                 {
-                    context.Console.WriteError( "Default branch was not given and cannot be determined." );
+                    console.WriteError( "Default branch was not given and cannot be determined." );
 
                     return false;
                 }
-                
+
                 setBranchPoliciesTask = GitHubHelper.TrySetDefaultBranchAsync(
-                    context.Console,
+                    console,
                     gitHubRepository,
                     defaultBranch,
                     settings.Dry );
             }
             else
             {
-                context.Console.WriteError( $"Unknown VCS or unexpected repo URL format. Repo URL: '{remoteUrl}'." );
+                console.WriteError( $"Unknown VCS or unexpected repo URL format. Repo URL: '{remoteUrl}'." );
 
                 return false;
             }
@@ -89,12 +92,12 @@ internal class SetDefaultBranchCommand : BaseCommand<SetDefaultBranchSettings>
         }
         catch ( Exception e )
         {
-            context.Console.WriteError( e.ToString() );
+            console.WriteError( e.ToString() );
 
             return false;
         }
 
-        context.Console.WriteSuccess( settings.Dry ? "Dry run of default branch setting succeeded." : "Default branch set successfully." );
+        console.WriteSuccess( settings.Dry ? "Dry run of default branch setting succeeded." : "Default branch set successfully." );
 
         return true;
     }

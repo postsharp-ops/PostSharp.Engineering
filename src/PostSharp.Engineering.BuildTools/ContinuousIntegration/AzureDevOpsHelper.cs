@@ -21,7 +21,6 @@ public static class AzureDevOpsHelper
     {
         var user = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureDevOpsUser ) ?? "teamcity@postsharp.net";
 
-        
         var token = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureDevOpsToken );
 
         if ( string.IsNullOrEmpty( token ) )
@@ -79,7 +78,7 @@ public static class AzureDevOpsHelper
                 var pullRequestWithAutoCompleteEnabled = new GitPullRequest
                 {
                     AutoCompleteSetBy = new IdentityRef { Id = createdPullRequest.CreatedBy.Id },
-                    CompletionOptions = new GitPullRequestCompletionOptions { DeleteSourceBranch = true, MergeCommitMessage = title },
+                    CompletionOptions = new GitPullRequestCompletionOptions { DeleteSourceBranch = true, MergeCommitMessage = title }
                 };
 
                 console.WriteMessage( "Setting the new pull request to get completed automatically." );
@@ -117,10 +116,13 @@ public static class AzureDevOpsHelper
         var project = azureDevOpsRepository.Project;
         var projectIdArgs = $"--org {org} --project {project}";
 
-        context.Console.WriteMessage( "Fetching repository ID." );
+        var console = context.Console;
+        var product = context.Product;
+
+        console.WriteMessage( "Fetching repository ID." );
 
         if ( !AzHelper.Query(
-                context.Console,
+                context,
                 $"repos show --repository {repository} {projectIdArgs}",
                 dry,
                 out var repositoryJson ) )
@@ -138,24 +140,24 @@ public static class AzureDevOpsHelper
             return $"{branchIdArgs} --blocking true --enabled true";
         }
 
-        var branch = context.Product.DependencyDefinition.Branch;
+        var branch = product.DependencyDefinition.Branch;
         var commonArgs = GetCommonArgs( branch );
 
         bool TryRequireApproversAndCommentResolution()
         {
-            context.Console.WriteMessage( $"Requiring approvers for '{branch}' branch." );
+            console.WriteMessage( $"Requiring approvers for '{branch}' branch." );
 
             if ( !AzHelper.Run(
-                    context.Console,
+                    context,
                     $"repos policy approver-count create {commonArgs} --allow-downvotes false --creator-vote-counts true --minimum-approver-count 1 --reset-on-source-push false",
                     dry ) )
             {
                 return false;
             }
 
-            context.Console.WriteMessage( $"Requiring comment resolution for '{branch}' branch." );
+            console.WriteMessage( $"Requiring comment resolution for '{branch}' branch." );
 
-            if ( !AzHelper.Run( context.Console, $"repos policy comment-required create {commonArgs}", dry ) )
+            if ( !AzHelper.Run( context, $"repos policy comment-required create {commonArgs}", dry ) )
             {
                 return false;
             }
@@ -170,11 +172,11 @@ public static class AzureDevOpsHelper
 
         if ( buildStatusName == null )
         {
-            context.Console.WriteMessage( $"Success status for '{branch}' branch is not required." );    
+            console.WriteMessage( $"Success status for '{branch}' branch is not required." );
         }
         else
         {
-            context.Console.WriteMessage( $"Requiring success status for '{branch}' branch." );
+            console.WriteMessage( $"Requiring success status for '{branch}' branch." );
 
             // This is not covered by "az repos policy" command. https://github.com/Azure/azure-devops-cli-extension/issues/1040
             var statusCheckPayload = $@"{{
@@ -207,7 +209,7 @@ public static class AzureDevOpsHelper
             {
                 await File.WriteAllTextAsync( statusCheckPayloadFile, statusCheckPayload );
 
-                if ( !AzHelper.Run( context.Console, $"repos policy create {projectIdArgs} --config {statusCheckPayloadFile}", dry ) )
+                if ( !AzHelper.Run( context, $"repos policy create {projectIdArgs} --config {statusCheckPayloadFile}", dry ) )
                 {
                     return false;
                 }
@@ -218,10 +220,10 @@ public static class AzureDevOpsHelper
             }
         }
 
-        if ( context.Product.DependencyDefinition.ReleaseBranch != null )
+        if ( product.DependencyDefinition.ReleaseBranch != null )
         {
             var developBranch = branch;
-            branch = context.Product.DependencyDefinition.ReleaseBranch;
+            branch = product.DependencyDefinition.ReleaseBranch;
             commonArgs = GetCommonArgs( branch );
 
             if ( !TryRequireApproversAndCommentResolution() )
@@ -229,7 +231,7 @@ public static class AzureDevOpsHelper
                 return false;
             }
 
-            context.Console.WriteMessage( $"Requiring reviewers for '{branch}' branch." );
+            console.WriteMessage( $"Requiring reviewers for '{branch}' branch." );
 
             var message =
                 $"\"TeamCity is a required reviewer because only automated merges during publishing are allowed to a release branch. For development, use '{developBranch}' branch as a target branch of your PR.\"";
@@ -237,7 +239,7 @@ public static class AzureDevOpsHelper
             var options = new ToolInvocationOptions( new Dictionary<string, string?> { { "ReviewerMessage", message } }.ToImmutableDictionary() );
 
             if ( !AzHelper.Run(
-                    context.Console,
+                    context,
                     $"repos policy required-reviewer create {commonArgs} --message %ReviewerMessage% --required-reviewer-ids teamcity@postsharp.net",
                     dry,
                     options ) )
@@ -248,9 +250,9 @@ public static class AzureDevOpsHelper
 
         return await Task.FromResult( true );
     }
-    
+
     public static async Task<bool> TrySetDefaultBranchAsync(
-        ConsoleHelper console,
+        BuildContext context,
         AzureDevOpsRepository azureDevOpsRepository,
         string defaultBranch,
         bool dry )
@@ -261,10 +263,10 @@ public static class AzureDevOpsHelper
         var projectIdArgs = $"--org {org} --project {project}";
         var repositoryIdArgs = $"{projectIdArgs} --repository {repository}";
 
-        console.WriteMessage( $"Setting repository default branch to '{defaultBranch}'." );
+        context.Console.WriteMessage( $"Setting repository default branch to '{defaultBranch}'." );
 
         if ( !AzHelper.Run(
-                console,
+                context,
                 $"repos update {repositoryIdArgs} --default-branch {defaultBranch}",
                 dry ) )
         {

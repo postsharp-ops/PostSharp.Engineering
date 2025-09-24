@@ -57,7 +57,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
                 return SuccessCode.Success;
             }
 
-            return AzHelper.Run( context.Console, args, settings.Dry ) ? SuccessCode.Success : SuccessCode.Error;
+            return AzHelper.Run( context, args, settings.Dry ) ? SuccessCode.Success : SuccessCode.Error;
         }
     }
 }

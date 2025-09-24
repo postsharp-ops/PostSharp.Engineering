@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -38,12 +39,17 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             return true;
         }
 
-        public static bool Login( ConsoleHelper console, bool dry = false )
+        public static bool Login( BuildContext context, bool dry = false )
         {
             string azArgs;
 
-            if ( DockerHelper.IsDockerBuild() )
+            var console = context.Console;
+
+            if ( context.IsRunningUnderContainer )
             {
+                // In a development build, we expect the following environment variables to be exported from the PostSharpBuildEnv key vault from the host,
+                // by DockerBuild.ps1, and exported to the container.
+                // In a CI build, we expect these environment variables to be set on the host and exported to the container, also by DockerBuild.ps1. 
                 var azureTenantId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureTenantId );
                 var azureClientId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureClientId );
                 var azureClientSecret = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureClientSecret );
@@ -87,17 +93,26 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
             else
             {
-                return ToolInvocationHelper.InvokeTool(
-                    console,
-                    _exe,
-                    cmdArgs,
-                    Environment.CurrentDirectory );
+                if ( !ToolInvocationHelper.InvokeTool(
+                        console,
+                        _exe,
+                        cmdArgs,
+                        Environment.CurrentDirectory ) )
+                {
+                    return false;
+                }
+
+                console.WriteSuccess( "`az login` was successful." );
+
+                return true;
             }
         }
 
-        public static bool Query( ConsoleHelper console, string args, bool dry, [MaybeNullWhen( false )] out string output )
+        public static bool Query( BuildContext context, string args, bool dry, [MaybeNullWhen( false )] out string output )
         {
-            if ( !Login( console, dry ) )
+            var console = context.Console;
+
+            if ( !Login( context, dry ) )
             {
                 output = null;
 
@@ -132,9 +147,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
         }
 
-        public static bool Run( ConsoleHelper console, string args, bool dry, ToolInvocationOptions? options = null )
+        public static bool Run( BuildContext context, string args, bool dry, ToolInvocationOptions? options = null )
         {
-            if ( !Login( console, dry ) )
+            var console = context.Console;
+
+            if ( !Login( context, dry ) )
             {
                 return false;
             }

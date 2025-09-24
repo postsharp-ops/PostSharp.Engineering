@@ -49,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             var exe = $@"{vsSdkDir}\VisualStudioIntegration\Tools\Bin\VsixPublisher.exe";
 
             var args =
-                $" publish -payload \"{file}\" -publishManifest \"{file}.json\" -personalAccessToken \"%VS_MARKETPLACE_ACCESS_TOKEN%\"";
+                $" publish -payload \"{file}\" -publishManifest \"{file}.json\" -personalAccessToken \"%{nameof(EnvironmentVariableNames.VsMarketplaceAccessToken)}%\"";
 
             if ( settings.Dry )
             {

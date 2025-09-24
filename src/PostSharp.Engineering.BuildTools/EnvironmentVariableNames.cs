@@ -2,7 +2,7 @@
 
 namespace PostSharp.Engineering.BuildTools;
 
-public static class EnvironmentVariableNames
+internal static class EnvironmentVariableNames
 {
     // Our infrastructure
     public const string IsPostSharpOwned = "IS_POSTSHARP_OWNED";
@@ -11,6 +11,8 @@ public static class EnvironmentVariableNames
     public const string SignServerSecret = "SIGNSERVER_SECRET";
     public const string DocInvalidationKey = "DOC_API_KEY";
     public const string DownloadsInvalidationKey = "DOWNLOADS_API_KEY";
+    private const string _metalamaLicense = "MetalamaLicense";
+    private const string _postSharpLicense = "PostSharpLicense";
 
     // AWS
     public const string AwsAccessKeyId = "AWS_ACCESS_KEY_ID";
@@ -21,10 +23,10 @@ public static class EnvironmentVariableNames
 
     // NuGet.org
     public const string NuGetOrgApiKey = "NUGET_ORG_API_KEY";
-    
+
     // Git - set by DockerBuild.ps1 from current git config.
-    public const string GitUserName = "GIT_USER_NAME";
-    public const string GitUserEmail = "GIT_USER_EMAIL";
+    private const string _gitUserName = "GIT_USER_NAME";
+    private const string _gitUserEmail = "GIT_USER_EMAIL";
 
     // GitHub
     public const string GitHubToken = "GITHUB_TOKEN";
@@ -48,6 +50,7 @@ public static class EnvironmentVariableNames
     public const string AzureClientSecret = "AZURE_CLIENT_SECRET";
     public const string AzureTenantId = "AZURE_TENANT_ID";
 
+    // List of all environment variables, injected into DockerBuild.ps1 and passed to the container.
     public static readonly string[] All =
     [
         TeamCityToken,
@@ -62,8 +65,8 @@ public static class EnvironmentVariableNames
         AzureDevOpsToken,
         GitHubReviewerToken,
         GitHubAuthorEmail,
-        GitUserEmail,
-        GitUserName,
+        _gitUserEmail,
+        _gitUserName,
         NuGetOrgApiKey,
         AwsAccessKeyId,
         AwsAccessKeySecret,
@@ -73,6 +76,8 @@ public static class EnvironmentVariableNames
         AzureClientSecret,
         AzureTenantId,
         DocInvalidationKey,
-        DownloadsInvalidationKey
+        DownloadsInvalidationKey,
+        _metalamaLicense,
+        _postSharpLicense
     ];
 }

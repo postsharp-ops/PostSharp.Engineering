@@ -39,7 +39,7 @@ public static class TestLicenseKeyDownloader
 
         var azureTenantId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureTenantId );
 
-        if ( !AzHelper.Login( context.Console ) )
+        if ( !AzHelper.Login( context ) )
         {
             if ( context.IsContinuousIntegrationBuild )
             {

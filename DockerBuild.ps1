@@ -11,14 +11,18 @@ param(
     [switch]$KeepEnv, # Does not override the env.g.json file.
     [string]$ImageName, # Image name (defaults to a name based on the directory).
     [string]$BuildAgentPath = 'C:\BuildAgent',
+    [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container.
 )
 
-# This setting is replaced by the generate-scripts command.
+####
+# These settings are replaced by the generate-scripts command.
 $EngPath = 'eng'
-$EnvironmentVariables = 'AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AZ_IDENTITY_USERNAME,AZURE_CLIENT_ID,AZURE_CLIENT_SECRET,AZURE_DEVOPS_TOKEN,AZURE_DEVOPS_USER,AZURE_TENANT_ID,DOC_API_KEY,DOWNLOADS_API_KEY,ENG_USERNAME,GIT_USER_EMAIL,GIT_USER_NAME,GITHUB_AUTHOR_EMAIL,GITHUB_REVIEWER_TOKEN,GITHUB_TOKEN,IS_POSTSHARP_OWNED,IS_TEAMCITY_AGENT,NUGET_ORG_API_KEY,SIGNSERVER_SECRET,TEAMCITY_CLOUD_TOKEN,TYPESENSE_API_KEY,VS_MARKETPLACE_ACCESS_TOKEN,VSS_NUGET_EXTERNAL_FEED_ENDPOINTS'
+$EnvironmentVariables = 'AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AZ_IDENTITY_USERNAME,AZURE_CLIENT_ID,AZURE_CLIENT_SECRET,AZURE_DEVOPS_TOKEN,AZURE_DEVOPS_USER,AZURE_TENANT_ID,DOC_API_KEY,DOWNLOADS_API_KEY,ENG_USERNAME,GIT_USER_EMAIL,GIT_USER_NAME,GITHUB_AUTHOR_EMAIL,GITHUB_REVIEWER_TOKEN,GITHUB_TOKEN,IS_POSTSHARP_OWNED,IS_TEAMCITY_AGENT,MetalamaLicense,NUGET_ORG_API_KEY,PostSharpLicense,SIGNSERVER_SECRET,TEAMCITY_CLOUD_TOKEN,TYPESENSE_API_KEY,VS_MARKETPLACE_ACCESS_TOKEN,VSS_NUGET_EXTERNAL_FEED_ENDPOINTS'
+####
 
+$ErrorActionPreference = "Stop"
 $dockerContextDirectory = "$EngPath/docker-context"
 
 # Function to create secrets JSON file
@@ -39,6 +43,27 @@ function New-EnvJson
         if (-not [string]::IsNullOrEmpty($value))
         {
             $secrets[$envVarName] = $value
+        }
+    }
+
+    # Add secrets from the PostSharpBuildEnv key vault, on our development machines.
+    # On CI agents, these environment variables are supposed to be set by the host.
+    if ($LoadEnvFromKeyVault -or ($env:IS_POSTSHARP_OWNED -and -not $env:IS_TEAMCITY_AGENT))
+    {
+        $moduleName = "Az.KeyVault"
+
+        if (-not (Get-Module -ListAvailable -Name $moduleName)) {
+            Write-Error "The required module '$moduleName' is not installed. Please install it with: Install-Module -Name $moduleName"
+            exit 1
+        }
+
+        Import-Module $moduleName
+        foreach ($secret in Get-AzKeyVaultSecret -VaultName "PostSharpBuildEnv")
+        {
+            $secretWithValue = Get-AzKeyVaultSecret -VaultName "PostSharpBuildEnv" -Name $secret.Name
+            $envName = $secretWithValue.Name -Replace "-", "_"
+            $envValue = (ConvertFrom-SecureString $secretWithValue.SecretValue -AsPlainText)
+            $secrets[$envName] = $envValue
         }
     }
 
@@ -98,6 +123,7 @@ if (-not $KeepEnv)
         $env:ENG_USERNAME = $env:USERNAME
     }
 
+    # Add git identity to environment
     $env:GIT_USER_EMAIL = git config --global user.email
     $env:GIT_USER_NAME = git config --global user.name
 

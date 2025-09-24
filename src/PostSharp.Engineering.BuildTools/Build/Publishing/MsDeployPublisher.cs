@@ -34,7 +34,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             var args =
                 $"webapp deployment list-publishing-profiles --subscription {configuration.SubscriptionId} --resource-group {configuration.ResourceGroupName} --name {configuration.SiteName} --slot {configuration.SlotName}";
 
-            if ( !AzHelper.Query( context.Console, args, settings.Dry, out var profiles ) )
+            if ( !AzHelper.Query( context, args, settings.Dry, out var profiles ) )
             {
                 publishProfile = null;
 
