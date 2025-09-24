@@ -15,3 +15,4 @@ nuget.config
 global.json
 *.g.json
 *.g.ps1
+scripts/build-agents/last-execution.txt
