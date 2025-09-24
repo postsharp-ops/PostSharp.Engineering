@@ -1,7 +1,11 @@
 # --- Settings ---
 $TaskName   = 'BuildAgent Daily Maintenance'
-$ScriptPath = "PSScriptRoot\Daily-Maintenance.ps1"
+$ScriptPath = "$PSScriptRoot\Daily-Maintenance.ps1"
 $DailyAt    = '03:00'
+
+# -- Delete the task if it exists
+Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false
+
 
 # --- Define action (run as SYSTEM) ---
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File  $ScriptPath"
