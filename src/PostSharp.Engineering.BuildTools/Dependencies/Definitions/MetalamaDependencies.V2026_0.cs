@@ -146,16 +146,7 @@ public static partial class MetalamaDependencies
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
                 vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}",
                 customBranch: $"dev/{Family.Version}" );
-
-        public static DependencyDefinition CargoSupport { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.Tests.CargoSupport",
-                VcsProvider.AzureDevOps,
-                null,
-                false,
-                parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
-                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" );
-
+        
         public static DependencyDefinition DotNetSdkTests { get; } =
             new MetalamaDependencyDefinition(
                 "Metalama.Tests.DotNetSdk",
