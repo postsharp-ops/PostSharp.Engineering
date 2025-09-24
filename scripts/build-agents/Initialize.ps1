@@ -4,9 +4,7 @@ $ScriptPath = "PSScriptRoot\Daily-Maintenance.ps1"
 $DailyAt    = '03:00'
 
 # --- Define action (run as SYSTEM) ---
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument @(
-  '-NoProfile','-ExecutionPolicy','Bypass','-File', $ScriptPath
-)
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File  $ScriptPath"
 
 # --- Triggers: at startup + daily ---
 $startupTrigger = New-ScheduledTaskTrigger -AtStartup
