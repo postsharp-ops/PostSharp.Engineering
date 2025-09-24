@@ -40,6 +40,7 @@ public static partial class PostSharpDependencies
                     false )
             {
                 this.EngineeringDirectory = @"Build\Distribution\eng";
+                this.PackagePatterns = ["PostSharp", "PostSharp.*"];
             }
         }
 

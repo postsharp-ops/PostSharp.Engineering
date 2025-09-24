@@ -110,7 +110,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Vsx",
                 VcsProvider.AzureDevOps,
-                null );
+                null ) { PackagePatterns = ["Metalama.Repacked"] };
 
         public static DependencyDefinition MetalamaSamples { get; } =
             new MetalamaDependencyDefinition(

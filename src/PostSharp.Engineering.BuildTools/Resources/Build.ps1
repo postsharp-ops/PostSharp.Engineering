@@ -36,12 +36,26 @@ if ( $env:RUNNING_IN_DOCKER  )
 
 if ( -not $Interactive -or $BuildArgs )
 {
-    & dotnet run --project "$PSScriptRoot\$EngPath\src\Build$ProductName.csproj" -- $BuildArgs
+    # Change the working directory so we can use a global.json that is specific to eng.
+    $previousLocation = Get-Location
     
-    if ( $VsDebug )
+    Set-Location $PSScriptRoot\$EngPath\src
+    
+    try
     {
-        Write-Host ""
-        Write-Host "Killing vsmon.exe."
-        $vsmonProcess.Kill()
+
+        # Run the project.
+        & dotnet run --project "$PSScriptRoot\$EngPath\src\Build$ProductName.csproj" -- $BuildArgs
+
+        if ($VsDebug)
+        {
+            Write-Host ""
+            Write-Host "Killing vsmon.exe."
+            $vsmonProcess.Kill()
+        }
+    }
+    finally
+    {
+        Set-Location $previousLocation
     }
 }
