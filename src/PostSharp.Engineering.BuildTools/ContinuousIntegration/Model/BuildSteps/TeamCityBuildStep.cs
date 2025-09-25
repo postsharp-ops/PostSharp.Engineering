@@ -17,4 +17,9 @@ public abstract class TeamCityBuildStep
     public abstract string GenerateTeamCityCode();
 
     public virtual void InsertPrerequisites( IReadOnlyList<TeamCityBuildStep> previousSteps, Action<TeamCityBuildStep> addStep ) { }
+
+    /// <summary>
+    /// Gets a time that should be added to the complete build configuration timeout.
+    /// </summary>
+    public virtual TimeSpan AdditionalTimeout { get; init; } = TimeSpan.Zero;
 }

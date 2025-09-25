@@ -180,5 +180,20 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         [PublicAPI]
         public CommonCommandSettings Settings { get; }
+
+        internal TimeSpan BuildTimeout
+        {
+            get
+            {
+                var setting = (this.Settings as BuildSettings)?.Timeout;
+
+#pragma warning disable CS0618 // Type or member is obsolete
+                return setting == null ? this.Product.BuildTimeout : TimeSpan.FromMinutes( setting.Value );
+#pragma warning restore CS0618 // Type or member is obsolete
+            }
+        }
+
+        // Adds a margin to dump the hanging processes.
+        internal TimeSpan BuildTimeoutWithMargin => this.BuildTimeout.Add( TimeSpan.FromMinutes( 5 ) );
     }
 }

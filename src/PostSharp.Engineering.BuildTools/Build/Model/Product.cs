@@ -128,10 +128,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
-        public TimeSpan BuildTimeout { get; init; } = TimeSpan.FromMinutes( 30 );
-
-        // Adds a margin for process dumps.
-        public TimeSpan BuildTimeoutPlusMargin => this.BuildTimeout.Add( TimeSpan.FromMinutes( 5 ) );
+        public TimeSpan BuildTimeout
+        {
+            [Obsolete( "Get BuildContext.BuildTimeout." )]
+            get;
+            init;
+        } = TimeSpan.FromMinutes( 30 );
 
         public TimeSpan DeploymentTimeout { get; init; } = TimeSpan.FromMinutes( 30 );
 

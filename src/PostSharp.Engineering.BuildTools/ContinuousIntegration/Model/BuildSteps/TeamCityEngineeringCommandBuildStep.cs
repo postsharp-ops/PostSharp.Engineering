@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
 using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
@@ -13,6 +14,8 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
     private readonly DockerSpec? _dockerSpec;
 
     private static string GetCustomArgumentsParameterName( string id ) => $"{id}.Arguments";
+
+    private static string GetTimeoutParameterName( string id ) => $"{id}.Timeout";
 
     public TeamCityEngineeringCommandBuildStep(
         string id,
@@ -25,8 +28,7 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         id,
         name,
         dockerSpec != null ? "DockerBuild.ps1" : "Build.ps1",
-        GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, dockerSpec ),
-        timeout )
+        GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, dockerSpec, timeout ) )
     {
         this._dockerSpec = dockerSpec;
 
@@ -39,15 +41,34 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
                     $"Arguments to append to the '{name}' build step.",
                     allowEmpty: true ) );
         }
+
+        if ( timeout != null )
+        {
+            this.AddParameter(
+                new TeamCityBuildConfigurationParameter(
+                    GetTimeoutParameterName( id ),
+                    timeout.Value.TotalMinutes.ToString( CultureInfo.InvariantCulture ) ) );
+        }
     }
 
-    private static string GetScriptArguments( string id, string command, string? arguments, bool areCustomArgumentsAllowed, DockerSpec? dockerSpec )
+    private static string GetScriptArguments(
+        string id,
+        string command,
+        string? arguments,
+        bool areCustomArgumentsAllowed,
+        DockerSpec? dockerSpec,
+        TimeSpan? timeout )
     {
         var args = $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}";
 
         if ( dockerSpec != null )
         {
             args = $"-ImageName {dockerSpec.ImageName} -NoBuildImage " + args;
+        }
+
+        if ( timeout != null )
+        {
+            args += $" -Timeout %{GetTimeoutParameterName( id )}%";
         }
 
         return args;

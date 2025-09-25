@@ -141,7 +141,7 @@ internal static class TeamCitySettingsFile
                         dockerSpec: product.DockerSpec ) );
             }
 
-            teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, product.DockerSpec, product.BuildTimeoutPlusMargin ) );
+            teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, product.DockerSpec, context.BuildTimeout ) );
 
             if ( !product.UseDocker )
             {
@@ -210,7 +210,7 @@ internal static class TeamCitySettingsFile
                                     .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType!, true ) ) )
                             .OrderBy( d => d.ObjectId )
                             .ToArray(),
-                        BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? product.DeploymentTimeout,
+                        Timeout = configurationInfo.DeploymentTimeout ?? product.DeploymentTimeout,
                         IsSshAgentRequired = isRepoRemoteSsh
                     };
 
@@ -235,7 +235,7 @@ internal static class TeamCitySettingsFile
                             .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] )
                             .OrderBy( d => d.ObjectId )
                             .ToArray(),
-                        BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? product.DeploymentTimeout,
+                        Timeout = configurationInfo.DeploymentTimeout ?? product.DeploymentTimeout,
                         IsSshAgentRequired = isRepoRemoteSsh
                     };
 
@@ -269,7 +269,7 @@ internal static class TeamCitySettingsFile
                         ],
                         IsDeployment = true,
                         SnapshotDependencies = swapDependencies.OrderBy( d => d.ObjectId ).ToArray(),
-                        BuildTimeOutThreshold = configurationInfo.SwapTimeOutThreshold ?? product.SwapTimeout
+                        Timeout = configurationInfo.SwapTimeout ?? product.SwapTimeout
                     } );
             }
         }
@@ -294,7 +294,7 @@ internal static class TeamCitySettingsFile
                         [
                             new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true, dockerSpec: product.DockerSpec )
                         ],
-                        BuildTimeOutThreshold = product.VersionBumpTimeout,
+                        Timeout = product.VersionBumpTimeout,
                         IsSshAgentRequired = isRepoRemoteSsh
                     } );
             }
@@ -327,7 +327,7 @@ internal static class TeamCitySettingsFile
                     ],
                     SnapshotDependencies = snapshotDependencies,
                     BuildTriggers = [new SourceBuildTrigger()],
-                    BuildTimeOutThreshold = product.DownstreamMergeTimeout,
+                    Timeout = product.DownstreamMergeTimeout,
                     IsSshAgentRequired = isRepoRemoteSsh
                 } );
         }
@@ -554,7 +554,7 @@ internal static class TeamCitySettingsFile
             }
 
             var nuGetBuildSteps =
-                new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, dockerSpec, product.BuildTimeoutPlusMargin ) };
+                new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, dockerSpec, context.BuildTimeout ) };
 
             // The default branch is the same as for public build of any other project - see the build configuration of a regular project.
             nuGetBuildConfiguration = new TeamCityBuildConfiguration(
@@ -911,10 +911,7 @@ internal static class TeamCitySettingsFile
         var publicNuGetBuildCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicBuildObjectName )}";
         var publicNuGetDeploymentCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicDeploymentObjectName )}";
 
-        var nuGetPublicDeploymentSteps = new TeamCityBuildStep[]
-        {
-            new TeamCityEngineeringPublishBuildStep( publicConfiguration, product.DockerSpec, product.BuildTimeoutPlusMargin )
-        };
+        var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration, product.DockerSpec, null ) };
 
         // TODO: Only Public builds of dependencies that define version need to be included.
         //       Here we include all Public builds which will cause download of all artifacts.
@@ -937,7 +934,7 @@ internal static class TeamCitySettingsFile
             {
                 BuildSteps = nuGetPublicDeploymentSteps,
                 SnapshotDependencies = nuGetPublicDeploymentDependencies.ToArray(),
-                BuildTimeOutThreshold = product.DeploymentTimeout,
+                Timeout = product.DeploymentTimeout,
                 IsDeployment = true
             } );
 

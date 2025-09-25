@@ -179,6 +179,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--user" )]
         public string UserName { get; set; } = Environment.GetEnvironmentVariable( EnvironmentVariableNames.EngUserName ) ?? Environment.UserName;
 
+        [Description( "Overrides the build timeout." )]
+        [CommandOption( "--timeout" )]
+        public int? Timeout { get; set; }
+
         public BuildSettings WithIncludeTests( bool value )
         {
             var clone = (BuildSettings) this.MemberwiseClone();

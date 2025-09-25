@@ -44,7 +44,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public bool IsDefaultVcsRootUsed { get; init; } = true;
 
-        public TimeSpan? BuildTimeOutThreshold { get; init; }
+        public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes( 30 );
 
         public TeamCityBuildConfigurationParameter[]? Parameters { get; init; }
 
@@ -85,14 +85,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             if ( this.ArtifactRules != null )
             {
+                var artifactRules = this.ArtifactRules.Replace( "\\n", "\n", StringComparison.Ordinal );
+
                 if ( this.AdditionalArtifactRules != null )
                 {
                     writer.WriteLine(
-                        $@"    artifactRules = ""{this.ArtifactRules}\n{string.Join( $@"\n", this.AdditionalArtifactRules.OrderBy( x => x, StringComparer.InvariantCulture ) )}""" );
+                        $"    artifactRules = \"\"\"{artifactRules}\n{string.Join( "\n", this.AdditionalArtifactRules.OrderBy( x => x, StringComparer.InvariantCulture ) )}\"\"\"" );
                 }
                 else
                 {
-                    writer.WriteLine( $@"    artifactRules = ""{this.ArtifactRules}""" );
+                    writer.WriteLine( $"    artifactRules = \"\"\"{artifactRules}\"\"\"" );
                 }
 
                 writer.WriteLine();
@@ -100,6 +102,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             // Add required build steps.
             var allBuildSteps = new List<TeamCityBuildStep>();
+            var totalTimeout = this.Timeout;
 
             for ( var index = 0; index < this.BuildSteps!.Length; index++ )
             {
@@ -109,6 +112,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
                 void AddBuildStep( TeamCityBuildStep newStep )
                 {
+                    totalTimeout += newStep.AdditionalTimeout;
                     newStep.InsertPrerequisites( allBuildSteps, AddBuildStep );
                     allBuildSteps.Add( newStep );
                 }
@@ -126,16 +130,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     "The default branch of this build configuration.",
                     this.DefaultBranch ) );
 
-            if ( this.BuildTimeOutThreshold.HasValue )
-            {
-                var timeOutParameter = new TeamCityTextBuildConfigurationParameter(
-                    "Timeout.All",
-                    "Time-Out",
-                    "Timeout, in minutes.",
-                    $"{(int) this.BuildTimeOutThreshold.Value.TotalMinutes}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
+            var timeOutParameter = new TeamCityTextBuildConfigurationParameter(
+                "Timeout",
+                "Time-Out",
+                "Timeout, in minutes.",
+                $"{(int) totalTimeout.TotalMinutes}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
 
-                buildParameters.Add( timeOutParameter );
-            }
+            buildParameters.Add( timeOutParameter );
 
             if ( this.Parameters != null )
             {
@@ -199,15 +200,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine( @"    }" );
             }
 
-            if ( this.BuildTimeOutThreshold.HasValue )
-            {
-                writer.WriteLine(
-                    $$"""
-                          failureConditions {
-                               executionTimeoutMin = {{(int) this.BuildTimeOutThreshold.Value.TotalMinutes}}
-                          }
-                      """ );
-            }
+            writer.WriteLine(
+                """
+                    failureConditions {
+                       executionTimeoutMin = "%Timeout%".toInt()
+                    }
+                """ );
 
             if ( !this.IsComposite && this.BuildAgentRequirements != null )
             {

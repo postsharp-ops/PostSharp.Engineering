@@ -33,7 +33,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             => FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
 
         private ToolInvocationOptions CreateInvocationOptions( BuildContext context )
-            => new( this.EnvironmentVariables ) { ExecutionTimeout = context.Product.BuildTimeout, MinidumpDirectory = context.Product.DumpDirectory };
+            => new( this.EnvironmentVariables ) { ExecutionTimeout = context.BuildTimeout, MinidumpDirectory = context.Product.DumpDirectory };
 
         private bool RunDotNet(
             BuildContext context,

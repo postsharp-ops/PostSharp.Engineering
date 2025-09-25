@@ -76,8 +76,7 @@ public class UpdateSearchProductExtension : ProductExtension
         this.CustomBuildConfigurationName = customBuildConfigurationName;
         this.BuildTriggers = buildTriggers;
     }
-    
-    
+
     internal CollectionUpdater CreateUpdater( SearchBackendBase searchBackend )
     {
         return this._createUpdater( searchBackend );
@@ -115,7 +114,7 @@ public class UpdateSearchProductExtension : ProductExtension
                 BuildSteps = [CreateBuildStep()],
                 IsDeployment = true,
                 SnapshotDependencies = dependencies,
-                BuildTimeOutThreshold = this.TimeOutThreshold,
+                Timeout = this.TimeOutThreshold,
                 BuildTriggers = buildTriggers
             };
 
@@ -129,7 +128,7 @@ public class UpdateSearchProductExtension : ProductExtension
                     context.Product.DependencyDefinition.Branch,
                     context.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter,
                     vcsRootId,
-                    buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold };
+                    buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true, Timeout = this.TimeOutThreshold };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );
             }
