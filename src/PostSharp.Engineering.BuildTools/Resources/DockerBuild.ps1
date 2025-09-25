@@ -12,7 +12,7 @@ param(
     [string]$ImageName, # Image name (defaults to a name based on the directory).
     [string]$BuildAgentPath = 'C:\BuildAgent',
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
-    [switch]$VsDebug, # Enable the remote debugger.
+    [switch]$StartVsmon, # Enable the remote debugger.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container.
 )
@@ -187,7 +187,7 @@ if (-not $NoNuGetCache)
 }
 
 # Mount VS Remote Debugger
-if ($VsDebug)
+if ($StartVsmon)
 {
     if (-not $env:DevEnvDir)
     {
@@ -277,9 +277,9 @@ if (-not $BuildImage)
     Write-Host "Building the product in the container." -ForegroundColor Green
 
     # Prepare Build.ps1 arguments
-    if ($VsDebug)
+    if ($StartVsmon)
     {
-        $BuildArgs = @("-VsDebug") + $BuildArgs
+        $BuildArgs = @("-StartVsmon") + $BuildArgs
     }
 
     if ($Interactive)

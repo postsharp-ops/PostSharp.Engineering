@@ -4,7 +4,7 @@
 [CmdletBinding(PositionalBinding = $false)]
 param(
     [switch]$Interactive, # Opens an interactive PowerShell session
-    [switch]$VsDebug, # Enable the remote debugger.
+    [switch]$StartVsmon, # Enable the remote debugger.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container.
 )
@@ -15,7 +15,7 @@ $EngPath = '<ENG_PATH>'
 $ProductName = '<PRODUCT_NAME>'
 ####
 
-if ( $VsDebug  )
+if ( $StartVsmon  )
 {
     $vsmonport = 4024
     Write-Host "Starting Visual Studio Remote Debugger, listening at port $vsmonport." -ForegroundColor Cyan
@@ -47,7 +47,7 @@ if ( -not $Interactive -or $BuildArgs )
         # Run the project.
         & dotnet run --project "$PSScriptRoot\$EngPath\src\Build$ProductName.csproj" -- $BuildArgs
 
-        if ($VsDebug)
+        if ($StartVsmon)
         {
             Write-Host ""
             Write-Host "Killing vsmon.exe."
