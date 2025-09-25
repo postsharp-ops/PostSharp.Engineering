@@ -212,6 +212,8 @@ internal static class ProcessHelper
     {
         try
         {
+            Directory.CreateDirectory( directory );
+            
             var fileName = Path.Combine( directory, $"{process.ProcessName.ToLowerInvariant()}-{process.Id}-{Guid.NewGuid()}.dmp" );
 
             if ( !ToolInvocationHelper.InvokeTool(

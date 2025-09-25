@@ -48,6 +48,12 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
                    }; `
                   Remove-Item C:\\vs_buildtools.exe;
               """ );
+
+        // We must always create "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages" or MSBuild might complain.
+        writer.WriteLine( """
+                          RUN New-Item -ItemType Directory -Path 'C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages' -Force | Out-Null"; `
+                              New-Item -ItemType Directory -Path 'C:\Program Files\dotnet\sdk\NuGetFallbackFolder' -Force | Out-Null
+                          """ );
     }
 
     public override void PopulateContextDirectory( BuildContext context, string directory )

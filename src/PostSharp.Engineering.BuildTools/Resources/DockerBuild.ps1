@@ -118,6 +118,7 @@ if (-not $env:IS_TEAMCITY_AGENT -and -not $NoClean)
     Get-ChildItem "obj" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 }
 
+Write-Host "Preparing context and mounts." -ForegroundColor Green
 # Create secrets JSON file.
 if (-not $KeepEnv)
 {
