@@ -68,7 +68,7 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
 
         if ( timeout != null )
         {
-            args += $" -Timeout %{GetTimeoutParameterName( id )}%";
+            args += $" --timeout %{GetTimeoutParameterName( id )}%";
         }
 
         return args;

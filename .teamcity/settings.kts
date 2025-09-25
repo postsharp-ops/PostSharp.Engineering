@@ -61,7 +61,7 @@ object DebugBuild : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% -Timeout %Build.Timeout%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% --timeout %Build.Timeout%"
         }
     }
 
@@ -125,7 +125,7 @@ object ReleaseBuild : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% -Timeout %Build.Timeout%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% --timeout %Build.Timeout%"
         }
     }
 
@@ -180,7 +180,7 @@ object PublicBuild : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% -Timeout %Build.Timeout%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% --timeout %Build.Timeout%"
         }
     }
 
@@ -230,7 +230,7 @@ object PublicDeployment : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public %Publish.Arguments% -Timeout %Publish.Timeout%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public %Publish.Arguments% --timeout %Publish.Timeout%"
         }
     }
 
@@ -291,7 +291,7 @@ object VersionBump : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage bump %Bump.Arguments% -Timeout %Bump.Timeout%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage bump %Bump.Arguments% --timeout %Bump.Timeout%"
         }
     }
 
