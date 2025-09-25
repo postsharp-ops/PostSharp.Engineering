@@ -61,7 +61,21 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public VcsRepository VcsRepository { get; }
 
-        public string PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
+        public string PrivateArtifactsDirectory
+        {
+            [Obsolete( "Use GetPrivateArtifactsDirectory." )]
+            get;
+            init;
+        } = Path.Combine( "artifacts", "publish", "private" );
+
+        [Obsolete( "This property should not be used except for Metalama.Compiler, for historical reasons. Use PrivateArtifactsDirectory." )]
+        public ParametricString ParametricPrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
+
+        // Metalama.Compiler uses a placeholder for the MSBuild configuration.
+        public string GetPrivateArtifactsDirectory( BuildConfiguration configuration )
+#pragma warning disable CS0618 // Type or member is obsolete
+            => this.ParametricPrivateArtifactsDirectory.ToString( new BuildArguments() { MSBuildConfiguration = this.MSBuildConfiguration[configuration] } );
+#pragma warning restore CS0618 // Type or member is obsolete
 
         public string PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
 

@@ -127,7 +127,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             // We have to read the version from the file we have generated - using MSBuild, because it contains properties.
             var buildInfo = BuildArguments.Read( context, settings.BuildConfiguration );
 
-            var privateArtifactsDirectory = product.GetPrivateArtifactsDirectory( context );
+            var privateArtifactsDirectory = product.GetPrivateArtifactsDirectory( settings.BuildConfiguration );
 
             // Build solutions.
             IEnumerable<Solution> solutionsToBuild;

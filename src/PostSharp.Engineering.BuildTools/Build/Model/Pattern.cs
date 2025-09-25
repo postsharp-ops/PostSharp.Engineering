@@ -60,6 +60,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool Verify( BuildContext context, string directory, BuildArguments buildArguments )
         {
             var success = true;
+            var absoluteDirectory = Path.Combine( context.RepoDirectory, directory );
 
             foreach ( var pattern in this.Items )
             {
@@ -73,11 +74,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 matcher.AddInclude( expandedPattern );
 
                 var matchingResult =
-                    matcher.Execute( new DirectoryInfoWrapper( new DirectoryInfo( directory ) ) );
+                    matcher.Execute( new DirectoryInfoWrapper( new DirectoryInfo( absoluteDirectory ) ) );
 
                 if ( !matchingResult.HasMatches )
                 {
-                    context.Console.WriteError( $"The pattern '{directory}\\{expandedPattern}' does not match any file." );
+                    context.Console.WriteError( $"The pattern '{absoluteDirectory}\\{expandedPattern}' does not match any file." );
                     success = false;
                 }
             }

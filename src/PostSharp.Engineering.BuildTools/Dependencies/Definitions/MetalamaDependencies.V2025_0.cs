@@ -83,7 +83,9 @@ public static partial class MetalamaDependencies
                 MetalamaGitHubOrganization.Metalama )
             {
                 EngineeringDirectory = "eng-Metalama",
-                PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSBuildConfiguration)", "Shipping" )
+#pragma warning disable CS0618 // Type or member is obsolete
+                ParametricPrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSBuildConfiguration)", "Shipping" )
+#pragma warning restore CS0618 // Type or member is obsolete
             };
 
         public static DependencyDefinition MetalamaFrameworkRunTime { get; } =

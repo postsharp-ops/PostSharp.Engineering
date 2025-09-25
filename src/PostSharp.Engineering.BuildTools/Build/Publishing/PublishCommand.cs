@@ -119,7 +119,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
 
         var configuration = settings.BuildConfiguration;
         var buildArguments = BuildArguments.Read( context, configuration );
-        var directories = product.GetArtifactsDirectories( context );
+        var directories = product.GetArtifactsDirectories( context, configuration );
         var configurationInfo = product.Configurations.GetValue( configuration );
         var hasTarget = false;
 

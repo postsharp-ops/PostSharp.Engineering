@@ -27,7 +27,7 @@ internal static class ImportFile
         var product = context.Product;
 
         // Write a link to this file in the root file of the repo. This file is the interface of the repo, which can be imported by other repos.
-        var manifestFilePath = context.ManifestFilePath;
+        var manifestFilePath = context.GetManifestFilePath( configuration );
         var importFilePath = Path.Combine( context.RepoDirectory, product.ProductName + ".Import.props" );
 
         // We're generating a relative path so that the path can be resolved even when the filesystem is mounted

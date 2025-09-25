@@ -116,12 +116,10 @@ namespace PostSharp.Engineering.BuildTools.Build
                 DeleteDirectory( Path.Combine( context.RepoDirectory, directory ) );
             }
 
-            var stringParameters = new BuildArguments( null, settings.BuildConfiguration, product, null );
-
             DeleteDirectory(
                 Path.Combine(
                     context.RepoDirectory,
-                    product.PrivateArtifactsDirectory ) );
+                    product.GetPrivateArtifactsDirectory( settings.BuildConfiguration ) ) );
 
             DeleteDirectory(
                 Path.Combine(

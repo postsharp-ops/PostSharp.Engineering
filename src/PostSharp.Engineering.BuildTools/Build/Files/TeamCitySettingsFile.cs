@@ -53,7 +53,7 @@ internal static class TeamCitySettingsFile
                 context.Product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
             var privateArtifactsDirectory =
-                context.Product.PrivateArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
+                context.Product.GetPrivateArtifactsDirectory( configuration ).Replace( "\\", "/", StringComparison.Ordinal );
 
             var testResultsDirectory =
                 context.Product.TestResultsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
@@ -98,7 +98,7 @@ internal static class TeamCitySettingsFile
                 .Select( d => new TeamCitySnapshotDependency(
                              d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                              true,
-                             $"+:{d.Definition.PrivateArtifactsDirectory.Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
+                             $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
                 .ToList();
 
             var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
@@ -468,9 +468,7 @@ internal static class TeamCitySettingsFile
                 if ( dependencyDefinition.ProductFamily == product.ProductFamily
                      && !projectsWithNoNuGetArtifacts.Any( p => dependencyDefinition.Name.Contains( p, StringComparison.Ordinal ) ) )
                 {
-                    var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
-
-                    var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory
+                    var dependencyPrivateArtifactsDirectory = dependencyDefinition.GetPrivateArtifactsDirectory( configuration )
                         .Replace( Path.DirectorySeparatorChar, '/' );
 
                     var dependencyPublicArtifactsDirectory = dependencyDefinition.PublicArtifactsDirectory
@@ -520,10 +518,8 @@ internal static class TeamCitySettingsFile
                         .Select( c => c! ) );
             }
 
-            var buildInfo = new BuildArguments( null, configuration, product, null );
-
             var privateArtifactsDirectory =
-                product.PrivateArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
+                product.GetPrivateArtifactsDirectory( configuration ).Replace( "\\", "/", StringComparison.Ordinal );
 
             var publicArtifactsDirectory =
                 product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
@@ -845,7 +841,7 @@ internal static class TeamCitySettingsFile
                         {
                             var dependencyName = dependencyDefinition.Name;
 
-                            var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory
+                            var dependencyPrivateArtifactsDirectory = dependencyDefinition.GetPrivateArtifactsDirectory( BuildConfiguration.Public )
                                 .Replace( Path.DirectorySeparatorChar, '/' );
 
                             var artifactRules =
