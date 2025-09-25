@@ -112,9 +112,10 @@ if (-not $env:IS_TEAMCITY_AGENT -and -not $NoClean)
     Write-Host "Cleaning up." -ForegroundColor Green
     if (Test-Path "artifacts")
     {
-        Remove-Item artifacts -Force -Recurse -ProgressAction SilentlyContinue
+        Remove-Item artifacts -Force -Recurse  -ErrorAction SilentlyContinue
     }
-    Get-ChildItem @("bin", "obj") -Recurse | Remove-Item -Force -Recurse -ProgressAction SilentlyContinue
+    Get-ChildItem "bin" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    Get-ChildItem "obj" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 # Create secrets JSON file.
