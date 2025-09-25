@@ -50,16 +50,16 @@ internal static class TeamCitySettingsFile
 
             // Set artifact rules.
             var publicArtifactsDirectory =
-                context.Product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
+                product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
             var privateArtifactsDirectory =
-                context.Product.GetPrivateArtifactsDirectory( configuration ).Replace( "\\", "/", StringComparison.Ordinal );
+                product.GetPrivateArtifactsRelativeDirectory( configuration ).Replace( "\\", "/", StringComparison.Ordinal );
 
             var testResultsDirectory =
-                context.Product.TestResultsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
+                product.TestResultsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
-            var logsDirectory = context.Product.LogsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
-            var dumpsDirectory = context.Product.DumpDirectory.Replace( "\\", "/", StringComparison.Ordinal );
+            var logsDirectory = product.LogsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
+            var dumpsDirectory = product.DumpDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
             var deployedArtifactRules = $"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
             deployedArtifactRules += $@"\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
@@ -529,7 +529,7 @@ internal static class TeamCitySettingsFile
             }
 
             var privateArtifactsDirectory =
-                product.GetPrivateArtifactsDirectory( configuration ).Replace( "\\", "/", StringComparison.Ordinal );
+                product.GetPrivateArtifactsRelativeDirectory( configuration ).Replace( "\\", "/", StringComparison.Ordinal );
 
             var publicArtifactsDirectory =
                 product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );

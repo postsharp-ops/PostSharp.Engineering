@@ -79,9 +79,8 @@ internal static class NuGetConfigFile
         }
 
         // Add the current artifact directory.
-        var artifactDirectory = Path.Combine(
-            context.RepoDirectory,
-            product.GetPrivateArtifactsDirectory( configuration ) );
+        var artifactDirectory =
+            product.GetPrivateArtifactsAbsoluteDirectory( context, configuration );
 
         AddDirectory( product.ProductName, artifactDirectory, product.DependencyDefinition.PackagePatterns );
 

@@ -62,8 +62,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// </summary>
         public string GetManifestFilePath( BuildConfiguration configuration )
             => Path.Combine(
-                this.RepoDirectory,
-                this.Product.GetPrivateArtifactsDirectory( configuration ),
+                this.Product.GetPrivateArtifactsAbsoluteDirectory( this, configuration ),
                 $"{this.Product.ProductName}.version.props" );
 
         private BuildContext(

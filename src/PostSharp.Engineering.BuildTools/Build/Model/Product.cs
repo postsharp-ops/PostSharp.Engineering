@@ -79,10 +79,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
-        [Obsolete( "Use GetPrivateArtifactsDirectory." )]
+        [Obsolete( "Use GetPrivateArtifactsRelativeDirectory." )]
         public string PrivateArtifactsDirectory => this.DependencyDefinition.PrivateArtifactsDirectory;
 
-        public string GetPrivateArtifactsDirectory( BuildConfiguration configuration )
+        public string GetPrivateArtifactsRelativeDirectory( BuildConfiguration configuration )
             => this.DependencyDefinition.GetPrivateArtifactsDirectory( configuration );
 
         public string PublicArtifactsDirectory => this.DependencyDefinition.PublicArtifactsDirectory;
@@ -300,12 +300,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool IsBundle { get; init; }
 
-        internal string GetPrivateArtifactsDirectory( BuildContext context, BuildConfiguration configuration )
+        internal string GetPrivateArtifactsAbsoluteDirectory( BuildContext context, BuildConfiguration configuration )
             => Path.Combine(
                 context.RepoDirectory,
-                this.GetPrivateArtifactsDirectory( configuration ) );
+                this.GetPrivateArtifactsRelativeDirectory( configuration ) );
 
-        internal string GetPublicArtifactsDirectory( BuildContext context )
+        internal string GetPublicArtifactsAbsoluteDirectory( BuildContext context )
             => Path.Combine(
                 context.RepoDirectory,
                 this.PublicArtifactsDirectory );
@@ -341,10 +341,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.PrepareCompleted?.Invoke( args );
         }
 
-        internal (string Private, string Public) GetArtifactsDirectories( BuildContext context, BuildConfiguration configuration )
+        internal (string Private, string Public) GetArtifactsAbsoluteDirectories( BuildContext context, BuildConfiguration configuration )
         {
             return (
-                Path.Combine( context.RepoDirectory, this.GetPrivateArtifactsDirectory( configuration ) ),
+                Path.Combine( context.RepoDirectory, this.GetPrivateArtifactsRelativeDirectory( configuration ) ),
                 Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory )
             );
         }

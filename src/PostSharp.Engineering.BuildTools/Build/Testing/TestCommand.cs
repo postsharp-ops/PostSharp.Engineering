@@ -112,8 +112,8 @@ internal class TestCommand : BaseCommand<BuildSettings>
 
         // Raise the post-test event.
         var buildInfo = BuildArguments.Read( context, settings.BuildConfiguration );
-        var privateArtifactsDirectory = product.GetPrivateArtifactsDirectory( context, settings.BuildConfiguration );
-        var publicArtifactsDirectory = product.GetPublicArtifactsDirectory( context );
+        var privateArtifactsDirectory = product.GetPrivateArtifactsAbsoluteDirectory( context, settings.BuildConfiguration );
+        var publicArtifactsDirectory = product.GetPublicArtifactsAbsoluteDirectory( context );
 
         var eventArgs = new BuildCompletedEventArgs( context, settings, buildInfo, privateArtifactsDirectory, publicArtifactsDirectory );
         product.OnTestCompleted( eventArgs );

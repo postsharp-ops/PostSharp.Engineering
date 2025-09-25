@@ -33,7 +33,8 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
 
         if ( settings.BuildConfiguration == BuildConfiguration.Public && !context.IsContinuousIntegrationBuild && !settings.Force )
         {
-            context.Console.WriteError( "Cannot prepare a public configuration on a local machine without --force because it may corrupt the package cache." );
+            context.Console.WriteError(
+                "Cannot prepare a public configuration on a development machine without --force because it may corrupt the package cache." );
 
             dependenciesOverrideFile = null;
 
@@ -60,7 +61,8 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
             return false;
         }
 
-        context.Console.WriteSuccess( $"Preparing the build was successful. {product.ProductNameWithoutDot}Version={artifactManifestVersionInfo.PackageVersion}" );
+        context.Console.WriteSuccess(
+            $"Preparing the build was successful. {product.ProductNameWithoutDot}Version={artifactManifestVersionInfo.PackageVersion}" );
 
         return true;
     }

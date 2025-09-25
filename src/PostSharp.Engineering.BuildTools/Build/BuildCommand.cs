@@ -127,7 +127,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             // We have to read the version from the file we have generated - using MSBuild, because it contains properties.
             var buildInfo = BuildArguments.Read( context, settings.BuildConfiguration );
 
-            var privateArtifactsDirectory = product.GetPrivateArtifactsDirectory( settings.BuildConfiguration );
+            var privateArtifactsDirectory = product.GetPrivateArtifactsAbsoluteDirectory( context, settings.BuildConfiguration );
 
             // Build solutions.
             IEnumerable<Solution> solutionsToBuild;
@@ -167,7 +167,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 }
             }
 
-            var publicArtifactsDirectory = product.GetPublicArtifactsDirectory( context );
+            var publicArtifactsDirectory = product.GetPublicArtifactsAbsoluteDirectory( context );
 
             // Allow for some customization before we create the zip file and copy to the public directory.
             var eventArgs = new BuildCompletedEventArgs( context, settings, buildInfo, privateArtifactsDirectory, publicArtifactsDirectory );
