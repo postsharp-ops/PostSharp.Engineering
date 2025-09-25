@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools
 {
@@ -23,6 +24,8 @@ namespace PostSharp.Engineering.BuildTools
     {
         public sealed override int Execute( CommandContext context, T settings )
         {
+            CancellationTokenSource? timeoutCancellation = null;
+
             try
             {
                 var stopwatch = Stopwatch.StartNew();
@@ -40,6 +43,13 @@ namespace PostSharp.Engineering.BuildTools
                 if ( settings.UseProjectDirectoryAsWorkingDirectory )
                 {
                     buildContext = buildContext.WithUseProjectDirectoryAsWorkingDirectory( true );
+                }
+
+                // Sets up a timeout. The Timer class does not support long periods, so we use CancellationTokenSource.
+                if ( settings.Timeout != null )
+                {
+                    timeoutCancellation = new CancellationTokenSource( TimeSpan.FromMinutes( settings.Timeout.Value ) );
+                    timeoutCancellation.Token.Register( () => OnTimeout( buildContext, stopwatch ) );
                 }
 
                 MSBuildHelper.InitializeLocator();
@@ -152,8 +162,23 @@ namespace PostSharp.Engineering.BuildTools
 
                 return 10;
             }
+            finally
+            {
+                timeoutCancellation?.Dispose();
+            }
         }
 
         protected abstract bool ExecuteCore( BuildContext context, T settings );
+
+        private static void OnTimeout( BuildContext buildContext, Stopwatch stopwatch )
+        {
+            // ReSharper disable AccessToModifiedClosure
+
+            buildContext.Console.WriteError( $"The process timed out after {stopwatch.Elapsed}. Dumping and killing the process tree." );
+            var directory = Path.Combine( buildContext.RepoDirectory, buildContext.Product.DumpDirectory );
+            ProcessHelper.DumpAndKillProcessTree( buildContext.Console, Process.GetCurrentProcess(), directory );
+
+            // ReSharper restore AccessToModifiedClosure
+        }
     }
 }

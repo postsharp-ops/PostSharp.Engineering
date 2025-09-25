@@ -185,7 +185,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         {
             get
             {
-                var setting = (this.Settings as BuildSettings)?.Timeout;
+                var setting = this.Settings.Timeout;
 
 #pragma warning disable CS0618 // Type or member is obsolete
                 return setting == null ? this.Product.BuildTimeout : TimeSpan.FromMinutes( setting.Value );

@@ -32,8 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         private string GetFinalSolutionPath( BuildContext context )
             => FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
 
-        private ToolInvocationOptions CreateInvocationOptions( BuildContext context )
-            => new( this.EnvironmentVariables ) { ExecutionTimeout = context.BuildTimeout, MinidumpDirectory = context.Product.DumpDirectory };
+        private ToolInvocationOptions CreateInvocationOptions() => new( this.EnvironmentVariables );
 
         private bool RunDotNet(
             BuildContext context,
@@ -48,7 +47,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 command,
                 arguments,
                 addConfigurationFlag,
-                this.CreateInvocationOptions( context ) );
+                this.CreateInvocationOptions() );
 
         private bool RunBuildOrTests(
             BuildContext context,
@@ -91,7 +90,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 args = "";
             }
 
-            var options = this.CreateInvocationOptions( context );
+            var options = this.CreateInvocationOptions();
 
             bool success;
 

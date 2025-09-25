@@ -41,6 +41,11 @@ namespace PostSharp.Engineering.BuildTools
             {
                 stringBuilder.Append( "--ci " );
             }
+
+            if ( this.Timeout != null )
+            {
+                stringBuilder.Append( $"--timeout {this.Timeout} " );
+            }
         }
 
         public override string ToString()
@@ -74,11 +79,11 @@ namespace PostSharp.Engineering.BuildTools
         [Description( "Simulate a continuous integration build by setting the build ContinuousIntegrationBuild property to TRUE." )]
         [CommandOption( "--ci" )]
         public bool SimulateContinuousIntegration { get; set; }
-        
+
         [Description( "Use the project or solution directory as a working directory." )]
         [CommandOption( "--project-dir-as-working-dir" )]
         public bool UseProjectDirectoryAsWorkingDirectory { get; set; }
-        
+
         [Description( "Use local dependencies instead of build server dependencies." )]
         [CommandOption( "--use-local-dependencies" )]
         public bool UseLocalDependencies { get; set; }
@@ -94,22 +99,25 @@ namespace PostSharp.Engineering.BuildTools
                 this._unparsedProperties = value;
 
                 this.Properties = this.Properties.AddRange(
-                    value.Select(
-                        v =>
-                        {
-                            var split = v.Split( '=' );
+                    value.Select( v =>
+                    {
+                        var split = v.Split( '=' );
 
-                            if ( split.Length > 1 )
-                            {
-                                return new KeyValuePair<string, string>( split[0].Trim(), split[1].Trim() );
-                            }
-                            else
-                            {
-                                return new KeyValuePair<string, string>( split[0].Trim(), "True" );
-                            }
-                        } ) );
+                        if ( split.Length > 1 )
+                        {
+                            return new KeyValuePair<string, string>( split[0].Trim(), split[1].Trim() );
+                        }
+                        else
+                        {
+                            return new KeyValuePair<string, string>( split[0].Trim(), "True" );
+                        }
+                    } ) );
             }
         }
+
+        [Description( "Overrides the build timeout." )]
+        [CommandOption( "--timeout" )]
+        public int? Timeout { get; set; }
 
         public ImmutableDictionary<string, string> Properties { get; protected set; } =
             ImmutableDictionary.Create<string, string>( StringComparer.OrdinalIgnoreCase );

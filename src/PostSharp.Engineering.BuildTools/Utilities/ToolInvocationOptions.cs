@@ -34,10 +34,6 @@ public record ToolInvocationOptions(
 
     public TimeSpan OutputReadingTimeout { get; init; } = TimeSpan.FromSeconds( 10 );
 
-    public TimeSpan? ExecutionTimeout { get; init; }
-
-    public string? MinidumpDirectory { get; init; }
-
     public static TimeSpan LongOutputReadingTimeout => TimeSpan.FromSeconds( 60 );
 
     public ToolInvocationOptions WithEnvironmentVariables( ImmutableDictionary<string, string?> additionalEnvironmentVariables )

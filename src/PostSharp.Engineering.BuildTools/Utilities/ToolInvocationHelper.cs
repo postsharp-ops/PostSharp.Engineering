@@ -265,30 +265,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 }
 
                 Process process = new() { StartInfo = startInfo };
-                var stopwatch = Stopwatch.StartNew();
-
-                // Sets up a timeout. The Timer class does not support long periods, so we use CancellationTokenSource.
-                CancellationTokenSource? timeoutCancellation = null;
-
-                if ( options.ExecutionTimeout != null )
-                {
-                    timeoutCancellation = new CancellationTokenSource( options.ExecutionTimeout.Value );
-                    timeoutCancellation.Token.Register( OnTimeout );
-
-                    void OnTimeout()
-                    {
-                        // ReSharper disable AccessToModifiedClosure
-
-                        console.WriteError( $"The process timed out after {stopwatch.Elapsed}. Dumping and killing the process tree." );
-                        ProcessHelper.DumpAndKillProcessTree( console, process, options.MinidumpDirectory );
-
-                        // ReSharper restore AccessToModifiedClosure
-                    }
-                }
 
                 using ( ManualResetEvent stdErrorClosed = new( false ) )
                 using ( ManualResetEvent stdOutClosed = new( false ) )
-                using ( timeoutCancellation )
                 {
                     // Filters process output where matching RegEx value indicates process failure.
                     void FilterProcessOutput( string output )
