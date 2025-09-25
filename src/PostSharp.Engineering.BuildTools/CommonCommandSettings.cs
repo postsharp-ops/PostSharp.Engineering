@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -44,7 +45,7 @@ namespace PostSharp.Engineering.BuildTools
 
             if ( this.Timeout != null )
             {
-                stringBuilder.Append( $"--timeout {this.Timeout} " );
+                stringBuilder.Append( CultureInfo.InvariantCulture, $"--timeout {this.Timeout} " );
             }
         }
 
