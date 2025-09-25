@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
-namespace PostSharp.Engineering.BuildTools.Tools
+namespace PostSharp.Engineering.BuildTools.Tools.Processes
 {
     /// <summary>
     /// Settings of <see cref="KillCommand"/>.

@@ -1,6 +1,5 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
@@ -47,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public TimeSpan? BuildTimeOutThreshold { get; init; }
 
-        public TeamCityBuildConfigurationParameterBase[]? Parameters { get; init; }
+        public TeamCityBuildConfigurationParameter[]? Parameters { get; init; }
 
         public TeamCityBuildConfiguration(
             string objectName,
@@ -99,18 +98,29 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine();
             }
 
-            var hasBuildSteps = this.BuildSteps is { Length: > 0 };
+            // Add required build steps.
+            var allBuildSteps = new List<TeamCityBuildStep>();
 
-            var buildParameters = new List<TeamCityBuildConfigurationParameterBase>();
-
-            if ( hasBuildSteps )
+            for ( var index = 0; index < this.BuildSteps!.Length; index++ )
             {
-                buildParameters.AddRange(
-                    this.BuildSteps!.SelectMany( s => s.BuildConfigurationParameters ?? Enumerable.Empty<TeamCityBuildConfigurationParameterBase>() ) );
+                var step = this.BuildSteps![index];
+
+                AddBuildStep( step );
+
+                void AddBuildStep( TeamCityBuildStep newStep )
+                {
+                    newStep.InsertPrerequisites( allBuildSteps, AddBuildStep );
+                    allBuildSteps.Add( newStep );
+                }
             }
 
+            var buildParameters = new List<TeamCityBuildConfigurationParameter>();
+
+            buildParameters.AddRange(
+                allBuildSteps.SelectMany( s => s.BuildConfigurationParameters ?? Enumerable.Empty<TeamCityBuildConfigurationParameter>() ) );
+
             buildParameters.Add(
-                new TeamCityTextBuildConfigurationParameterBase(
+                new TeamCityTextBuildConfigurationParameter(
                     this.DefaultBranchParameter,
                     "Default Branch",
                     "The default branch of this build configuration.",
@@ -118,8 +128,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             if ( this.BuildTimeOutThreshold.HasValue )
             {
-                var timeOutParameter = new TeamCityTextBuildConfigurationParameterBase(
-                    "TimeOut",
+                var timeOutParameter = new TeamCityTextBuildConfigurationParameter(
+                    "Timeout.All",
                     "Time-Out",
                     "Timeout, in minutes.",
                     $"{(int) this.BuildTimeOutThreshold.Value.TotalMinutes}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
@@ -148,7 +158,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 // We set the VCS root explicitly for consolidated as well builds to enable the DefaultBranch paramater.
                 writer.WriteLine( @$"        root(AbsoluteId(""{this.VcsRootId}""))" );
 
-                if ( !hasBuildSteps )
+                if ( allBuildSteps.Count == 0 )
                 {
                     writer.WriteLine( $"        showDependenciesChanges = true" );
                 }
@@ -170,27 +180,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             writer.WriteLine( $@"    }}" );
 
             // Build steps.
-            if ( hasBuildSteps )
+            if ( allBuildSteps.Count > 0 )
             {
                 if ( this.IsComposite )
                 {
                     throw new InvalidOperationException( "Composite build cannot have build steps. Check if the build agent type is set." );
-                }
-
-                // Add required build steps.
-                var allBuildSteps = new List<TeamCityBuildStep>();
-
-                for ( var index = 0; index < this.BuildSteps!.Length; index++ )
-                {
-                    var step = this.BuildSteps![index];
-
-                    AddBuildStep( step );
-
-                    void AddBuildStep( TeamCityBuildStep newStep )
-                    {
-                        newStep.InsertPrerequisites( allBuildSteps, AddBuildStep );
-                        allBuildSteps.Add( newStep );
-                    }
                 }
 
                 writer.WriteLine(
@@ -228,18 +222,18 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine( "    }" );
             }
 
-            var hasSwabra = hasBuildSteps;
-            var hasSshAgent = this.IsSshAgentRequired;
-            var hasFeatures = hasSwabra || hasSshAgent;
+            var requiresSwabra = allBuildSteps.Count > 0;
+            var requiresSshAgent = this.IsSshAgentRequired;
+            var requiresAnyFeatures = requiresSwabra || requiresSshAgent;
 
             // Features.
-            if ( hasFeatures )
+            if ( requiresAnyFeatures )
             {
                 writer.WriteLine(
                     $@"
     features {{" );
 
-                if ( hasSwabra )
+                if ( requiresSwabra )
                 {
                     writer.WriteLine(
                         $@"        swabra {{
@@ -248,7 +242,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         }}" );
                 }
 
-                if ( hasSshAgent )
+                if ( requiresSshAgent )
                 {
                     writer.WriteLine(
                         $@"        sshAgent {{

@@ -2,16 +2,18 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Docker;
+using System;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
 public class TeamCityEngineeringPublishBuildStep : TeamCityEngineeringCommandBuildStep
 {
-    public TeamCityEngineeringPublishBuildStep( BuildConfiguration configuration, DockerSpec? dockerSpec ) : base(
+    public TeamCityEngineeringPublishBuildStep( BuildConfiguration configuration, DockerSpec? dockerSpec, TimeSpan? timeSpan ) : base(
         "Publish",
         "Publish",
         "publish",
         $"--configuration {configuration}",
         true,
-        dockerSpec ) { }
+        dockerSpec,
+        timeSpan ) { }
 }

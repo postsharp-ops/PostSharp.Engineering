@@ -53,7 +53,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             void CleanNugetCache()
             {
                 // Kill the processes to release the locks on the NuGet cache.
-                ProcessKiller.Kill( context.Console );
+                ProcessKiller.KillWellKnownProcesses( context.Console );
 
                 // Use dotnet command to locate nuget cache directory.
                 var success = ToolInvocationHelper.InvokeTool(
@@ -121,17 +121,17 @@ namespace PostSharp.Engineering.BuildTools.Build
             DeleteDirectory(
                 Path.Combine(
                     context.RepoDirectory,
-                    product.PrivateArtifactsDirectory.ToString( stringParameters ) ) );
+                    product.PrivateArtifactsDirectory ) );
 
             DeleteDirectory(
                 Path.Combine(
                     context.RepoDirectory,
-                    product.PublicArtifactsDirectory.ToString( stringParameters ) ) );
+                    product.PublicArtifactsDirectory ) );
 
             DeleteDirectory(
                 Path.Combine(
                     context.RepoDirectory,
-                    product.LogsDirectory.ToString() ) );
+                    product.LogsDirectory ) );
 
             foreach ( var directory in Directory.GetDirectories( context.RepoDirectory ) )
             {

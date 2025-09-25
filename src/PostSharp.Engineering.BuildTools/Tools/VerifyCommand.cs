@@ -22,7 +22,7 @@ internal class VerifyCommand : BaseCommand<PublishSettings>
         if ( configuration == BuildConfiguration.Public )
         {
             var buildArguments = BuildArguments.Read( context, configuration );
-            var directories = product.GetArtifactsDirectories( context, buildArguments );
+            var directories = product.GetArtifactsDirectories( context );
 
             // Verify that public packages have no private dependencies.
             if ( !VerifyPublicPackageCommand.Execute(

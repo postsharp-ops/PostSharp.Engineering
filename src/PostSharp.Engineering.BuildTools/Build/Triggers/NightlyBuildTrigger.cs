@@ -14,21 +14,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Triggers;
 public class NightlyBuildTrigger : IBuildTrigger
 {
     public int Hour { get; }
-    
+
     public int Minute { get; }
 
     public bool WithPendingChangesOnly { get; }
-    
+
     public string? BranchFilter { get; init; }
-    
-    public TeamCityBuildConfigurationParameterBase[]? Parameters { get; init; }
+
+    public TeamCityBuildConfigurationParameter[]? Parameters { get; init; }
 
     public NightlyBuildTrigger( int hour, bool withPendingChangesOnly )
     {
         this.Hour = hour;
         this.WithPendingChangesOnly = withPendingChangesOnly;
     }
-    
+
     public NightlyBuildTrigger( int hour, int minute, bool withPendingChangesOnly )
     {
         this.Hour = hour;
@@ -45,7 +45,7 @@ public class NightlyBuildTrigger : IBuildTrigger
         }
 
         writer.WriteLine( "        schedule {" );
-        
+
         WriteIndented( "schedulingPolicy = daily {" );
         WriteIndented( $"    hour = {this.Hour}" );
         WriteIndented( $"    minute = {this.Minute}" );
@@ -53,7 +53,7 @@ public class NightlyBuildTrigger : IBuildTrigger
 
         branchFilter = this.BranchFilter ?? branchFilter ?? "+:<default>";
         WriteIndented( $"branchFilter = \"{branchFilter}\"" );
-        
+
         WriteIndented( "triggerBuild = always()" );
         WriteIndented( $"withPendingChangesOnly = {this.WithPendingChangesOnly.ToString().ToLowerInvariant()}" );
 

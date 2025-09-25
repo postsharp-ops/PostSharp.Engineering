@@ -8,7 +8,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildStep
 
 public abstract class TeamCityBuildStep
 {
-    public TeamCityBuildConfigurationParameterBase[]? BuildConfigurationParameters { get; init; }
+    private readonly List<TeamCityBuildConfigurationParameter> _parameters = new();
+
+    public IReadOnlyList<TeamCityBuildConfigurationParameter> BuildConfigurationParameters => this._parameters;
+
+    protected void AddParameter( TeamCityBuildConfigurationParameter parameter ) => this._parameters.Add( parameter );
 
     public abstract string GenerateTeamCityCode();
 

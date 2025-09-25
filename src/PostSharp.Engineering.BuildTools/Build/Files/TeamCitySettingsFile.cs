@@ -48,19 +48,18 @@ internal static class TeamCitySettingsFile
                 continue;
             }
 
-            var versionInfo = new BuildArguments( null, configuration, product, null );
-
             // Set artifact rules.
             var publicArtifactsDirectory =
-                context.Product.PublicArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+                context.Product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
             var privateArtifactsDirectory =
-                context.Product.PrivateArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+                context.Product.PrivateArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
             var testResultsDirectory =
-                context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+                context.Product.TestResultsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
-            var logsDirectory = context.Product.LogsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+            var logsDirectory = context.Product.LogsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
+            var dumpsDirectory = context.Product.DumpDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
             var deployedArtifactRules = $"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
             deployedArtifactRules += $@"\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
@@ -68,6 +67,7 @@ internal static class TeamCitySettingsFile
             var publishedArtifactRules = deployedArtifactRules;
             publishedArtifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
             publishedArtifactRules += $@"\n+:{logsDirectory}/**/*=>logs";
+            publishedArtifactRules += $@"\n+:{dumpsDirectory}/**/*=>dumps";
 
             var additionalArtifactRules = product.DefaultArtifactRules;
 
@@ -98,7 +98,7 @@ internal static class TeamCitySettingsFile
                 .Select( d => new TeamCitySnapshotDependency(
                              d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                              true,
-                             $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildArguments( null, d.Configuration, product, null ) ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
+                             $"+:{d.Definition.PrivateArtifactsDirectory.Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
                 .ToList();
 
             var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
@@ -141,7 +141,7 @@ internal static class TeamCitySettingsFile
                         dockerSpec: product.DockerSpec ) );
             }
 
-            teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, product.DockerSpec ) );
+            teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, product.DockerSpec, product.BuildTimeoutPlusMargin ) );
 
             if ( !product.UseDocker )
             {
@@ -170,7 +170,6 @@ internal static class TeamCitySettingsFile
                 BuildTriggers = configurationInfo.BuildTriggers,
                 SnapshotDependencies = buildDependencies,
                 SourceDependencies = sourceDependencies,
-                BuildTimeOutThreshold = configurationInfo.BuildTimeOutThreshold ?? product.BuildTimeOutThreshold,
                 IsSshAgentRequired = requiresUpstreamCheck && isRepoRemoteSsh
             };
 
@@ -211,7 +210,7 @@ internal static class TeamCitySettingsFile
                                     .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType!, true ) ) )
                             .OrderBy( d => d.ObjectId )
                             .ToArray(),
-                        BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? product.DeploymentTimeOutThreshold,
+                        BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? product.DeploymentTimeout,
                         IsSshAgentRequired = isRepoRemoteSsh
                     };
 
@@ -236,7 +235,7 @@ internal static class TeamCitySettingsFile
                             .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] )
                             .OrderBy( d => d.ObjectId )
                             .ToArray(),
-                        BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? product.DeploymentTimeOutThreshold,
+                        BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? product.DeploymentTimeout,
                         IsSshAgentRequired = isRepoRemoteSsh
                     };
 
@@ -270,7 +269,7 @@ internal static class TeamCitySettingsFile
                         ],
                         IsDeployment = true,
                         SnapshotDependencies = swapDependencies.OrderBy( d => d.ObjectId ).ToArray(),
-                        BuildTimeOutThreshold = configurationInfo.SwapTimeOutThreshold ?? product.SwapTimeOutThreshold
+                        BuildTimeOutThreshold = configurationInfo.SwapTimeOutThreshold ?? product.SwapTimeout
                     } );
             }
         }
@@ -295,7 +294,7 @@ internal static class TeamCitySettingsFile
                         [
                             new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true, dockerSpec: product.DockerSpec )
                         ],
-                        BuildTimeOutThreshold = product.VersionBumpTimeOutThreshold,
+                        BuildTimeOutThreshold = product.VersionBumpTimeout,
                         IsSshAgentRequired = isRepoRemoteSsh
                     } );
             }
@@ -328,7 +327,7 @@ internal static class TeamCitySettingsFile
                     ],
                     SnapshotDependencies = snapshotDependencies,
                     BuildTriggers = [new SourceBuildTrigger()],
-                    BuildTimeOutThreshold = product.DownstreamMergeTimeOutThreshold,
+                    BuildTimeOutThreshold = product.DownstreamMergeTimeout,
                     IsSshAgentRequired = isRepoRemoteSsh
                 } );
         }
@@ -470,12 +469,11 @@ internal static class TeamCitySettingsFile
                      && !projectsWithNoNuGetArtifacts.Any( p => dependencyDefinition.Name.Contains( p, StringComparison.Ordinal ) ) )
                 {
                     var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
-                    var dependencyBuildInfo = new BuildArguments( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
 
-                    var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
+                    var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory
                         .Replace( Path.DirectorySeparatorChar, '/' );
 
-                    var dependencyPublicArtifactsDirectory = dependencyDefinition.PublicArtifactsDirectory.ToString( dependencyBuildInfo )
+                    var dependencyPublicArtifactsDirectory = dependencyDefinition.PublicArtifactsDirectory
                         .Replace( Path.DirectorySeparatorChar, '/' );
 
                     var dependencyName = dependencyDefinition.Name;
@@ -525,10 +523,10 @@ internal static class TeamCitySettingsFile
             var buildInfo = new BuildArguments( null, configuration, product, null );
 
             var privateArtifactsDirectory =
-                product.PrivateArtifactsDirectory.ToString( buildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+                product.PrivateArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
             var publicArtifactsDirectory =
-                product.PublicArtifactsDirectory.ToString( buildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+                product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
             buildArtifactRules =
                 $@"+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
@@ -560,7 +558,7 @@ internal static class TeamCitySettingsFile
             }
 
             var nuGetBuildSteps =
-                new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, dockerSpec ) };
+                new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, dockerSpec, product.BuildTimeoutPlusMargin ) };
 
             // The default branch is the same as for public build of any other project - see the build configuration of a regular project.
             nuGetBuildConfiguration = new TeamCityBuildConfiguration(
@@ -571,10 +569,7 @@ internal static class TeamCitySettingsFile
                 vcsRootId,
                 product.ResolvedBuildAgentRequirements )
             {
-                BuildSteps = nuGetBuildSteps,
-                SnapshotDependencies = nuGetDependencies.ToArray(),
-                ArtifactRules = buildArtifactRules,
-                BuildTimeOutThreshold = product.BuildTimeOutThreshold
+                BuildSteps = nuGetBuildSteps, SnapshotDependencies = nuGetDependencies.ToArray(), ArtifactRules = buildArtifactRules
             };
 
             return true;
@@ -682,7 +677,7 @@ internal static class TeamCitySettingsFile
         var consolidatedVersionBumpSteps = new List<TeamCityBuildStep>();
         var consolidatedVersionBumpSourceDependencies = new List<TeamCitySourceDependency>();
         var bumpedProjects = new HashSet<string>();
-        var consolidatedVersionBumpParameters = new List<TeamCityBuildConfigurationParameterBase>();
+        var consolidatedVersionBumpParameters = new List<TeamCityBuildConfigurationParameter>();
 
         var success = true;
 
@@ -731,7 +726,7 @@ internal static class TeamCitySettingsFile
             if ( dependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
             {
                 consolidatedVersionBumpParameters.Add(
-                    new TeamCityTextBuildConfigurationParameterBase(
+                    new TeamCityTextBuildConfigurationParameter(
                         dependencyDefinition.VcsRepository.DefaultBranchParameter,
                         dependencyDefinition.VcsRepository.DefaultBranchParameter,
                         $"Default branch of {bumpedProjectName}",
@@ -775,7 +770,7 @@ internal static class TeamCitySettingsFile
             List<TeamCitySourceDependency> sourceDependencies = new();
             List<TeamCitySnapshotDependency> snapshotDependencies = new();
             List<TeamCityBuildStep> steps = new();
-            List<TeamCityBuildConfigurationParameterBase> parameters = new();
+            List<TeamCityBuildConfigurationParameter> parameters = new();
 
             if ( product.MainVersionDependency == null )
             {
@@ -811,7 +806,7 @@ internal static class TeamCitySettingsFile
                     }
 
                     parameters.Add(
-                        new TeamCityTextBuildConfigurationParameterBase(
+                        new TeamCityTextBuildConfigurationParameter(
                             projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
                             projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
                             $"Default branch of {project.Name}",
@@ -849,11 +844,8 @@ internal static class TeamCitySettingsFile
                         if ( dependencyDefinition.ProductFamily != projectDependencyDefinition.ProductFamily )
                         {
                             var dependencyName = dependencyDefinition.Name;
-                            var configuration = BuildConfiguration.Public;
-                            var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
-                            var dependencyBuildInfo = new BuildArguments( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
 
-                            var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
+                            var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory
                                 .Replace( Path.DirectorySeparatorChar, '/' );
 
                             var artifactRules =
@@ -923,7 +915,10 @@ internal static class TeamCitySettingsFile
         var publicNuGetBuildCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicBuildObjectName )}";
         var publicNuGetDeploymentCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicDeploymentObjectName )}";
 
-        var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration, product.DockerSpec ) };
+        var nuGetPublicDeploymentSteps = new TeamCityBuildStep[]
+        {
+            new TeamCityEngineeringPublishBuildStep( publicConfiguration, product.DockerSpec, product.BuildTimeoutPlusMargin )
+        };
 
         // TODO: Only Public builds of dependencies that define version need to be included.
         //       Here we include all Public builds which will cause download of all artifacts.
@@ -946,7 +941,7 @@ internal static class TeamCitySettingsFile
             {
                 BuildSteps = nuGetPublicDeploymentSteps,
                 SnapshotDependencies = nuGetPublicDeploymentDependencies.ToArray(),
-                BuildTimeOutThreshold = product.DeploymentTimeOutThreshold,
+                BuildTimeOutThreshold = product.DeploymentTimeout,
                 IsDeployment = true
             } );
 

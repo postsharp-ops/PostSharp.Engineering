@@ -421,7 +421,7 @@ internal static class DependenciesHelper
                 return false;
             }
 
-            var artifactsDirectory = dependency.Dependency.GetResolvedPrivateArtifactsDirectory( dependencyConfigurations[0].Key );
+            var artifactsDirectory = dependency.Dependency.PrivateArtifactsDirectory;
 
             if ( !DownloadDependency(
                     context,

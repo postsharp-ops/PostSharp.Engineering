@@ -79,15 +79,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
-        public ParametricString PrivateArtifactsDirectory => this.DependencyDefinition.PrivateArtifactsDirectory;
+        public string PrivateArtifactsDirectory => this.DependencyDefinition.PrivateArtifactsDirectory;
 
-        public ParametricString PublicArtifactsDirectory => this.DependencyDefinition.PublicArtifactsDirectory;
+        public string PublicArtifactsDirectory => this.DependencyDefinition.PublicArtifactsDirectory;
 
-        public ParametricString TestResultsDirectory { get; init; } = Path.Combine( "artifacts", "testResults" );
+        public string TestResultsDirectory { get; init; } = Path.Combine( "artifacts", "testResults" );
 
-        public ParametricString LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
+        public string LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 
-        public ParametricString SourceDependenciesDirectory { get; init; } = Path.Combine( "source-dependencies" );
+        public string DumpDirectory { get; init; } = Path.Combine( "artifacts", "dumps" );
+
+        public string SourceDependenciesDirectory { get; init; } = Path.Combine( "source-dependencies" );
 
         public bool GenerateArcadeProperties { get; init; }
 
@@ -122,15 +124,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
-        public TimeSpan BuildTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 60 );
+        public TimeSpan BuildTimeout { get; init; } = TimeSpan.FromMinutes( 30 );
 
-        public TimeSpan DeploymentTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 30 );
+        // Adds a margin for process dumps.
+        public TimeSpan BuildTimeoutPlusMargin => this.BuildTimeout.Add( TimeSpan.FromMinutes( 5 ) );
 
-        public TimeSpan SwapTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 15 );
+        public TimeSpan DeploymentTimeout { get; init; } = TimeSpan.FromMinutes( 30 );
 
-        public TimeSpan VersionBumpTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 15 );
+        public TimeSpan SwapTimeout { get; init; } = TimeSpan.FromMinutes( 15 );
 
-        public TimeSpan DownstreamMergeTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 15 );
+        public TimeSpan VersionBumpTimeout { get; init; } = TimeSpan.FromMinutes( 15 );
+
+        public TimeSpan DownstreamMergeTimeout { get; init; } = TimeSpan.FromMinutes( 15 );
 
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
             =
@@ -289,15 +294,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool IsBundle { get; init; }
 
-        internal string GetPrivateArtifactsDirectory( BuildContext context, BuildArguments buildArguments )
+        internal string GetPrivateArtifactsDirectory( BuildContext context )
             => Path.Combine(
                 context.RepoDirectory,
-                this.PrivateArtifactsDirectory.ToString( buildArguments ) );
+                this.PrivateArtifactsDirectory );
 
-        internal string GetPublicArtifactsDirectory( BuildContext context, BuildArguments buildArguments )
+        internal string GetPublicArtifactsDirectory( BuildContext context )
             => Path.Combine(
                 context.RepoDirectory,
-                this.PublicArtifactsDirectory.ToString( buildArguments ) );
+                this.PublicArtifactsDirectory );
 
         /// <summary>
         /// An event raised when the build is completed, before creating ZIP files and preparing public artifacts.
@@ -330,11 +335,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.PrepareCompleted?.Invoke( args );
         }
 
-        internal (string Private, string Public) GetArtifactsDirectories( BuildContext context, BuildArguments buildArguments )
+        internal (string Private, string Public) GetArtifactsDirectories( BuildContext context )
         {
             return (
-                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( buildArguments ) ),
-                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( buildArguments ) )
+                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory ),
+                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory )
             );
         }
     }

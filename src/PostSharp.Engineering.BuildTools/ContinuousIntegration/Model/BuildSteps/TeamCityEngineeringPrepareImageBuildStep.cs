@@ -15,9 +15,9 @@ internal class TeamCityEngineeringPrepareImageBuildStep : TeamCityPowerShellBuil
         id,
         $"Prepare Docker image {dockerSpec.ImageName}",
         $"DockerBuild.ps1",
-        $"-BuildImage -ImageName {dockerSpec.ImageName}" )
+        $"-BuildImage -ImageName {dockerSpec.ImageName}",
+        timeout: TimeSpan.FromHours( 2 ) )
     {
         this.DockerSpec = dockerSpec;
-        this.TimeOut = TimeSpan.FromHours( 2 );
     }
 }

@@ -81,14 +81,13 @@ internal static class NuGetConfigFile
         // Add the current artifact directory.
         var artifactDirectory = Path.Combine(
             context.RepoDirectory,
-            product.PrivateArtifactsDirectory.ToString( new BuildArguments( null, configuration, product, null ) ) );
+            product.PrivateArtifactsDirectory );
 
         AddDirectory( product.ProductName, artifactDirectory, product.DependencyDefinition.PackagePatterns );
 
         // Add dependencies.
         foreach ( var dependencySource in dependenciesConfigurationFile.Dependencies )
         {
-
             if ( dependencySource.Value.SourceKind == DependencySourceKind.Feed )
             {
                 // Skip any feed dependency, so it will be fall back to the default package source.
@@ -117,15 +116,10 @@ internal static class NuGetConfigFile
 
                     continue;
                 }
-                
+
                 dependencyDirectory = Path.Combine(
                     dependencyDirectory,
-                    dependencyDefinition.PrivateArtifactsDirectory.ToString(
-                        new BuildArguments(
-                            null,
-                            parametrizedDependency.ConfigurationMapping[configuration],
-                            dependencyDefinition,
-                            null ) ) );
+                    dependencyDefinition.PrivateArtifactsDirectory );
             }
 
             if ( !AddDirectory( dependencySource.Key, dependencyDirectory, dependencyDefinition.PackagePatterns ) )

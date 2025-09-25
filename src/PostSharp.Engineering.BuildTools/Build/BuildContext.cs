@@ -60,14 +60,11 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// Gets the full path of the current manifest file (i.e. the file called <c>My.Product.version.props</c>)
         /// for a given <see cref="BuildConfiguration"/>.
         /// </summary>
-        public string GetManifestFilePath( BuildConfiguration configuration )
-        {
-            return Path.Combine(
+        public string ManifestFilePath
+            => Path.Combine(
                 this.RepoDirectory,
-                this.Product.PrivateArtifactsDirectory.ToString(
-                    new BuildArguments( null, configuration.ToString(), this.Product.DependencyDefinition.MSBuildConfiguration[configuration], null ) ),
+                this.Product.PrivateArtifactsDirectory,
                 $"{this.Product.ProductName}.version.props" );
-        }
 
         private BuildContext(
             ConsoleHelper console,

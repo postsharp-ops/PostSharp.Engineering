@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management;
+using System.Runtime.InteropServices;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
@@ -12,40 +13,40 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 
 public static class ProcessKiller
 {
-    public static bool Kill( ConsoleHelper console, bool dry = false )
+    public static bool KillWellKnownProcesses( ConsoleHelper console, bool dry = false )
     {
         var currentSessionId = Process.GetCurrentProcess().SessionId;
 
         var processesToKill = Process.GetProcesses()
             .Where( p => p.SessionId == currentSessionId )
-            .Where(
-                p =>
+            .Where( p =>
+            {
+                if ( p.ProcessName.StartsWith( "redis", StringComparison.OrdinalIgnoreCase ) ||
+                     p.ProcessName.StartsWith( "WinMerge", StringComparison.OrdinalIgnoreCase ) )
                 {
-                    if ( p.ProcessName.StartsWith( "redis", StringComparison.OrdinalIgnoreCase ) )
-                    {
-                        return true;
-                    }
+                    return true;
+                }
 
-                    if ( p.ProcessName.Equals( "VBCSCompiler", StringComparison.OrdinalIgnoreCase )
-                         || p.ProcessName.Equals( "MSBuild", StringComparison.OrdinalIgnoreCase )
-                         || p.ProcessName.Contains( "PostSharp", StringComparison.OrdinalIgnoreCase ) )
-                    {
-                        return true;
-                    }
+                if ( p.ProcessName.Equals( "VBCSCompiler", StringComparison.OrdinalIgnoreCase )
+                     || p.ProcessName.Equals( "MSBuild", StringComparison.OrdinalIgnoreCase )
+                     || p.ProcessName.Contains( "PostSharp", StringComparison.OrdinalIgnoreCase ) )
+                {
+                    return true;
+                }
 
-                    if ( p.ProcessName.Equals( "dotnet", StringComparison.OrdinalIgnoreCase ) &&
-                         ReferencesAny( console, p, ["Metalama", "VBCSCompiler", "MSBuild"] ) )
-                    {
-                        return true;
-                    }
+                if ( p.ProcessName.Equals( "dotnet", StringComparison.OrdinalIgnoreCase ) &&
+                     ProcessHelper.ReferencesAnyModule( console, p, ["Metalama", "VBCSCompiler", "MSBuild"] ) )
+                {
+                    return true;
+                }
 
-                    if ( p.ProcessName.StartsWith( "testhost", StringComparison.OrdinalIgnoreCase ) )
-                    {
-                        return true;
-                    }
+                if ( p.ProcessName.StartsWith( "testhost", StringComparison.OrdinalIgnoreCase ) )
+                {
+                    return true;
+                }
 
-                    return false;
-                } )
+                return false;
+            } )
             .ToList();
 
         if ( processesToKill.Count == 0 )
@@ -56,7 +57,7 @@ public static class ProcessKiller
         {
             foreach ( var process in processesToKill )
             {
-                console.WriteMessage( $"Killing process {process.Id} ({process.ProcessName}): {GetCommandLine( process )}" );
+                console.WriteMessage( $"Killing process {process.Id} ({process.ProcessName}): {ProcessHelper.GetCommandLine( process )}" );
 
                 if ( !dry )
                 {
@@ -73,51 +74,5 @@ public static class ProcessKiller
         }
 
         return true;
-    }
-
-    private static string? GetCommandLine( Process process )
-    {
-        try
-        {
-            using ManagementObjectSearcher searcher =
-                new( $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}" );
-
-            using ( var objects = searcher.Get() )
-            {
-                return objects.Cast<ManagementBaseObject>().SingleOrDefault()?["CommandLine"]?.ToString();
-            }
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static bool ReferencesAny( ConsoleHelper console, Process process, string[] substrings )
-    {
-        try
-        {
-            foreach ( ProcessModule module in process.Modules )
-            {
-                if ( module.FileName != null! )
-                {
-                    if ( substrings.Any( s => Path.GetFileNameWithoutExtension( module.FileName ).Contains( s, StringComparison.OrdinalIgnoreCase ) ) )
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return true;
-        }
-        catch ( Exception e )
-        {
-            if ( !process.HasExited )
-            {
-                console.WriteWarning( $"Cannot enumerate the modules of '{process.Id}': {e.Message}." );
-            }
-
-            return false;
-        }
     }
 }

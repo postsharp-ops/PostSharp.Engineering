@@ -14,10 +14,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Triggers;
 public class SourceBuildTrigger : IBuildTrigger
 {
     public bool WatchChangesInDependencies { get; init; } = true;
-    
+
     public string? BranchFilter { get; init; }
-    
-    public TeamCityBuildConfigurationParameterBase[]? Parameters { get; init; }
+
+    public TeamCityBuildConfigurationParameter[]? Parameters { get; init; }
 
     public void GenerateTeamcityCode( TextWriter writer, string? branchFilter = null )
     {
@@ -28,12 +28,12 @@ public class SourceBuildTrigger : IBuildTrigger
         }
 
         writer.WriteLine( "        vcs {" );
-        
+
         WriteIndented( $"watchChangesInDependencies = {this.WatchChangesInDependencies.ToString().ToLowerInvariant()}" );
 
         branchFilter = this.BranchFilter ?? branchFilter ?? "+:<default>";
         WriteIndented( $"branchFilter = \"{branchFilter}\"" );
-        
+
         WriteIndented( "// Build will not trigger automatically if the commit message contains comment value." );
         WriteIndented( "triggerRules = \"-:comment=<<VERSION_BUMP>>|<<DEPENDENCIES_UPDATED>>:**\"" );
 

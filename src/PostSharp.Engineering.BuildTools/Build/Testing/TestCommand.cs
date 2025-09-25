@@ -94,7 +94,7 @@ internal class TestCommand : BaseCommand<BuildSettings>
             }
         }
 
-        var testResultsDirectory = Path.Combine( context.RepoDirectory, product.TestResultsDirectory.ToString() );
+        var testResultsDirectory = Path.Combine( context.RepoDirectory, product.TestResultsDirectory );
 
         if ( !Directory.Exists( testResultsDirectory ) )
         {
@@ -112,8 +112,8 @@ internal class TestCommand : BaseCommand<BuildSettings>
 
         // Raise the post-test event.
         var buildInfo = BuildArguments.Read( context, settings.BuildConfiguration );
-        var privateArtifactsDirectory = product.GetPrivateArtifactsDirectory( context, buildInfo );
-        var publicArtifactsDirectory = product.GetPublicArtifactsDirectory( context, buildInfo );
+        var privateArtifactsDirectory = product.GetPrivateArtifactsDirectory( context );
+        var publicArtifactsDirectory = product.GetPublicArtifactsDirectory( context );
 
         var eventArgs = new BuildCompletedEventArgs( context, settings, buildInfo, privateArtifactsDirectory, publicArtifactsDirectory );
         product.OnTestCompleted( eventArgs );

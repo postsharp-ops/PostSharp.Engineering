@@ -25,7 +25,7 @@ internal class PrologComponent : ContainerComponent
 
             # Prepare environment
             ENV PSExecutionPolicyPreference=Bypass
-            ENV POWERSHELL_UPDATECHECK=FALSE
+            ENV POWERSHELL_UPDATECHECK=Off
             ENV TEMP=C:\Temp
             ENV TMP=C:\Temp
             ENV RUNNING_IN_DOCKER=TRUE

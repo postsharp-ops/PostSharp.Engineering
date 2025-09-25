@@ -12,7 +12,7 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
 {
     private readonly DockerSpec? _dockerSpec;
 
-    private static string GetCustomArgumentsParameterName( string objectName ) => $"{objectName}Arguments";
+    private static string GetCustomArgumentsParameterName( string id ) => $"{id}.Arguments";
 
     public TeamCityEngineeringCommandBuildStep(
         string id,
@@ -20,24 +20,24 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         string command,
         string? arguments = null,
         bool areCustomArgumentsAllowed = false,
-        DockerSpec? dockerSpec = null ) : base(
+        DockerSpec? dockerSpec = null,
+        TimeSpan? timeout = null ) : base(
         id,
         name,
-        dockerSpec != null ? $"DockerBuild.ps1" : "Build.ps1",
-        GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, dockerSpec ) )
+        dockerSpec != null ? "DockerBuild.ps1" : "Build.ps1",
+        GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, dockerSpec ),
+        timeout )
     {
         this._dockerSpec = dockerSpec;
 
         if ( areCustomArgumentsAllowed )
         {
-            this.BuildConfigurationParameters =
-            [
-                new TeamCityTextBuildConfigurationParameterBase(
+            this.AddParameter(
+                new TeamCityTextBuildConfigurationParameter(
                     GetCustomArgumentsParameterName( id ),
-                    $"{name} Arguments",
+                    $"{this.ScriptPath} Arguments",
                     $"Arguments to append to the '{name}' build step.",
-                    allowEmpty: true )
-            ];
+                    allowEmpty: true ) );
         }
     }
 

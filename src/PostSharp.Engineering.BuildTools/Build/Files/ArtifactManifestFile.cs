@@ -206,8 +206,7 @@ internal static class ArtifactManifestFile
     {
         var product = context.Product;
 
-        var privateArtifactsRelativeDir =
-            product.PrivateArtifactsDirectory.ToString( new BuildArguments( null, configuration, product, null ) );
+        var privateArtifactsRelativeDir = product.PrivateArtifactsDirectory;
 
         var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
 
@@ -226,7 +225,7 @@ internal static class ArtifactManifestFile
         [NotNullWhen( true )] out ArtifactManifestVersionInfo? artifactManifestVersionInfo )
     {
         var product = context.Product;
-        var artifactVersionFile = context.GetManifestFilePath( configuration );
+        var artifactVersionFile = context.ManifestFilePath;
 
         var document = XDocument.Load( artifactVersionFile );
         var project = document.Root;
@@ -265,7 +264,7 @@ internal static class ArtifactManifestFile
     public static BuildArguments CreateParametricStringArguments( BuildContext context, BuildConfiguration buildConfiguration )
     {
         var product = context.Product;
-        var versionFilePath = context.GetManifestFilePath( buildConfiguration );
+        var versionFilePath = context.ManifestFilePath;
 
         if ( !File.Exists( versionFilePath ) )
         {

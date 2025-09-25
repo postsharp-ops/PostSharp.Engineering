@@ -2,16 +2,18 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Docker;
+using System;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
 public class TeamCityEngineeringBuildBuildStep : TeamCityEngineeringCommandBuildStep
 {
-    public TeamCityEngineeringBuildBuildStep( BuildConfiguration configuration, bool testOnBuild, DockerSpec? dockerSpec ) : base(
+    public TeamCityEngineeringBuildBuildStep( BuildConfiguration configuration, bool testOnBuild, DockerSpec? dockerSpec, TimeSpan? timeout ) : base(
         "Build",
         "Build",
         testOnBuild ? "test" : "build",
         $"--configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%",
         true,
-        dockerSpec ) { }
+        dockerSpec,
+        timeout ) { }
 }

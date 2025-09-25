@@ -143,7 +143,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 var binaryLogFilePath = Path.Combine(
                     context.RepoDirectory,
-                    context.Product.LogsDirectory.ToString(),
+                    context.Product.LogsDirectory,
                     $"{Path.GetFileName( projectOrSolution )}.{command}.binlog" );
 
                 argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:\"{binaryLogFilePath}\"" );

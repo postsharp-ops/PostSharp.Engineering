@@ -11,6 +11,7 @@ public enum ContainerComponentKind
     AzureCli,
     DotNetInstaller,
     DotNet,
+    DotNetDump,
     VsBuildTools,
     Epilogue
 }

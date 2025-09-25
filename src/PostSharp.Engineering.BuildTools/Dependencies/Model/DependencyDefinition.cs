@@ -61,9 +61,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public VcsRepository VcsRepository { get; }
 
-        public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
+        public string PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
 
-        public ParametricString PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
+        public string PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
 
         public string[] PackagePatterns
         {
@@ -76,10 +76,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// taking dependencies into account, because PostSharp.Engineering does not know detailed dependencies.
         /// </summary>
         public int? BuildOrder { get; set; }
-
-        public string GetResolvedPrivateArtifactsDirectory( BuildConfiguration configuration )
-            => this.PrivateArtifactsDirectory.ToString(
-                new BuildArguments( null, configuration.ToString().ToLowerInvariant(), this.MSBuildConfiguration[configuration], null ) );
 
         // ReSharper disable once InconsistentNaming
         public ConfigurationSpecific<string> MSBuildConfiguration { get; init; } = new( "Debug", "Release", "Release" );

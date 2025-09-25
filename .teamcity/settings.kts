@@ -27,12 +27,13 @@ object DebugBuild : BuildType({
 
     name = "Build [Debug]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n+:artifacts/dumps/**/*=>dumps\n"
 
     params {
-        text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
+        param("PrepareImage.Timeout", "120")
+        param("Build.Timeout", "35")
+        text("Build.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "60", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -48,6 +49,7 @@ object DebugBuild : BuildType({
             }
             noProfile = false
             scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+            executionTimeoutMin = "%PrepareImage.Timeout%.toInt()" 
         }
         powerShell {
             name = "Build"
@@ -56,11 +58,9 @@ object DebugBuild : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments%"
+            executionTimeoutMin = "%Build.Timeout%.toInt()" 
         }
-    }
-    failureConditions {
-         executionTimeoutMin = 60
     }
 
     requirements {
@@ -89,12 +89,13 @@ object ReleaseBuild : BuildType({
 
     name = "Build [Release]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n+:artifacts/dumps/**/*=>dumps\n"
 
     params {
-        text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
+        param("PrepareImage.Timeout", "120")
+        param("Build.Timeout", "35")
+        text("Build.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "60", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -110,6 +111,7 @@ object ReleaseBuild : BuildType({
             }
             noProfile = false
             scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+            executionTimeoutMin = "%PrepareImage.Timeout%.toInt()" 
         }
         powerShell {
             name = "Build"
@@ -118,11 +120,9 @@ object ReleaseBuild : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments%"
+            executionTimeoutMin = "%Build.Timeout%.toInt()" 
         }
-    }
-    failureConditions {
-         executionTimeoutMin = 60
     }
 
     requirements {
@@ -142,12 +142,13 @@ object PublicBuild : BuildType({
 
     name = "Build [Public]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n+:artifacts/dumps/**/*=>dumps\n"
 
     params {
-        text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
+        param("PrepareImage.Timeout", "120")
+        param("Build.Timeout", "35")
+        text("Build.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "60", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -163,6 +164,7 @@ object PublicBuild : BuildType({
             }
             noProfile = false
             scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+            executionTimeoutMin = "%PrepareImage.Timeout%.toInt()" 
         }
         powerShell {
             name = "Build"
@@ -171,11 +173,9 @@ object PublicBuild : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments%"
+            executionTimeoutMin = "%Build.Timeout%.toInt()" 
         }
-    }
-    failureConditions {
-         executionTimeoutMin = 60
     }
 
     requirements {
@@ -198,9 +198,11 @@ object PublicDeployment : BuildType({
     type = Type.DEPLOYMENT
 
     params {
-        text("PublishArguments", "", label = "Publish Arguments", description = "Arguments to append to the 'Publish' build step.", allowEmpty = true)
+        param("PrepareImage.Timeout", "120")
+        param("Publish.Timeout", "15")
+        text("Publish.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Publish' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "30", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
+        text("Timeout.All", "30", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -216,6 +218,7 @@ object PublicDeployment : BuildType({
             }
             noProfile = false
             scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+            executionTimeoutMin = "%PrepareImage.Timeout%.toInt()" 
         }
         powerShell {
             name = "Publish"
@@ -224,7 +227,8 @@ object PublicDeployment : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public %PublishArguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public %Publish.Arguments%"
+            
         }
     }
     failureConditions {
@@ -262,9 +266,11 @@ object VersionBump : BuildType({
     name = "Version Bump"
 
     params {
-        text("BumpArguments", "", label = "Bump Arguments", description = "Arguments to append to the 'Bump' build step.", allowEmpty = true)
+        param("PrepareImage.Timeout", "120")
+        param("Bump.Timeout", "15")
+        text("Bump.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Bump' build step.", allowEmpty = true)
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("TimeOut", "15", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
+        text("Timeout.All", "15", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -280,6 +286,7 @@ object VersionBump : BuildType({
             }
             noProfile = false
             scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+            executionTimeoutMin = "%PrepareImage.Timeout%.toInt()" 
         }
         powerShell {
             name = "Bump"
@@ -288,7 +295,8 @@ object VersionBump : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage bump %BumpArguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage bump %Bump.Arguments%"
+            
         }
     }
     failureConditions {

@@ -6,7 +6,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 
 #pragma warning disable CA1416 // Available on Windows only.
 
-namespace PostSharp.Engineering.BuildTools.Tools
+namespace PostSharp.Engineering.BuildTools.Tools.Processes
 {
     /// <summary>
     /// Kills all processes that may lock build artefacts.
@@ -18,7 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Tools
         {
             context.Console.WriteHeading( "Killing processes" );
 
-            return ProcessKiller.Kill( context.Console, settings.Dry );
+            return ProcessKiller.KillWellKnownProcesses( context.Console, settings.Dry );
         }
     }
 }

@@ -17,6 +17,7 @@ using PostSharp.Engineering.BuildTools.Tools;
 using PostSharp.Engineering.BuildTools.Tools.Csproj;
 using PostSharp.Engineering.BuildTools.Tools.Git;
 using PostSharp.Engineering.BuildTools.Tools.NuGet;
+using PostSharp.Engineering.BuildTools.Tools.Processes;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Tools.XmlDoc;
 using Spectre.Console.Cli;
@@ -219,6 +220,10 @@ namespace PostSharp.Engineering.BuildTools
                         tools.AddCommand<KillCommand>( "kill" )
                             .WithData( data )
                             .WithDescription( "Kill all compiler processes" );
+
+                        tools.AddCommand<DumpAndKillCommand>( "dump-and-kill" )
+                            .WithData( data )
+                            .WithDescription( "Dump and kill a given process and all its descendants" );
 
                         tools.AddBranch(
                             "csproj",
