@@ -38,7 +38,6 @@ object DebugBuild : BuildType({
         text("Build.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         param("Build.Timeout", "30")
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("Timeout", "30", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -64,9 +63,6 @@ object DebugBuild : BuildType({
             noProfile = false
             scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% -Timeout %Build.Timeout%"
         }
-    }
-    failureConditions {
-       executionTimeoutMin = "%Timeout%".toInt()
     }
 
     requirements {
@@ -106,7 +102,6 @@ object ReleaseBuild : BuildType({
         text("Build.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         param("Build.Timeout", "30")
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("Timeout", "30", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -132,9 +127,6 @@ object ReleaseBuild : BuildType({
             noProfile = false
             scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% -Timeout %Build.Timeout%"
         }
-    }
-    failureConditions {
-       executionTimeoutMin = "%Timeout%".toInt()
     }
 
     requirements {
@@ -165,7 +157,6 @@ object PublicBuild : BuildType({
         text("Build.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
         param("Build.Timeout", "30")
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("Timeout", "30", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -192,9 +183,6 @@ object PublicBuild : BuildType({
             scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% -Timeout %Build.Timeout%"
         }
     }
-    failureConditions {
-       executionTimeoutMin = "%Timeout%".toInt()
-    }
 
     requirements {
         equals("env.BuildAgentType", "docker-win-x64-md")
@@ -217,8 +205,8 @@ object PublicDeployment : BuildType({
 
     params {
         text("Publish.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Publish' build step.", allowEmpty = true)
+        param("Publish.Timeout", "30")
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("Timeout", "30", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -242,11 +230,8 @@ object PublicDeployment : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public %Publish.Arguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public %Publish.Arguments% -Timeout %Publish.Timeout%"
         }
-    }
-    failureConditions {
-       executionTimeoutMin = "%Timeout%".toInt()
     }
 
     requirements {
@@ -281,8 +266,8 @@ object VersionBump : BuildType({
 
     params {
         text("Bump.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Bump' build step.", allowEmpty = true)
+        param("Bump.Timeout", "15")
         text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
-        text("Timeout", "15", label = "Time-Out", description = "Timeout, in minutes.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
 
     vcs {
@@ -306,11 +291,8 @@ object VersionBump : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage bump %Bump.Arguments%"
+            scriptArgs = "-ImageName postsharpengineering-2023.2 -NoBuildImage bump %Bump.Arguments% -Timeout %Bump.Timeout%"
         }
-    }
-    failureConditions {
-       executionTimeoutMin = "%Timeout%".toInt()
     }
 
     requirements {

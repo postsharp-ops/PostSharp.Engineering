@@ -32,7 +32,7 @@ public class UpdateSearchProductExtension : ProductExtension
 
     public BuildConfiguration[] BuildConfigurations { get; }
 
-    public TimeSpan TimeOutThreshold { get; }
+    public TimeSpan TimeOut { get; }
 
     public string? CustomBuildConfigurationName { get; }
 
@@ -72,7 +72,7 @@ public class UpdateSearchProductExtension : ProductExtension
         this.Source = source;
         this.SourceUrl = sourceUrl;
         this.BuildConfigurations = buildConfigurations ?? [BuildConfiguration.Public];
-        this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 30 );
+        this.TimeOut = timeOutThreshold ?? TimeSpan.FromMinutes( 30 );
         this.CustomBuildConfigurationName = customBuildConfigurationName;
         this.BuildTriggers = buildTriggers;
     }
@@ -86,7 +86,7 @@ public class UpdateSearchProductExtension : ProductExtension
     {
         TeamCityBuildStep CreateBuildStep()
         {
-            return new TeamCityEngineeringCommandBuildStep( "UpdateSearch", "Update search", "search update", null, true );
+            return new TeamCityEngineeringCommandBuildStep( "UpdateSearch", "Update search", "search update", null, true, timeout: this.TimeOut );
         }
 
         foreach ( var configuration in this.BuildConfigurations )
@@ -111,11 +111,7 @@ public class UpdateSearchProductExtension : ProductExtension
                 vcsRootId,
                 buildAgentRequirements )
             {
-                BuildSteps = [CreateBuildStep()],
-                IsDeployment = true,
-                SnapshotDependencies = dependencies,
-                Timeout = this.TimeOutThreshold,
-                BuildTriggers = buildTriggers
+                BuildSteps = [CreateBuildStep()], IsDeployment = true, SnapshotDependencies = dependencies, BuildTriggers = buildTriggers
             };
 
             teamCityBuildConfigurations.Add( teamCityUpdateSearchConfiguration );
@@ -128,7 +124,7 @@ public class UpdateSearchProductExtension : ProductExtension
                     context.Product.DependencyDefinition.Branch,
                     context.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter,
                     vcsRootId,
-                    buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true, Timeout = this.TimeOutThreshold };
+                    buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );
             }
