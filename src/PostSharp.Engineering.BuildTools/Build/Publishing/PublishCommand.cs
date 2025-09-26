@@ -94,7 +94,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        if ( !GitHelper.ConfigureCredentials( context ) )
+        if ( !GitHelper.TryConfigureCredentials( context ) )
         {
             context.Console.WriteError( "Cannot configure git credentials." );
 
@@ -149,13 +149,9 @@ internal class PublishCommand : BaseCommand<PublishSettings>
         // For consolidated deployments, this is part of the post-deployment step.
         if ( !product.ProductFamily.HasConsolidatedBuild && !settings.IsStandalone )
         {
-            if ( context.IsContinuousIntegrationBuild )
+            if ( !GitHelper.TryConfigureCredentials( context ) )
             {
-                // When on TeamCity, Git user credentials are set to TeamCity.
-                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-                {
-                    return false;
-                }
+                return false;
             }
 
             if ( !GitIntegrationHelper.TryAddTagToLastCommit( context, settings ) )

@@ -135,12 +135,9 @@ internal static class DownstreamMerge
     public static bool MergeDownstream( BuildContext context, DownstreamMergeSettings settings )
     {
         // When on TeamCity, Git user credentials are set to TeamCity.
-        if ( context.IsContinuousIntegrationBuild )
+        if ( !GitHelper.TryConfigureCredentials( context ) )
         {
-            if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-            {
-                return false;
-            }
+            return false;
         }
 
         if ( !GitHelper.TryGetStatus( context, context.RepoDirectory, out var statuses ) )
@@ -364,7 +361,10 @@ internal static class DownstreamMerge
 
         context.Console.WriteImportantMessage( $"Merging '{sourceBranch}' branch to '{targetBranch}' branch" );
 
-        GitHelper.ConfigureCredentials( context );
+        if ( !GitHelper.TryConfigureCredentials( context ) )
+        {
+            return false;
+        }
 
         if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit --no-ff", true ) )
         {

@@ -21,7 +21,10 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
     {
         var product = context.Product;
 
-        GitHelper.ConfigureCredentials( context );
+        if ( !GitHelper.TryConfigureCredentials( context ) )
+        {
+            return false;
+        }
 
         if ( !MasterGenerator.TryWriteFiles( context, settings ) )
         {
@@ -37,15 +40,6 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
         if ( !PublishCommand.CanPublish( context, settings ) )
         {
             return false;
-        }
-
-        if ( context.IsContinuousIntegrationBuild )
-        {
-            // When on TeamCity, Git user credentials are set to TeamCity.
-            if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-            {
-                return false;
-            }
         }
 
         var sourceBranch = context.Product.DependencyDefinition.Branch;

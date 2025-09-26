@@ -604,15 +604,27 @@ public static class GitHelper
         return true;
     }
 
-    public static bool ConfigureCredentials( BuildContext context )
+    private static bool _credentialsConfigured;
+
+    public static bool TryConfigureCredentials( BuildContext context )
     {
+        if ( context is { IsRunningUnderContainer: false, IsContinuousIntegrationBuild: false } )
+        {
+            return true;
+        }
+
+        if ( _credentialsConfigured )
+        {
+            return true;
+        }
+
         var console = context.Console;
         var environmentVariableName = context.Product.DependencyDefinition.VcsRepository.TokenEnvironmentVariableName;
 
-        console.WriteMessage( "Configuring git credentials." );
-
         if ( RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
         {
+            console.WriteMessage( $"Configuring git credentials from {environmentVariableName}." );
+
             var environmentVariableValue = Environment.GetEnvironmentVariable( environmentVariableName );
 
             if ( string.IsNullOrEmpty( environmentVariableValue ) )
@@ -639,6 +651,8 @@ public static class GitHelper
         {
             throw new PlatformNotSupportedException();
         }
+
+        _credentialsConfigured = true;
 
         return true;
     }

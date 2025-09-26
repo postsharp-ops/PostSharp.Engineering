@@ -92,34 +92,6 @@ public static class TeamCityHelper
         return teamCitySourceReadToken;
     }
 
-    /// <summary>
-    /// Attempts to set Git user credentials to TeamCity. Configurations are set only for the current repository.
-    /// </summary>
-    /// <param name="context"></param>
-    /// <returns></returns>
-    public static bool TrySetGitIdentityCredentials( BuildContext context )
-    {
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                "config user.name TeamCity",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"config user.email {TeamCityUsername}",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        return true;
-    }
-
     public static bool TriggerTeamCityBuild(
         BuildContext context,
         CommonCommandSettings settings,

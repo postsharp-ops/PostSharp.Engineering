@@ -33,7 +33,7 @@ internal class BumpCommand : BaseCommand<BumpSettings>
             return false;
         }
 
-        if ( !GitHelper.ConfigureCredentials( context ) )
+        if ( !GitHelper.TryConfigureCredentials( context ) )
         {
             console.WriteError( "Cannot configure git credentials." );
 
