@@ -41,6 +41,7 @@ internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
 
         var product = context.Product;
         var console = context.Console;
+        var madeAnyChange = false;
 
         if ( !product.GenerateNuGetConfig )
         {
@@ -77,13 +78,18 @@ internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
 
                 if ( globalJsonProperty != null )
                 {
-                    console.WriteMessage( $"Writing '{globalJsonPath}'." );
+                    if ( globalJsonProperty.Value<string>()?.Trim() != lastVersion )
+                    {
+                        madeAnyChange = true;
 
-                    globalJsonProperty.Replace( new JValue( lastVersion ) );
-                    using var writer = new StreamWriter( globalJsonPath );
-                    var jsonTextWriter = new JsonTextWriter( writer ) { Formatting = Formatting.Indented };
+                        console.WriteMessage( $"Writing '{globalJsonPath}'." );
 
-                    globalJson.WriteTo( jsonTextWriter );
+                        globalJsonProperty.Replace( new JValue( lastVersion ) );
+                        using var writer = new StreamWriter( globalJsonPath );
+                        var jsonTextWriter = new JsonTextWriter( writer ) { Formatting = Formatting.Indented };
+
+                        globalJson.WriteTo( jsonTextWriter );
+                    }
                 }
                 else
                 {
@@ -103,13 +109,17 @@ internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
             ? centralPackageManagementVersionsPath
             : Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
 
-        console.WriteMessage( $"Writing '{versionsFilePath}'." );
         var versionsFile = XDocument.Load( versionsFilePath, LoadOptions.PreserveWhitespace );
         var versionProperties = versionsFile.XPathSelectElements( "/Project/PropertyGroup/PostSharpEngineeringVersion" ).ToList();
 
         if ( versionProperties.Count == 1 )
         {
-            versionProperties[0].Value = lastVersion;
+            if ( versionProperties[0].Value != lastVersion )
+            {
+                console.WriteMessage( $"Writing '{versionsFilePath}'." );
+                versionProperties[0].Value = lastVersion;
+                versionsFile.Save( versionsFilePath );
+            }
         }
         else
         {
@@ -117,12 +127,17 @@ internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
                 $"File '{versionsFilePath}' not updated because there are {versionProperties.Count} properties named PostSharpEngineeringVersion." );
         }
 
-        versionsFile.Save( versionsFilePath );
+        if ( madeAnyChange )
+        {
+            console.WriteSuccess( $"PostSharp.Engineering successfully updated to version {lastVersion}." );
 
-        console.WriteSuccess( "Engineering successfully updated." );
-
-        // Generate scripts.
-        console.WriteWarning( "Now run `./Build.ps1 generate-scripts` with this new version." );
+            // Generate scripts.
+            console.WriteWarning( "Now run `./Build.ps1 generate-scripts` with this new version." );
+        }
+        else
+        {
+            console.WriteWarning( $"PostSharp.Engineering was already of the latest version ({lastVersion})." );
+        }
 
         return true;
     }
