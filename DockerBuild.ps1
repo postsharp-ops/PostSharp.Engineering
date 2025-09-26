@@ -112,11 +112,13 @@ if (-not $env:IS_TEAMCITY_AGENT -and -not $NoClean)
     Write-Host "Cleaning up." -ForegroundColor Green
     if (Test-Path "artifacts")
     {
-        Remove-Item artifacts -Force -Recurse -ProgressAction SilentlyContinue
+        Remove-Item artifacts -Force -Recurse  -ErrorAction SilentlyContinue
     }
-    Get-ChildItem @("bin", "obj") -Recurse | Remove-Item -Force -Recurse -ProgressAction SilentlyContinue
+    Get-ChildItem "bin" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    Get-ChildItem "obj" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 }
 
+Write-Host "Preparing context and mounts." -ForegroundColor Green
 # Create secrets JSON file.
 if (-not $KeepEnv)
 {
@@ -299,9 +301,9 @@ if (-not $BuildImage)
     $dockerArgsAsString = $dockerArgs -join " "
 
 
-    Write-Host "Executing: ``docker run --rm --memory=12g $VolumeMappingsAsString -w $SourceDirName $dockerArgsAsString $ImageName pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`"``." -ForegroundColor Cyan
+    Write-Host "Executing: ``docker run --rm --memory=12g $VolumeMappingsAsString -w $SourceDirName $dockerArgsAsString $ImageName pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`; exit `$LASTEXITCODE`"``." -ForegroundColor Cyan
 
-    docker run --rm --memory=12g @VolumeMappings -w $SourceDirName @dockerArgs $ImageName pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString"
+    docker run --rm --memory=12g @VolumeMappings -w $SourceDirName @dockerArgs $ImageName pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString`; exit `$LASTEXITCODE;"
     if ($LASTEXITCODE -ne 0)
     {
         Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red

@@ -301,9 +301,9 @@ if (-not $BuildImage)
     $dockerArgsAsString = $dockerArgs -join " "
 
 
-    Write-Host "Executing: ``docker run --rm --memory=12g $VolumeMappingsAsString -w $SourceDirName $dockerArgsAsString $ImageName pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`"``." -ForegroundColor Cyan
+    Write-Host "Executing: ``docker run --rm --memory=12g $VolumeMappingsAsString -w $SourceDirName $dockerArgsAsString $ImageName pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`; exit `$LASTEXITCODE`"``." -ForegroundColor Cyan
 
-    docker run --rm --memory=12g @VolumeMappings -w $SourceDirName @dockerArgs $ImageName pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString"
+    docker run --rm --memory=12g @VolumeMappings -w $SourceDirName @dockerArgs $ImageName pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString`; exit `$LASTEXITCODE;"
     if ($LASTEXITCODE -ne 0)
     {
         Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red
