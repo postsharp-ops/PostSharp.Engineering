@@ -138,7 +138,7 @@ internal static class TeamCitySettingsFile
             }
 
             // The default branch for the public build cannot be set to the release branch,
-            // because the schedulled build would not trigger the build on the develop branch
+            // because the scheduled build would not trigger the build on the develop branch
             // where the develop branch name differs.
             // Only the consolidated public build has the release branch as the default branch
             // and it expects that the release branch name is the same for each project.
@@ -232,7 +232,7 @@ internal static class TeamCitySettingsFile
             }
 
             // Create a TeamCity configuration for Swap.
-            if ( configurationInfo is { Swappers: { }, SwapAfterPublishing: false } )
+            if ( configurationInfo is { Swappers: { Length: > 0 }, SwapAfterPublishing: false } )
             {
                 var swapDependencies = new List<TeamCitySnapshotDependency>();
 
