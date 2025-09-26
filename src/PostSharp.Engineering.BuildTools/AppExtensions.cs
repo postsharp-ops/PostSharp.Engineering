@@ -72,23 +72,17 @@ namespace PostSharp.Engineering.BuildTools
                         .WithData( data )
                         .WithDescription( "Verify that the dependencies of public artifacts have already been publicly deployed" );
 
-                    if ( product.IsBundle )
-                    {
-                        root.AddCommand<PrePublishCommand>( "prepublish" )
-                            .WithData( data )
-                            .WithDescription( "Prepares publishing of all packages that have been previously built by the 'build' command" );
-                    }
+                    root.AddCommand<PrePublishCommand>( "prepublish" )
+                        .WithData( data )
+                        .WithDescription( "Prepares publishing of all packages that have been previously built by the 'build' command" );
 
                     root.AddCommand<PublishCommand>( "publish" )
                         .WithData( data )
                         .WithDescription( "Publishes all packages that have been previously built by the 'build' command" );
 
-                    if ( product.IsBundle )
-                    {
-                        root.AddCommand<PostPublishCommand>( "postpublish" )
-                            .WithData( data )
-                            .WithDescription( "Finalizes publishing of all packages that have been previously built by the 'build' command" );
-                    }
+                    root.AddCommand<PostPublishCommand>( "postpublish" )
+                        .WithData( data )
+                        .WithDescription( "Finalizes publishing of all packages that have been previously built by the 'build' command" );
 
                     if ( product.Configurations.All.Any( c => c.Swappers is { Length: > 0 } ) )
                     {
