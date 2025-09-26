@@ -115,7 +115,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Samples",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama ) { CodeStyle = "Metalama.Samples" };
+                MetalamaGitHubOrganization.Metalama ) { CodeStyle = "Metalama.Samples", PackagePatterns = ["Metalama.Documentation.QuickStart"] };
 
         public static DependencyDefinition TimelessDotNetEngineer { get; } =
             new MetalamaDependencyDefinition(
