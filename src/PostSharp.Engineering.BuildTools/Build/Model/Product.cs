@@ -250,8 +250,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// MSBuild cannot be used.
         /// </summary>
         public Version? MSBuildVersion { get; init; }
-        
-        public string[] ExternalTeamCityBuildTypes { get; init; }
+
+        public string[] ExternalTeamCityBuildTypes { get; init; } = [];
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {

@@ -396,7 +396,6 @@ internal static class TeamCitySettingsFile
         TeamCitySourceDependency[] sourceDependencies,
         bool isRepoRemoteSsh )
     {
-        List<TeamCityBuildConfiguration> teamCityBuildConfigurations;
         var teamCityBuildSteps = new List<TeamCityBuildStep>();
 
         if ( !product.UseDocker )

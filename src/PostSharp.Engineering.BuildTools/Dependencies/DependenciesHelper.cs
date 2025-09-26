@@ -421,7 +421,7 @@ internal static class DependenciesHelper
                 return false;
             }
 
-            var artifactsDirectory = dependency.Dependency.GetPrivateArtifactsDirectory( configuration );
+            var artifactsDirectory = dependency.Dependency.GetPrivateArtifactsDirectory( buildId.BuildConfiguration );
 
             if ( !DownloadDependency(
                     context,
@@ -506,7 +506,7 @@ internal static class DependenciesHelper
         string dependencyName,
         string ciBuildTypeId,
         int buildNumber,
-        string artifactsDirectory,
+        string artifactsPath,
         out string restoreDirectory )
     {
         restoreDirectory = Path.Combine(
@@ -528,7 +528,7 @@ internal static class DependenciesHelper
             Directory.CreateDirectory( restoreDirectory );
             context.Console.WriteMessage( $"Downloading {dependencyName} build #{buildNumber} of {ciBuildTypeId}" );
 
-            if ( !teamCity.TryDownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsDirectory, restoreDirectory ) )
+            if ( !teamCity.TryDownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsPath, restoreDirectory ) )
             {
                 return false;
             }
@@ -550,9 +550,9 @@ internal static class DependenciesHelper
         string dependencyName,
         string ciBuildTypeId,
         int buildNumber,
-        string artifactsDirectory )
+        string artifactsPath )
     {
-        if ( !DownloadBuild( context, teamCity, dependencyName, ciBuildTypeId, buildNumber, artifactsDirectory, out var restoreDirectory ) )
+        if ( !DownloadBuild( context, teamCity, dependencyName, ciBuildTypeId, buildNumber, artifactsPath, out var restoreDirectory ) )
         {
             return false;
         }

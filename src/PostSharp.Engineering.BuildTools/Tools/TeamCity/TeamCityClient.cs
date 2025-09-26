@@ -128,7 +128,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
             }
         }
 
-        public bool TryDownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string artifactsDirectory )
+        public bool TryDownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string restoreDirectory )
         {
             IEnumerable<DownloadedFile> GetFiles( string urlOrPath, string targetDirectory )
             {
@@ -178,7 +178,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
             var basePath =
                 $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath.Replace( '\\', '/' )}";
 
-            var baseTargetDirectory = Path.Combine( artifactsDirectory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
+            var baseTargetDirectory = Path.Combine( restoreDirectory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
 
             var files = GetFiles( basePath, baseTargetDirectory );
 
