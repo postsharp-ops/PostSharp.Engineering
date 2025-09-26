@@ -254,8 +254,8 @@ internal static class TeamCitySettingsFile
         // The standalone deployment doesn't expect pre-publishing and post-publishing step to be triggered,
         // so it's done from the develop branch.
         var teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
-            objectName: $"{configuration}DeploymentNoDependency",
-            name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
+            objectName: isStandalone ? $"{configuration}DeploymentNoDependency" : $"{configuration}Deployment",
+            name: (isStandalone ? "Standalone " : "") + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
             defaultBranch,
             defaultBranchParameter,
             vcsRootId,
