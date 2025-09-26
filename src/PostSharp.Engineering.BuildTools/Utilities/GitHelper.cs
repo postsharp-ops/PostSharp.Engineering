@@ -452,24 +452,6 @@ public static class GitHelper
 
         url = gitOutput.Trim();
 
-        var isHttps = url.StartsWith( "https", StringComparison.InvariantCulture );
-
-        // When on TeamCity, origin will be updated to form including Git authentication credentials.
-        if ( isHttps && context.IsContinuousIntegrationBuild )
-        {
-            if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                    out var teamcitySourceWriteTokenEnvironmentVariableName,
-                    out var teamcitySourceCodeWritingToken ) )
-            {
-                context.Console.WriteImportantMessage(
-                    $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-            }
-            else
-            {
-                url = url.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-            }
-        }
-
         return true;
     }
 

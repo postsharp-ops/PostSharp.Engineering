@@ -66,38 +66,10 @@ internal static class GitIntegrationHelper
             return false;
         }
 
-        // Returns the remote origin.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"remote get-url origin",
-                context.RepoDirectory,
-                out _,
-                out var gitOrigin ) )
+        // Gets the remote origin.
+        if ( !GitHelper.TryGetRemoteUrl( context, out var gitOrigin ) )
         {
             return false;
-        }
-
-        gitOrigin = gitOrigin.Trim();
-        var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-
-        // When on TeamCity, if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
-        if ( context.IsContinuousIntegrationBuild )
-        {
-            if ( isHttps )
-            {
-                if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                        out var teamcitySourceWriteTokenEnvironmentVariableName,
-                        out var teamcitySourceCodeWritingToken ) )
-                {
-                    context.Console.WriteImportantMessage(
-                        $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                }
-                else
-                {
-                    gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                }
-            }
         }
 
         // Pushes tag to origin.
@@ -129,47 +101,10 @@ internal static class GitIntegrationHelper
             return false;
         }
 
-        // Returns the remote origin.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"remote get-url origin",
-            context.RepoDirectory,
-            out var gitExitCode,
-            out var gitOrigin );
-
-        if ( gitExitCode != 0 )
+        // Gets the remote origin.
+        if ( !GitHelper.TryGetRemoteUrl( context, out var gitOrigin ) )
         {
-            context.Console.WriteError( gitOrigin );
-
             return false;
-        }
-
-        gitOrigin = gitOrigin.Trim();
-        var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-
-        // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
-        if ( context.IsContinuousIntegrationBuild )
-        {
-            if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-            {
-                return false;
-            }
-
-            if ( isHttps )
-            {
-                if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                        out var teamcitySourceWriteTokenEnvironmentVariableName,
-                        out var teamcitySourceCodeWritingToken ) )
-                {
-                    context.Console.WriteImportantMessage(
-                        $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                }
-                else
-                {
-                    gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                }
-            }
         }
 
         if ( !ToolInvocationHelper.InvokeTool(

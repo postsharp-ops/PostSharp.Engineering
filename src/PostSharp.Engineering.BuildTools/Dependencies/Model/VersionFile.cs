@@ -3,6 +3,7 @@
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using PostSharp.Engineering.BuildTools.Build;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -33,31 +34,47 @@ public class VersionFile
     {
         versionFile = null;
         var dependenciesBuilder = ImmutableDictionary.CreateBuilder<string, DependencySource>();
-        var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
-        var centralPackageManagementVersionsPath = Path.Combine( context.RepoDirectory, "Directory.Packages.props" );
+        var versionsPropsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
+        var directoryPackagesPropsPath = Path.Combine( context.RepoDirectory, "Directory.Packages.props" );
 
-        if ( !File.Exists( versionsPath ) )
+        if ( !File.Exists( versionsPropsPath ) )
         {
-            context.Console.WriteError( $"The file '{versionsPath}' does not exist." );
+            context.Console.WriteError( $"The file '{versionsPropsPath}' does not exist." );
 
             return false;
         }
 
         var projectOptions = new ProjectOptions { GlobalProperties = new Dictionary<string, string>() { ["DoNotLoadGeneratedVersionFiles"] = "True" } };
 
-        var versionsProject = Project.FromFile( versionsPath, projectOptions );
+        var versionsProject = Project.FromFile( versionsPropsPath, projectOptions );
         Project? centralPackageManagementVersionsProject = null;
 
-        if ( File.Exists( centralPackageManagementVersionsPath ) )
+        if ( File.Exists( directoryPackagesPropsPath ) )
         {
-            centralPackageManagementVersionsProject = Project.FromFile( centralPackageManagementVersionsPath, projectOptions );
+            centralPackageManagementVersionsProject = Project.FromFile( directoryPackagesPropsPath, projectOptions );
         }
 
         var defaultDependencyProperties = context.Product.ParametrizedDependencies
-            .ToDictionary(
+            .ToDictionary<ParametrizedDependency, string, (string Version, string File)>(
                 d => d.Name,
-                d => versionsProject.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue
-                     ?? centralPackageManagementVersionsProject?.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue );
+                d =>
+                {
+                    var property = versionsProject.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" );
+
+                    if ( property == null )
+                    {
+                        property = centralPackageManagementVersionsProject?.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" );
+                    }
+
+                    if ( property == null )
+                    {
+                        return default;
+                    }
+
+                    var s = property.EvaluatedValue.Trim();
+
+                    return (s, property.Xml.Location.File);
+                } );
 
         ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
@@ -65,25 +82,23 @@ public class VersionFile
         {
             var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
 
-            if ( dependencyVersion == null )
+            if ( dependencyVersion == default )
             {
                 // A property is required because we update it during the release process.
 
                 context.Console.WriteError(
-                    $"{versionsPath}: a property named '{dependencyDefinition.NameWithoutDot}Version' must exist, even with empty value." );
+                    $"A property named '{dependencyDefinition.NameWithoutDot}Version' must be defined, typically in 'eng/AutoUpdatedVersions.props', even with empty value." );
 
                 continue;
             }
 
-            dependencyVersion = dependencyVersion.Trim();
-
             // The property value can be either empty or a semantic version, but empty values are not allowed on guest devices,
             // i.e. for build outside our VPN.
 
-            if ( dependencyVersion != "" && !Regex.IsMatch( dependencyVersion, @"^\d+.*$" ) )
+            if ( dependencyVersion.Version != "" && !Regex.IsMatch( dependencyVersion.Version, @"^\d+.*$" ) )
             {
                 context.Console.WriteError(
-                    $"{versionsPath}: invalid value '{dependencyVersion}' for property '{dependencyDefinition.Name}Version': the value is neither empty nor a valid version number." );
+                    $"{dependencyVersion.File}: invalid value '{dependencyVersion}' for property '{dependencyDefinition.Name}Version': the value is neither empty nor a valid version number." );
 
                 versionFile = null;
 
@@ -95,16 +110,16 @@ public class VersionFile
 
             if ( BuildContext.IsGuestDevice || !dependencyDefinition.Definition.GenerateSnapshotDependency )
             {
-                if ( dependencyVersion == "" )
+                if ( dependencyVersion.Version == "" )
                 {
-                    context.Console.WriteError( $"{versionsPath}: missing value for property '{dependencyDefinition.NameWithoutDot}Version'." );
+                    context.Console.WriteError( $"{dependencyVersion.File}: missing value for property '{dependencyDefinition.NameWithoutDot}Version'." );
 
                     versionFile = null;
 
                     return false;
                 }
 
-                dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
+                dependencySource = DependencySource.CreateFeed( dependencyVersion.Version, DependencyConfigurationOrigin.Default );
             }
             else if ( settings.UseLocalDependencies && dependencyDefinition.Definition.ProductFamily == context.Product.ProductFamily )
             {

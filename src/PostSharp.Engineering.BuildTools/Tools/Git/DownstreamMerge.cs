@@ -364,6 +364,8 @@ internal static class DownstreamMerge
 
         context.Console.WriteImportantMessage( $"Merging '{sourceBranch}' branch to '{targetBranch}' branch" );
 
+        GitHelper.ConfigureCredentials( context );
+
         if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit --no-ff", true ) )
         {
             return false;

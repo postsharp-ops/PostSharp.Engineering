@@ -19,6 +19,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
         public static bool Execute( BuildContext context, PublishSettings settings )
         {
             context.Console.WriteHeading( "Finishing publishing." );
+            
+            GitHelper.ConfigureCredentials( context );
 
             if ( !MasterGenerator.TryWriteFiles( context, settings ) )
             {

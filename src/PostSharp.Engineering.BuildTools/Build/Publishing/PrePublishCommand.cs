@@ -21,6 +21,8 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
     {
         var product = context.Product;
 
+        GitHelper.ConfigureCredentials( context );
+
         if ( !MasterGenerator.TryWriteFiles( context, settings ) )
         {
             return false;

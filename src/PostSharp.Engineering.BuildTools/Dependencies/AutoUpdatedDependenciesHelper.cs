@@ -164,14 +164,8 @@ internal static class AutoUpdatedDependenciesHelper
                     return false;
                 }
 
-                // Returns the remote origin.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "remote get-url origin",
-                        context.RepoDirectory,
-                        out _,
-                        out var gitOrigin ) )
+                // Gets the remote origin.
+                if ( !GitHelper.TryGetRemoteUrl( context, out var gitOrigin ) )
                 {
                     return false;
                 }
