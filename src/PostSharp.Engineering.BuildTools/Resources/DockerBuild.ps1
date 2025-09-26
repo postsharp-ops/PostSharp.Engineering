@@ -13,7 +13,6 @@ param(
     [string]$BuildAgentPath = 'C:\BuildAgent',
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
     [switch]$StartVsmon, # Enable the remote debugger.
-    [switch]$KillAll, # Kill all containers before building the image.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container.
 )
@@ -256,9 +255,9 @@ Write-Host "Mount points: " $mountPointsAsString -ForegroundColor Gray
 Write-Host "Git directories: " $gitDirectoriesAsString -ForegroundColor Gray
 
 # Kill all containers
-docker ps -q | ForEach-Object {
-Write-Host "Killing container 
-    docker rm -f $_ 
+docker ps -q --filter "ancestor=$ImageName" | ForEach-Object {
+    Write-Host "Killing container $_"
+    docker kill $_ 
 }
 
 # Building the image.
