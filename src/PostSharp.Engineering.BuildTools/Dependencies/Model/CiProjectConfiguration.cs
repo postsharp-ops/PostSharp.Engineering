@@ -7,7 +7,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 public class CiProjectConfiguration
 {
     public TeamCityProjectId ProjectId { get; }
-    
+
     /// <summary>
     /// The project where the VCS root is stored.
     /// </summary>

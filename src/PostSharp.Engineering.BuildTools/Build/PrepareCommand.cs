@@ -53,7 +53,7 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
         {
             return false;
         }
-        
+
         // Create the dump directory because TeamCity does not like empty directories.
         var dumpDirectory = Path.Combine( context.RepoDirectory, product.DumpDirectory );
         Directory.CreateDirectory( dumpDirectory );

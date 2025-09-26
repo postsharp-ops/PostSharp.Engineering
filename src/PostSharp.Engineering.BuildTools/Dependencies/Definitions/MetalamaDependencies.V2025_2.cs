@@ -1,7 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -78,7 +77,6 @@ public static partial class MetalamaDependencies
 #pragma warning disable CS0618 // Type or member is obsolete
                 ParametricPrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSBuildConfiguration)", "Shipping" )
 #pragma warning restore CS0618 // Type or member is obsolete
-
             };
 
         public static DependencyDefinition Metalama { get; } =

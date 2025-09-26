@@ -36,7 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet
             var directory = new DirectoryInfo( settings.Directory );
 
             var files = Directory.GetFiles( directory.FullName, "*.nupkg" );
-            
+
             // Automatically include respective symbol NuGet packages.
             files = files.Concat(
                     files.Where( f => f.EndsWith( ".nupkg", StringComparison.OrdinalIgnoreCase ) )
@@ -84,16 +84,15 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet
             Dictionary<string, Task<HttpResponseMessage>> remotePackageTasks )
         {
             var inputShortPath = Path.GetFileName( inputPath );
-            
+
             console.WriteMessage( $"Verifying {inputShortPath} package." );
 
             var success = true;
 
             using var archive = ZipFile.Open( inputPath, ZipArchiveMode.Read );
 
-            var nuspecEntry = archive.Entries.SingleOrDefault(
-                entry =>
-                    entry.FullName.EndsWith( ".nuspec", StringComparison.OrdinalIgnoreCase ) );
+            var nuspecEntry = archive.Entries.SingleOrDefault( entry =>
+                                                                   entry.FullName.EndsWith( ".nuspec", StringComparison.OrdinalIgnoreCase ) );
 
             if ( nuspecEntry == null )
             {
@@ -137,7 +136,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet
                 {
                     console.WriteError( $"{inputShortPath}: Version range '{versionRangeString}' doesn't contain minimal version." );
                     success = false;
-                    
+
                     continue;
                 }
 

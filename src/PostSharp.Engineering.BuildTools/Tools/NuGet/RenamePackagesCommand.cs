@@ -19,8 +19,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet
     [UsedImplicitly]
     public class RenamePackagesCommand : Command<RenamePackageCommandSettings>
     {
-        public override int Execute( CommandContext context, RenamePackageCommandSettings settings )
-            => Execute( new ConsoleHelper(), settings ) ? 0 : 2;
+        public override int Execute( CommandContext context, RenamePackageCommandSettings settings ) => Execute( new ConsoleHelper(), settings ) ? 0 : 2;
 
         [PublicAPI]
         public static bool Execute( ConsoleHelper console, RenamePackageCommandSettings settings )
@@ -61,9 +60,8 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet
 
             using var archive = ZipFile.Open( outputPath, ZipArchiveMode.Update );
 
-            var oldNuspecEntry = archive.Entries.SingleOrDefault(
-                entry =>
-                    entry.FullName.EndsWith( ".nuspec", StringComparison.OrdinalIgnoreCase ) );
+            var oldNuspecEntry = archive.Entries.SingleOrDefault( entry =>
+                                                                      entry.FullName.EndsWith( ".nuspec", StringComparison.OrdinalIgnoreCase ) );
 
             if ( oldNuspecEntry == null )
             {

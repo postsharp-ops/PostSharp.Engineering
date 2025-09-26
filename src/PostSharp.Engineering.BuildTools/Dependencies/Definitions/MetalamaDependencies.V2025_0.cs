@@ -1,7 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -100,10 +99,7 @@ public static partial class MetalamaDependencies
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.PostSharp,
                 isVersioned: false,
-                pullRequestRequiresStatusCheck: false )
-            {
-                GenerateSnapshotDependency = false
-            };
+                pullRequestRequiresStatusCheck: false ) { GenerateSnapshotDependency = false };
 
         public static DependencyDefinition Metalama { get; } =
             new MetalamaDependencyDefinition(

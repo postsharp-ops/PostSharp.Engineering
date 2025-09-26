@@ -17,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             this._configurations = configurations;
             this._subProjects = subProjects ?? [];
         }
-        
+
         public TeamCityProject( string objectName, string projectName, TeamCityBuildConfiguration[] configurations, TeamCityProject[]? subProjects = null )
             : this( configurations, subProjects )
         {
@@ -54,7 +54,7 @@ project {
                 writer.WriteLine();
                 var configurationsOrder = string.Join( ',', project._configurations.Select( c => c.ObjectName ) );
                 writer.WriteLine( $"    buildTypesOrder = arrayListOf({configurationsOrder})" );
-                
+
                 if ( project._subProjects.Length > 0 )
                 {
                     writer.WriteLine();
@@ -63,15 +63,15 @@ project {
                     {
                         writer.WriteLine( $"    subProject({subProject._objectName})" );
                     }
-                
+
                     writer.WriteLine();
                     var subProjectsOrder = string.Join( ',', project._subProjects.Select( p => p._objectName ) );
                     writer.WriteLine( $"    subProjectsOrder = arrayListOf({subProjectsOrder})" );
                 }
             }
-            
+
             WriteProjectBody( this );
-            
+
             writer.WriteLine(
                 $@"
 }}" );
@@ -91,9 +91,9 @@ project {
 
     name = ""{subProject._projectName}""
 " );
-                
+
                 WriteProjectBody( subProject );
-                
+
                 writer.WriteLine(
                     $@"
 }})" );

@@ -2,8 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
@@ -363,10 +361,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             var itemGroup = new XElement( "ItemGroup" );
             project.Add( itemGroup );
-            
+
             var propertyGroup = new XElement( "PropertyGroup" );
             project.Add( propertyGroup );
-
 
             foreach ( var dependency in this.Dependencies.OrderBy( d => d.Key ) )
             {
@@ -410,26 +407,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     case DependencySourceKind.BuildServer:
                     case DependencySourceKind.RestoredDependency when !context.IsContinuousIntegrationBuild:
                         {
-                            if ( dependencyDefinition == null
-                                 && !context.Product.ProductFamily.TryGetDependencyDefinition( dependency.Key, out dependencyDefinition ) )
+                            var versionFile = dependencySource.VersionFile;
+
+                            if ( versionFile == null )
                             {
-                                console.WriteWarning( $"The dependency '{dependency.Key}' is not configured. Ignoring." );
-                                ignoreDependency = true;
+                                throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
                             }
-                            else
-                            {
-                                var versionFile = dependencySource.VersionFile;
 
-                                if ( versionFile == null )
-                                {
-                                    throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
-                                }
+                            WriteBuildServerSource();
 
-                                WriteBuildServerSource();
-
-                                AddMetadataToItemIfNotNull( "VersionFile", versionFile );
-                                AddImport( versionFile );
-                            }
+                            AddMetadataToItemIfNotNull( "VersionFile", versionFile );
+                            AddImport( versionFile );
                         }
 
                         break;
@@ -465,10 +453,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     case DependencySourceKind.Feed:
                         {
                             AddMetadataToItemIfNotNull( "Version", dependencySource.Version );
-                            
+
                             // We must also save a property with the version, and set it before the imports, otherwise
                             // the imports will override the setting in case of shared transitive dependency.
-                            
+
                             propertyGroup.Add( new XElement( $"{dependencyDefinition.NameWithoutDot}Version", dependencySource.Version ) );
                         }
 

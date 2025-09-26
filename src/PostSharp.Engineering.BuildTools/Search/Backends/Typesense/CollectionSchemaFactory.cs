@@ -50,7 +50,7 @@ public static class CollectionSchemaFactory
                     TypeCode.Object => FieldType.Object,
                     _ => throw new InvalidOperationException( $"Unknown type code: \"{typeCode}\"" )
                 };
-                
+
                 if ( typeCode == TypeCode.Object )
                 {
                     containsNestedFields = true;
@@ -59,7 +59,7 @@ public static class CollectionSchemaFactory
 
             var isFacet = property.GetCustomAttribute<FacetAttribute>() != null;
 
-            fields.Add( new( jsonNameAttribute.Name, type, isFacet ) );
+            fields.Add( new Field( jsonNameAttribute.Name, type, isFacet ) );
         }
 
         return new Schema( collectionName, fields ) { EnableNestedFields = containsNestedFields };

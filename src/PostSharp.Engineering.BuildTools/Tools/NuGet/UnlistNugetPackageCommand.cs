@@ -15,8 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet;
 [UsedImplicitly]
 public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettings>
 {
-    public override int Execute( CommandContext context, UnlistNugetPackageCommandSettings settings )
-        => Execute( new ConsoleHelper(), settings ) ? 0 : 1;
+    public override int Execute( CommandContext context, UnlistNugetPackageCommandSettings settings ) => Execute( new ConsoleHelper(), settings ) ? 0 : 1;
 
     private static bool Execute( ConsoleHelper console, UnlistNugetPackageCommandSettings settings )
     {

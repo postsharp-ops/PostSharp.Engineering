@@ -265,9 +265,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Testing
 
                 // Process properties with accessors.
                 PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } accessorList }
-                    when accessorList.Accessors.All(
-                        a =>
-                            ShouldIgnoreNode( member, a.Body ) && ShouldIgnoreNode( member, a.ExpressionBody ) )
+                    when accessorList.Accessors.All( a =>
+                                                         ShouldIgnoreNode( member, a.Body ) && ShouldIgnoreNode( member, a.ExpressionBody ) )
                     => true,
 
                 // Process properties without accessors.

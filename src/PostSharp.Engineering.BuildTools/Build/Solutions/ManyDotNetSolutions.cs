@@ -57,49 +57,48 @@ public class ManyDotNetSolutions : Solution
             // We need to build explicitly because some projects may not have a test target,
             // and may be ignored if we only test.
 
-            var task = Task.Run(
-                async () =>
+            var task = Task.Run( async () =>
+            {
+                await semaphore.WaitAsync();
+
+                // Write the build output to a buffer so we don't get mixed output.
+                var bufferingConsole = BufferingConsoleHelper.Create( context.Console );
+                var localContext = context.WithConsoleHelper( bufferingConsole ).WithUseProjectDirectoryAsWorkingDirectory( true );
+
+                try
                 {
-                    await semaphore.WaitAsync();
-
-                    // Write the build output to a buffer so we don't get mixed output.
-                    var bufferingConsole = BufferingConsoleHelper.Create( context.Console );
-                    var localContext = context.WithConsoleHelper( bufferingConsole ).WithUseProjectDirectoryAsWorkingDirectory( true );
-
-                    try
+                    if ( solution.Build( localContext, settings ) )
                     {
-                        if ( solution.Build( localContext, settings ) )
+                        if ( test && solution.TestMethod == Model.BuildMethod.Test )
                         {
-                            if ( test && solution.TestMethod == Model.BuildMethod.Test )
+                            if ( !solution.Test( localContext, settings ) )
                             {
-                                if ( !solution.Test( localContext, settings ) )
-                                {
-                                    failedProjects.Add( solution );
-                                }
+                                failedProjects.Add( solution );
                             }
                         }
-                        else
-                        {
-                            failedProjects.Add( solution );
-                        }
                     }
-                    catch ( TaskCanceledException )
+                    else
                     {
-                        bufferingConsole.WriteError( "The build has been canceled." );
                         failedProjects.Add( solution );
                     }
-                    finally
-                    {
-                        semaphore.Release();
+                }
+                catch ( TaskCanceledException )
+                {
+                    bufferingConsole.WriteError( "The build has been canceled." );
+                    failedProjects.Add( solution );
+                }
+                finally
+                {
+                    semaphore.Release();
 
-                        // Write the output, but within a lock to avoid mixes.
-                        lock ( consoleSync )
-                        {
-                            context.Console.WriteHeading( $"{verb} {solution.SolutionPath}" );
-                            bufferingConsole.Replay();
-                        }
+                    // Write the output, but within a lock to avoid mixes.
+                    lock ( consoleSync )
+                    {
+                        context.Console.WriteHeading( $"{verb} {solution.SolutionPath}" );
+                        bufferingConsole.Replay();
                     }
-                } );
+                }
+            } );
 
             tasks.Add( task );
         }

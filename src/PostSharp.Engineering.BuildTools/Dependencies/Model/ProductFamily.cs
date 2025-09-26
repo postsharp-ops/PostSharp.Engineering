@@ -18,7 +18,7 @@ public class ProductFamily
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitions = new();
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitionsByCiId = new();
     private readonly ProductFamily[] _relativeFamilies;
-    
+
     public static string ConsolidatedProjectName { get; } = "Consolidated";
 
     public string Name { get; set; }
@@ -69,9 +69,8 @@ public class ProductFamily
         {
             var dependencies = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany( a => a.GetTypes() )
-                .Where(
-                    t => t.GetProperties( BindingFlags.Public | BindingFlags.Static )
-                        .Any( p => p.PropertyType.IsAssignableTo( typeof(DependencyDefinition) ) ) )
+                .Where( t => t.GetProperties( BindingFlags.Public | BindingFlags.Static )
+                            .Any( p => p.PropertyType.IsAssignableTo( typeof(DependencyDefinition) ) ) )
                 .ToList();
 
             // Assert the namespace didn't change.
@@ -99,7 +98,10 @@ public class ProductFamily
     public bool TryGetDependencyDefinitionByCiId( string name, [NotNullWhen( true )] out DependencyDefinition? definition )
         => this.TryGetDependencyDefinition( name, f => f._dependencyDefinitionsByCiId, out definition );
 
-    private bool TryGetDependencyDefinition( string name, Func<ProductFamily, IReadOnlyDictionary<string, DependencyDefinition>> getDependencyDefinitions, [NotNullWhen( true )] out DependencyDefinition? definition )
+    private bool TryGetDependencyDefinition(
+        string name,
+        Func<ProductFamily, IReadOnlyDictionary<string, DependencyDefinition>> getDependencyDefinitions,
+        [NotNullWhen( true )] out DependencyDefinition? definition )
     {
         if ( getDependencyDefinitions( this ).TryGetValue( name, out definition ) )
         {

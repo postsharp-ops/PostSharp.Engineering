@@ -14,6 +14,6 @@ public record DownloadFile( string Name, DateTime CreatedAt, string? Description
         var name = Path.GetFileName( path );
         var createdAt = File.GetCreationTimeUtc( path );
 
-        return new( name, createdAt, description, instructions );
+        return new DownloadFile( name, createdAt, description, instructions );
     }
 }

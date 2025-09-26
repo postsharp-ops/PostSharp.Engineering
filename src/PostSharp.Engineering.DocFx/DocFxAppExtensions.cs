@@ -14,16 +14,15 @@ public static class DocFxAppExtensions
         options ??= new DocFxOptions();
         var data = new DocFxCommandData( app.Product, options );
 
-        app.Configure(
-            config =>
-            {
-                config.AddBranch(
-                    "docfx",
-                    branch =>
-                    {
-                        branch.AddCommand<DocFxMetadataCommand>( "metadata" ).WithData( data );
-                        branch.AddCommand<DocFxBuildCommand>( "build" ).WithData( data );
-                    } );
-            } );
+        app.Configure( config =>
+        {
+            config.AddBranch(
+                "docfx",
+                branch =>
+                {
+                    branch.AddCommand<DocFxMetadataCommand>( "metadata" ).WithData( data );
+                    branch.AddCommand<DocFxBuildCommand>( "build" ).WithData( data );
+                } );
+        } );
     }
 }

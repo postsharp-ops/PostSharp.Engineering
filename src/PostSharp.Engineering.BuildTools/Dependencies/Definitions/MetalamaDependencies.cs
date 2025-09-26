@@ -12,18 +12,22 @@ public partial class MetalamaDependencies
 {
     private const string _projectName = "Metalama";
 
-    private static VcsRepository CreateMetalamaVcsRepository( string name, VcsProvider provider, MetalamaGitHubOrganization? organization, string? defaultBranchParameter )
+    private static VcsRepository CreateMetalamaVcsRepository(
+        string name,
+        VcsProvider provider,
+        MetalamaGitHubOrganization? organization,
+        string? defaultBranchParameter )
     {
         switch ( provider )
         {
             case VcsProvider.AzureDevOps:
-                if (organization != null )
+                if ( organization != null )
                 {
                     throw new InvalidOperationException( "Azure DevOps does not support organizations." );
                 }
 
                 return new AzureDevOpsRepository( _projectName, name, defaultBranchParameter: defaultBranchParameter );
-            
+
             case VcsProvider.GitHub:
                 if ( organization == null )
                 {
@@ -38,7 +42,7 @@ public partial class MetalamaDependencies
                 };
 
                 return new GitHubRepository( name, owner: organizationName, defaultBranchParameter: defaultBranchParameter );
-            
+
             default:
                 throw new InvalidOperationException( $"Unknown VCS provider: \"{provider}\"" );
         }

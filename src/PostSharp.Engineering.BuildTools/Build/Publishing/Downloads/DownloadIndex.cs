@@ -29,8 +29,7 @@ public record DownloadIndex( DownloadFolder Folder, string? Name, bool IsPartial
 
         var files = string.Join(
             Environment.NewLine,
-            this.Folder.Files.Select(
-                f => $@"<File Name=""{f.Name}"" CreatedAt=""{FormatTime( f.CreatedAt )}"">
+            this.Folder.Files.Select( f => $@"<File Name=""{f.Name}"" CreatedAt=""{FormatTime( f.CreatedAt )}"">
         <Description>
           {FormatString( f.Description )}
         </Description>

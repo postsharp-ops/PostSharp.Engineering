@@ -17,21 +17,20 @@ public class DockerIgnore
         this._regexPatterns =
             File.ReadAllLines( path )
                 .Where( line => !string.IsNullOrWhiteSpace( line ) && !line.TrimStart().StartsWith( "#", StringComparison.Ordinal ) )
-                .SelectMany(
-                    line =>
-                    {
-                        var pattern = ConvertStarPatternToRegex( line );
+                .SelectMany( line =>
+                {
+                    var pattern = ConvertStarPatternToRegex( line );
 
-                        if ( pattern.Negation )
-                        {
-                            // Negations are not implemented yet.
-                            return [];
-                        }
-                        else
-                        {
-                            return new[] { pattern.Pattern, pattern.Pattern + "/.+" };
-                        }
-                    } )
+                    if ( pattern.Negation )
+                    {
+                        // Negations are not implemented yet.
+                        return [];
+                    }
+                    else
+                    {
+                        return new[] { pattern.Pattern, pattern.Pattern + "/.+" };
+                    }
+                } )
                 .Select( pattern => new Regex( pattern, RegexOptions.Compiled | RegexOptions.IgnoreCase ) )
                 .ToList();
     }

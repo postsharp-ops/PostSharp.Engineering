@@ -10,7 +10,8 @@ namespace PostSharp.Engineering.BuildTools.Tools.Git;
 [PublicAPI]
 internal class SetDefaultBranchSettings : BaseBuildSettings
 {
-    [Description( "The branch name to be set as default. When omitted, the default branch is selected according to the current branch. Examples: 'develop/2023.0'" )]
+    [Description(
+        "The branch name to be set as default. When omitted, the default branch is selected according to the current branch. Examples: 'develop/2023.0'" )]
     [CommandArgument( 0, "[default-branch]" )]
     public string? DefaultBranch { get; protected set; }
 

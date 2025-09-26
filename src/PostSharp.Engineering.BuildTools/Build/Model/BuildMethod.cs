@@ -3,7 +3,7 @@
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     /// <summary>
-    /// Enumerates the method that determines what <see cref="BuildCommand"/> or <see cref="Product.Build"/>
+    /// Enumerates the method that determines what <see cref="BuildCommand"/>
     /// should do. This property is exposed by <see cref="Solution"/>.
     /// </summary>
     public enum BuildMethod

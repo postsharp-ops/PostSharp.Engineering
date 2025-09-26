@@ -98,13 +98,12 @@ public abstract class DocFxDocumentParser : DocumentParser
         // API pages containing H4s that don't belong to member lists
         // are split to individual snippets according to the H4s.
         if ( breadcrumb.IsApiDoc && (document.DocumentNode.SelectNodes( "//h4" )
-                ?.Any(
-                    h =>
-                    {
-                        var id = h.Attributes["id"]?.Value;
+                ?.Any( h =>
+                {
+                    var id = h.Attributes["id"]?.Value;
 
-                        return id == null || !DocFxApiArticleHelper.IsMemberListItemId( id );
-                    } ) ?? false) )
+                    return id == null || !DocFxApiArticleHelper.IsMemberListItemId( id );
+                } ) ?? false) )
         {
             // Eg. Method, Constructor, Property, Operator, ...
             this._titlePrefix = this._title.Split(

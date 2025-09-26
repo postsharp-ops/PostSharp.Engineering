@@ -18,7 +18,7 @@ internal class DocumentationUpdater : CollectionUpdater
     private readonly ImmutableArray<string> _products;
     private readonly DocumentParserFactory _documentParserFactory;
 
-    public DocumentationUpdater( ImmutableArray<string> products, DocumentParserFactory documentParserFactory,  SearchBackendBase backend ) : base( backend )
+    public DocumentationUpdater( ImmutableArray<string> products, DocumentParserFactory documentParserFactory, SearchBackendBase backend ) : base( backend )
     {
         this._products = products;
         this._documentParserFactory = documentParserFactory;
@@ -30,7 +30,7 @@ internal class DocumentationUpdater : CollectionUpdater
 
         var handler = new HttpClientHandler();
         handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-        
+
         handler.ServerCertificateCustomValidationCallback =
             ( _, _, _, _ ) => true;
 

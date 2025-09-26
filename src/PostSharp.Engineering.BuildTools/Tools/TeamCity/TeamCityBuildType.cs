@@ -8,20 +8,20 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity;
 public enum TeamCityBuildType
 {
     /// <summary>
-    /// The build of product will be scheduled on TeamCity. <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TriggerTeamCityBuild"/>
-    /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeId"/>
+    /// The build of product will be scheduled on TeamCity. <see cref="TeamCityHelper.TriggerTeamCityBuild"/>
+    /// and <see cref="TeamCityHelper.TryGetBuildTypeId"/>
     /// </summary>
     Build,
 
     /// <summary>
-    /// The deployment of product will be scheduled on TeamCity. <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TriggerTeamCityBuild"/>
-    /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeId"/>
+    /// The deployment of product will be scheduled on TeamCity. <see cref="TeamCityHelper.TriggerTeamCityBuild"/>
+    /// and <see cref="TeamCityHelper.TryGetBuildTypeId"/>
     /// </summary>
     Deploy,
 
     /// <summary>
-    /// The version bump of product will be scheduled on TeamCity. <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TriggerTeamCityBuild"/>
-    /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeId"/>
+    /// The version bump of product will be scheduled on TeamCity. <see cref="TeamCityHelper.TriggerTeamCityBuild"/>
+    /// and <see cref="TeamCityHelper.TryGetBuildTypeId"/>
     /// </summary>
     Bump
 }

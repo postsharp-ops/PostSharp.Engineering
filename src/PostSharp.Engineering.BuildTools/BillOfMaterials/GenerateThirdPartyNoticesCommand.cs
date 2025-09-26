@@ -85,9 +85,9 @@ internal class GenerateThirdPartyNoticesCommand : BaseCommand<GenerateThirdParty
         writer.WriteLine( "| Namespace | Justification |" );
         writer.WriteLine( "|-----------|---------------|" );
 
-        foreach ( var exclusion in (DependencyWalker.DefaultDependentPackageExclusions
+        foreach ( var exclusion in DependencyWalker.DefaultDependentPackageExclusions
                      .Concat( context.Product.DependentPackageExclusions )
-                     .OrderBy( x => x.Namespace )) )
+                     .OrderBy( x => x.Namespace ) )
 
         {
             writer.WriteLine( $"| {exclusion.Namespace.TrimEnd( '.' )} | {exclusion.Justification} |" );

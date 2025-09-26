@@ -15,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.Git
     internal class GitBulkRenameCommand : Command<GitBulkRenameSettings>
     {
         // ReSharper disable RedundantNullableFlowAttribute
-        public override int Execute( [NotNull] CommandContext context, [NotNull] GitBulkRenameSettings settings )
+        public override int Execute( CommandContext context, GitBulkRenameSettings settings )
         {
             // https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/file-system/how-to-iterate-through-a-directory-tree
 

@@ -11,7 +11,7 @@ internal class TeamCityCreateProjectCommand : BaseCommand<TeamCityCreateProjectC
     protected override bool ExecuteCore( BuildContext context, TeamCityCreateProjectCommandSettings settings )
     {
         context.Console.WriteHeading( $"Creating project {settings.Name}" );
-        
+
         if ( !TeamCityHelper.TryCreateProject( context, settings.Name, settings.Id, settings.ParentId, settings.VcsRootId ) )
         {
             return false;

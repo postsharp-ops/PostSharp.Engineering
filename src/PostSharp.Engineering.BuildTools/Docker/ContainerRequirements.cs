@@ -82,7 +82,7 @@ public record ContainerRequirements : BuildAgentRequirements
             component.PopulateContextDirectory( context, contextDirectory );
             component.WriteDockerfile( dockerfileContent );
         }
-        
+
         TextFileHelper.WriteIfDifferent( dockerfilePath, dockerfileContent.ToString(), context );
 
         return true;

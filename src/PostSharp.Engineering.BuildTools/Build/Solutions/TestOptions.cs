@@ -10,10 +10,10 @@ public class TestOptions
     public bool IgnoreExitCode { get; set; }
 
     public string[]? ErrorRegexes { get; set; }
-    
+
     public string[]? ExpectedDiagnosticsRegexes { get; set; }
-    
+
     public bool FailOnUnexpectedDiagnostics { get; set; }
-    
+
     public bool BuildOnly { get; set; }
 }

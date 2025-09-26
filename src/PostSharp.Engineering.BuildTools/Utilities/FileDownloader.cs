@@ -98,7 +98,7 @@ internal class FileDownloader : IDisposable
 
                     var directory = Path.GetDirectoryName( file.TargetFile )
                                     ?? throw new InvalidOperationException( $"Directory of '{file.TargetFile}' could not be determined." );
-                    
+
                     Directory.CreateDirectory( directory );
 
                     await using var httpStream = await this._httpClient.GetStreamAsync( file.SourceUrl, this._cancellationToken );

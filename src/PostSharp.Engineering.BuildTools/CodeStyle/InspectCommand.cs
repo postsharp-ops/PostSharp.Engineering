@@ -18,7 +18,8 @@ internal class InspectCommand : ResharperCommand
 
         context.Console.WriteImportantMessage( $"Writing result to '{outputPath}'." );
 
-        return $"inspectcode \"{Path.Combine( context.RepoDirectory, solution.SolutionFilterPathForInspectCode ?? solution.SolutionPath )}\" --build -o={outputPath} --severity=WARNING -f=Xml";
+        return
+            $"inspectcode \"{Path.Combine( context.RepoDirectory, solution.SolutionFilterPathForInspectCode ?? solution.SolutionPath )}\" --build -o={outputPath} --severity=WARNING -f=Xml";
     }
 
     protected override void OnSuccessfulExecution( BuildContext context, Solution solution )
@@ -27,6 +28,8 @@ internal class InspectCommand : ResharperCommand
 
         var solutionDirectory = Path.GetDirectoryName( solution.SolutionPath );
 
-        ProcessInspectOutputCommand.ExecuteImpl( context, new ProcessInspectOutputCommandSettings() { Path = outputPath, SolutionDirectory = solutionDirectory } );
+        ProcessInspectOutputCommand.ExecuteImpl(
+            context,
+            new ProcessInspectOutputCommandSettings() { Path = outputPath, SolutionDirectory = solutionDirectory } );
     }
 }

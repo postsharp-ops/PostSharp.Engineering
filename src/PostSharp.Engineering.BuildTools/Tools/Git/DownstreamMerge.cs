@@ -311,7 +311,7 @@ internal static class DownstreamMerge
             return false;
         }
 
-        if ( !TryMerge( context, settings, sourceBranch, targetBranch, downstreamBranch, out var areChangesPending ) )
+        if ( !TryMerge( context, sourceBranch, targetBranch, downstreamBranch, out var areChangesPending ) )
         {
             return false;
         }
@@ -355,7 +355,6 @@ internal static class DownstreamMerge
 
     private static bool TryMerge(
         BuildContext context,
-        BaseBuildSettings settings,
         string sourceBranch,
         string targetBranch,
         string downstreamBranch,

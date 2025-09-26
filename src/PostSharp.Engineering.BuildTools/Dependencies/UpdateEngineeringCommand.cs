@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
 using System.IO;
 using System.Linq;

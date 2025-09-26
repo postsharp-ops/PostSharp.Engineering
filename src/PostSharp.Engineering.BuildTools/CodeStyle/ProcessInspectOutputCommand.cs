@@ -13,8 +13,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle;
 [UsedImplicitly]
 internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOutputCommandSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, ProcessInspectOutputCommandSettings settings ) 
-        => ExecuteImpl( context, settings );
+    protected override bool ExecuteCore( BuildContext context, ProcessInspectOutputCommandSettings settings ) => ExecuteImpl( context, settings );
 
     public static bool ExecuteImpl( BuildContext context, ProcessInspectOutputCommandSettings settings )
     {

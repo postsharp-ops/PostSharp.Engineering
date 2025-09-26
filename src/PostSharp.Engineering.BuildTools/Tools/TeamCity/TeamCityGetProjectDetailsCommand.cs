@@ -16,11 +16,11 @@ internal class TeamCityGetProjectDetailsCommand : BaseCommand<TeamCityGetProject
         }
 
         var success = true;
-        
+
         context.Console.WriteMessage( "Project:" );
 
         success &= tc.TryGetProjectDetails( context.Console, settings.Id );
-        
+
         context.Console.WriteMessage( "Versioned settings configuration:" );
 
         success &= tc.TryGetProjectVersionedSettingsConfiguration( context.Console, settings.Id );

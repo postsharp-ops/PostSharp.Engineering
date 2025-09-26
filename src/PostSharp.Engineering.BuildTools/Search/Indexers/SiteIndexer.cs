@@ -58,18 +58,16 @@ public class SiteIndexer
         var uploadBatchTasks = new List<Task>( parallelism );
         var batch = new List<Snippet>( batchSize );
         var finishedBatchesCount = 0;
-        var totalBatchesCount = 0;
         var parsedDocuments = new HashSet<string>();
         var errors = 0;
 
         void StartUploadingBatch()
         {
             var documentsInBatch = batch
-                .Select(
-                    s => s.Link
-                        .Contains( '#', StringComparison.Ordinal )
-                        ? s.Link.Substring( 0, s.Link.IndexOf( '#', StringComparison.Ordinal ) )
-                        : s.Link )
+                .Select( s => s.Link
+                             .Contains( '#', StringComparison.Ordinal )
+                             ? s.Link.Substring( 0, s.Link.IndexOf( '#', StringComparison.Ordinal ) )
+                             : s.Link )
                 .Distinct()
                 .ToArray();
 
@@ -80,7 +78,6 @@ public class SiteIndexer
 
             var task = this._search.CreateDocumentsAsync( collection, batch.ToImmutableArray() );
             uploadBatchTasks.Add( task );
-            totalBatchesCount++;
             batch.Clear();
         }
 
@@ -108,9 +105,9 @@ public class SiteIndexer
         foreach ( var url in urls )
         {
             Stream stream;
-            
+
             this._console.WriteMessage( $"Fetching '{url}'." );
-            
+
             try
             {
                 stream = await this._web.GetStreamAsync( url );
@@ -169,7 +166,7 @@ public class SiteIndexer
         if ( errors > 0 )
         {
             this._console.WriteError( $"{sw.Elapsed}: Indexing failed. {errors} errors." );
-            
+
             return false;
         }
         else

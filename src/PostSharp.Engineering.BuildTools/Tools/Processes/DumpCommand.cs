@@ -3,7 +3,6 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;

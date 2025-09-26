@@ -11,19 +11,19 @@ public static class VcsUrlParser
         if ( AzureDevOpsRepository.TryParse( url, out var azureDevOpsRepository ) )
         {
             repository = azureDevOpsRepository;
-            
+
             return true;
         }
         else if ( GitHubRepository.TryParse( url, out var gitHubRepository ) )
         {
             repository = gitHubRepository;
-            
+
             return true;
         }
         else
         {
             repository = null;
-            
+
             return false;
         }
     }

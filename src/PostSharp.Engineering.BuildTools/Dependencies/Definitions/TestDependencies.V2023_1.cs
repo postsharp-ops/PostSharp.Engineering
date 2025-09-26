@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -38,7 +37,7 @@ public static partial class TestDependencies
 
         public static ProductFamily Family { get; } =
             new( _projectName, "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
-        
+
         public static DependencyDefinition Consolidated { get; } = new TestDependencyDefinition(
             ProductFamily.ConsolidatedProjectName,
             VcsProvider.AzureDevOps,

@@ -5,5 +5,5 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 internal enum MetalamaGitHubOrganization
 {
     PostSharp,
-    Metalama,
+    Metalama
 }

@@ -16,8 +16,6 @@ public class TeamCityPowerShellBuildStep : TeamCityBuildStep
 
     public string? WorkingDirectory { get; init; }
 
-    private string TimeoutParameterName => $"{this.Id}.Timeout";
-
     public TeamCityPowerShellBuildStep( string id, string name, string scriptPath, string scriptArguments )
     {
         this.Id = id;

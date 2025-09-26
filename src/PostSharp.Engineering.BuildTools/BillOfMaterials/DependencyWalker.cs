@@ -221,7 +221,7 @@ internal static class DependencyWalker
             {
                 ApplyPackageOverrides( context, packageName, packageVersionInfo, ref usageKind );
 
-                packageVersionInfo!.Usage.Add( usageKind );
+                packageVersionInfo.Usage.Add( usageKind );
 
                 if ( usageKind != DependentPackageUsageKind.Private )
                 {

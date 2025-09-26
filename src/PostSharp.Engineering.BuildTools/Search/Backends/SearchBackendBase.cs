@@ -25,12 +25,12 @@ public abstract class SearchBackendBase
     public abstract Task<string> GetTargetOfCollectionAliasAsync( string alias );
 
     public abstract Task<IEnumerable<CollectionAliasResponse>> RetrieveCollectionAliasesAsync();
-    
+
     public abstract Task CreateDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch );
-    
+
     public abstract Task UpsertDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch );
-    
+
     public abstract Task UpdateDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch );
-    
+
     public abstract Task EmplaceDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch );
 }

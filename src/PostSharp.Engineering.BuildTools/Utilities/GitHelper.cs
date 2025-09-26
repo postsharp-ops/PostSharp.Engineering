@@ -639,7 +639,7 @@ public static class GitHelper
 
                 return false;
             }
-            
+
             var tempFileName = Path.Combine( Path.GetTempPath(), "git-askpass.cmd" );
             File.WriteAllText( tempFileName, $"@echo off\r\necho %{environmentVariableName}%" );
 

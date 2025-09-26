@@ -16,12 +16,11 @@ public class TypesenseBackend : SearchBackendBase
     public TypesenseBackend( string apiKey, string host, string port, string protocol = "http" )
     {
         var services = new ServiceCollection()
-            .AddTypesenseClient(
-                config =>
-                {
-                    config.ApiKey = apiKey;
-                    config.Nodes = new List<Node> { new Node( host, port, protocol ) };
-                } )
+            .AddTypesenseClient( config =>
+            {
+                config.ApiKey = apiKey;
+                config.Nodes = new List<Node> { new( host, port, protocol ) };
+            } )
             .BuildServiceProvider();
 
         this._client = services.GetService<ITypesenseClient>()!;
@@ -47,12 +46,14 @@ public class TypesenseBackend : SearchBackendBase
 
     public override async Task<IEnumerable<CollectionResponse>> RetrieveCollectionsAsync() => await this._client.RetrieveCollections();
 
-    public override Task UpsertCollectionAliasAsync( string alias, string targetCollection ) => this._client.UpsertCollectionAlias( alias, new CollectionAlias( targetCollection ) );
+    public override Task UpsertCollectionAliasAsync( string alias, string targetCollection )
+        => this._client.UpsertCollectionAlias( alias, new CollectionAlias( targetCollection ) );
 
     public override Task DeleteCollectionAliasAsync( string alias ) => this._client.DeleteCollectionAlias( alias );
 
-    public override async Task<IEnumerable<CollectionAliasResponse>> RetrieveCollectionAliasesAsync() => (await this._client.ListCollectionAliases()).CollectionAliases;
-    
+    public override async Task<IEnumerable<CollectionAliasResponse>> RetrieveCollectionAliasesAsync()
+        => (await this._client.ListCollectionAliases()).CollectionAliases;
+
     public override async Task<string> GetTargetOfCollectionAliasAsync( string alias )
     {
         var response = await this._client.RetrieveCollectionAlias( alias );

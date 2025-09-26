@@ -15,7 +15,7 @@ internal class PrintBranchPoliciesCommand : BaseCommand<BaseBuildSettings>
     protected override bool ExecuteCore( BuildContext context, BaseBuildSettings settings )
     {
         context.Console.WriteHeading( "Getting branch policies" );
-        
+
         if ( !GitHelper.TryGetRemoteUrl( context, out var remoteUrl ) )
         {
             return false;
