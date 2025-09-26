@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,6 +17,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 
 internal static class ProcessHelper
 {
+    internal record ProcessTreeNode( Process Process, int NestingLevel );
+
     public static string? GetCommandLine( Process process )
     {
         if ( !RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
@@ -70,18 +73,17 @@ internal static class ProcessHelper
     /// <summary>
     /// Gets a collection including the parent process and all descendants.
     /// </summary>
-    private static IReadOnlyCollection<Process> GetProcessTree(
+    public static IReadOnlyCollection<ProcessTreeNode> GetProcessTree(
         ConsoleHelper console,
-        int parentId,
-        Action<(Process Process, int NestingLevel)> onProcessDiscovered )
+        int parentId )
     {
         if ( !RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
         {
             throw new PlatformNotSupportedException();
         }
 
-        var childProcesses = new Dictionary<int, Process>();
-        PopulateProcessTree( console, parentId, childProcesses, 0, onProcessDiscovered );
+        var childProcesses = new Dictionary<int, ProcessTreeNode>();
+        PopulateProcessTree( console, parentId, childProcesses, 0 );
 
         return childProcesses.Values;
     }
@@ -89,9 +91,8 @@ internal static class ProcessHelper
     private static void PopulateProcessTree(
         ConsoleHelper console,
         int parentId,
-        Dictionary<int, Process> processes,
-        int nestingLevel,
-        Action<(Process Process, int NestingLevel)> onProcessDiscovered )
+        Dictionary<int, ProcessTreeNode> processes,
+        int nestingLevel )
     {
         try
         {
@@ -111,8 +112,7 @@ internal static class ProcessHelper
                 return;
             }
 
-            processes.Add( parentId, parentProcess );
-            onProcessDiscovered( (parentProcess, nestingLevel) );
+            processes.Add( parentId, new ProcessTreeNode( parentProcess, nestingLevel ) );
 
             using var searcher = new ManagementObjectSearcher( $"SELECT ProcessId FROM Win32_Process WHERE ParentProcessId = {parentId}" );
 
@@ -139,7 +139,7 @@ internal static class ProcessHelper
 
                     // Recursively get grandchildren
 
-                    PopulateProcessTree( console, childPid, processes, nestingLevel + 1, onProcessDiscovered );
+                    PopulateProcessTree( console, childPid, processes, nestingLevel + 1 );
                 }
                 catch ( ArgumentException )
                 {
@@ -157,7 +157,7 @@ internal static class ProcessHelper
         }
     }
 
-    public static void DumpAndKillProcessTree( ConsoleHelper console, Process process, string? minidumpDirectory )
+    public static void DumpProcesses( ConsoleHelper console, IEnumerable<Process> processes, string minidumpDirectory )
     {
         if ( !RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
         {
@@ -166,34 +166,25 @@ internal static class ProcessHelper
             return;
         }
 
-        console.WriteMessage( "Process tree:" );
-
-        void PrintProcessTreeNode( (Process Process, int NestingLevel) node )
-        {
-            var indent = new string( '-', (node.NestingLevel + 1) * 3 );
-            console.WriteMessage( $"+{indent} {node.Process.Id} {GetCommandLine( node.Process )}" );
-        }
-
-        var allProcesses = GetProcessTree( console, process.Id, PrintProcessTreeNode );
-
         // Create minidumps for all processes
-        if ( minidumpDirectory != null )
+        foreach ( var p in processes )
         {
-            foreach ( var p in allProcesses )
+            if ( !p.HasExited )
             {
-                if ( !p.HasExited )
-                {
-                    TryCaptureMinidump( console, p, minidumpDirectory );
-                }
+                TryCaptureMinidump( console, p, minidumpDirectory );
             }
         }
 
         // Kill all child processes first (bottom-up)
-        foreach ( var p in allProcesses.Reverse() )
+    }
+
+    public static void KillProcesses( ConsoleHelper console, IEnumerable<Process> processes )
+    {
+        foreach ( var p in processes )
         {
             try
             {
-                if ( !p.HasExited )
+                if ( p.Id != Process.GetCurrentProcess().Id && !p.HasExited )
                 {
                     console.WriteMessage( $"Killing process {p.Id}." );
                     p.Kill( true );
@@ -213,7 +204,7 @@ internal static class ProcessHelper
         try
         {
             Directory.CreateDirectory( directory );
-            
+
             var fileName = Path.Combine( directory, $"{process.ProcessName.ToLowerInvariant()}-{process.Id}-{Guid.NewGuid()}.dmp" );
 
             if ( !ToolInvocationHelper.InvokeTool(

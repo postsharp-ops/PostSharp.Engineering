@@ -15,13 +15,14 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
         protected static string? GetCodeStyleRepo( BuildContext context, CodeStyleSettings settings )
         {
             var sharedRepo = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", "PostSharp.Engineering.CodeStyle" ) );
+            var console = context.Console;
 
             // Check if the repo exists.
             if ( !Directory.Exists( sharedRepo ) )
             {
                 if ( !settings.Create )
                 {
-                    context.Console.WriteError( $"The directory '{sharedRepo} does not exist. Use --create'" );
+                    console.WriteError( $"The directory '{sharedRepo} does not exist. Use --create'" );
 
                     return null;
                 }
@@ -29,7 +30,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                 {
                     var baseDir = Path.GetDirectoryName( sharedRepo )!;
 
-                    ToolInvocationHelper.InvokeTool( context.Console, "git", $"clone {settings.Url}", baseDir );
+                    ToolInvocationHelper.InvokeTool( console, "git", $"clone {settings.Url}", baseDir );
                 }
             }
 

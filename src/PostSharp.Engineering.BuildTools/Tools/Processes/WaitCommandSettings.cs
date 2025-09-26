@@ -6,8 +6,8 @@ using Spectre.Console.Cli;
 namespace PostSharp.Engineering.BuildTools.Tools.Processes;
 
 [UsedImplicitly]
-internal sealed class DumpAndKillCommandSettings : CommonCommandSettings
+internal class WaitCommandSettings : CommonCommandSettings
 {
-    [CommandArgument( 0, "<process-id>" )]
-    public int ProcessId { get; init; }
+    [CommandArgument( 0, "<seconds>" )]
+    public int Seconds { get; init; }
 }

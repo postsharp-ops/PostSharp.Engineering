@@ -24,7 +24,12 @@ namespace PostSharp.Engineering.BuildTools
     {
         public sealed override int Execute( CommandContext context, T settings )
         {
+            // We use two CancellationTokenSources: one for timeout, the second for manual Ctrl+C, so that we can react differently
+            // according to the cancellation reason.
             CancellationTokenSource? timeoutCancellation = null;
+
+            var mainCancellation = new CancellationTokenSource();
+            Console.CancelKeyPress += ( _, _ ) => mainCancellation.Cancel();
 
             try
             {
@@ -35,7 +40,7 @@ namespace PostSharp.Engineering.BuildTools
                     Debugger.Launch();
                 }
 
-                if ( !BuildContext.TryCreate( context, settings, out var buildContext ) )
+                if ( !BuildContext.TryCreate( context, settings, mainCancellation.Token, out var buildContext ) )
                 {
                     return 1;
                 }
@@ -49,7 +54,7 @@ namespace PostSharp.Engineering.BuildTools
                 if ( settings.Timeout != null )
                 {
                     timeoutCancellation = new CancellationTokenSource( TimeSpan.FromMinutes( settings.Timeout.Value ) );
-                    timeoutCancellation.Token.Register( () => OnTimeout( buildContext, stopwatch ) );
+                    timeoutCancellation.Token.Register( () => OnTimeout( buildContext, stopwatch, mainCancellation ) );
                 }
 
                 MSBuildHelper.InitializeLocator();
@@ -149,18 +154,23 @@ namespace PostSharp.Engineering.BuildTools
                 // Execute the command itself.
                 var success = this.ExecuteCore( buildContext, settings );
 
+                if ( buildContext.CancellationToken.IsCancellationRequested )
+                {
+                    return (int) ExitCodes.Cancelled;
+                }
+
                 if ( !settings.NoLogo )
                 {
                     buildContext.Console.WriteMessage( $"Finished at {DateTime.Now} after {stopwatch.Elapsed}." );
                 }
 
-                return success ? 0 : 1;
+                return (int) (success ? ExitCodes.Success : ExitCodes.Error);
             }
             catch ( Exception ex )
             {
                 AnsiConsole.WriteException( ex );
 
-                return 10;
+                return (int) ExitCodes.Exception;
             }
             finally
             {
@@ -170,15 +180,42 @@ namespace PostSharp.Engineering.BuildTools
 
         protected abstract bool ExecuteCore( BuildContext context, T settings );
 
-        private static void OnTimeout( BuildContext buildContext, Stopwatch stopwatch )
+        private static void OnTimeout( BuildContext buildContext, Stopwatch stopwatch, CancellationTokenSource mainCancellation )
         {
-            // ReSharper disable AccessToModifiedClosure
+            var console = buildContext.Console;
 
-            buildContext.Console.WriteError( $"The process timed out after {stopwatch.Elapsed}. Dumping and killing the process tree." );
-            var directory = Path.Combine( buildContext.RepoDirectory, buildContext.Product.DumpDirectory );
-            ProcessHelper.DumpAndKillProcessTree( buildContext.Console, Process.GetCurrentProcess(), directory );
+            if ( RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
+            {
+                console.WriteError( $"The process timed out after {stopwatch.Elapsed}. Dumping and killing the process tree." );
+                var directory = Path.Combine( buildContext.RepoDirectory, buildContext.Product.DumpDirectory );
 
-            // ReSharper restore AccessToModifiedClosure
+                // List all child processes.
+                var processes = ProcessHelper.GetProcessTree( console, Process.GetCurrentProcess().Id );
+
+                console.WriteMessage( "Process tree:" );
+
+                foreach ( var node in processes )
+                {
+                    var indent = new string( '-', (node.NestingLevel + 1) * 3 );
+                    console.WriteMessage( $"+{indent} {node.Process.Id} {ProcessHelper.GetCommandLine( node.Process )}" );
+                }
+
+                // Dump these processes.
+                ProcessHelper.DumpProcesses( console, processes.Select( p => p.Process ), directory );
+
+                // Signal the main cancellation source.
+                mainCancellation.Cancel();
+
+                // Kill all processes (except the current one) in reverse order.
+                ProcessHelper.KillProcesses( console, processes.Reverse().Select( x => x.Process ) );
+            }
+            else
+            {
+                console.WriteError( $"The process timed out after {stopwatch.Elapsed}. Exiting." );
+            }
+
+            console.WriteWarning( "Terminating the current process." );
+            Environment.FailFast( $"The process timed out after {stopwatch.Elapsed}." );
         }
     }
 }

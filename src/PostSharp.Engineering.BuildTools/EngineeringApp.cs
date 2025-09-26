@@ -27,5 +27,5 @@ public sealed class EngineeringApp
         this._app.Configure( configure );
     }
 
-    public int Run( IEnumerable<string> args ) => this._app.Run( args );
+    public int Run( IEnumerable<string> args ) { return this._app.Run( args ); }
 }

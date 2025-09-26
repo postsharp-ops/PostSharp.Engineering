@@ -118,7 +118,7 @@ namespace PostSharp.Engineering.BuildTools
 
         [Description( "Overrides the build timeout." )]
         [CommandOption( "--timeout" )]
-        public int? Timeout { get; set; }
+        public double? Timeout { get; set; }
 
         public ImmutableDictionary<string, string> Properties { get; protected set; } =
             ImmutableDictionary.Create<string, string>( StringComparer.OrdinalIgnoreCase );

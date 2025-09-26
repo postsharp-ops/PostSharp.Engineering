@@ -219,11 +219,15 @@ namespace PostSharp.Engineering.BuildTools
                     {
                         tools.AddCommand<KillCommand>( "kill" )
                             .WithData( data )
-                            .WithDescription( "Kill all compiler processes" );
+                            .WithDescription( "Kill all compiler processes." );
 
-                        tools.AddCommand<DumpAndKillCommand>( "dump-and-kill" )
+                        tools.AddCommand<DumpCommand>( "dump" )
                             .WithData( data )
-                            .WithDescription( "Dump and kill a given process and all its descendants" );
+                            .WithDescription( "Dump a given process and all its descendants." );
+
+                        tools.AddCommand<WaitCommand>( "wait" )
+                            .WithData( data )
+                            .WithDescription( "Wait a given number of seconds. When used to test the behavior of the the --timeout argument." );
 
                         tools.AddBranch(
                             "csproj",

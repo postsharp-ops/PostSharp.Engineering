@@ -217,6 +217,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             for ( var attempt = 0; attempt < retryAttempts; attempt++ )
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
 #pragma warning disable CA1307 // There is no string.Contains that takes a StringComparison
                 if ( fileName.Contains( new string( Path.DirectorySeparatorChar, 1 ) ) && !File.Exists( fileName ) )
                 {
@@ -441,6 +443,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
                             continue;
                         }
+
+                        cancellationToken.ThrowIfCancellationRequested();
 
                         return true;
                     }

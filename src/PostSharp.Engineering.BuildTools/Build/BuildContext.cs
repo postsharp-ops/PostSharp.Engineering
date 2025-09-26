@@ -9,6 +9,7 @@ using Spectre.Console.Cli;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.Build
 {
@@ -72,7 +73,8 @@ namespace PostSharp.Engineering.BuildTools.Build
             string branch,
             CommandContext commandContext,
             bool useProjectDirectoryAsWorkingDirectory,
-            CommonCommandSettings settings )
+            CommonCommandSettings settings,
+            CancellationToken cancellationToken )
         {
             this.Console = console;
             this.RepoDirectory = repoDirectory;
@@ -81,6 +83,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             this.CommandContext = commandContext;
             this.UseProjectDirectoryAsWorkingDirectory = useProjectDirectoryAsWorkingDirectory;
             this.Settings = settings;
+            this.CancellationToken = cancellationToken;
         }
 
         /// <summary>
@@ -89,6 +92,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         public static bool TryCreate(
             CommandContext commandContext,
             CommonCommandSettings settings,
+            CancellationToken cancellationToken,
             [NotNullWhen( true )] out BuildContext? buildContext )
         {
             buildContext = null;
@@ -114,7 +118,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 currentBranch,
                 commandContext,
                 useProjectDirectoryAsWorkingDirectory: false,
-                settings );
+                settings,
+                cancellationToken );
 
             return true;
         }
@@ -158,7 +163,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 this.Branch,
                 this.CommandContext,
                 this.UseProjectDirectoryAsWorkingDirectory,
-                this.Settings );
+                this.Settings,
+                this.CancellationToken );
 
         public BuildContext WithUseProjectDirectoryAsWorkingDirectory( bool useProjectDirectoryAsWorkingDirectory )
             => new(
@@ -168,7 +174,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 this.Branch,
                 this.CommandContext,
                 useProjectDirectoryAsWorkingDirectory,
-                this.Settings );
+                this.Settings,
+                this.CancellationToken );
 
         [PublicAPI]
 #pragma warning disable CA1822
@@ -179,6 +186,8 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         [PublicAPI]
         public CommonCommandSettings Settings { get; }
+
+        public CancellationToken CancellationToken { get; }
 
         internal TimeSpan BuildTimeout
         {

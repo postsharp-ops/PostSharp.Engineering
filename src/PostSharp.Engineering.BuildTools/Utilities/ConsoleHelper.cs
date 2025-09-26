@@ -21,6 +21,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         private static void OnCancel( object? sender, ConsoleCancelEventArgs e ) => _cancellationTokenSource.Cancel();
 
+        public static void Cancel() => _cancellationTokenSource.Cancel();
+
+        // This now de facto a synonym of BuildContext.CancellationToken, but unifying this requires many changes.
         public static CancellationToken CancellationToken => _cancellationTokenSource.Token;
 
         public IAnsiConsole? Out { get; }
@@ -28,7 +31,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         public IAnsiConsole? Error { get; }
 
         public int ConsoleWidth => this.Out?.Profile.Width ?? Console.WindowWidth;
-        
+
         public int ConsoleHeight => this.Out?.Profile.Height ?? Console.WindowHeight;
 
         public void WriteError( string format, params object[] args ) => this.WriteError( string.Format( CultureInfo.InvariantCulture, format, args ) );
@@ -145,7 +148,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 foreach ( var row in table.Rows )
                 {
                     Console.Write( "| " );
-                    
+
                     foreach ( var cell in row )
                     {
                         Console.Write( cell.ToString() );
@@ -166,7 +169,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             T GetSetting<T>( string name, T defaultValue ) where T : struct
             {
                 var value = Environment.GetEnvironmentVariable( name );
-                
+
                 return value == null ? defaultValue : Enum.Parse<T>( value );
             }
 
@@ -176,10 +179,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 return;
             }
-            
+
             var colorSystem = GetSetting( "ConsoleColorSystem", ColorSystemSupport.Detect );
             var interactive = GetSetting( "ConsoleInteractive", InteractionSupport.Detect );
-            
+
             IAnsiConsole CreateConsole( TextWriter writer )
             {
                 return AnsiConsole.Create(
