@@ -109,17 +109,6 @@ internal class TestCommand : BaseCommand<BuildSettings>
 
             File.WriteAllText( emptyFile, "This file is intentionally empty." );
         }
-        
-        var dumpDirectory = Path.Combine( context.RepoDirectory, product.DumpDirectory );
-    
-        if ( !Directory.GetFiles( dumpDirectory ).Any() )
-        {
-            // We have to create an empty file, otherwise TeamCity will complain that
-            // artifacts are missing.
-            var emptyFile = Path.Combine( dumpDirectory, ".empty" );
-
-            File.WriteAllText( emptyFile, "This file is intentionally empty." );
-        }
 
         // Raise the post-test event.
         var buildInfo = BuildArguments.Read( context, settings.BuildConfiguration );

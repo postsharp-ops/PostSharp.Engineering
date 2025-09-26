@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.Build.Helpers;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
@@ -52,6 +53,11 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
         {
             return false;
         }
+        
+        // Create the dump directory because TeamCity does not like empty directories.
+        var dumpDirectory = Path.Combine( context.RepoDirectory, product.DumpDirectory );
+        Directory.CreateDirectory( dumpDirectory );
+        File.WriteAllText( Path.Combine( dumpDirectory, ".empty" ), "This file is intentionally empty." );
 
         // Execute the event.
         product.OnPrepareCompleted( new PrepareCompletedEventArgs( context, settings ) );
