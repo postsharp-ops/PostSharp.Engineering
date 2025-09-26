@@ -10,16 +10,18 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         private readonly string? _objectName;
         private readonly string? _projectName;
         private readonly TeamCityBuildConfiguration[] _configurations;
+        private readonly string[] _additionalBuildTypes;
         private readonly TeamCityProject[] _subProjects;
 
-        public TeamCityProject( TeamCityBuildConfiguration[] configurations, TeamCityProject[]? subProjects = null )
+        public TeamCityProject( TeamCityBuildConfiguration[] configurations, string[] additionalBuildTypes, TeamCityProject[]? subProjects = null )
         {
             this._configurations = configurations;
+            this._additionalBuildTypes = additionalBuildTypes;
             this._subProjects = subProjects ?? [];
         }
 
-        public TeamCityProject( string objectName, string projectName, TeamCityBuildConfiguration[] configurations, TeamCityProject[]? subProjects = null )
-            : this( configurations, subProjects )
+        public TeamCityProject( string objectName, string projectName, TeamCityBuildConfiguration[] configurations, string[] additionalBuildTypes, TeamCityProject[]? subProjects = null )
+            : this( configurations, additionalBuildTypes, subProjects )
         {
             this._objectName = objectName;
             this._projectName = projectName;
@@ -49,6 +51,11 @@ project {
                 foreach ( var configuration in project._configurations )
                 {
                     writer.WriteLine( $"    buildType({configuration.ObjectName})" );
+                }
+                
+                foreach ( var configuration in project._additionalBuildTypes )
+                {
+                    writer.WriteLine( $"    buildType({configuration})" );
                 }
 
                 writer.WriteLine();

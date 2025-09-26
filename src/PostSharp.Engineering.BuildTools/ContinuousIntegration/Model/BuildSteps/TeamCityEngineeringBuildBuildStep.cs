@@ -6,7 +6,7 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
-public class TeamCityEngineeringBuildBuildStep : TeamCityEngineeringCommandBuildStep
+internal class TeamCityEngineeringBuildBuildStep : TeamCityEngineeringCommandBuildStep
 {
     public TeamCityEngineeringBuildBuildStep( BuildConfiguration configuration, bool testOnBuild, DockerSpec? dockerSpec, TimeSpan? timeout ) : base(
         "Build",

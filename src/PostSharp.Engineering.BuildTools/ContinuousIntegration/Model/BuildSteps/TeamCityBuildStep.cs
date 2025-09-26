@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
-public abstract class TeamCityBuildStep
+internal abstract class TeamCityBuildStep
 {
     private readonly List<TeamCityBuildConfigurationParameter> _parameters = new();
 

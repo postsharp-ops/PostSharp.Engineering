@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
-public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
+internal class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
 {
     private readonly DockerSpec? _dockerSpec;
 

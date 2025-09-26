@@ -4,7 +4,7 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
-public class TeamCityPowerShellBuildStep : TeamCityBuildStep
+internal class TeamCityPowerShellBuildStep : TeamCityBuildStep
 {
     public string Id { get; }
 

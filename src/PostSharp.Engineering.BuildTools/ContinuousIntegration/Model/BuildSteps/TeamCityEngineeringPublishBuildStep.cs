@@ -6,7 +6,7 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 
-public class TeamCityEngineeringPublishBuildStep : TeamCityEngineeringCommandBuildStep
+internal class TeamCityEngineeringPublishBuildStep : TeamCityEngineeringCommandBuildStep
 {
     public TeamCityEngineeringPublishBuildStep( BuildConfiguration configuration, DockerSpec? dockerSpec, TimeSpan? timeSpan ) : base(
         "Publish",
