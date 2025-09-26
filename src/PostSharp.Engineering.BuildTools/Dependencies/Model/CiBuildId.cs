@@ -9,21 +9,22 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 public record CiBuildId( int BuildNumber, string? BuildTypeId ) : ICiBuildSpec
 {
     // This is a hack to guess the build configuration from the BuildTypeId because this information is not available
-    // when we restore artifacts.
+    // when we restore artifacts. It is only useful for Metalama.Compiler, all other products do not take the BuildConfiguration
+    // into account.
     public BuildConfiguration BuildConfiguration
     {
         get
         {
             if ( this.BuildTypeId == null )
             {
-                throw new InvalidOperationException( "BuildTypeId is null." );
+                return default;
             }
 
             var match = Regex.Match( this.BuildTypeId, "_([A-Z][a-z]+)Build$" );
 
             if ( !match.Success )
             {
-                throw new InvalidOperationException( $"BuildTypeId '{this.BuildTypeId}' cannot be parsed." );
+                return default;
             }
 
             return Enum.Parse<BuildConfiguration>( match.Groups[1].Value );
