@@ -9,15 +9,42 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Xml.Linq;
 using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
 [UsedImplicitly]
-internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
+internal class UpdateEngineeringCommand : BaseCommand<UpdateEngineeringCommandSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
+    protected override bool ExecuteCore( BuildContext context, UpdateEngineeringCommandSettings settings )
+    {
+        if ( settings.Repeat )
+        {
+            do
+            {
+                var exitCode = this.ExecuteOnce( context );
+
+                if ( exitCode == ExitCode.Success )
+                {
+                    return true;
+                }
+
+                context.Console.WriteMessage( "Waiting for 30 seconds." );
+                Thread.Sleep( TimeSpan.FromSeconds( 30 ) );
+            }
+            while ( true );
+        }
+        else
+        {
+            context.ExitCode = this.ExecuteOnce( context );
+
+            return context.ExitCode == ExitCode.Success;
+        }
+    }
+
+    private ExitCode ExecuteOnce( BuildContext context )
     {
         var httpClient = new HttpClient();
 
@@ -132,13 +159,14 @@ internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
 
             // Generate scripts.
             console.WriteWarning( "Now run `./Build.ps1 generate-scripts` with this new version." );
+
+            return ExitCode.Success;
         }
         else
         {
             console.WriteWarning( $"PostSharp.Engineering was already of the latest version ({lastVersion})." );
-            context.ExitCode = ExitCode.NoChangeMade;
-        }
 
-        return true;
+            return ExitCode.NoChangeMade;
+        }
     }
 }
