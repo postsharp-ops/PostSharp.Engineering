@@ -2,7 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.Build.Swapping;
-using PostSharp.Engineering.BuildTools.Build.Triggers;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using System;
 
 namespace PostSharp.Engineering.BuildTools.Build;

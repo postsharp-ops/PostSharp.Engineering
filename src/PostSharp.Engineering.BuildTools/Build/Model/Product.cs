@@ -4,8 +4,8 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.BillOfMaterials;
 using PostSharp.Engineering.BuildTools.Build.Bumping;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
-using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -251,7 +251,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public Version? MSBuildVersion { get; init; }
 
-        public string[] ExternalTeamCityBuildTypes { get; init; } = [];
+        public AdditionalCiBuildConfiguration[] AdditionalCiBuildConfigurations { get; init; } = [];
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {

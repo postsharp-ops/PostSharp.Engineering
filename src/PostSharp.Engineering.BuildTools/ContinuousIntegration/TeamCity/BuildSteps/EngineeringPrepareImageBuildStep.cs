@@ -2,19 +2,20 @@
 
 using PostSharp.Engineering.BuildTools.Docker;
 
-namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 
-internal class TeamCityEngineeringPrepareImageBuildStep : TeamCityPowerShellBuildStep
+internal class EngineeringPrepareImageBuildStep : PowerShellBuildStep
 {
     public DockerSpec DockerSpec { get; }
 
-    public TeamCityEngineeringPrepareImageBuildStep(
+    public EngineeringPrepareImageBuildStep(
         string id,
         DockerSpec dockerSpec ) : base(
         id,
         $"Prepare Docker image {dockerSpec.ImageName}",
         $"DockerBuild.ps1",
-        $"-BuildImage -ImageName {dockerSpec.ImageName}" )
+        $"-BuildImage -ImageName {dockerSpec.ImageName}",
+        null )
     {
         this.DockerSpec = dockerSpec;
     }

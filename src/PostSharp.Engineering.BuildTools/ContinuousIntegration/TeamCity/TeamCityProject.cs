@@ -3,7 +3,7 @@
 using System.IO;
 using System.Linq;
 
-namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 {
     internal class TeamCityProject
     {

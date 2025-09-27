@@ -1,10 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
 using System.IO;
 
-namespace PostSharp.Engineering.BuildTools.Build.Triggers;
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 
 /// <summary>
 /// Generates a build trigger that triggers the build daily at 22:00 for the default branch.
@@ -20,7 +20,7 @@ public class NightlyBuildTrigger : IBuildTrigger
 
     public string? BranchFilter { get; init; }
 
-    public TeamCityBuildConfigurationParameter[]? Parameters { get; init; }
+    public BuildConfigurationParameter[]? Parameters { get; init; }
 
     public NightlyBuildTrigger( int hour, bool withPendingChangesOnly )
     {

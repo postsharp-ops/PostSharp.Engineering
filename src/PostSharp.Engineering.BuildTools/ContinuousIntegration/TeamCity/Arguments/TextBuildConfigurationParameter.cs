@@ -1,8 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
 
-public class TeamCityTextBuildConfigurationParameter : TeamCityBuildConfigurationParameter
+public class TextBuildConfigurationParameter : BuildConfigurationParameter
 {
     public string Label { get; }
 
@@ -12,7 +12,7 @@ public class TeamCityTextBuildConfigurationParameter : TeamCityBuildConfiguratio
 
     public (string Regex, string ValidationMessage)? Validation { get; init; }
 
-    public TeamCityTextBuildConfigurationParameter( string name, string label, string description, string defaultValue = "", bool allowEmpty = false )
+    public TextBuildConfigurationParameter( string name, string label, string description, string defaultValue = "", bool allowEmpty = false )
         : base( name, defaultValue )
     {
         this.Label = label;

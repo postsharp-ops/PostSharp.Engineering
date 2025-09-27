@@ -4,11 +4,11 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Docker;
 using System;
 
-namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 
-internal class TeamCityEngineeringBuildBuildStep : TeamCityEngineeringCommandBuildStep
+internal class EngineeringBuildBuildStep : EngineeringCommandBuildStep
 {
-    public TeamCityEngineeringBuildBuildStep( BuildConfiguration configuration, bool testOnBuild, DockerSpec? dockerSpec, TimeSpan? timeout ) : base(
+    public EngineeringBuildBuildStep( BuildConfiguration configuration, bool testOnBuild, DockerSpec? dockerSpec, TimeSpan? timeout ) : base(
         "Build",
         "Build",
         testOnBuild ? "test" : "build",

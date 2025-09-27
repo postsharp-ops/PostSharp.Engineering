@@ -2,7 +2,7 @@
 
 using System.IO;
 
-namespace PostSharp.Engineering.BuildTools.Build.Triggers;
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 
 /// <summary>
 /// A build trigger is an event or condition that causes the current product to be built. Build triggers are configured and scheduled

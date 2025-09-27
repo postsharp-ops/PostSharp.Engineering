@@ -1,10 +1,11 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Docker;
 using System.IO;
 
-namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 
-internal class TeamCityPowerShellBuildStep : TeamCityBuildStep
+internal class PowerShellBuildStep : BuildStep
 {
     public string Id { get; }
 
@@ -16,12 +17,21 @@ internal class TeamCityPowerShellBuildStep : TeamCityBuildStep
 
     public string? WorkingDirectory { get; init; }
 
-    public TeamCityPowerShellBuildStep( string id, string name, string scriptPath, string scriptArguments )
+    public PowerShellBuildStep( string id, string name, string scriptPath, string scriptArguments, DockerSpec? dockerSpec ) : base( dockerSpec )
     {
         this.Id = id;
         this.Name = name;
-        this.ScriptPath = scriptPath;
-        this.ScriptArguments = scriptArguments;
+
+        if ( dockerSpec == null )
+        {
+            this.ScriptPath = scriptPath;
+            this.ScriptArguments = scriptArguments;
+        }
+        else
+        {
+            this.ScriptPath = "DockerBuild.ps1";
+            this.ScriptArguments = $"-Script {scriptPath} -ImageName {dockerSpec.ImageName} -NoBuildImage {this.ScriptArguments}";
+        }
     }
 
     public override string GenerateTeamCityCode()

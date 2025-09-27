@@ -1,23 +1,21 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
 using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
-namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 
-internal class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
+internal class EngineeringCommandBuildStep : PowerShellBuildStep
 {
-    private readonly DockerSpec? _dockerSpec;
-
     private static string GetCustomArgumentsParameterName( string id ) => $"{id}.Arguments";
 
     private static string GetTimeoutParameterName( string id ) => $"{id}.Timeout";
 
-    public TeamCityEngineeringCommandBuildStep(
+    public EngineeringCommandBuildStep(
         string id,
         string name,
         string command,
@@ -27,15 +25,14 @@ internal class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         TimeSpan? timeout = null ) : base(
         id,
         name,
-        dockerSpec != null ? "DockerBuild.ps1" : "Build.ps1",
-        GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, dockerSpec, timeout ) )
+        "Build.ps1",
+        GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, timeout ),
+        dockerSpec )
     {
-        this._dockerSpec = dockerSpec;
-
         if ( areCustomArgumentsAllowed )
         {
             this.AddParameter(
-                new TeamCityTextBuildConfigurationParameter(
+                new TextBuildConfigurationParameter(
                     GetCustomArgumentsParameterName( id ),
                     $"{this.ScriptPath} Arguments",
                     $"Arguments to append to the '{name}' build step.",
@@ -45,7 +42,7 @@ internal class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         if ( timeout != null )
         {
             this.AddParameter(
-                new TeamCityBuildConfigurationParameter(
+                new BuildConfigurationParameter(
                     GetTimeoutParameterName( id ),
                     timeout.Value.TotalMinutes.ToString( CultureInfo.InvariantCulture ) ) );
         }
@@ -56,15 +53,9 @@ internal class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         string command,
         string? arguments,
         bool areCustomArgumentsAllowed,
-        DockerSpec? dockerSpec,
         TimeSpan? timeout )
     {
         var args = $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}";
-
-        if ( dockerSpec != null )
-        {
-            args = $"-ImageName {dockerSpec.ImageName} -NoBuildImage " + args;
-        }
 
         if ( timeout != null )
         {
@@ -72,22 +63,5 @@ internal class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         }
 
         return args;
-    }
-
-    public override void InsertPrerequisites( IReadOnlyList<TeamCityBuildStep> previousSteps, Action<TeamCityBuildStep> addStep )
-    {
-        base.InsertPrerequisites( previousSteps, addStep );
-
-        if ( this._dockerSpec != null )
-        {
-            var prepareImageStep = previousSteps
-                .OfType<TeamCityEngineeringPrepareImageBuildStep>()
-                .SingleOrDefault( i => i.DockerSpec.ImageName == this._dockerSpec.ImageName );
-
-            if ( prepareImageStep == null )
-            {
-                addStep( new TeamCityEngineeringPrepareImageBuildStep( "PrepareImage", this._dockerSpec ) );
-            }
-        }
     }
 }

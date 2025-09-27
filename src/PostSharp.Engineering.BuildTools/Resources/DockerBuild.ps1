@@ -13,6 +13,7 @@ param(
     [string]$BuildAgentPath = 'C:\BuildAgent',
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
     [switch]$StartVsmon, # Enable the remote debugger.
+    [switch]$Script = 'Build.ps1', # The build script to be executed inside Docker.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container.
 )
@@ -323,9 +324,9 @@ if (-not $BuildImage)
     $dockerArgsAsString = $dockerArgs -join " "
 
 
-    Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -w $SourceDirName $ImageTag pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`; $pwshExitCommand`"" -ForegroundColor Cyan
+    Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -w $SourceDirName $ImageTag pwsh $pwshArgs -Command `"& .\$Script $buildArgsString`; $pwshExitCommand`"" -ForegroundColor Cyan
 
-    docker run --rm --memory=12g $dockerArgs @VolumeMappings -w $SourceDirName @dockerArgs $ImageTag pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString`; $pwshExitCommand; "
+    docker run --rm --memory=12g $dockerArgs @VolumeMappings -w $SourceDirName @dockerArgs $ImageTag pwsh $pwshArgs -Command "& .\$Script $buildArgsString`; $pwshExitCommand; "
     if ($LASTEXITCODE -ne 0)
     {
         Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red

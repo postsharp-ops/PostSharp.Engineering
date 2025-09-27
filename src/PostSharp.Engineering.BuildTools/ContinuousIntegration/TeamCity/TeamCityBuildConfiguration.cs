@@ -1,14 +1,15 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build.Triggers;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 {
     internal class TeamCityBuildConfiguration
     {
@@ -24,7 +25,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public BuildAgentRequirements? BuildAgentRequirements { get; }
 
-        public TeamCityBuildStep[]? BuildSteps { get; init; }
+        public BuildStep[]? BuildSteps { get; init; }
 
         public bool IsDeployment { get; init; }
 
@@ -44,7 +45,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public bool IsDefaultVcsRootUsed { get; init; } = true;
 
-        public TeamCityBuildConfigurationParameter[]? Parameters { get; init; }
+        public BuildConfigurationParameter[]? Parameters { get; init; }
 
         public TeamCityBuildConfiguration(
             string objectName,
@@ -99,7 +100,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             }
 
             // Add required build steps.
-            var allBuildSteps = new List<TeamCityBuildStep>();
+            var allBuildSteps = new List<BuildStep>();
 
             for ( var index = 0; index < this.BuildSteps!.Length; index++ )
             {
@@ -107,19 +108,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
                 AddBuildStep( step );
 
-                void AddBuildStep( TeamCityBuildStep newStep )
+                void AddBuildStep( BuildStep newStep )
                 {
                     newStep.InsertPrerequisites( allBuildSteps, AddBuildStep );
                     allBuildSteps.Add( newStep );
                 }
             }
 
-            var buildParameters = new List<TeamCityBuildConfigurationParameter>();
+            var buildParameters = new List<BuildConfigurationParameter>();
 
             buildParameters.AddRange( allBuildSteps.SelectMany( s => s.BuildConfigurationParameters ) );
 
             buildParameters.Add(
-                new TeamCityTextBuildConfigurationParameter(
+                new TextBuildConfigurationParameter(
                     this.DefaultBranchParameter,
                     "Default Branch",
                     "The default branch of this build configuration.",

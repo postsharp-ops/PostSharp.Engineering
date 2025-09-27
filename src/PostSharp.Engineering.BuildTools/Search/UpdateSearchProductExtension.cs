@@ -3,9 +3,10 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
-using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Search.Backends;
 using PostSharp.Engineering.BuildTools.Search.Crawlers;
@@ -83,9 +84,9 @@ public class UpdateSearchProductExtension : ProductExtension
 
     internal override bool AddTeamcityBuildConfiguration( BuildContext context, List<TeamCityBuildConfiguration> teamCityBuildConfigurations )
     {
-        TeamCityBuildStep CreateBuildStep()
+        BuildStep CreateBuildStep()
         {
-            return new TeamCityEngineeringCommandBuildStep( "UpdateSearch", "Update search", "search update", null, true, timeout: this.TimeOut );
+            return new EngineeringCommandBuildStep( "UpdateSearch", "Update search", "search update", null, true, timeout: this.TimeOut );
         }
 
         foreach ( var configuration in this.BuildConfigurations )

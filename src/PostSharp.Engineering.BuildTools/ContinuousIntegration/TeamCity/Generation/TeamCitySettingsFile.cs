@@ -1,19 +1,16 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build.Model;
-using PostSharp.Engineering.BuildTools.Build.Triggers;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
-namespace PostSharp.Engineering.BuildTools.Build.Files;
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 
 internal static class TeamCitySettingsFile
 {
@@ -24,11 +21,9 @@ internal static class TeamCitySettingsFile
 
         var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
         var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
-        var isRepoRemoteSsh = product.DependencyDefinition.VcsRepository.IsSshAgentRequired;
-        var defaultBranch = product.DependencyDefinition.Branch;
-        var deploymentBranch = product.DependencyDefinition.PublishingBranch;
-        var defaultBranchParameter = product.DependencyDefinition.VcsRepository.DefaultBranchParameter;
-        var vcsRootId = TeamCityHelper.GetVcsRootId( product.DependencyDefinition );
+
+        // Create product-level properties once
+        var productProperties = new ProductProperties( product );
 
         foreach ( var configuration in configurations )
         {
@@ -38,27 +33,6 @@ internal static class TeamCitySettingsFile
             {
                 continue;
             }
-
-            // Set artifact rules.
-            var publicArtifactsDirectory =
-                product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
-
-            var privateArtifactsDirectory =
-                product.GetPrivateArtifactsRelativeDirectory( configuration ).Replace( "\\", "/", StringComparison.Ordinal );
-
-            var testResultsDirectory =
-                product.TestResultsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
-
-            var logsDirectory = product.LogsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
-            var dumpsDirectory = product.DumpDirectory.Replace( "\\", "/", StringComparison.Ordinal );
-
-            var deployedArtifactRules = $"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
-            deployedArtifactRules += $@"\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
-
-            var publishedArtifactRules = deployedArtifactRules;
-            publishedArtifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
-            publishedArtifactRules += $@"\n+:{logsDirectory}/**/*=>logs";
-            publishedArtifactRules += $@"\n+:{dumpsDirectory}/**/*=>dumps";
 
             var additionalArtifactRules = product.DefaultArtifactRules;
 
@@ -77,45 +51,24 @@ internal static class TeamCitySettingsFile
                 return false;
             }
 
-            var dependencies =
-                dependenciesOverrideFile.Dependencies.Select( x => (Name: x.Key,
-                                                                    Definition: product.ProductFamily.GetDependencyDefinition( x.Key ),
-                                                                    Source: x.Value) )
-                    .Where( d => d.Definition.GenerateSnapshotDependency )
-                    .Select( x => (x.Name, x.Definition, Configuration: VersionFileHelper.GetDependencyConfiguration( x.Definition, x.Source )) )
-                    .ToList();
+            // Create configuration-specific properties
+            var configurationProperties = new ConfigurationProperties( product, configuration, dependenciesOverrideFile );
 
-            var snapshotDependencies = dependencies
-                .Select( d => new TeamCitySnapshotDependency(
-                             d.Definition.CiConfiguration.BuildTypes[d.Configuration],
-                             true,
-                             $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
-                .ToList();
+            // Set artifact rules using both ProductProperties and ConfigurationProperties.
+            var deployedArtifactRules = $"+:{productProperties.PublicArtifactsDirectory}/**/*=>{productProperties.PublicArtifactsDirectory}";
+            deployedArtifactRules += $@"\n+:{configurationProperties.PrivateArtifactsDirectory}/**/*=>{configurationProperties.PrivateArtifactsDirectory}";
 
-            var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
-                .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.BuildTypes[configuration], true ) );
-
-            var buildDependencies = snapshotDependencies.Concat( sourceSnapshotDependencies ).OrderBy( d => d.ObjectId ).ToArray();
-
-            var sourceDependencies = product.SourceDependencies.Select( d => new TeamCitySourceDependency(
-                                                                            d.CiConfiguration.ProjectId.ToString(),
-                                                                            true,
-                                                                            $"+:. => {product.SourceDependenciesDirectory}/{d.Name}" ) )
-                .ToArray();
+            var publishedArtifactRules = deployedArtifactRules;
+            publishedArtifactRules += $@"\n+:{productProperties.TestResultsDirectory}/**/*=>{productProperties.TestResultsDirectory}";
+            publishedArtifactRules += $@"\n+:{productProperties.LogsDirectory}/**/*=>logs";
+            publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
 
             var teamCityBuildConfiguration = CreateBuildConfiguration(
                 context,
-                product,
-                configurationInfo,
-                configuration,
-                defaultBranch,
-                defaultBranchParameter,
-                vcsRootId,
+                productProperties,
+                configurationProperties,
                 publishedArtifactRules,
-                additionalArtifactRules,
-                buildDependencies,
-                sourceDependencies,
-                isRepoRemoteSsh );
+                additionalArtifactRules );
 
             teamCityBuildConfigurations.Add( teamCityBuildConfiguration );
 
@@ -127,16 +80,10 @@ internal static class TeamCitySettingsFile
                 if ( configurationInfo.ExportsToTeamCityDeploy )
                 {
                     teamCityDeploymentConfiguration = CreateDeployConfiguration(
-                        configuration,
-                        product,
-                        configurationInfo,
-                        defaultBranch,
-                        defaultBranchParameter,
-                        vcsRootId,
-                        buildDependencies,
+                        productProperties,
+                        configurationProperties,
                         teamCityBuildConfiguration,
                         deployedArtifactRules,
-                        isRepoRemoteSsh,
                         false );
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -145,16 +92,10 @@ internal static class TeamCitySettingsFile
                 if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies )
                 {
                     teamCityDeploymentConfiguration = CreateDeployConfiguration(
-                        configuration,
-                        product,
-                        configurationInfo,
-                        defaultBranch,
-                        defaultBranchParameter,
-                        vcsRootId,
-                        buildDependencies,
+                        productProperties,
+                        configurationProperties,
                         teamCityBuildConfiguration,
                         deployedArtifactRules,
-                        isRepoRemoteSsh,
                         true );
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -165,14 +106,10 @@ internal static class TeamCitySettingsFile
             if ( configurationInfo is { Swappers: { Length: > 0 }, SwapAfterPublishing: false } )
             {
                 var swapConfiguration = CreateSwapConfiguration(
+                    productProperties,
+                    configurationProperties,
                     teamCityDeploymentConfiguration,
-                    teamCityBuildConfiguration,
-                    configuration,
-                    configurationInfo,
-                    deploymentBranch,
-                    defaultBranchParameter,
-                    vcsRootId,
-                    product );
+                    teamCityBuildConfiguration );
 
                 teamCityBuildConfigurations.Add( swapConfiguration );
             }
@@ -185,7 +122,7 @@ internal static class TeamCitySettingsFile
 
             if ( dependencies != null! )
             {
-                var bumpConfiguration = CreateBumpConfiguration( defaultBranch, defaultBranchParameter, vcsRootId, product, isRepoRemoteSsh );
+                var bumpConfiguration = CreateBumpConfiguration( productProperties );
 
                 teamCityBuildConfigurations.Add( bumpConfiguration );
             }
@@ -194,10 +131,18 @@ internal static class TeamCitySettingsFile
         // Create a TeamCity configuration for downstream merge.
         if ( product.ProductFamily.DownstreamProductFamily != null )
         {
-            var downstreamMergeConfiguration = CreateDownstreamMergeConfiguration( product, defaultBranch, defaultBranchParameter, vcsRootId, isRepoRemoteSsh );
+            var downstreamMergeConfiguration = CreateDownstreamMergeConfiguration( productProperties );
 
             teamCityBuildConfigurations.Add( downstreamMergeConfiguration );
         }
+        
+        // Add product-defined.
+        foreach ( var additional in product.AdditionalCiBuildConfigurations )
+        {
+            var configuration = additional.TeamCityBuildConfiguration( productProperties );
+            teamCityBuildConfigurations.Add( configuration );
+        }
+        
 
         // Add from extensions.
         foreach ( var extension in product.Extensions )
@@ -208,7 +153,7 @@ internal static class TeamCitySettingsFile
             }
         }
 
-        var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray(), product.ExternalTeamCityBuildTypes );
+        var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray(), [] );
 
         GeneratePom( context, product.DependencyDefinition.CiConfiguration.ProjectId.Id, product.DependencyDefinition.CiConfiguration.BaseUrl );
         GenerateTeamCityConfiguration( context, teamCityProject );
@@ -217,29 +162,25 @@ internal static class TeamCitySettingsFile
     }
 
     private static TeamCityBuildConfiguration CreateDeployConfiguration(
-        BuildConfiguration configuration,
-        Product product,
-        BuildConfigurationInfo configurationInfo,
-        string defaultBranch,
-        string defaultBranchParameter,
-        string vcsRootId,
-        TeamCitySnapshotDependency[] buildDependencies,
+        ProductProperties productProperties,
+        ConfigurationProperties configurationProperties,
         TeamCityBuildConfiguration teamCityBuildConfiguration,
         string deployedArtifactRules,
-        bool isRepoRemoteSsh,
         bool isStandalone )
     {
-        TeamCityBuildStep step =
-            new TeamCityEngineeringCommandBuildStep(
+        var product = productProperties.Product;
+
+        BuildStep step =
+            new EngineeringCommandBuildStep(
                 "Publish",
                 "Publish",
                 "publish",
-                $"--configuration {configuration}{(isStandalone ? " --standalone" : "")}",
+                $"--configuration {configurationProperties.Configuration}{(isStandalone ? " --standalone" : "")}",
                 true,
                 product.DockerSpec,
-                configurationInfo.DeploymentTimeout ?? product.DeploymentTimeout );
+                configurationProperties.BuildConfigurationInfo.DeploymentTimeout ?? product.DeploymentTimeout );
 
-        var snapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
+        var snapshotDependencies = configurationProperties.BuildDependencies.Where( d => d.ArtifactRules != null )
             .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] );
 
         if ( !isStandalone )
@@ -254,29 +195,27 @@ internal static class TeamCitySettingsFile
         // The standalone deployment doesn't expect pre-publishing and post-publishing step to be triggered,
         // so it's done from the develop branch.
         var teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
-            objectName: isStandalone ? $"{configuration}DeploymentNoDependency" : $"{configuration}Deployment",
-            name: (isStandalone ? "Standalone " : "") + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
-            defaultBranch,
-            defaultBranchParameter,
-            vcsRootId,
+            objectName: isStandalone ? $"{configurationProperties.Configuration}DeploymentNoDependency" : $"{configurationProperties.Configuration}Deployment",
+            name: (isStandalone ? "Standalone " : "") + (configurationProperties.BuildConfigurationInfo.TeamCityDeploymentName
+                                                         ?? $"Deploy [{configurationProperties.Configuration}]"),
+            productProperties.DefaultBranch,
+            productProperties.DefaultBranchParameter,
+            productProperties.VcsRootId,
             buildAgentRequirements: product.ResolvedBuildAgentRequirements )
         {
             BuildSteps = [step],
             IsDeployment = true,
             SnapshotDependencies = snapshotDependencies.OrderBy( d => d.ObjectId ).ToArray(),
-            IsSshAgentRequired = isRepoRemoteSsh
+            IsSshAgentRequired = productProperties.IsRepoRemoteSsh
         };
 
         return teamCityDeploymentConfiguration;
     }
 
-    private static TeamCityBuildConfiguration CreateDownstreamMergeConfiguration(
-        Product product,
-        string defaultBranch,
-        string defaultBranchParameter,
-        string vcsRootId,
-        bool isRepoRemoteSsh )
+    private static TeamCityBuildConfiguration CreateDownstreamMergeConfiguration( ProductProperties productProperties )
     {
+        var product = productProperties.Product;
+
         var snapshotDependencies = product.Configurations[BuildConfiguration.Debug].ExportsToTeamCityBuild
             ? new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) }
             : null;
@@ -284,14 +223,14 @@ internal static class TeamCitySettingsFile
         var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
             "DownstreamMerge",
             "Downstream Merge",
-            defaultBranch,
-            defaultBranchParameter,
-            vcsRootId,
+            productProperties.DefaultBranch,
+            productProperties.DefaultBranchParameter,
+            productProperties.VcsRootId,
             product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
             [
-                new TeamCityEngineeringCommandBuildStep(
+                new EngineeringCommandBuildStep(
                     "DownstreamMerge",
                     "Merge downstream",
                     "tools git merge-downstream",
@@ -301,82 +240,73 @@ internal static class TeamCitySettingsFile
             ],
             SnapshotDependencies = snapshotDependencies,
             BuildTriggers = [new SourceBuildTrigger()],
-            IsSshAgentRequired = isRepoRemoteSsh
+            IsSshAgentRequired = productProperties.IsRepoRemoteSsh
         };
 
         return downstreamMergeConfiguration;
     }
 
-    private static TeamCityBuildConfiguration CreateBumpConfiguration(
-        string defaultBranch,
-        string defaultBranchParameter,
-        string vcsRootId,
-        Product product,
-        bool isRepoRemoteSsh )
+    private static TeamCityBuildConfiguration CreateBumpConfiguration( ProductProperties productProperties )
     {
         var bumpConfiguration = new TeamCityBuildConfiguration(
             objectName: "VersionBump",
             name: $"Version Bump",
-            defaultBranch,
-            defaultBranchParameter,
-            vcsRootId,
-            buildAgentRequirements: product.ResolvedBuildAgentRequirements )
+            productProperties.DefaultBranch,
+            productProperties.DefaultBranchParameter,
+            productProperties.VcsRootId,
+            buildAgentRequirements: productProperties.Product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
             [
-                new TeamCityEngineeringCommandBuildStep(
+                new EngineeringCommandBuildStep(
                     "Bump",
                     "Bump",
                     "bump",
                     areCustomArgumentsAllowed: true,
-                    dockerSpec: product.DockerSpec,
-                    timeout: product.VersionBumpTimeout )
+                    dockerSpec: productProperties.Product.DockerSpec,
+                    timeout: productProperties.Product.VersionBumpTimeout )
             ],
-            IsSshAgentRequired = isRepoRemoteSsh
+            IsSshAgentRequired = productProperties.IsRepoRemoteSsh
         };
 
         return bumpConfiguration;
     }
 
     private static TeamCityBuildConfiguration CreateSwapConfiguration(
+        ProductProperties productProperties,
+        ConfigurationProperties configurationProperties,
         TeamCityBuildConfiguration? teamCityDeploymentConfiguration,
-        TeamCityBuildConfiguration teamCityBuildConfiguration,
-        BuildConfiguration configuration,
-        BuildConfigurationInfo configurationInfo,
-        string deploymentBranch,
-        string defaultBranchParameter,
-        string vcsRootId,
-        Product product )
+        TeamCityBuildConfiguration teamCityBuildConfiguration )
     {
-        var swapDependencies = new List<TeamCitySnapshotDependency>();
+        var snapshotDependencies = new List<TeamCitySnapshotDependency>();
 
         if ( teamCityDeploymentConfiguration != null )
         {
-            swapDependencies.Add( new TeamCitySnapshotDependency( teamCityDeploymentConfiguration.ObjectName, false ) );
-            swapDependencies.Add( new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false ) );
+            snapshotDependencies.Add( new TeamCitySnapshotDependency( teamCityDeploymentConfiguration.ObjectName, false ) );
+            snapshotDependencies.Add( new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false ) );
         }
 
         var swapConfiguration = new TeamCityBuildConfiguration(
-            objectName: $"{configuration}Swap",
-            name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
-            deploymentBranch,
-            defaultBranchParameter,
-            vcsRootId,
-            buildAgentRequirements: product.ResolvedBuildAgentRequirements )
+            objectName: $"{configurationProperties.Configuration}Swap",
+            name: configurationProperties.BuildConfigurationInfo.TeamCitySwapName ?? $"Swap [{configurationProperties.Configuration}]",
+            productProperties.DeploymentBranch,
+            productProperties.DefaultBranchParameter,
+            productProperties.VcsRootId,
+            buildAgentRequirements: productProperties.Product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
             [
-                new TeamCityEngineeringCommandBuildStep(
+                new EngineeringCommandBuildStep(
                     "Swap",
                     "Swap",
                     "swap",
-                    $"--configuration {configuration}",
+                    $"--configuration {configurationProperties.Configuration}",
                     true,
-                    product.DockerSpec,
-                    configurationInfo.SwapTimeout ?? product.SwapTimeout )
+                    productProperties.Product.DockerSpec,
+                    configurationProperties.BuildConfigurationInfo.SwapTimeout ?? productProperties.Product.SwapTimeout )
             ],
             IsDeployment = true,
-            SnapshotDependencies = swapDependencies.OrderBy( d => d.ObjectId ).ToArray()
+            SnapshotDependencies = snapshotDependencies.OrderBy( d => d.ObjectId ).ToArray()
         };
 
         return swapConfiguration;
@@ -384,29 +314,23 @@ internal static class TeamCitySettingsFile
 
     private static TeamCityBuildConfiguration CreateBuildConfiguration(
         BuildContext context,
-        Product product,
-        BuildConfigurationInfo configurationInfo,
-        BuildConfiguration configuration,
-        string defaultBranch,
-        string defaultBranchParameter,
-        string vcsRootId,
+        ProductProperties productProperties,
+        ConfigurationProperties configurationProperties,
         string publishedArtifactRules,
-        ImmutableArray<string> additionalArtifactRules,
-        TeamCitySnapshotDependency[] buildDependencies,
-        TeamCitySourceDependency[] sourceDependencies,
-        bool isRepoRemoteSsh )
+        ImmutableArray<string> additionalArtifactRules )
     {
-        var teamCityBuildSteps = new List<TeamCityBuildStep>();
+        var product = productProperties.Product;
+        var teamCityBuildSteps = new List<BuildStep>();
 
         if ( !product.UseDocker )
         {
-            teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
+            teamCityBuildSteps.Add( new EngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
         }
 
         var requiresUpstreamCheck =
 
             // The check is required.
-            configurationInfo.RequiresUpstreamCheck
+            configurationProperties.BuildConfigurationInfo.RequiresUpstreamCheck
 
             // There is upstream product to check.
             && product.ProductFamily.UpstreamProductFamily != null
@@ -417,7 +341,7 @@ internal static class TeamCitySettingsFile
         if ( requiresUpstreamCheck )
         {
             teamCityBuildSteps.Add(
-                new TeamCityEngineeringCommandBuildStep(
+                new EngineeringCommandBuildStep(
                     "UpstreamCheck",
                     "Check pending upstream changes",
                     "tools git check-upstream",
@@ -425,11 +349,11 @@ internal static class TeamCitySettingsFile
                     dockerSpec: product.DockerSpec ) );
         }
 
-        teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, product.DockerSpec, context.BuildTimeout ) );
+        teamCityBuildSteps.Add( new EngineeringBuildBuildStep( configurationProperties.Configuration, true, product.DockerSpec, context.BuildTimeout ) );
 
         if ( !product.UseDocker )
         {
-            teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PostKill", "Kill background processes before next build", "tools kill" ) );
+            teamCityBuildSteps.Add( new EngineeringCommandBuildStep( "PostKill", "Kill background processes before next build", "tools kill" ) );
         }
 
         // The default branch for the public build cannot be set to the release branch,
@@ -441,20 +365,20 @@ internal static class TeamCitySettingsFile
         // during the consolidated public build on such project, but the correct
         // one would be triggered during deployment.
         var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
-            $"{configuration}Build",
-            configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
-            defaultBranch,
-            defaultBranchParameter,
-            vcsRootId,
+            $"{configurationProperties.Configuration}Build",
+            configurationProperties.BuildConfigurationInfo.TeamCityBuildName ?? $"Build [{configurationProperties.Configuration}]",
+            productProperties.DefaultBranch,
+            productProperties.DefaultBranchParameter,
+            productProperties.VcsRootId,
             product.ResolvedBuildAgentRequirements )
         {
             BuildSteps = teamCityBuildSteps.ToArray(),
             ArtifactRules = publishedArtifactRules,
             AdditionalArtifactRules = additionalArtifactRules.ToArray(),
-            BuildTriggers = configurationInfo.BuildTriggers,
-            SnapshotDependencies = buildDependencies,
-            SourceDependencies = sourceDependencies,
-            IsSshAgentRequired = requiresUpstreamCheck && isRepoRemoteSsh
+            BuildTriggers = configurationProperties.BuildConfigurationInfo.BuildTriggers,
+            SnapshotDependencies = configurationProperties.BuildDependencies,
+            SourceDependencies = productProperties.SourceDependencies,
+            IsSshAgentRequired = requiresUpstreamCheck && productProperties.IsRepoRemoteSsh
         };
 
         return teamCityBuildConfiguration;
