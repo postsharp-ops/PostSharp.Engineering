@@ -17,11 +17,9 @@ internal class ProductProperties
 
     public string DefaultBranch => this.Product.DependencyDefinition.Branch;
 
-    public string DefaultBranchParameter => this.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter;
-
     public bool IsRepoRemoteSsh => this.Product.DependencyDefinition.VcsRepository.IsSshAgentRequired;
 
-    public string VcsRootId => TeamCityHelper.GetVcsRootId( this.Product.DependencyDefinition );
+    public string VcsId => TeamCityHelper.GetVcsId( this.Product.DependencyDefinition );
 
     public string PublicArtifactsDirectory { get; }
 
@@ -42,9 +40,10 @@ internal class ProductProperties
         this.TestResultsDirectory = product.TestResultsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
         this.LogsDirectory = product.LogsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
         this.DumpsDirectory = product.DumpDirectory.Replace( "\\", "/", StringComparison.Ordinal );
-        
+
         this.SourceDependencies = product.SourceDependencies.Select( d => new TeamCitySourceDependency(
                                                                          d.CiConfiguration.ProjectId.ToString(),
+                                                                         TeamCityHelper.GetVcsId( d ),
                                                                          true,
                                                                          $"+:. => {product.SourceDependenciesDirectory}/{d.Name}" ) )
             .ToArray();

@@ -52,7 +52,6 @@ public class AzureDevOpsRepository : VcsRepository
         string organisation = "postsharp",
         string domain = "dev.azure.com",
         string? defaultBranchParameter = null )
-        : base( defaultBranchParameter )
     {
         this.Name = name;
         this.Domain = domain;

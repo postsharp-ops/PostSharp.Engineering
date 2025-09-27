@@ -13,7 +13,7 @@ param(
     [string]$BuildAgentPath = 'C:\BuildAgent',
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
     [switch]$StartVsmon, # Enable the remote debugger.
-    [switch]$Script = 'Build.ps1', # The build script to be executed inside Docker.
+    [string]$Script = 'Build.ps1', # The build script to be executed inside Docker.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container.
 )

@@ -375,16 +375,16 @@ public static class TeamCityHelper
         return TryCreateProject( tc, context, name, id, parentId, vcsRootId );
     }
 
-    public static string GetVcsRootId( DependencyDefinition dependencyDefinition, bool parameterizedDefaultBranch = true )
-        => GetVcsRootId( dependencyDefinition.VcsRepository, dependencyDefinition.CiConfiguration.VcsRootProjectId, parameterizedDefaultBranch );
+    public static string GetVcsId( DependencyDefinition dependencyDefinition )
+        => GetVcsId( dependencyDefinition.VcsRepository, dependencyDefinition.CiConfiguration.VcsRootProjectId );
 
-    private static string GetVcsRootId( VcsRepository repository, string? projectId, bool parameterizedDefaultBranch )
-        => $"{projectId ?? "Root"}_{repository.Name.Replace( ".", "", StringComparison.Ordinal )}{(parameterizedDefaultBranch ? "" : "_Default")}";
+    private static string GetVcsId( VcsRepository repository, string? projectId )
+        => $"{projectId ?? "Root"}_{repository.Name.Replace( ".", "", StringComparison.Ordinal )}";
 
-    private static bool TryCreateVcsRoot( TeamCityClient tc, BuildContext context, string? projectId, bool parameterizedDefaultBranch, out string vcsRootId )
+    private static bool TryCreateVcsRoot( TeamCityClient tc, BuildContext context, string? projectId, out string vcsRootId )
     {
         var repository = context.Product.DependencyDefinition.VcsRepository;
-        vcsRootId = GetVcsRootId( repository, projectId, parameterizedDefaultBranch );
+        vcsRootId = GetVcsId( repository, projectId );
 
         context.Console.WriteMessage( $"Retrieving VCS roots of '{projectId}' project." );
 
@@ -400,9 +400,9 @@ public static class TeamCityHelper
             return true;
         }
 
-        var vcsRootName = parameterizedDefaultBranch ? repository.Name : $"{repository.Name}_Default";
+        var vcsRootName = repository.Name;
         var familyVersion = context.Product.ProductFamily.Version;
-        var defaultBranch = parameterizedDefaultBranch ? $"%{repository.DefaultBranchParameter}%" : context.Product.DependencyDefinition.Branch;
+        var defaultBranch = context.Product.DependencyDefinition.Branch;
 
         var branchSpecification = new List<string>
         {
@@ -438,12 +438,12 @@ public static class TeamCityHelper
             return false;
         }
 
-        if ( !TryCreateVcsRoot( tc, context, projectId, true, out _ ) )
+        if ( !TryCreateVcsRoot( tc, context, projectId, out _ ) )
         {
             return false;
         }
 
-        if ( !TryCreateVcsRoot( tc, context, projectId, false, out _ ) )
+        if ( !TryCreateVcsRoot( tc, context, projectId, out _ ) )
         {
             return false;
         }
@@ -463,12 +463,12 @@ public static class TeamCityHelper
         var vcsRootProjectId = context.Product.DependencyDefinition.CiConfiguration.VcsRootProjectId;
         var projectName = context.Product.DependencyDefinition.Name;
 
-        if ( !TryCreateVcsRoot( tc, context, vcsRootProjectId, true, out _ ) )
+        if ( !TryCreateVcsRoot( tc, context, vcsRootProjectId, out _ ) )
         {
             return false;
         }
 
-        if ( !TryCreateVcsRoot( tc, context, vcsRootProjectId, false, out var vcsRootId ) )
+        if ( !TryCreateVcsRoot( tc, context, vcsRootProjectId, out var vcsRootId ) )
         {
             return false;
         }

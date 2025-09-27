@@ -1,4 +1,6 @@
-﻿using JetBrains.Annotations;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
@@ -26,8 +28,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             this.Id,
             this.Name,
             this.Branch,
-            productProperties.DefaultBranchParameter,
-            productProperties.VcsRootId,
+            productProperties.VcsId,
             product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =

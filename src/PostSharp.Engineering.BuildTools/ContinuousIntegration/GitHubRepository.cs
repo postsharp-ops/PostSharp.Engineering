@@ -35,7 +35,6 @@ public class GitHubRepository : VcsRepository
     public override string TokenEnvironmentVariableName => EnvironmentVariableNames.GitHubToken;
 
     public GitHubRepository( string name, string owner, string? defaultBranchParameter = null )
-        : base( defaultBranchParameter )
     {
         this.Name = name;
         this.Owner = owner;

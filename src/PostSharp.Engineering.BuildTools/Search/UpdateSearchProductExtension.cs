@@ -100,14 +100,13 @@ public class UpdateSearchProductExtension : ProductExtension
                 : null;
 
             var buildTriggers = this.BuildTriggers?[configuration];
-            var vcsRootId = TeamCityHelper.GetVcsRootId( context.Product.DependencyDefinition );
+            var vcsRootId = TeamCityHelper.GetVcsId( context.Product.DependencyDefinition );
             var buildAgentRequirements = context.Product.ResolvedBuildAgentRequirements;
 
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
                 name,
                 context.Product.DependencyDefinition.PublishingBranch,
-                context.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter,
                 vcsRootId,
                 buildAgentRequirements )
             {
@@ -122,7 +121,6 @@ public class UpdateSearchProductExtension : ProductExtension
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
                     context.Product.DependencyDefinition.Branch,
-                    context.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter,
                     vcsRootId,
                     buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true };
 

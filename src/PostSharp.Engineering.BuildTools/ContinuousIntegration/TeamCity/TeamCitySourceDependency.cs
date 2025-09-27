@@ -2,4 +2,4 @@
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 
-internal record TeamCitySourceDependency( string ObjectId, bool IsAbsoluteId, string ArtifactRules );
+internal record TeamCitySourceDependency( string ObjectId, string VcsId, bool IsAbsoluteId, string ArtifactRules );

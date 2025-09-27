@@ -188,8 +188,7 @@ internal static class TeamCitySettingsFile
             name: (isStandalone ? "Standalone " : "") + (configurationProperties.BuildConfigurationInfo.TeamCityDeploymentName
                                                          ?? $"Deploy [{configurationProperties.Configuration}]"),
             productProperties.DefaultBranch,
-            productProperties.DefaultBranchParameter,
-            productProperties.VcsRootId,
+            productProperties.VcsId,
             buildAgentRequirements: product.ResolvedBuildAgentRequirements )
         {
             BuildSteps = [step],
@@ -213,8 +212,7 @@ internal static class TeamCitySettingsFile
             "DownstreamMerge",
             "Downstream Merge",
             productProperties.DefaultBranch,
-            productProperties.DefaultBranchParameter,
-            productProperties.VcsRootId,
+            productProperties.VcsId,
             product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
@@ -241,8 +239,7 @@ internal static class TeamCitySettingsFile
             objectName: "VersionBump",
             name: $"Version Bump",
             productProperties.DefaultBranch,
-            productProperties.DefaultBranchParameter,
-            productProperties.VcsRootId,
+            productProperties.VcsId,
             buildAgentRequirements: productProperties.Product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
@@ -279,8 +276,7 @@ internal static class TeamCitySettingsFile
             objectName: $"{configurationProperties.Configuration}Swap",
             name: configurationProperties.BuildConfigurationInfo.TeamCitySwapName ?? $"Swap [{configurationProperties.Configuration}]",
             productProperties.DeploymentBranch,
-            productProperties.DefaultBranchParameter,
-            productProperties.VcsRootId,
+            productProperties.VcsId,
             buildAgentRequirements: productProperties.Product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
@@ -357,8 +353,7 @@ internal static class TeamCitySettingsFile
             $"{configurationProperties.Configuration}Build",
             configurationProperties.BuildConfigurationInfo.TeamCityBuildName ?? $"Build [{configurationProperties.Configuration}]",
             productProperties.DefaultBranch,
-            productProperties.DefaultBranchParameter,
-            productProperties.VcsRootId,
+            productProperties.VcsId,
             product.ResolvedBuildAgentRequirements )
         {
             BuildSteps = teamCityBuildSteps.ToArray(),

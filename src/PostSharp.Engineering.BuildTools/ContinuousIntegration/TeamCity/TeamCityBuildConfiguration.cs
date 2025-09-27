@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -19,9 +20,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
         public string DefaultBranch { get; }
 
-        public string DefaultBranchParameter { get; }
-
-        public string VcsRootId { get; }
+        public string VcsId { get; }
 
         public BuildAgentRequirements? BuildAgentRequirements { get; }
 
@@ -51,15 +50,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             string objectName,
             string name,
             string defaultBranch,
-            string defaultBranchParameter,
-            string vcsRootId,
+            string vcsId,
             BuildAgentRequirements? buildAgentRequirements = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
             this.DefaultBranch = defaultBranch;
-            this.DefaultBranchParameter = defaultBranchParameter;
-            this.VcsRootId = vcsRootId;
+            this.VcsId = vcsId;
             this.BuildAgentRequirements = buildAgentRequirements;
         }
 
@@ -119,13 +116,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
             buildParameters.AddRange( allBuildSteps.SelectMany( s => s.BuildConfigurationParameters ) );
 
-            buildParameters.Add(
-                new TextBuildConfigurationParameter(
-                    this.DefaultBranchParameter,
-                    "Default Branch",
-                    "The default branch of this build configuration.",
-                    this.DefaultBranch ) );
-
             if ( this.Parameters != null )
             {
                 buildParameters.AddRange( this.Parameters );
@@ -145,7 +135,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             if ( this.IsDefaultVcsRootUsed )
             {
                 // We set the VCS root explicitly for consolidated as well builds to enable the DefaultBranch paramater.
-                writer.WriteLine( @$"        root(AbsoluteId(""{this.VcsRootId}""))" );
+                writer.WriteLine( @$"        root(AbsoluteId(""{this.VcsId}""))" );
 
                 if ( allBuildSteps.Count == 0 )
                 {
@@ -160,7 +150,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             {
                 foreach ( var sourceDependency in this.SourceDependencies! )
                 {
-                    var objectName = sourceDependency.IsAbsoluteId ? @$"AbsoluteId(""{sourceDependency.ObjectId}"")" : sourceDependency.ObjectId;
+                    var objectName = sourceDependency.IsAbsoluteId ? @$"AbsoluteId(""{sourceDependency.VcsId}"")" : sourceDependency.VcsId;
 
                     writer.WriteLine( $@"        root({objectName}, ""{sourceDependency.ArtifactRules}"")" );
                 }
