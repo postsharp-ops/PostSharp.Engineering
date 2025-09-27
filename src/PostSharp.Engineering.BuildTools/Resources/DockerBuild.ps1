@@ -90,6 +90,12 @@ function New-EnvJson
     return $jsonPath
 }
 
+if ($env:RUNNING_IN_DOCKER)
+{
+    Write-Error "Already running in Docker."
+    exit 1
+}
+
 # Generate ImageName from script directory if not provided
 if ( [string]::IsNullOrEmpty($ImageName))
 {
@@ -103,7 +109,8 @@ if ( [string]::IsNullOrEmpty($ImageName))
         $ImageTag = "docker-build-image"
     }
     Write-Host "Generated image name from directory: $ImageTag" -ForegroundColor Cyan
-} else
+}
+else
 {
     # Generate a hash of the repo directory tagging (4 bytes, 8 hex chars)
     $hashBytes = (New-Object -TypeName System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($PSScriptRoot))
@@ -264,7 +271,7 @@ Write-Host "Git directories: " $gitDirectoriesAsString -ForegroundColor Gray
 # Kill all containers
 docker ps -q --filter "ancestor=$ImageTag" | ForEach-Object {
     Write-Host "Killing container $_"
-    docker kill $_ 
+    docker kill $_
 }
 
 # Building the image.

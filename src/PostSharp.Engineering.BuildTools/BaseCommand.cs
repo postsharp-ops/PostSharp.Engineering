@@ -29,7 +29,6 @@ namespace PostSharp.Engineering.BuildTools
             CancellationTokenSource? timeoutCancellation = null;
 
             var mainCancellation = new CancellationTokenSource();
-            Console.CancelKeyPress += ( _, _ ) => mainCancellation.Cancel();
 
             try
             {
@@ -49,6 +48,8 @@ namespace PostSharp.Engineering.BuildTools
                 {
                     buildContext = buildContext.WithUseProjectDirectoryAsWorkingDirectory( true );
                 }
+
+                Console.CancelKeyPress += ( _, _ ) => OnCancel( buildContext, mainCancellation );
 
                 // Sets up a timeout. The Timer class does not support long periods, so we use CancellationTokenSource.
                 if ( settings.Timeout != null )
@@ -156,6 +157,8 @@ namespace PostSharp.Engineering.BuildTools
 
                 if ( buildContext.CancellationToken.IsCancellationRequested )
                 {
+                    buildContext.Console.WriteError( "The build was cancelled." );
+
                     return (int) ExitCode.Cancelled;
                 }
 
@@ -179,6 +182,34 @@ namespace PostSharp.Engineering.BuildTools
         }
 
         protected abstract bool ExecuteCore( BuildContext context, T settings );
+
+        private static void OnCancel( BuildContext buildContext, CancellationTokenSource mainCancellation )
+        {
+            var console = buildContext.Console;
+
+            if ( RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
+            {
+                console.WriteError( $"Cancelling and killing all child processes." );
+
+                // List all child processes.
+                var processes = ProcessHelper.GetProcessTree( console, Process.GetCurrentProcess().Id );
+
+                console.WriteMessage( "Process tree:" );
+
+                foreach ( var node in processes )
+                {
+                    var indent = new string( '-', (node.NestingLevel + 1) * 3 );
+                    console.WriteMessage( $"+{indent} {node.Process.Id} {ProcessHelper.GetCommandLine( node.Process )}" );
+                }
+
+                // Kill all processes (except the current one) in reverse order.
+                ProcessHelper.KillProcesses( console, processes.Reverse().Select( x => x.Process ) );
+            }
+
+            // Signal the main cancellation source.
+            // We don't exit the process so exception handlers and finally blocks can run.
+            mainCancellation.Cancel();
+        }
 
         private static void OnTimeout( BuildContext buildContext, Stopwatch stopwatch, CancellationTokenSource mainCancellation )
         {
@@ -212,8 +243,13 @@ namespace PostSharp.Engineering.BuildTools
             else
             {
                 console.WriteError( $"The process timed out after {stopwatch.Elapsed}. Exiting." );
+                mainCancellation.Cancel();
             }
 
+            // Give the normal cancellation workflow a chance to complete.
+            Thread.Sleep( 10 );
+
+            // If we're still here, we're abruptly terminating the process.
             console.WriteWarning( "Terminating the current process." );
             Environment.FailFast( $"The process timed out after {stopwatch.Elapsed}." );
         }

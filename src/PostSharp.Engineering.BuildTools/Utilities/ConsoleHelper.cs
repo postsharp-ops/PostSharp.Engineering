@@ -14,13 +14,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
     {
         private static readonly CancellationTokenSource _cancellationTokenSource = new();
 
-        static ConsoleHelper()
-        {
-            Console.CancelKeyPress += OnCancel;
-        }
-
-        private static void OnCancel( object? sender, ConsoleCancelEventArgs e ) => _cancellationTokenSource.Cancel();
-
         public static void Cancel() => _cancellationTokenSource.Cancel();
 
         // This now de facto a synonym of BuildContext.CancellationToken, but unifying this requires many changes.
