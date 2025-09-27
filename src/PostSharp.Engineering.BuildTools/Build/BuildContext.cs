@@ -200,7 +200,9 @@ namespace PostSharp.Engineering.BuildTools.Build
             }
         }
 
-        // Adds a margin to dump the hanging processes.
-        internal TimeSpan BuildTimeoutWithMargin => this.BuildTimeout.Add( TimeSpan.FromMinutes( 5 ) );
+        /// <summary>
+        /// Gets or sets the exit code in case the <see cref="BaseCommand{T}.ExecuteCore"/> method returns <c>true</c>.
+        /// </summary>
+        public ExitCode ExitCode { get; set; } = ExitCode.Success;
     }
 }

@@ -156,7 +156,7 @@ namespace PostSharp.Engineering.BuildTools
 
                 if ( buildContext.CancellationToken.IsCancellationRequested )
                 {
-                    return (int) ExitCodes.Cancelled;
+                    return (int) ExitCode.Cancelled;
                 }
 
                 if ( !settings.NoLogo )
@@ -164,13 +164,13 @@ namespace PostSharp.Engineering.BuildTools
                     buildContext.Console.WriteMessage( $"Finished at {DateTime.Now} after {stopwatch.Elapsed}." );
                 }
 
-                return (int) (success ? ExitCodes.Success : ExitCodes.Error);
+                return (int) (success ? buildContext.ExitCode : ExitCode.Error);
             }
             catch ( Exception ex )
             {
                 AnsiConsole.WriteException( ex );
 
-                return (int) ExitCodes.Exception;
+                return (int) ExitCode.Exception;
             }
             finally
             {

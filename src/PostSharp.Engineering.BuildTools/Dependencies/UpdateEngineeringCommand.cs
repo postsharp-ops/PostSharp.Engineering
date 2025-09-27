@@ -136,6 +136,7 @@ internal class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
         else
         {
             console.WriteWarning( $"PostSharp.Engineering was already of the latest version ({lastVersion})." );
+            context.ExitCode = ExitCode.NoChangeMade;
         }
 
         return true;
