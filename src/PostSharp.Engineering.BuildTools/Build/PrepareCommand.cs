@@ -49,7 +49,7 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
         }
 
         // Restore source dependencies.
-        if ( !SourceDependenciesHelper.RestoreSourceDependencies( context ) )
+        if ( product.BuildRequiresSourceDependencies && !SourceDependenciesHelper.RestoreSourceDependencies( context ) )
         {
             return false;
         }
