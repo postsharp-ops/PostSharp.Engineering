@@ -1,8 +1,23 @@
+param(
+    [switch]$Inner
+)
+
 $ErrorActionPreference = 'Stop'
 
 # Get the script's directory
 $scriptDir = $PSScriptRoot
 $lastExecutionFile = Join-Path $scriptDir "last-execution.txt"
+$executionLogFile = Join-Path $scriptDir "Daily-Maintenance.log"
+
+# If -Inner is not specified, call this script with -Inner and use Tee-Object for logging
+if (-not $Inner) {    
+    & $PSCommandPath -Inner 2>&1 | Tee-Object -FilePath $executionLogFile -Append
+    exit $LASTEXITCODE
+}
+
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+Write-Host "[$timestamp] === Daily Maintenance Script Started ==="
+
 
 # Check if the script has been executed in the last 24 hours
 $shouldExecute = $true
