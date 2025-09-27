@@ -122,7 +122,9 @@ public static partial class MetalamaDependencies
                 [
                     "Metalama.Extensions.Architecture",
                     "Metalama.Extensions.CodeFixes",
+                    "Metalama.Extensions.CodeFixes.Redist",
                     "Metalama.Extensions.Validation",
+                    "Metalama.Extensions.Validation.Redist",
                     "Metalama.Patterns.Caching.Backends.Azure",
                     "Metalama.Patterns.Caching.Backends.Redis",
                     "Metalama.Licensing"
