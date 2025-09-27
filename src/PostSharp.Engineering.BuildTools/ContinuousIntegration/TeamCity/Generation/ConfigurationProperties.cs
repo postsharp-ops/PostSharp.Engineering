@@ -3,7 +3,6 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Model;
-using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 using System.IO;
 using System.Linq;
@@ -18,12 +17,11 @@ internal class ConfigurationProperties
 
     public TeamCitySnapshotDependency[] BuildDependencies { get; }
 
-   
     public string PrivateArtifactsDirectory { get; }
 
     public BuildConfigurationInfo BuildConfigurationInfo => this._product.Configurations[this.Configuration];
 
-    public ConfigurationProperties( Product product, BuildConfiguration configuration, DependenciesConfigurationFile dependenciesOverrideFile )
+    public ConfigurationProperties( Product product, BuildConfiguration configuration )
     {
         this._product = product;
         this.Configuration = configuration;
@@ -31,26 +29,20 @@ internal class ConfigurationProperties
         // Calculate configuration-specific artifact directory
         this.PrivateArtifactsDirectory = product.GetPrivateArtifactsRelativeDirectory( configuration ).Replace( "\\", "/", StringComparison.Ordinal );
 
-        var dependencies =
-            dependenciesOverrideFile.Dependencies.Select( x => (Name: x.Key,
-                                                                Definition: product.ProductFamily.GetDependencyDefinition( x.Key ),
-                                                                Source: x.Value) )
-                .Where( d => d.Definition.GenerateSnapshotDependency )
-                .Select( x => (x.Name, x.Definition, Configuration: VersionFileHelper.GetDependencyConfiguration( x.Definition, x.Source )) )
-                .ToList();
+        var dependencies = product.DependencyDefinition.GetAllDependencies( configuration )
+            .Where( d => d.Definition.GenerateSnapshotDependency )
+            .ToList();
 
         var snapshotDependencies = dependencies
             .Select( d => new TeamCitySnapshotDependency(
                          d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                          true,
-                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
+                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Definition.Name}" ) )
             .ToList();
 
         var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
             .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.BuildTypes[configuration], true ) );
 
         this.BuildDependencies = snapshotDependencies.Concat( sourceSnapshotDependencies ).OrderBy( d => d.ObjectId ).ToArray();
-
-  
     }
 }

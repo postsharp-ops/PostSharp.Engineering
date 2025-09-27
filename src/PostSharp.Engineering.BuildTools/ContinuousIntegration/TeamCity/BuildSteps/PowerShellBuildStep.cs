@@ -30,7 +30,7 @@ internal class PowerShellBuildStep : BuildStep
         else
         {
             this.ScriptPath = "DockerBuild.ps1";
-            this.ScriptArguments = $"-Script {scriptPath} -ImageName {dockerSpec.ImageName} -NoBuildImage {this.ScriptArguments}";
+            this.ScriptArguments = $"-Script {scriptPath} -ImageName {dockerSpec.ImageName} -NoBuildImage {scriptArguments}";
         }
     }
 

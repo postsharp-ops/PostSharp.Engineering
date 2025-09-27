@@ -4,7 +4,9 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 
@@ -60,6 +62,35 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public string CodeStyle { get; init; } = "Standard";
 
         public VcsRepository VcsRepository { get; }
+
+        public ParametrizedDependency[] Dependencies { get; init; } = [];
+
+        public IReadOnlySet<DependencyConfiguration> GetAllDependencies( BuildConfiguration buildConfiguration )
+        {
+            HashSet<DependencyConfiguration> dependencies = new();
+            PopulateRecursive( this, buildConfiguration );
+
+            return dependencies;
+
+            void PopulateRecursive( DependencyDefinition dependency, BuildConfiguration configuration )
+            {
+                foreach ( var child in dependency.Dependencies )
+                {
+                    var childConfiguration = child.ConfigurationMapping[configuration];
+
+                    var dependencyConfiguration = new DependencyConfiguration( child, childConfiguration );
+
+                    if ( !dependencies.Add( dependencyConfiguration ) )
+                    {
+                        continue;
+                    }
+
+                    PopulateRecursive( child, childConfiguration );
+                }
+            }
+        }
+
+        public DependencyDefinition[] SourceDependencies { get; init; } = [];
 
         public string PrivateArtifactsDirectory
         {

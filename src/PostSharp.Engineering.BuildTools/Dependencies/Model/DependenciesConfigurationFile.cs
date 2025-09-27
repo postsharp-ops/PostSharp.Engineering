@@ -19,9 +19,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
     /// </summary>
     internal sealed class DependenciesConfigurationFile
     {
+        private readonly Dictionary<string, DependencySource> _dependencies = new();
+
         public BuildConfiguration Configuration { get; }
 
-        public Dictionary<string, DependencySource> Dependencies { get; } = new();
+        public IDictionary<string, DependencySource> Dependencies => this._dependencies;
 
         public string? LocalBuildFile { get; set; }
 
@@ -50,7 +52,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             foreach ( var dependency in versionFile.Dependencies )
             {
-                this.Dependencies[dependency.Key] = dependency.Value;
+                this._dependencies[dependency.Key] = dependency.Value;
             }
 
             return true;
@@ -189,7 +191,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                             // Note that the version can be null here. It means that the version should default to the version defined in Versions.props.
 
-                            file.Dependencies[name] = DependencySource.CreateFeed( version, origin );
+                            file._dependencies[name] = DependencySource.CreateFeed( version, origin );
 
                             break;
 
@@ -202,7 +204,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     dependencySource.GetResolvedLocalPath( context, name ),
                                     name + ".Import.props" );
 
-                                file.Dependencies[name] = dependencySource;
+                                file._dependencies[name] = dependencySource;
 
                                 break;
                             }
@@ -230,7 +232,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                             name,
                                             name + ".version.props" ) );
 
-                                    file.Dependencies[name] = dependencySource;
+                                    file._dependencies[name] = dependencySource;
                                 }
                                 else
                                 {
@@ -252,7 +254,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     }
 
                                     dependencySource.VersionFile = versionFile;
-                                    file.Dependencies[name] = dependencySource;
+                                    file._dependencies[name] = dependencySource;
                                 }
 
                                 break;
@@ -276,7 +278,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                         origin );
 
                                 dependencySource.VersionFile = versionFile;
-                                file.Dependencies[name] = dependencySource;
+                                file._dependencies[name] = dependencySource;
 
                                 break;
                             }

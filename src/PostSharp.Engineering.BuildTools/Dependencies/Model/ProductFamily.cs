@@ -19,7 +19,7 @@ public class ProductFamily
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitionsByCiId = new();
     private readonly ProductFamily[] _relativeFamilies;
 
-    public static string ConsolidatedProjectName { get; } = "Consolidated";
+    public static string ConsolidatedProjectName { get; } = "Metalama.Consolidated";
 
     public string Name { get; set; }
 

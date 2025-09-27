@@ -28,8 +28,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private readonly string? _mainVersionFile;
         private readonly string? _autoUpdatedVersionsFile;
         private readonly string? _bumpInfoFile;
-        private readonly ParametrizedDependency[] _parametrizedDependencies = [];
-        private readonly DependencyDefinition[] _dependencyDefinitions = [];
 
         public Product( DependencyDefinition dependencyDefinition )
         {
@@ -169,36 +167,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Dictionary<string, string[]> ExportedProperties { get; init; } = new();
 
         /// <summary>
-        /// Gets the set of artifact dependencies of this product given their <see cref="DependencyDefinition"/>.
-        /// When at least one dependency requires to override some parameter from its defaults, use the <see cref="ParametrizedDependencies"/> property.
-        /// </summary>
-        [PublicAPI]
-        public DependencyDefinition[] Dependencies
-        {
-            [Obsolete( "Use CustomizedDependencies" )]
-            get => this._dependencyDefinitions;
-            init => this.ParametrizedDependencies = value.Select( x => x.ToDependency() ).ToArray();
-        }
-
-        /// <summary>
         /// Gets the set of artifact dependencies of this product given their <see cref="ParametrizedDependency"/>.
         /// </summary>
         [PublicAPI]
-        public ParametrizedDependency[] ParametrizedDependencies
-        {
-            get => this._parametrizedDependencies;
-
-            init
-            {
-                this._parametrizedDependencies = value;
-                this._dependencyDefinitions = value.Select( x => x.Definition ).ToArray();
-            }
-        }
+        public ParametrizedDependency[] ParametrizedDependencies => this.DependencyDefinition.Dependencies;
 
         /// <summary>
         /// Gets the set of source code dependencies of this product. 
         /// </summary>
-        public DependencyDefinition[] SourceDependencies { get; init; } = [];
+        public DependencyDefinition[] SourceDependencies => this.DependencyDefinition.SourceDependencies;
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 

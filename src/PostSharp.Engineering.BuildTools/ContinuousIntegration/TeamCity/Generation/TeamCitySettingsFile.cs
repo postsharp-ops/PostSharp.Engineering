@@ -41,18 +41,8 @@ internal static class TeamCitySettingsFile
                 additionalArtifactRules = product.DefaultArtifactRules.AddRange( configurationInfo.AdditionalArtifactRules );
             }
 
-            if ( !DependenciesConfigurationFile.TryLoad( context, settings, configuration, out var dependenciesOverrideFile ) )
-            {
-                return false;
-            }
-
-            if ( !dependenciesOverrideFile.Fetch( context ) )
-            {
-                return false;
-            }
-
             // Create configuration-specific properties
-            var configurationProperties = new ConfigurationProperties( product, configuration, dependenciesOverrideFile );
+            var configurationProperties = new ConfigurationProperties( product, configuration );
 
             // Set artifact rules using both ProductProperties and ConfigurationProperties.
             var deployedArtifactRules = $"+:{productProperties.PublicArtifactsDirectory}/**/*=>{productProperties.PublicArtifactsDirectory}";
@@ -135,14 +125,13 @@ internal static class TeamCitySettingsFile
 
             teamCityBuildConfigurations.Add( downstreamMergeConfiguration );
         }
-        
+
         // Add product-defined.
         foreach ( var additional in product.AdditionalCiBuildConfigurations )
         {
             var configuration = additional.TeamCityBuildConfiguration( productProperties );
             teamCityBuildConfigurations.Add( configuration );
         }
-        
 
         // Add from extensions.
         foreach ( var extension in product.Extensions )
