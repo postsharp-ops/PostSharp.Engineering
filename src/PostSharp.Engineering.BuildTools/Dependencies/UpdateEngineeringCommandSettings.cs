@@ -7,7 +7,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies;
 [UsedImplicitly]
 internal class UpdateEngineeringCommandSettings : CommonCommandSettings
 {
-    [Description( "Repeat until a new version is discovered." )]
-    [CommandOption( "--repeat" )]
-    public bool Repeat { get; init; }
+    [Description( "Retry until a new version is discovered." )]
+    [CommandOption( "--retry" )]
+    public bool Retry { get; init; }
 }

@@ -20,7 +20,7 @@ internal class UpdateEngineeringCommand : BaseCommand<UpdateEngineeringCommandSe
 {
     protected override bool ExecuteCore( BuildContext context, UpdateEngineeringCommandSettings settings )
     {
-        if ( settings.Repeat )
+        if ( settings.Retry )
         {
             do
             {
@@ -31,7 +31,7 @@ internal class UpdateEngineeringCommand : BaseCommand<UpdateEngineeringCommandSe
                     return true;
                 }
 
-                context.Console.WriteMessage( "Waiting for 30 seconds." );
+                context.Console.WriteMessage( "Waiting for 30 seconds before retrying." );
                 Thread.Sleep( TimeSpan.FromSeconds( 30 ) );
             }
             while ( true );
@@ -145,6 +145,7 @@ internal class UpdateEngineeringCommand : BaseCommand<UpdateEngineeringCommandSe
                 console.WriteMessage( $"Writing '{versionsFilePath}'." );
                 versionProperties[0].Value = lastVersion;
                 versionsFile.Save( versionsFilePath );
+                madeAnyChange = true;
             }
         }
         else
