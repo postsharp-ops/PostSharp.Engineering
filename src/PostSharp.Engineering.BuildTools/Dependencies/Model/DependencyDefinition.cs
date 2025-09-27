@@ -79,6 +79,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
 
+        /// <summary>
+        /// Gets or sets the list of packages produced by this dependency. This list is used to configure package source mapping.
+        /// The <c>*</c> wildcard is allowed.
+        /// By default, the list is set to <c>MyProduct, MyProduct.*</c>.
+        /// </summary>
         public string[] PackagePatterns
         {
             get => this._packagePatterns ?? [this.Name, this.Name + ".*"];

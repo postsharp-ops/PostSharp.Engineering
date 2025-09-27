@@ -91,10 +91,22 @@ public static partial class MetalamaDependencies
                 [
                     "Metalama.Backstage*",
                     "Metalama.Framework*",
-                    "Metalama.Extensions*",
-                    "Metalama.Patterns*",
-                    "Metalama.LinqPad*",
-                    "Metalama.Migration*",
+                    "Metalama.Extensions.DependencyInjection",
+                    "Metalama.Extensions.DependencyInjection.ServiceLocator",
+                    "Metalama.Extensions.Metrics",
+                    "Metalama.Extensions.Multicast",
+                    "Metalama.Patterns.Caching",
+                    "Metalama.Patterns.Caching.Aspects",
+                    "Metalama.Patterns.Caching.Backend",
+                    "Metalama.Patterns.Caching.TestHelpers",
+                    "Metalama.Patterns.Contracts",
+                    "Metalama.Patterns.Immutability",
+                    "Metalama.Patterns.Memoization",
+                    "Metalama.Patterns.Observability",
+                    "Metalama.Patterns.TestHelpers",
+                    "Metalama.Patterns.Wpf",
+                    "Metalama.LinqPad",
+                    "Metalama.Migration",
                     "Metalama.Testing.*",
                     "Metalama.Tool",
                     "Flashtrace*"
@@ -105,7 +117,18 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Premium",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama ) { PackagePatterns = ["Metalama.Extensions.*", "Metalama.Patterns.*", "Metalama.Licensing"] };
+                MetalamaGitHubOrganization.Metalama )
+            {
+                PackagePatterns =
+                [
+                    "Metalama.Extensions.Architecture",
+                    "Metalama.Extensions.CodeFixes",
+                    "Metalama.Extensions.Validation",
+                    "Metalama.Patterns.Caching.Backends.Azure",
+                    "Metalama.Patterns.Caching.Backends.Redis",
+                    "Metalama.Licensing"
+                ]
+            };
 
         public static DependencyDefinition MetalamaVsx { get; } =
             new MetalamaDependencyDefinition(
