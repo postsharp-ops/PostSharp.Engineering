@@ -41,7 +41,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                     product.DockerSpec )
             ],
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh,
-            SourceDependencies = this.AddSourceDependencies ? productProperties.SourceDependencies : []
+            SourceDependencies = this.RequiresSourceDependencies ? productProperties.SourceDependencies : []
         };
 
         return downstreamMergeConfiguration;

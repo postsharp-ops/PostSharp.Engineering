@@ -26,8 +26,10 @@ public class CiProjectConfiguration
 
     public string BaseUrl { get; }
 
+    public string DownstreamMergeBuildType => $"{this.ProjectId.Id}_DownstreamMerge";
+
     public CiProjectConfiguration(
-        TeamCityProjectId projectProjectId,
+        TeamCityProjectId projectId,
         ConfigurationSpecific<string> buildTypes,
         string? deploymentBuildType,
         string? versionBumpBuildType,
@@ -37,8 +39,8 @@ public class CiProjectConfiguration
         string? pullRequestStatusCheckBuildType = null,
         string? vcsRootProjectId = null )
     {
-        this.ProjectId = projectProjectId;
-        this.VcsRootProjectId = vcsRootProjectId ?? projectProjectId.ParentId;
+        this.ProjectId = projectId;
+        this.VcsRootProjectId = vcsRootProjectId ?? projectId.ParentId;
         this.BuildTypes = buildTypes;
         this.PullRequestStatusCheckBuildType = pullRequestRequiresStatusCheck ? pullRequestStatusCheckBuildType ?? $"{this.ProjectId}_DebugBuild" : null;
         this.DeploymentBuildType = deploymentBuildType;

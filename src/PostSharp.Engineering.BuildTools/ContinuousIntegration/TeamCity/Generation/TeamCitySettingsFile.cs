@@ -3,7 +3,6 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
-using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -169,7 +168,7 @@ internal static class TeamCitySettingsFile
                 product.DockerSpec,
                 configurationProperties.BuildConfigurationInfo.DeploymentTimeout ?? product.DeploymentTimeout );
 
-        var snapshotDependencies = configurationProperties.BuildDependencies.Where( d => d.ArtifactRules != null )
+        var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration.Where( d => d.ArtifactRules != null )
             .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] );
 
         if ( !isStandalone )
@@ -204,9 +203,16 @@ internal static class TeamCitySettingsFile
     {
         var product = productProperties.Product;
 
-        var snapshotDependencies = product.Configurations[BuildConfiguration.Debug].ExportsToTeamCityBuild
+        IEnumerable<TeamCitySnapshotDependency> snapshotDependencies = product.Configurations[BuildConfiguration.Debug].ExportsToTeamCityBuild
             ? new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) }
-            : null;
+            : [];
+
+        snapshotDependencies =
+            snapshotDependencies.Concat(
+                product.ParametrizedDependencies
+                    .Where( d => d.Definition.GenerateSnapshotDependency )
+                    .Select( d => d.Definition )
+                    .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DownstreamMergeBuildType, true, FailureAction: FailureAction.AddProblem ) ) );
 
         var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
             "DownstreamMerge",
@@ -225,7 +231,7 @@ internal static class TeamCitySettingsFile
                     dockerSpec: product.DockerSpec,
                     timeout: product.DownstreamMergeTimeout )
             ],
-            SnapshotDependencies = snapshotDependencies,
+            SnapshotDependencies = snapshotDependencies.ToArray(),
             BuildTriggers = [new SourceBuildTrigger()],
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh
         };
@@ -360,8 +366,8 @@ internal static class TeamCitySettingsFile
             ArtifactRules = publishedArtifactRules,
             AdditionalArtifactRules = additionalArtifactRules.ToArray(),
             BuildTriggers = configurationProperties.BuildConfigurationInfo.BuildTriggers,
-            SnapshotDependencies = configurationProperties.BuildDependencies,
-            SourceDependencies = productProperties.SourceDependencies,
+            SnapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration,
+            SourceDependencies = product.BuildRequiresSourceDependencies ? productProperties.SourceDependencies : [],
             IsSshAgentRequired = requiresUpstreamCheck && productProperties.IsRepoRemoteSsh
         };
 

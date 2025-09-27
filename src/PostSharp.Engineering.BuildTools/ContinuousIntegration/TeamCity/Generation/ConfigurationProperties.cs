@@ -15,7 +15,7 @@ internal class ConfigurationProperties
 
     public BuildConfiguration Configuration { get; }
 
-    public TeamCitySnapshotDependency[] BuildDependencies { get; }
+    public TeamCitySnapshotDependency[] SnapshotDependenciesForBuildConfiguration { get; }
 
     public string PrivateArtifactsDirectory { get; }
 
@@ -43,6 +43,6 @@ internal class ConfigurationProperties
         var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
             .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.BuildTypes[configuration], true ) );
 
-        this.BuildDependencies = snapshotDependencies.Concat( sourceSnapshotDependencies ).OrderBy( d => d.ObjectId ).ToArray();
+        this.SnapshotDependenciesForBuildConfiguration = snapshotDependencies.Concat( sourceSnapshotDependencies ).OrderBy( d => d.ObjectId ).ToArray();
     }
 }

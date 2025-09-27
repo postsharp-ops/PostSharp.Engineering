@@ -13,8 +13,8 @@ public abstract class AdditionalCiBuildConfiguration
 
     public string Branch { get; }
 
-    public bool AddSourceDependencies { get; init; }
-
+    public bool RequiresSourceDependencies { get; init; }
+    
     protected AdditionalCiBuildConfiguration( string id, string name, string branch )
     {
         this.Id = id;

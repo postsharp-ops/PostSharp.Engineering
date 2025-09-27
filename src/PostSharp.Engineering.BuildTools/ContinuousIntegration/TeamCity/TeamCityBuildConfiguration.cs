@@ -251,10 +251,17 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 {
                     var objectName = dependency.IsAbsoluteId ? @$"AbsoluteId(""{dependency.ObjectId}"")" : dependency.ObjectId;
 
+                    var failureAction = dependency.FailureAction switch
+                    {
+                        FailureAction.FailToStart => "FAIL_TO_START",
+                        FailureAction.AddProblem => "ADD_PROBLEM",
+                        _ => throw new ArgumentOutOfRangeException()
+                    };
+
                     writer.WriteLine(
                         $@"        dependency({objectName}) {{
             snapshot {{
-                     onDependencyFailure = FailureAction.FAIL_TO_START
+                     onDependencyFailure = FailureAction.{failureAction}
             }}" );
 
                     if ( dependency.ArtifactRules != null )

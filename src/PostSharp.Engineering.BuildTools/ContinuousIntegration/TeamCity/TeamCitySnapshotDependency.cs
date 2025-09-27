@@ -2,4 +2,10 @@
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 
-internal record TeamCitySnapshotDependency( string ObjectId, bool IsAbsoluteId, string? ArtifactRules = null );
+internal record TeamCitySnapshotDependency( string ObjectId, bool IsAbsoluteId, string? ArtifactRules = null, FailureAction FailureAction = FailureAction.FailToStart);
+
+internal enum FailureAction
+{
+    FailToStart,
+    AddProblem
+}

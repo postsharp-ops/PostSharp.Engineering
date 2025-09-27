@@ -141,10 +141,11 @@ public static partial class MetalamaDependencies
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering, Metalama,
-                    PostSharpDependencies.V2025_1.PostSharp.ToDependency( new ConfigurationSpecific<BuildConfiguration>(
-                                                                              BuildConfiguration.Release,
-                                                                              BuildConfiguration.Release,
-                                                                              BuildConfiguration.Release ) )
+                    PostSharpDependencies.V2025_1.PostSharp.ToDependency(
+                        new ConfigurationSpecific<BuildConfiguration>(
+                            BuildConfiguration.Release,
+                            BuildConfiguration.Release,
+                            BuildConfiguration.Release ) )
                 ]
             };
 
@@ -221,7 +222,8 @@ public static partial class MetalamaDependencies
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering,
-                    MetalamaCompiler,
+                    MetalamaCompiler.ToDependency(
+                        new ConfigurationSpecific<BuildConfiguration>( BuildConfiguration.Release, BuildConfiguration.Release, BuildConfiguration.Public ) ),
                     Metalama,
                     MetalamaCommunity,
                     MetalamaPremium,

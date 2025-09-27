@@ -277,6 +277,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ProductExtension[] Extensions { get; init; } = [];
 
+        public bool BuildRequiresSourceDependencies { get; init; } = true;
+        
         internal string GetPrivateArtifactsAbsoluteDirectory( BuildContext context, BuildConfiguration configuration )
             => Path.Combine(
                 context.RepoDirectory,
