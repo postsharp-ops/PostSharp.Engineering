@@ -8,6 +8,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Connection = Octokit.GraphQL.Connection;
@@ -27,12 +28,23 @@ public static class GitHubHelper
         ConsoleHelper console,
         [NotNullWhen( true )] out string? token,
         string tokenEnvironmentVariableName = EnvironmentVariableNames.GitHubToken )
+        => TryGetToken( console, true, out token );
+    
+    internal static bool TryGetToken(
+        ConsoleHelper console,
+        bool writeError,
+        [NotNullWhen( true )] out string? token,
+        string tokenEnvironmentVariableName = EnvironmentVariableNames.GitHubToken )
     {
         token = Environment.GetEnvironmentVariable( tokenEnvironmentVariableName );
 
         if ( string.IsNullOrEmpty( token ) )
         {
-            console.WriteError( $"The '{tokenEnvironmentVariableName}' environment variable is not defined." );
+            if ( writeError )
+            {
+                console.WriteError( $"The '{tokenEnvironmentVariableName}' environment variable is not defined." );
+            }
+
             token = null;
 
             return false;
@@ -97,23 +109,27 @@ public static class GitHubHelper
         string targetBranch,
         string title )
     {
-        bool TryConnectRestApis( [NotNullWhen( true )] out GitHubClient? c, [NotNullWhen( true )] out GitHubClient? r )
+        bool TryConnectRestApis( [NotNullWhen( true )] out GitHubClient? creatorClient, out GitHubClient? reviewerClient )
         {
-            c = null;
-            r = null;
+            creatorClient = null;
+            reviewerClient = null;
 
             if ( !TryGetToken( console, out var creatorToken ) )
             {
                 return false;
             }
+            
+            creatorClient = ConnectRestApi( creatorToken );
 
-            if ( !TryGetToken( console, out var reviewerToken, EnvironmentVariableNames.GitHubReviewerToken ) )
+            if ( !TryGetToken( console, false, out var reviewerToken, EnvironmentVariableNames.GitHubReviewerToken ) )
             {
-                return false;
+                console.WriteWarning( $"The {EnvironmentVariableNames.GitHubReviewerToken} environment variable is not defined. The PR won't be auto-approved." );
             }
-
-            c = ConnectRestApi( creatorToken );
-            r = creatorToken == reviewerToken ? c : ConnectRestApi( reviewerToken );
+            else
+            {
+                reviewerClient = creatorToken == reviewerToken ? creatorClient : ConnectRestApi( reviewerToken );
+            }
+           
 
             return true;
         }
@@ -128,21 +144,34 @@ public static class GitHubHelper
             return null;
         }
 
-        console.WriteMessage( "Creating pull request." );
-        var newPullRequest = new NewPullRequest( title, sourceBranch, targetBranch );
-        var pullRequest = await creatorGitHub.PullRequest.Create( repository.Owner, repository.Name, newPullRequest );
-        console.WriteMessage( $"Pull request created: {pullRequest.Url}" );
+        var allExistingPullRequests  = await creatorGitHub.PullRequest.GetAllForRepository( repository.Owner, repository.Name );
+        var pullRequest = allExistingPullRequests.FirstOrDefault( pr => pr.Head.Ref == sourceBranch );
+
+        if ( pullRequest != null )
+        {
+            console.WriteMessage( $"Existing PR found: {pullRequest.Url}." );
+        }
+        else
+        {
+            console.WriteMessage( "Creating pull request." );
+            var newPullRequest = new NewPullRequest( title, sourceBranch, targetBranch );
+            pullRequest = await creatorGitHub.PullRequest.Create( repository.Owner, repository.Name, newPullRequest );
+            console.WriteMessage( $"Pull request created: {pullRequest.Url}" );
+        }
 
         // A pull request cannot be self-reviewed on GitHub.
         // https://github.com/orgs/community/discussions/6292
-        var reviewerLogin = reviewerGitHub.User.Current().Result.Login;
-        console.WriteMessage( $"Requesting a review of the pull request from '{reviewerLogin}' user." );
-        var reviewRequest = new PullRequestReviewRequest( new List<string> { reviewerLogin }, new List<string>() );
-        pullRequest = await reviewerGitHub.PullRequest.ReviewRequest.Create( repository.Owner, repository.Name, pullRequest.Number, reviewRequest );
+        if ( reviewerGitHub != null )
+        {
+            var reviewerLogin = reviewerGitHub.User.Current().Result.Login;
+            console.WriteMessage( $"Requesting a review of the pull request from '{reviewerLogin}' user." );
+            var reviewRequest = new PullRequestReviewRequest( new List<string> { reviewerLogin }, new List<string>() );
+            pullRequest = await reviewerGitHub.PullRequest.ReviewRequest.Create( repository.Owner, repository.Name, pullRequest.Number, reviewRequest );
 
-        console.WriteMessage( "Approving the pull request." );
-        var pullRequestApproval = new PullRequestReviewCreate { Event = PullRequestReviewEvent.Approve };
-        _ = await reviewerGitHub.PullRequest.Review.Create( repository.Owner, repository.Name, pullRequest.Number, pullRequestApproval );
+            console.WriteMessage( "Approving the pull request." );
+            var pullRequestApproval = new PullRequestReviewCreate { Event = PullRequestReviewEvent.Approve };
+            _ = await reviewerGitHub.PullRequest.Review.Create( repository.Owner, repository.Name, pullRequest.Number, pullRequestApproval );
+        }
 
         console.WriteMessage( "Enabling pull request auto-merge." );
 
