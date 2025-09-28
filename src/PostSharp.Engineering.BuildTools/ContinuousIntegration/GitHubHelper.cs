@@ -181,15 +181,9 @@ public static class GitHubHelper
 
             return default;
         }
-
-        var latestPr = await restClient.PullRequest.Get( repository.Owner, repository.Name, pullRequest.Number );
-        var isMergeable = latestPr.Mergeable == true;
-
+        
         // Check status checks (if any required)
-        var combinedStatus = await restClient.Repository.Status.GetCombined( repository.Owner, repository.Name, latestPr.Head.Sha );
-        var isClean = isMergeable && combinedStatus.State.Value == CommitState.Success;
-
-        if ( isClean )
+        if ( pullRequest.Mergeable == true )
         {
             console.WriteMessage( "PR is in a clean state. Merging directly." );
 
