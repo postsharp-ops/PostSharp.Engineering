@@ -29,7 +29,7 @@ public static class GitHubHelper
         [NotNullWhen( true )] out string? token,
         string tokenEnvironmentVariableName = EnvironmentVariableNames.GitHubToken )
         => TryGetToken( console, true, out token );
-    
+
     internal static bool TryGetToken(
         ConsoleHelper console,
         bool writeError,
@@ -118,18 +118,18 @@ public static class GitHubHelper
             {
                 return false;
             }
-            
+
             creatorClient = ConnectRestApi( creatorToken );
 
             if ( !TryGetToken( console, false, out var reviewerToken, EnvironmentVariableNames.GitHubReviewerToken ) )
             {
-                console.WriteWarning( $"The {EnvironmentVariableNames.GitHubReviewerToken} environment variable is not defined. The PR won't be auto-approved." );
+                console.WriteWarning(
+                    $"The {EnvironmentVariableNames.GitHubReviewerToken} environment variable is not defined. The PR won't be auto-approved." );
             }
             else
             {
                 reviewerClient = creatorToken == reviewerToken ? creatorClient : ConnectRestApi( reviewerToken );
             }
-           
 
             return true;
         }
@@ -144,7 +144,7 @@ public static class GitHubHelper
             return null;
         }
 
-        var allExistingPullRequests  = await creatorGitHub.PullRequest.GetAllForRepository( repository.Owner, repository.Name );
+        var allExistingPullRequests = await creatorGitHub.PullRequest.GetAllForRepository( repository.Owner, repository.Name );
         var pullRequest = allExistingPullRequests.FirstOrDefault( pr => pr.Head.Ref == sourceBranch );
 
         if ( pullRequest != null )
