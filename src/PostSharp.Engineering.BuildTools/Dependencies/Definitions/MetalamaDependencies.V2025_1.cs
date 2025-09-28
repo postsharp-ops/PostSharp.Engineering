@@ -134,8 +134,8 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaVsx { get; } =
             new MetalamaDependencyDefinition(
                 "Metalama.Vsx",
-                VcsProvider.AzureDevOps,
-                null )
+                VcsProvider.GitHub,
+                MetalamaGitHubOrganization.Metalama )
             {
                 PackagePatterns = ["Metalama.Repacked"],
                 Dependencies =
@@ -170,7 +170,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Community",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp ) { Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama] };
+                MetalamaGitHubOrganization.Metalama ) { Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama] };
 
         public static DependencyDefinition MetalamaDocumentation { get; } =
             new MetalamaDependencyDefinition(
@@ -196,7 +196,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Tests.DotNetSdk",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp,
+                MetalamaGitHubOrganization.Metalama,
                 false,
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
                 vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" )
@@ -208,14 +208,14 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Performance",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp,
+                MetalamaGitHubOrganization.Metalama,
                 false ) { Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama] };
 
         public static DependencyDefinition Consolidated { get; } =
             new MetalamaDependencyDefinition(
                 ProductFamily.ConsolidatedProjectName,
-                VcsProvider.AzureDevOps,
-                null,
+                VcsProvider.GitHub,
+                MetalamaGitHubOrganization.Metalama,
                 false,
                 customRepositoryName: "Metalama.Consolidated" )
             {

@@ -571,7 +571,7 @@ internal static class DownstreamMerge
 
         Write( "The branches are:" );
 
-        references.Select( r => r.Replace( "refs/heads", "", StringComparison.Ordinal ) )
+        references.Select( r => r.Replace( "refs/heads/", "", StringComparison.Ordinal ) )
             .ToList()
             .ForEach( Write );
     }
