@@ -39,7 +39,11 @@ public abstract class VcsRepository
 
     public abstract Task<bool> TrySetBranchPoliciesAsync( BuildContext context, string buildStatusGenre, string? buildStatusName, bool dry );
 
-    public abstract Task<string?> TryCreatePullRequestAsync( ConsoleHelper console, string sourceBranch, string targetBranch, string title );
+    public abstract Task<(bool Success, string? Url, bool RequiresBuild)> TryCreatePullRequestAsync(
+        ConsoleHelper console,
+        string sourceBranch,
+        string targetBranch,
+        string title );
 
     /// <summary>
     /// Returns the URL that identifies the repository and allows user to access the repository using a web browser.

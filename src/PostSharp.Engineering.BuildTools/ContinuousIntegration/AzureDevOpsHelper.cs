@@ -40,7 +40,7 @@ public static class AzureDevOpsHelper
     // https://github.com/microsoft/azure-devops-dotnet-samples/blob/main/ClientLibrary/Samples/Git/PullRequestsSample.cs
     // https://stackoverflow.com/a/52025418/4100001
     // Required personal access token scopes: Code: Read&Write
-    public static async Task<string?> TryCreatePullRequestAsync(
+    public static async Task<(bool Success, string? Url, bool RequiresBuild)> TryCreatePullRequestAsync(
         ConsoleHelper console,
         AzureDevOpsRepository repository,
         string sourceBranch,
@@ -51,7 +51,7 @@ public static class AzureDevOpsHelper
         {
             if ( !TryConnect( console, repository.BaseUrl, out var azureDevOps ) )
             {
-                return null;
+                return default;
             }
 
             using ( azureDevOps )
@@ -91,14 +91,14 @@ public static class AzureDevOpsHelper
 
                 var url = $"{repository.BaseUrl}/{repository.Project}/_git/{repository.Name}/pullrequest/{createdPullRequest.PullRequestId}";
 
-                return url;
+                return (true, url, true);
             }
         }
         catch ( Exception e )
         {
             console.WriteError( e.ToString() );
 
-            return null;
+            return default;
         }
     }
 

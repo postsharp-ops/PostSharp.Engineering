@@ -64,6 +64,10 @@ public class GitHubRepository : VcsRepository
     public override Task<bool> TrySetBranchPoliciesAsync( BuildContext context, string buildStatusGenre, string? buildStatusName, bool dry )
         => GitHubHelper.TrySetBranchPoliciesAsync( context, this, buildStatusGenre, buildStatusName, dry );
 
-    public override Task<string?> TryCreatePullRequestAsync( ConsoleHelper console, string sourceBranch, string targetBranch, string title )
+    public override Task<(bool Success, string? Url, bool RequiresBuild)> TryCreatePullRequestAsync(
+        ConsoleHelper console,
+        string sourceBranch,
+        string targetBranch,
+        string title )
         => GitHubHelper.TryCreatePullRequestAsync( console, this, sourceBranch, targetBranch, title );
 }

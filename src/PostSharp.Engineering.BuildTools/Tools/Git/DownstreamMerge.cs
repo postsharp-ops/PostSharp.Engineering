@@ -325,26 +325,29 @@ internal static class DownstreamMerge
 
         if ( isPullRequestRequired )
         {
-            if ( !TryCreatePullRequest( context, targetBranch, downstreamBranch, sourceBranch, out var pullRequestUrl ) )
+            if ( !TryCreatePullRequest( context, targetBranch, downstreamBranch, sourceBranch, out var pullRequestUrl, out var requiresBuild ) )
             {
                 return false;
             }
 
             context.Console.WriteSuccess( $"Created pull request: {pullRequestUrl}" );
 
-            if ( !TryScheduleBuild(
-                    downstreamDependencyDefinition.CiConfiguration,
-                    context.Console,
-                    targetBranch,
-                    sourceBranch,
-                    pullRequestUrl,
-                    pullRequestStatusCheckBuildTypeId!, // Checked by isPullRequestRequired
-                    out var buildUrl ) )
+            if ( requiresBuild )
             {
-                return false;
-            }
+                if ( !TryScheduleBuild(
+                        downstreamDependencyDefinition.CiConfiguration,
+                        context.Console,
+                        targetBranch,
+                        sourceBranch,
+                        pullRequestUrl,
+                        pullRequestStatusCheckBuildTypeId!, // Checked by isPullRequestRequired
+                        out var buildUrl ) )
+                {
+                    return false;
+                }
 
-            context.Console.WriteSuccess( $"Scheduled build: {buildUrl}" );
+                context.Console.WriteSuccess( $"Scheduled build: {buildUrl}" );
+            }
         }
 
         return true;
@@ -447,13 +450,15 @@ internal static class DownstreamMerge
         string targetBranch,
         string downstreamBranch,
         string sourceBranch,
-        [NotNullWhen( true )] out string? pullRequestUrl )
+        [NotNullWhen( true )] out string? pullRequestUrl,
+        out bool requiresBuild )
     {
         context.Console.WriteImportantMessage( $"Creating pull request from '{targetBranch}' branch to '{downstreamBranch}' downstream branch" );
 
         if ( !GitHelper.TryGetRemoteUrl( context, out var remoteUrl ) )
         {
             pullRequestUrl = null;
+            requiresBuild = false;
 
             return false;
         }
@@ -461,28 +466,40 @@ internal static class DownstreamMerge
         try
         {
             var pullRequestTitle = $"Downstream merge from '{sourceBranch}' branch";
-            Task<string?> newPullRequestTask;
+
+            (bool Success, string? Url, bool RequiresBuild) newPullRequest;
 
             if ( VcsUrlParser.TryGetRepository( remoteUrl, out var repository ) )
             {
-                newPullRequestTask = repository.TryCreatePullRequestAsync(
-                    context.Console,
-                    targetBranch,
-                    downstreamBranch,
-                    pullRequestTitle );
+                newPullRequest = repository.TryCreatePullRequestAsync(
+                        context.Console,
+                        targetBranch,
+                        downstreamBranch,
+                        pullRequestTitle )
+                    .ConfigureAwait( false )
+                    .GetAwaiter()
+                    .GetResult();
+
+                if ( !newPullRequest.Success )
+                {
+                    pullRequestUrl = null;
+                    requiresBuild = false;
+
+                    return false;
+                }
+
+                context.Console.WriteImportantMessage( $"Pull request created. {newPullRequest.Url}" );
+                requiresBuild = newPullRequest.RequiresBuild;
+                pullRequestUrl = newPullRequest.Url!;
+
+                return true;
             }
             else
             {
                 context.Console.WriteError( $"Unknown VCS or unexpected repo URL format. Repo URL: '{remoteUrl}'." );
                 pullRequestUrl = null;
+                requiresBuild = false;
 
-                return false;
-            }
-
-            pullRequestUrl = newPullRequestTask.ConfigureAwait( false ).GetAwaiter().GetResult();
-
-            if ( pullRequestUrl == null )
-            {
                 return false;
             }
         }
@@ -490,13 +507,10 @@ internal static class DownstreamMerge
         {
             context.Console.WriteError( e.ToString() );
             pullRequestUrl = null;
+            requiresBuild = false;
 
             return false;
         }
-
-        context.Console.WriteImportantMessage( $"Pull request created. {pullRequestUrl}" );
-
-        return true;
     }
 
     private static bool TryScheduleBuild(

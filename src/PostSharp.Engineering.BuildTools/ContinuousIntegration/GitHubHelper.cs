@@ -102,7 +102,7 @@ public static class GitHubHelper
         return true;
     }
 
-    public static async Task<string?> TryCreatePullRequestAsync(
+    public static async Task<(bool Success, string? Url, bool RequiresBuild)> TryCreatePullRequestAsync(
         ConsoleHelper console,
         GitHubRepository repository,
         string sourceBranch,
@@ -136,12 +136,12 @@ public static class GitHubHelper
 
         if ( !TryConnectRestApis( out var creatorGitHub, out var reviewerGitHub ) )
         {
-            return null;
+            return default;
         }
 
         if ( !TryConnectGraphQl( console, out var graphQl ) )
         {
-            return null;
+            return default;
         }
 
         var allExistingPullRequests = await creatorGitHub.PullRequest.GetAllForRepository( repository.Owner, repository.Name );
@@ -173,7 +173,48 @@ public static class GitHubHelper
             _ = await reviewerGitHub.PullRequest.Review.Create( repository.Owner, repository.Name, pullRequest.Number, pullRequestApproval );
         }
 
-        console.WriteMessage( "Enabling pull request auto-merge." );
+        // Check if the PR is in a clean state before enabling auto-merge.
+        // Connect to REST API to get latest PR details.
+        if ( !TryConnectRestApi( console, out var restClient ) )
+        {
+            console.WriteError( "Could not connect to GitHub REST API." );
+
+            return default;
+        }
+
+        var latestPr = await restClient.PullRequest.Get( repository.Owner, repository.Name, pullRequest.Number );
+        var isMergeable = latestPr.Mergeable == true;
+
+        // Check status checks (if any required)
+        var combinedStatus = await restClient.Repository.Status.GetCombined( repository.Owner, repository.Name, latestPr.Head.Sha );
+        var isClean = isMergeable && combinedStatus.State.Value == CommitState.Success;
+
+        if ( isClean )
+        {
+            console.WriteMessage( "PR is in a clean state. Merging directly." );
+
+            // Directly merge the PR.
+            var mergeResult = await restClient.PullRequest.Merge(
+                repository.Owner,
+                repository.Name,
+                pullRequest.Number,
+                new MergePullRequest { CommitTitle = title, MergeMethod = Octokit.PullRequestMergeMethod.Merge } );
+
+            if ( mergeResult.Merged )
+            {
+                console.WriteMessage( "PR merged successfully." );
+                var url = $"https://github.com/{repository.Owner}/{repository.Name}/pull/{pullRequest.Number}";
+
+                return (true, url, false);
+            }
+            else
+            {
+                console.WriteError( "Failed to merge PR directly. Proceeding to enable auto-merge." );
+            }
+        }
+
+        // Enable auto-merge.
+        console.WriteMessage( "PR is not in a clean state. Enabling pull request auto-merge." );
 
         var pullRequestQuery = new Query()
             .RepositoryOwner( repository.Owner )
@@ -193,14 +234,14 @@ public static class GitHubHelper
                     {
                         AuthorEmail = authorEmail, CommitHeadline = title, MergeMethod = PullRequestMergeMethod.Merge, PullRequestId = pullRequestId
                     } ) )
-            .Select( am => am.ClientMutationId ) // We need to select something to avoid ResponseDeserializerException
+            .Select( am => am.ClientMutationId )
             .Compile();
 
         _ = await graphQl.Run( enableAutoMergeMutation );
 
-        var url = $"https://github.com/{repository.Owner}/{repository.Name}/pull/{pullRequest.Number}";
+        var finalUrl = $"https://github.com/{repository.Owner}/{repository.Name}/pull/{pullRequest.Number}";
 
-        return url;
+        return (true, finalUrl, true);
     }
 
     public static async Task<bool> TrySetBranchPoliciesAsync(

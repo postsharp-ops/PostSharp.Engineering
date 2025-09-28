@@ -69,7 +69,8 @@ public static partial class MetalamaDependencies
             {
                 EngineeringDirectory = "eng-Metalama",
 #pragma warning disable CS0618 // Type or member is obsolete
-                ParametricPrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSBuildConfiguration)", "Shipping" )
+                ParametricPrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSBuildConfiguration)", "Shipping" ),
+                Dependencies = [DevelopmentDependencies.PostSharpEngineering]
 #pragma warning restore CS0618 // Type or member is obsolete
             };
 
