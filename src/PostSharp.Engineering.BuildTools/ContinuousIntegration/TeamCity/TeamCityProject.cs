@@ -42,8 +42,9 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.powerShell
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
+import jetbrains.buildServer.configs.kotlin.projectFeatures.*
 
-version = ""2024.03""
+version = ""2025.07""
 
 project {
 " );
@@ -61,6 +62,21 @@ project {
                 }
 
                 writer.WriteLine();
+
+                writer.WriteLine(
+                    """
+                        features {
+                             untrustedBuildsSettings {
+                                 id = "UNTRUSTED_BUILD_SETTINGS_EXT"
+                                 defaultAction = UntrustedBuildsSettings.DefaultAction.APPROVE
+                                 enableLog = true
+                                 approvalRules = "group:UNTRUSTED_BUILD_APPROVERS:1"
+                             }
+                         }
+                    """ );
+                
+                writer.WriteLine();
+
                 var configurationsOrder = string.Join( ',', project._configurations.Select( c => c.ObjectName ).Concat( this._additionalBuildTypes ) );
                 writer.WriteLine( $"    buildTypesOrder = arrayListOf({configurationsOrder})" );
 
