@@ -24,7 +24,7 @@ internal abstract class BuildStep
     protected void AddParameter( BuildConfigurationParameter parameter ) => this._parameters.Add( parameter );
 
     public abstract string GenerateTeamCityCode();
-
+    
     public virtual void InsertPrerequisites( IReadOnlyList<BuildStep> previousSteps, Action<BuildStep> addStep )
     {
         if ( this._dockerSpec != null )

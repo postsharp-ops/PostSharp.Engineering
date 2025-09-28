@@ -368,7 +368,8 @@ internal static class TeamCitySettingsFile
             BuildTriggers = configurationProperties.BuildConfigurationInfo.BuildTriggers,
             SnapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration,
             SourceDependencies = product.BuildRequiresSourceDependencies ? productProperties.SourceDependencies : [],
-            IsSshAgentRequired = requiresUpstreamCheck && productProperties.IsRepoRemoteSsh
+            IsSshAgentRequired = requiresUpstreamCheck && productProperties.IsRepoRemoteSsh,
+            RequiresCommitStatusPublisher = true
         };
 
         return teamCityBuildConfiguration;

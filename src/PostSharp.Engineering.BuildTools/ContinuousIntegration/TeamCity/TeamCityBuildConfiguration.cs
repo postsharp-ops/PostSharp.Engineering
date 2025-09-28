@@ -46,6 +46,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
         public BuildConfigurationParameter[]? Parameters { get; init; }
 
+        public bool RequiresCommitStatusPublisher { get; init; }
+
         public TeamCityBuildConfiguration(
             string objectName,
             string name,
@@ -193,7 +195,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
             var requiresSwabra = allBuildSteps.Count > 0;
             var requiresSshAgent = this.IsSshAgentRequired;
-            var requiresAnyFeatures = requiresSwabra || requiresSshAgent;
+            var requiresAnyFeatures = requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher ;
 
             // Features.
             if ( requiresAnyFeatures )
@@ -209,6 +211,39 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
         }}" );
+                }
+
+                if ( this.RequiresCommitStatusPublisher )
+                {
+                    // Report status to GitHub.
+                    writer.WriteLine(
+                        $$"""
+                              commitStatusPublisher {
+                                  vcsRootExtId = "{{this.VcsId}}"
+                                  publisher = github {
+                                      githubUrl = "https://api.github.com"
+                                      authType = personalToken {
+                                          token = "%env.{{EnvironmentVariableNames.GitHubToken}}%"
+                                      }
+                                  }
+                              }
+                          """ );
+                    
+                    // Integrate with PRs.
+                    writer.WriteLine($$"""
+                                       pullRequests {
+                                              vcsRootExtId = "{{this.VcsId}}"
+                                               provider = github {
+                                                   authType = token {
+                                                       token = "%env.{{EnvironmentVariableNames.GitHubToken}}%"
+                                                   }
+                                                  filterTargetBranch = "+:refs/heads/{{this.DefaultBranch}}"
+                                                  filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
+                                              }
+                                          }
+                                       
+                                       
+                                       """);
                 }
 
                 if ( requiresSshAgent )
