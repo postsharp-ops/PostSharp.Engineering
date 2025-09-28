@@ -6,10 +6,13 @@ using Octokit.GraphQL.Core;
 using Octokit.GraphQL.Model;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Connection = Octokit.GraphQL.Connection;
 using Environment = System.Environment;
@@ -181,7 +184,17 @@ public static class GitHubHelper
 
             return default;
         }
-        
+
+        // Wait until the mergeability is known.
+        var waitStatusStopwatch = Stopwatch.StartNew();
+
+        while ( pullRequest.Mergeable == null && waitStatusStopwatch.Elapsed < TimeSpan.FromMinutes( 1 ) )
+        {
+            console.WriteMessage( $"Waiting until we know whether the PR is mergeable (waited {waitStatusStopwatch.Elapsed} so far)." );
+            Thread.Sleep( 200 );
+            pullRequest = await creatorGitHub.PullRequest.Get( repository.Owner, repository.Name, pullRequest.Number );
+        }
+
         // Check status checks (if any required)
         if ( pullRequest.Mergeable == true )
         {
