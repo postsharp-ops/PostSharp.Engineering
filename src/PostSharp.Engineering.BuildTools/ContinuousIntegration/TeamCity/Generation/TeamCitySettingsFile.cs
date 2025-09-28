@@ -212,7 +212,7 @@ internal static class TeamCitySettingsFile
                 product.ParametrizedDependencies
                     .Where( d => d.Definition.GenerateSnapshotDependency )
                     .Select( d => d.Definition )
-                    .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DownstreamMergeBuildType, true, FailureAction: FailureAction.Ignore ) ) );
+                    .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DownstreamMergeBuildType, true, FailureAction: FailureAction.AddProblem ) ) );
 
         var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
             "DownstreamMerge",
