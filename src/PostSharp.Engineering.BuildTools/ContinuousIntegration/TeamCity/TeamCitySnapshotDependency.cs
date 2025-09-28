@@ -7,5 +7,7 @@ internal record TeamCitySnapshotDependency( string ObjectId, bool IsAbsoluteId, 
 internal enum FailureAction
 {
     FailToStart,
-    AddProblem
+    AddProblem,
+    Ignore,
+    Cancel
 }

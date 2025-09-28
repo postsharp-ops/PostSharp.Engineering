@@ -290,6 +290,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                     {
                         FailureAction.FailToStart => "FAIL_TO_START",
                         FailureAction.AddProblem => "ADD_PROBLEM",
+                        FailureAction.Ignore => "IGNORE",
+                        FailureAction.Cancel => "CANCEL",
                         _ => throw new ArgumentOutOfRangeException()
                     };
 
