@@ -210,7 +210,7 @@ internal static class TeamCitySettingsFile
         snapshotDependencies =
             snapshotDependencies.Concat(
                 product.ParametrizedDependencies
-                    .Where( d => d.Definition.GenerateSnapshotDependency )
+                    .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.DownstreamProductFamily != null )
                     .Select( d => d.Definition )
                     .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DownstreamMergeBuildType, true, FailureAction: FailureAction.AddProblem ) ) );
 
