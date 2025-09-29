@@ -27,14 +27,6 @@ internal class PublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        if ( !ArtifactManifestFile.TryRead(
-                context,
-                settings.BuildConfiguration,
-                out var preparedVersionInfo ) )
-        {
-            return false;
-        }
-
         // Only versioned products require version bump.
         if ( product.DependencyDefinition.IsVersioned )
         {
@@ -44,35 +36,27 @@ internal class PublishCommand : BaseCommand<PublishSettings>
                     mainVersionFileInfo,
                     out var hasBumpSinceLastDeployment,
                     out var hasChangesSinceLastDeployment,
-                    out var lastVersionTag ) )
+                    out _ ) )
             {
                 return false;
             }
 
-            // If there are no changes since the deployment, we get only a warning and deployment proceeds with the same version.
             if ( !hasChangesSinceLastDeployment )
             {
                 context.Console.WriteWarning( $"There are no new unpublished changes since the last deployment." );
             }
-            else
+            else if ( !hasBumpSinceLastDeployment )
             {
-                // To check if version was bumped manually we get full prepared version info.
-                var currentVersion = preparedVersionInfo.PackageVersion;
+                context.Console.WriteError( "There are changes since the last deployment but the version has not been bumped." );
 
-                // Publishing fails if there are changes and the version has not been bumped since the last deployment.
-                if ( !hasBumpSinceLastDeployment && currentVersion == lastVersionTag )
-                {
-                    context.Console.WriteError( "There are changes since the last deployment but the version has not been bumped." );
-
-                    return false;
-                }
+                return false;
             }
         }
 
         return true;
     }
 
-    public static bool Execute( BuildContext context, PublishSettings settings )
+    private static bool Execute( BuildContext context, PublishSettings settings )
     {
         var product = context.Product;
         context.Console.WriteHeading( "Publishing files" );

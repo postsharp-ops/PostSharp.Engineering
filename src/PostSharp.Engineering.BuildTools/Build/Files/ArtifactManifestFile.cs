@@ -36,63 +36,29 @@ internal static class ArtifactManifestFile
     <PropertyGroup>
         <{product.ProductNameWithoutDot}MainVersion>{version.MainVersion}</{product.ProductNameWithoutDot}MainVersion>";
 
-        var packageVersionWithoutSuffix = version.PatchNumber == 0 ? version.VersionPrefix : version.VersionPrefix + "." + version.PatchNumber;
-        var assemblyVersion = version.VersionPrefix + "." + version.PatchNumber;
-        var previewVersionSuffix = configuration == BuildConfiguration.Public ? "preview" : version.VersionSuffix;
-
         if ( product.GenerateArcadeProperties )
         {
             // Metalama.Compiler, because of Arcade, requires the version number to be decomposed in a prefix, patch number, and suffix.
             // In Arcade, the package naming scheme is different because the patch number is not a part of the package name.
 
-            var arcadeSuffix = string.IsNullOrEmpty( version.VersionSuffix ) ? "" : version.VersionSuffix;
-            var previewArcadeSuffix = previewVersionSuffix;
-
-            void AppendToArcadeSuffix( string s )
-            {
-                arcadeSuffix += s;
-                previewArcadeSuffix += s;
-            }
-
-            if ( version.PatchNumber > 0 )
-            {
-                if ( arcadeSuffix.Length > 0 )
-                {
-                    AppendToArcadeSuffix( "-" );
-                }
-                else
-                {
-                    // It should not happen that we have a patch number without a suffix.
-                    AppendToArcadeSuffix( "-patch-" + configuration );
-                }
-
-                AppendToArcadeSuffix( version.PatchNumber.ToString( CultureInfo.InvariantCulture ) );
-            }
-
-            var packageSuffixWithDash = string.IsNullOrEmpty( arcadeSuffix ) ? "" : "-" + arcadeSuffix;
-            var packageVersion = version.VersionPrefix + packageSuffixWithDash;
-            var packagePreviewVersion = version.VersionPrefix + "-" + previewArcadeSuffix;
-
             manifestFileContent += $@"
         
         <{product.ProductNameWithoutDot}VersionPrefix>{version.VersionPrefix}</{product.ProductNameWithoutDot}VersionPrefix>
-        <{product.ProductNameWithoutDot}VersionSuffix>{arcadeSuffix}</{product.ProductNameWithoutDot}VersionSuffix>
+        <{product.ProductNameWithoutDot}VersionSuffix>{version.ArcadeSuffix}</{product.ProductNameWithoutDot}VersionSuffix>
         <{product.ProductNameWithoutDot}VersionPatchNumber>{version.PatchNumber}</{product.ProductNameWithoutDot}VersionPatchNumber>
-        <{product.ProductNameWithoutDot}VersionWithoutSuffix>{packageVersionWithoutSuffix}</{product.ProductNameWithoutDot}VersionWithoutSuffix>
-        <{product.ProductNameWithoutDot}Version>{packageVersion}</{product.ProductNameWithoutDot}Version>
-        <{product.ProductNameWithoutDot}PreviewVersion>{packagePreviewVersion}</{product.ProductNameWithoutDot}PreviewVersion>
-        <{product.ProductNameWithoutDot}AssemblyVersion>{assemblyVersion}</{product.ProductNameWithoutDot}AssemblyVersion>";
+        <{product.ProductNameWithoutDot}VersionWithoutSuffix>{version.PackageVersionWithoutSuffix}</{product.ProductNameWithoutDot}VersionWithoutSuffix>
+        <{product.ProductNameWithoutDot}Version>{version.PackageVersion}</{product.ProductNameWithoutDot}Version>
+        <{product.ProductNameWithoutDot}PreviewVersion>{version.PackagePreviewVersion}</{product.ProductNameWithoutDot}PreviewVersion>
+        <{product.ProductNameWithoutDot}AssemblyVersion>{version.AssemblyVersion}</{product.ProductNameWithoutDot}AssemblyVersion>";
         }
         else
         {
             var packageSuffix = string.IsNullOrEmpty( version.VersionSuffix ) ? "" : "-" + version.VersionSuffix;
-            var packageVersion = packageVersionWithoutSuffix + packageSuffix;
-            var packagePreviewVersion = packageVersionWithoutSuffix + "-" + previewVersionSuffix;
 
             manifestFileContent += $@"
-        <{product.ProductNameWithoutDot}Version>{packageVersion}</{product.ProductNameWithoutDot}Version>
-        <{product.ProductNameWithoutDot}PreviewVersion>{packagePreviewVersion}</{product.ProductNameWithoutDot}PreviewVersion>
-        <{product.ProductNameWithoutDot}AssemblyVersion>{assemblyVersion}</{product.ProductNameWithoutDot}AssemblyVersion>";
+        <{product.ProductNameWithoutDot}Version>{version.PackageVersion}</{product.ProductNameWithoutDot}Version>
+        <{product.ProductNameWithoutDot}PreviewVersion>{version.PackagePreviewVersion}</{product.ProductNameWithoutDot}PreviewVersion>
+        <{product.ProductNameWithoutDot}AssemblyVersion>{version.AssemblyVersion}</{product.ProductNameWithoutDot}AssemblyVersion>";
         }
 
         manifestFileContent += $@"

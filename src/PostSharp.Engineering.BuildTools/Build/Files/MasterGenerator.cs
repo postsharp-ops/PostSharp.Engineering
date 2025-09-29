@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Diagnostics.CodeAnalysis;
@@ -55,7 +56,7 @@ internal static class MasterGenerator
             return false;
         }
 
-        if ( !VersionFileHelper.TryComputeVersion( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
+        if ( !VersionComponents.TryCompute( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
         {
             return false;
         }
