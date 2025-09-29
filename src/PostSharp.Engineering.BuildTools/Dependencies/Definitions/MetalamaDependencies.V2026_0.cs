@@ -203,7 +203,7 @@ public static partial class MetalamaDependencies
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
                 vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" )
             {
-                Dependencies = [DevelopmentDependencies.PostSharpEngineering, MetalamaPremium]
+                Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama]
             };
 
         public static DependencyDefinition MetalamaPerformance { get; } =
