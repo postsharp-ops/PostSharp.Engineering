@@ -20,14 +20,8 @@ internal static class AutoUpdatedDependenciesHelper
 
         dependenciesUpdated = false;
 
-        // Get dependenciesOverrideFile from Versions.Public.g.props.
-        if ( !DependenciesConfigurationFile.TryLoad( context, settings, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
-        {
-            return false;
-        }
-
-        var autoUpdatedDependencies = dependenciesOverrideFile.Dependencies
-            .Where( d => d.Value.SourceKind != DependencySourceKind.Feed )
+        var autoUpdatedDependencies = context.Product.DependencyDefinition.GetAllDependencies( BuildConfiguration.Public )
+            .Where( d => d.Definition.AutoUpdateVersion )
             .ToArray();
 
         if ( autoUpdatedDependencies.Length == 0 )
@@ -37,69 +31,53 @@ internal static class AutoUpdatedDependenciesHelper
             return true;
         }
 
-        var autoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
-        var autoUpdatedVersionsFileName = Path.GetFileName( autoUpdatedVersionsFilePath );
-        var currentVersionDocument = XDocument.Load( autoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
+        var thisAutoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
+        var thisAutoUpdatedVersionsFileName = Path.GetFileName( thisAutoUpdatedVersionsFilePath );
+        var thisAutoUpdatedVersionsDocument = XDocument.Load( thisAutoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
 
-        var currentVersionPropertyGroup = currentVersionDocument.Root!.Element( "PropertyGroup" )!;
+        var thisAutoUpdatedVersionsPropertyGroupElement = thisAutoUpdatedVersionsDocument.Root!.Element( "PropertyGroup" )!;
 
-        foreach ( var dependencyOverride in autoUpdatedDependencies )
+        var errors = 0;
+
+        foreach ( var dependencyConfiguration in autoUpdatedDependencies )
         {
-            var dependencySource = dependencyOverride.Value;
+            var dependency = dependencyConfiguration.Definition;
 
-            var dependency = context.Product.ProductFamily.GetDependencyDefinition( dependencyOverride.Key );
+            var theirAutoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, "..", dependency.Name, "eng", "AutoUpdatedVersions.props" );
 
-            // Path to the downloaded build version file.
-            string? dependencyVersionPath;
-
-            if ( dependencyOverride.Value.SourceKind == DependencySourceKind.Local )
+            if ( !File.Exists( theirAutoUpdatedVersionsFilePath ) )
             {
-                var localImportDocumentPath = dependencySource.VersionFile;
+                context.Console.WriteError( $"File not found: '{theirAutoUpdatedVersionsFilePath}'." );
 
-                if ( !File.Exists( localImportDocumentPath ) )
-                {
-                    context.Console.WriteError( $"Local import document of '{dependency.Name}' does not exist." );
+                errors++;
 
-                    return false;
-                }
-
-                var localImportDocument = XDocument.Load( localImportDocumentPath );
-
-                var dependencyVersionRelativePath = localImportDocument.Root!.Element( "Import" )!.Attribute( "Project" )!.Value;
-                var localImportDocumentDirectory = Path.GetDirectoryName( localImportDocumentPath )!;
-                dependencyVersionPath = Path.Combine( localImportDocumentDirectory, dependencyVersionRelativePath );
-            }
-            else
-            {
-                dependencyVersionPath = dependencySource.VersionFile;
+                continue;
             }
 
-            if ( !File.Exists( dependencyVersionPath ) )
+            var theirAutoUpdatedVersionsDocument = XDocument.Load( theirAutoUpdatedVersionsFilePath );
+
+            var releasedVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseVersion";
+
+            var dependencyReleasedVersion = theirAutoUpdatedVersionsDocument.Root?.Element( "Project" )
+                ?.Element( "PropertyGroup" )
+                ?.Element( releasedVersionPropertyName )
+                ?.Value;
+
+            if ( string.IsNullOrEmpty( dependencyReleasedVersion ) )
             {
-                context.Console.WriteError( $"'{dependencyVersionPath}' version file of '{dependency.Name}' does not exist." );
+                context.Console.WriteError( $"Cannot find the '{dependencyReleasedVersion}' in '{theirAutoUpdatedVersionsFilePath}'." );
+                errors++;
 
-                return false;
+                continue;
             }
-
-            // Load the up-to-date version file of dependency.
-            var dependencyVersionDocument = XDocument.Load( dependencyVersionPath );
-
-            var currentDependencyVersionValue =
-                dependencyVersionDocument.Root!.Element( "PropertyGroup" )!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
 
             // Load dependency version from public version.
             var versionElementName = $"{dependency.NameWithoutDot}Version";
-            var versionElement = currentVersionPropertyGroup.Element( versionElementName );
-
-            if ( versionElement == null )
-            {
-                context.Console.WriteWarning( $"No property '{versionElementName}'." );
-            }
-
+            var versionElement = thisAutoUpdatedVersionsPropertyGroupElement.Element( versionElementName );
             var oldVersionValue = versionElement?.Value;
 
             // We don't need to rewrite the file if there is no change in version.
-            if ( oldVersionValue == currentDependencyVersionValue )
+            if ( oldVersionValue == dependencyReleasedVersion )
             {
                 context.Console.WriteMessage( $"Version of '{dependency.Name}' dependency is up to date." );
 
@@ -109,28 +87,27 @@ internal static class AutoUpdatedDependenciesHelper
             if ( versionElement == null )
             {
                 versionElement = new XElement( versionElementName );
-                currentVersionPropertyGroup.Add( versionElement );
+                thisAutoUpdatedVersionsPropertyGroupElement.Add( versionElement );
             }
 
-            versionElement.Value = currentDependencyVersionValue;
+            versionElement.Value = dependencyReleasedVersion;
             dependenciesUpdated = true;
 
-            context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{currentDependencyVersionValue}'." );
+            context.Console.WriteMessage( $"Setting version dependency '{dependency}' from '{oldVersionValue}' to '{dependencyReleasedVersion}'." );
+        }
+
+        if ( errors > 0 )
+        {
+            return false;
         }
 
         if ( dependenciesUpdated )
         {
-            context.Console.WriteImportantMessage( $"{(settings.Dry ? "Dry run: " : "")}Writing updated '{autoUpdatedVersionsFileName}'." );
+            context.Console.WriteImportantMessage( $"{(settings.Dry ? "Dry run: " : "")}Writing updated '{thisAutoUpdatedVersionsFileName}'." );
 
             if ( !settings.Dry )
             {
-                var xmlWriterSettings =
-                    new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
-
-                using ( var xmlWriter = XmlWriter.Create( autoUpdatedVersionsFilePath, xmlWriterSettings ) )
-                {
-                    currentVersionDocument.Save( xmlWriter );
-                }
+                TextFileHelper.WriteIfDifferent( thisAutoUpdatedVersionsFilePath, thisAutoUpdatedVersionsDocument.ToString(), context );
             }
         }
 

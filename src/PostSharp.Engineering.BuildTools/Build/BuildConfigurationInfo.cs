@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.Build.Swapping;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using System;
 
@@ -34,7 +35,7 @@ public record BuildConfigurationInfo(
     string? TeamCityDeploymentName = null,
     string? TeamCitySwapName = null,
     bool SwapAfterPublishing = false,
-    string[]? AdditionalArtifactRules = null,
+    ArtifactRule[]? AdditionalArtifactRules = null,
     bool ExportsToTeamCityBuild = true,
     bool ExportsToTeamCityDeploy = true,
     bool ExportsToTeamCityDeployWithoutDependencies = false,

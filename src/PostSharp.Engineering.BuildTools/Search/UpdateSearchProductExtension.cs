@@ -84,30 +84,33 @@ public class UpdateSearchProductExtension : ProductExtension
 
     internal override bool AddTeamcityBuildConfiguration( BuildContext context, List<TeamCityBuildConfiguration> teamCityBuildConfigurations )
     {
+        var product = context.Product;
+
         BuildStep CreateBuildStep()
         {
-            return new EngineeringCommandBuildStep( "UpdateSearch", "Update search", "search update", null, true, timeout: this.TimeOut );
+            return new EngineeringCommandBuildStep( "UpdateSearch", "Update search", product.ProductName, "search update", null, true, timeout: this.TimeOut );
         }
 
         foreach ( var configuration in this.BuildConfigurations )
         {
-            var configurationInfo = context.Product.Configurations[configuration];
+            var configurationInfo = product.Configurations[configuration];
 
             var name = this.CustomBuildConfigurationName ?? $"Update Search [{configuration}]";
 
             var dependencies = configurationInfo.ExportsToTeamCityDeploy
                 ? new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) }
-                : null;
+                : [];
 
-            var buildTriggers = this.BuildTriggers?[configuration];
-            var vcsRootId = TeamCityHelper.GetVcsId( context.Product.DependencyDefinition );
-            var buildAgentRequirements = context.Product.ResolvedBuildAgentRequirements;
+            var buildTriggers = this.BuildTriggers?[configuration] ?? [];
+            var vcsRootId = TeamCityHelper.GetVcsId( product.DependencyDefinition );
+            var buildAgentRequirements = product.ResolvedBuildAgentRequirements;
 
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
                 name,
-                context.Product.DependencyDefinition.PublishingBranch,
+                product.DependencyDefinition.PublishingBranch,
                 vcsRootId,
+                product.ProductName,
                 buildAgentRequirements )
             {
                 BuildSteps = [CreateBuildStep()], IsDeployment = true, SnapshotDependencies = dependencies, BuildTriggers = buildTriggers
@@ -120,8 +123,9 @@ public class UpdateSearchProductExtension : ProductExtension
                 var teamCityUpdateSearchWithoutDependenciesConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
-                    context.Product.DependencyDefinition.Branch,
+                    product.DependencyDefinition.Branch,
                     vcsRootId,
+                    product.ProductName,
                     buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );
