@@ -19,9 +19,12 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         var product = context.Product;
 
         // TeamCity
-        if ( !TeamCitySettingsFile.TryWrite( context, settings ) )
+        if ( product.GenerateTeamCitySettings )
         {
-            return false;
+            if ( !TeamCitySettingsFile.TryWrite( context, settings ) )
+            {
+                return false;
+            }
         }
 
         EmbeddedResourceHelper.ExtractScript( context, "Build.ps1", "" );

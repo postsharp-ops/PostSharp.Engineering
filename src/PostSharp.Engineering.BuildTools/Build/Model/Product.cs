@@ -211,6 +211,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Pattern ConsumableDepsFiles { get; init; } = Pattern.Empty;
 
         /// <summary>
+        /// Gets or sets a value indicating whether the <c>generate-scripts</c> command should the TeamCity setting scripts.
+        /// </summary>
+        public bool GenerateTeamCitySettings { get; init; } = true;
+
+        /// <summary>
         /// Gets or sets a value indicating whether the <c>prepare</c> command should generate the <c>nuget.config</c> file.
         /// </summary>
         public bool GenerateNuGetConfig { get; init; }
