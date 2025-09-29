@@ -5,7 +5,6 @@ using PostSharp.Engineering.BuildTools.BillOfMaterials;
 using PostSharp.Engineering.BuildTools.Build.Bumping;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;

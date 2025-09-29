@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Files;
