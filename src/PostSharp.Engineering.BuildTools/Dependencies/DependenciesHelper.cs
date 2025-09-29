@@ -528,7 +528,7 @@ internal static class DependenciesHelper
             Directory.CreateDirectory( restoreDirectory );
             context.Console.WriteMessage( $"Downloading {dependencyName} build #{buildNumber} of {ciBuildTypeId}" );
 
-            if ( !teamCity.TryDownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsPath, restoreDirectory ) )
+            if ( !teamCity.TryDownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsPath, restoreDirectory, !context.Settings.NoProgress ) )
             {
                 return false;
             }

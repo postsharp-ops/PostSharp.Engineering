@@ -120,6 +120,10 @@ namespace PostSharp.Engineering.BuildTools
         [CommandOption( "--timeout" )]
         public double? Timeout { get; set; }
 
+        [Description( "Does not show the progress bar for downloads." )]
+        [CommandOption( "--no-progress" )]
+        public bool NoProgress { get; set; }
+
         public ImmutableDictionary<string, string> Properties { get; protected set; } =
             ImmutableDictionary.Create<string, string>( StringComparer.OrdinalIgnoreCase );
 

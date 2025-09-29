@@ -128,7 +128,13 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
             }
         }
 
-        public bool TryDownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string restoreDirectory )
+        public bool TryDownloadArtifacts(
+            ConsoleHelper console,
+            string buildTypeId,
+            int buildNumber,
+            string artifactsPath,
+            string restoreDirectory,
+            bool showProgress )
         {
             IEnumerable<DownloadedFile> GetFiles( string urlOrPath, string targetDirectory )
             {
@@ -182,7 +188,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
 
             var files = GetFiles( basePath, baseTargetDirectory );
 
-            var success = FileDownloader.DownloadAsync( files, this._httpClient, console )
+            var success = FileDownloader.DownloadAsync( files, this._httpClient, console, showProgress )
                 .GetAwaiter()
                 .GetResult();
 

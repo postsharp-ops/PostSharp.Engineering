@@ -16,35 +16,42 @@ internal class FileDownloader : IDisposable
     private readonly SemaphoreSlim _throttler = new( 4, 4 );
     private readonly IEnumerable<DownloadedFile> _files;
     private readonly HttpClient _httpClient;
-    private readonly ProgressContext _progressContext;
+    private readonly ProgressContext? _progressContext;
     private readonly ConsoleHelper _console;
     private readonly StringTrimmer _descriptionTrimmer;
     private readonly CancellationToken _cancellationToken;
 
     private bool _used;
 
-    public static Task<bool> DownloadAsync( IEnumerable<DownloadedFile> files, HttpClient httpClient, ConsoleHelper console )
+    public static Task<bool> DownloadAsync( IEnumerable<DownloadedFile> files, HttpClient httpClient, ConsoleHelper console, bool showProgress )
     {
         var cancellationToken = ConsoleHelper.CancellationToken;
 
-        return Task.Run(
-            () => AnsiConsole.Progress()
-                .Columns(
-                    new TaskDescriptionColumn(),
-                    new ProgressBarColumn(),
-                    new DownloadedColumn(),
-                    new TransferSpeedColumn(),
-                    new RemainingTimeColumn(),
-                    new ElapsedTimeColumn(),
-                    new SpinnerColumn() )
-                .StartAsync( ctx => new FileDownloader( files, httpClient, ctx, console, cancellationToken ).DownloadAsync() ),
-            cancellationToken );
+        if ( showProgress )
+        {
+            return Task.Run(
+                () => AnsiConsole.Progress()
+                    .Columns(
+                        new TaskDescriptionColumn(),
+                        new ProgressBarColumn(),
+                        new DownloadedColumn(),
+                        new TransferSpeedColumn(),
+                        new RemainingTimeColumn(),
+                        new ElapsedTimeColumn(),
+                        new SpinnerColumn() )
+                    .StartAsync( ctx => new FileDownloader( files, httpClient, ctx, console, cancellationToken ).DownloadAsync() ),
+                cancellationToken );
+        }
+        else
+        {
+            return new FileDownloader( files, httpClient, null, console, cancellationToken ).DownloadAsync();
+        }
     }
 
     private FileDownloader(
         IEnumerable<DownloadedFile> files,
         HttpClient httpClient,
-        ProgressContext progressContext,
+        ProgressContext? progressContext,
         ConsoleHelper console,
         CancellationToken cancellationToken )
     {
@@ -57,7 +64,7 @@ internal class FileDownloader : IDisposable
     }
 
     private async Task<(bool Result, DownloadedFile File, Exception? Exception)> DownloadFileAsync(
-        ProgressTask progress,
+        ProgressTask? progress,
         DownloadedFile file )
     {
         var attempt = 0;
@@ -70,13 +77,13 @@ internal class FileDownloader : IDisposable
                 {
                     if ( attempt > 0 )
                     {
-                        ((IProgress<double>) progress).Report( 0 );
+                        ((IProgress<double>?) progress)?.Report( 0 );
 
                         var delay = Math.Pow( 2, attempt );
 
                         for ( var i = delay; i > 0; i-- )
                         {
-                            progress.Description( this._descriptionTrimmer.Trim( $"{file.Description} failed, retrying in {i} seconds" ) );
+                            progress?.Description( this._descriptionTrimmer.Trim( $"{file.Description} failed, retrying in {i} seconds" ) );
 
                             await Task.Delay( TimeSpan.FromSeconds( 1 ), this._cancellationToken );
                         }
@@ -86,7 +93,7 @@ internal class FileDownloader : IDisposable
 
                     if ( attempt == 0 )
                     {
-                        progress.StartTask();
+                        progress?.StartTask();
                     }
 
                     var response = await this._httpClient.GetAsync( file.SourceUrl, HttpCompletionOption.ResponseHeadersRead, this._cancellationToken );
@@ -110,7 +117,7 @@ internal class FileDownloader : IDisposable
                     while ( (bytesRead = await httpStream.ReadAsync( buffer, 0, buffer.Length, this._cancellationToken )) != 0 )
                     {
                         await fileStream.WriteAsync( buffer, 0, bytesRead, this._cancellationToken );
-                        progress.Increment( bytesRead );
+                        progress?.Increment( bytesRead );
                     }
 
                     return (true, file, null);
@@ -124,7 +131,7 @@ internal class FileDownloader : IDisposable
                         continue;
                     }
 
-                    progress.Description( this._descriptionTrimmer.Trim( $"{file.Description} failed: {e.Message}" ) );
+                    progress?.Description( this._descriptionTrimmer.Trim( $"{file.Description} failed: {e.Message}" ) );
 
                     return (false, file, e);
                 }
@@ -153,7 +160,7 @@ internal class FileDownloader : IDisposable
 
         foreach ( var file in this._files )
         {
-            var progress = this._progressContext.AddTask( this._descriptionTrimmer.Trim( file.Description ), false, file.Length );
+            var progress = this._progressContext?.AddTask( this._descriptionTrimmer.Trim( file.Description ), false, file.Length );
             var task = this.DownloadFileAsync( progress, file );
 
             pendingDownloads.Add( task );
