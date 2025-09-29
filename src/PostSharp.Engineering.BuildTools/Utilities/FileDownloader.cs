@@ -143,7 +143,7 @@ internal class FileDownloader : IDisposable
         }
         finally
         {
-            progress.StopTask();
+            progress?.StopTask();
         }
     }
 
