@@ -91,12 +91,11 @@ namespace PostSharp.Engineering.BuildTools
                             .WithDescription( "Swaps deployment slots" );
                     }
 
-                    if ( product.DependencyDefinition.IsVersioned )
-                    {
-                        root.AddCommand<BumpCommand>( "bump" )
-                            .WithData( data )
-                            .WithDescription( "Bumps the version of this product" );
-                    }
+                    // We add the bump command even for non-versioned products because it makes 
+                    // orchestration of bumping all products easier.
+                    root.AddCommand<BumpCommand>( "bump" )
+                        .WithData( data )
+                        .WithDescription( "Bumps the version of this product" );
 
                     root.AddCommand<GenerateThirdPartyNoticesCommand>( "third-party-notices" )
                         .WithData( data )
