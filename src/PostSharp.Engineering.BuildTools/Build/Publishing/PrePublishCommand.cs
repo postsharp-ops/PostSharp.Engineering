@@ -25,12 +25,7 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
         {
             return false;
         }
-
-        if ( !MasterGenerator.TryWriteFiles( context, settings ) )
-        {
-            return false;
-        }
-
+        
         if ( product.ProductFamily.UpstreamProductFamily != null && !DownstreamMerge.CheckUpstreamChanges( context, settings ) )
         {
             return false;

@@ -72,7 +72,7 @@ public static class GitHelper
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"pull origin {branch}",
+                $"pull origin {branch} --force",
                 context.RepoDirectory ) )
         {
             return false;
