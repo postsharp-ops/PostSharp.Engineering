@@ -63,20 +63,6 @@ project {
 
                 writer.WriteLine();
 
-                writer.WriteLine(
-                    """
-                        features {
-                             untrustedBuildsSettings {
-                                 id = "UNTRUSTED_BUILD_SETTINGS_EXT"
-                                 defaultAction = UntrustedBuildsSettings.DefaultAction.APPROVE
-                                 enableLog = true
-                                 approvalRules = "group:UNTRUSTED_BUILD_APPROVERS:1"
-                             }
-                         }
-                    """ );
-                
-                writer.WriteLine();
-
                 var configurationsOrder = string.Join( ',', project._configurations.Select( c => c.ObjectName ).Concat( this._additionalBuildTypes ) );
                 writer.WriteLine( $"    buildTypesOrder = arrayListOf({configurationsOrder})" );
 
