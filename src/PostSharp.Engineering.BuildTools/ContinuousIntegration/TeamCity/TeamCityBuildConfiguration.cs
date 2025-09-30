@@ -6,7 +6,6 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 

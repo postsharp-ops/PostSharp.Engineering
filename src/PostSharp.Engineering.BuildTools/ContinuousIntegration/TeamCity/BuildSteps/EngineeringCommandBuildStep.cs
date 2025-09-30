@@ -3,9 +3,7 @@
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
 using PostSharp.Engineering.BuildTools.Docker;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 

@@ -3,7 +3,6 @@
 using Microsoft.VisualStudio.Services.Common;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
