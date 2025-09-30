@@ -4,15 +4,7 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
-/// <summary>
-/// 
-/// </summary>
-/// <param name="SourcePath">The directory in the source repository.</param>
-/// <param name="ArtifactPath">The directory in the artifacts.</param>
-/// <param name="Exclude"></param>
-/// <param name="IsAbsolute"></param>
-/// <param name="AllFiles">Whether the <c>/**/*</c> suffix is appended.</param>
-public record ArtifactRule( string SourcePath, string ArtifactPath, bool Exclude = false, bool IsAbsolute = false, bool AllFiles = true ) : IComparable<ArtifactRule>
+public record ArtifactRule( string Source, string Target, bool Exclude = false, bool IsAbsolute = false, bool AllFiles = true ) : IComparable<ArtifactRule>
 {
     internal string GetPublishRule( string checkoutDirectory )
     {
@@ -21,11 +13,11 @@ public record ArtifactRule( string SourcePath, string ArtifactPath, bool Exclude
 
         if ( this.IsAbsolute )
         {
-            return $"{prefix}:{this.SourcePath}{suffix} => {this.ArtifactPath}";
+            return $"{prefix}:{this.Source}{suffix} => {this.Target}";
         }
         else
         {
-            return $"{prefix}:{checkoutDirectory}/{this.SourcePath}{suffix} => {this.ArtifactPath}";
+            return $"{prefix}:{checkoutDirectory}/{this.Source}{suffix} => {this.Target}";
         }
     }
 
@@ -33,7 +25,7 @@ public record ArtifactRule( string SourcePath, string ArtifactPath, bool Exclude
     {
         var sign = this.Exclude ? "-" : "+";
 
-        return $"{sign}:{this.ArtifactPath}/**/* => {checkoutDirectory}/{this.SourcePath}";
+        return $"{sign}:{this.Target}/**/* => {checkoutDirectory}/{this.Source}";
     }
 
     public int CompareTo( ArtifactRule? other )
@@ -53,14 +45,14 @@ public record ArtifactRule( string SourcePath, string ArtifactPath, bool Exclude
             return 1;
         }
 
-        var sourceComparison = string.Compare( this.SourcePath, other.SourcePath, StringComparison.Ordinal );
+        var sourceComparison = string.Compare( this.Source, other.Source, StringComparison.Ordinal );
 
         if ( sourceComparison != 0 )
         {
             return sourceComparison;
         }
 
-        var targetComparison = string.Compare( this.ArtifactPath, other.ArtifactPath, StringComparison.Ordinal );
+        var targetComparison = string.Compare( this.Target, other.Target, StringComparison.Ordinal );
 
         if ( targetComparison != 0 )
         {
