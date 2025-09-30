@@ -13,6 +13,10 @@ public class PublishSettings : BuildSettings
     [CommandOption( "--dry" )]
     public bool Dry { get; protected set; }
 
+    [Description( "Write the files (unless --dry is used) but do not commit them." )]
+    [CommandOption( "--no-commit" )]
+    public bool NoCommit { get; init; }
+
     [Description( "Avoids check of the current branch" )]
     [CommandOption( "--standalone" )]
     public bool IsStandalone { get; protected set; }

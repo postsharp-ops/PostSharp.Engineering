@@ -54,16 +54,28 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        if ( !AutoUpdatedVersionsFile.TryWriteAndCommit( context, settings.Dry ) )
+        if ( settings.NoCommit )
         {
-            return false;
+            if ( !AutoUpdatedVersionsFile.TryWrite( context, settings.Dry, out _ ) )
+            {
+                return false;
+            }   
+        }
+        else
+        {
+            if ( !AutoUpdatedVersionsFile.TryWriteAndCommit( context, settings.Dry ) )
+            {
+                return false;
+            }
+            
+            if ( !GitHelper.TryPullAndMergeAndPush( context, settings, targetBranch ) )
+            {
+                return false;
+            }
+
         }
 
-        if ( !GitHelper.TryPullAndMergeAndPush( context, settings, targetBranch ) )
-        {
-            return false;
-        }
-
+       
         return true;
     }
 }

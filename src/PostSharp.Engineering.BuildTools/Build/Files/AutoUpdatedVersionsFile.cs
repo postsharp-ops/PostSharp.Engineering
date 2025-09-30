@@ -21,16 +21,9 @@ internal static class AutoUpdatedVersionsFile
         var autoUpdatedDependencies = context.Product.DependencyDefinition.GetAllDependencies( BuildConfiguration.Public )
             .Where( d => d.Definition.AutoUpdateVersion )
             .ToArray();
-
-        if ( autoUpdatedDependencies.Length == 0 )
-        {
-            context.Console.WriteMessage( "There are no auto-updated dependencies to check." );
-
-            return true;
-        }
-
+        
         // Load XML.
-        var thisAutoUpdatedVersionsFilePath = context.Product.AutoUpdatedVersionsFilePath;
+        var thisAutoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
         var thisAutoUpdatedVersionsDocument = XDocument.Load( thisAutoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
         var thisAutoUpdatedVersionsPropertyGroupElement = thisAutoUpdatedVersionsDocument.Root!.Element( "PropertyGroup" )!;
 
@@ -44,8 +37,8 @@ internal static class AutoUpdatedVersionsFile
 
             string[] filePathCandidates =
             [
-                Path.Combine( context.RepoDirectory, context.Product.SourceDependenciesDirectory, dependency.Name, "eng", FileName ),
-                Path.Combine( context.RepoDirectory, "..", dependency.Name, "eng", FileName )
+                Path.GetFullPath( Path.Combine( context.RepoDirectory, context.Product.SourceDependenciesDirectory, dependency.Name, dependency.EngineeringDirectory, FileName ) ),
+                Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", dependency.Name, dependency.EngineeringDirectory, FileName ) )
             ];
 
             var theirAutoUpdatedVersionsFilePath = filePathCandidates.FirstOrDefault( File.Exists );
@@ -63,7 +56,7 @@ internal static class AutoUpdatedVersionsFile
 
             var releasedVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseVersion";
 
-            var dependencyReleasedVersion = theirAutoUpdatedVersionsDocument.Root?.Element( "Project" )
+            var dependencyReleasedVersion = theirAutoUpdatedVersionsDocument.Root
                 ?.Element( "PropertyGroup" )
                 ?.Element( releasedVersionPropertyName )
                 ?.Value;
@@ -105,9 +98,9 @@ internal static class AutoUpdatedVersionsFile
             {
                 var releasedMainVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseMainVersion";
 
-                var releasedMainVersionPropertyValue = theirAutoUpdatedVersionsDocument.Root?.Element( "Project" )
+                var releasedMainVersionPropertyValue = theirAutoUpdatedVersionsDocument.Root
                     ?.Element( "PropertyGroup" )
-                    ?.Element( releasedVersionPropertyName )
+                    ?.Element( releasedMainVersionPropertyName )
                     ?.Value;
 
                 if ( string.IsNullOrEmpty( releasedMainVersionPropertyValue ) )
@@ -165,8 +158,8 @@ internal static class AutoUpdatedVersionsFile
 
         if ( thisMainVersionElement == null )
         {
-            thisMainVersionElement = new XElement( $"{context.Product.ProductNameWithoutDot}ReleaseVersion" );
-            thisAutoUpdatedVersionsPropertyGroupElement.Add( thisVersionElement );
+            thisMainVersionElement = new XElement( $"{context.Product.ProductNameWithoutDot}ReleaseMainVersion" );
+            thisAutoUpdatedVersionsPropertyGroupElement.Add( thisMainVersionElement );
         }
 
         if ( thisMainVersionElement.Value != versionComponents.MainVersion )
