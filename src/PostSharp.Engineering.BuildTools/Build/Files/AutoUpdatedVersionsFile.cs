@@ -90,9 +90,24 @@ internal static class AutoUpdatedVersionsFile
 
         // Load XML.
         var thisAutoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
-        var thisAutoUpdatedVersionsDocument = XDocument.Load( thisAutoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
-        var thisAutoUpdatedVersionsPropertyGroupElement = thisAutoUpdatedVersionsDocument.Root!.Element( "PropertyGroup" )!;
 
+        XDocument thisAutoUpdatedVersionsDocument;
+
+        XElement thisAutoUpdatedVersionsPropertyGroupElement;
+
+        if ( File.Exists( thisAutoUpdatedVersionsFilePath ) )
+        {
+            thisAutoUpdatedVersionsDocument = XDocument.Load( thisAutoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
+            thisAutoUpdatedVersionsPropertyGroupElement = thisAutoUpdatedVersionsDocument.Root!.Element( "PropertyGroup" )!;
+        }
+        else
+        {
+            thisAutoUpdatedVersionsDocument = new XDocument();
+            thisAutoUpdatedVersionsDocument.Add( new XElement( "Project" ) );
+            thisAutoUpdatedVersionsPropertyGroupElement = new XElement( "PropertyGroup" );
+            thisAutoUpdatedVersionsDocument.Root!.Add( thisAutoUpdatedVersionsPropertyGroupElement );
+        }
+        
         // Update dependency versions.
         var errors = 0;
         string? inheritedMainVersion = null;
