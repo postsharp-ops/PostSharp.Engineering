@@ -32,6 +32,7 @@ public static class DevelopmentDependencies
             BuildConfiguration.Debug,
             BuildConfiguration.Debug,
             BuildConfiguration.Debug ),
-        BuildOrder = int.MinValue
+        BuildOrder = int.MinValue,
+        AutoUpdateVersion = false
     };
 }

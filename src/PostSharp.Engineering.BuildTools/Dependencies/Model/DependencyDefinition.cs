@@ -143,6 +143,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public bool ExcludeFromRecursiveBuild { get; init; }
 
+        public bool AutoUpdateVersion { get; init; } = true;
+
         public ParametrizedDependency ToDependency() => this.ToDependency( this.DefaultConfigurationMapping );
 
         public ParametrizedDependency ToDependency( ConfigurationSpecific<BuildConfiguration> configurationMapping )

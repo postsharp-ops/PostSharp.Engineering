@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.BillOfMaterials;
 using PostSharp.Engineering.BuildTools.Build.Bumping;
+using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
@@ -58,7 +59,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string AutoUpdatedVersionsFilePath
         {
-            get => this._autoUpdatedVersionsFile ?? Path.Combine( this.EngineeringDirectory, "AutoUpdatedVersions.props" );
+            get => this._autoUpdatedVersionsFile ?? Path.Combine( this.EngineeringDirectory, AutoUpdatedVersionsFile.FileName );
             init => this._autoUpdatedVersionsFile = value;
         }
 
@@ -283,7 +284,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ProductExtension[] Extensions { get; init; } = [];
 
         public bool BuildRequiresSourceDependencies { get; init; } = true;
-        
+
         internal string GetPrivateArtifactsAbsoluteDirectory( BuildContext context, BuildConfiguration configuration )
             => Path.Combine(
                 context.RepoDirectory,

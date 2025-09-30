@@ -17,7 +17,7 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
 {
     protected override bool ExecuteCore( BuildContext context, PublishSettings settings ) => Execute( context, settings );
 
-    public static bool Execute( BuildContext context, PublishSettings settings )
+    private static bool Execute( BuildContext context, PublishSettings settings )
     {
         var product = context.Product;
 
@@ -25,7 +25,7 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
         {
             return false;
         }
-        
+
         if ( product.ProductFamily.UpstreamProductFamily != null && !DownstreamMerge.CheckUpstreamChanges( context, settings ) )
         {
             return false;
@@ -56,10 +56,8 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        if ( !AutoUpdatedDependenciesHelper.TryUpdateAutoUpdatedDependencies( context, settings ) )
+        if ( !AutoUpdatedVersionsFile.TryWriteAndCommit( context, settings.Dry ) )
         {
-            context.Console.WriteError( "Failed to update auto-updated dependencies." );
-
             return false;
         }
 
@@ -67,9 +65,6 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
         {
             return false;
         }
-
-        // Act as a local dependency for subsequent projects, that use the --use-local-dependencies flag.
-        ImportFile.Write( context, settings.BuildConfiguration );
 
         return true;
     }
