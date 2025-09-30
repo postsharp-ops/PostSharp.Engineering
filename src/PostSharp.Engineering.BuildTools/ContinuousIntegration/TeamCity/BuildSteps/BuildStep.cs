@@ -25,7 +25,7 @@ internal abstract class BuildStep
 
     public abstract string GenerateTeamCityCode();
     
-    public virtual void InsertPrerequisites( IReadOnlyList<BuildStep> previousSteps, Action<BuildStep> addStep )
+    public void InsertPrerequisites( IReadOnlyList<BuildStep> previousSteps, Action<BuildStep> addStep )
     {
         if ( this._dockerSpec != null )
         {

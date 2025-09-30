@@ -1,12 +1,9 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build.Publishing;
-using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Xml;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Files;
@@ -15,11 +12,11 @@ internal static class AutoUpdatedVersionsFile
 {
     public const string FileName = "AutoUpdatedVersions.props";
 
-    public static bool TryWrite( BuildContext context, bool dry, out bool dependenciesUpdated )
+    public static bool TryWrite( BuildContext context, bool dry, out bool hasChanges )
     {
         context.Console.WriteImportantMessage( $"Checking versions of auto-updated dependencies." );
 
-        dependenciesUpdated = false;
+        hasChanges = false;
 
         var autoUpdatedDependencies = context.Product.DependencyDefinition.GetAllDependencies( BuildConfiguration.Public )
             .Where( d => d.Definition.AutoUpdateVersion )
@@ -32,13 +29,14 @@ internal static class AutoUpdatedVersionsFile
             return true;
         }
 
+        // Load XML.
         var thisAutoUpdatedVersionsFilePath = context.Product.AutoUpdatedVersionsFilePath;
-        var thisAutoUpdatedVersionsFileName = Path.GetFileName( thisAutoUpdatedVersionsFilePath );
         var thisAutoUpdatedVersionsDocument = XDocument.Load( thisAutoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
-
         var thisAutoUpdatedVersionsPropertyGroupElement = thisAutoUpdatedVersionsDocument.Root!.Element( "PropertyGroup" )!;
 
+        // Update dependency versions.
         var errors = 0;
+        string? inheritedMainVersion = null;
 
         foreach ( var dependencyConfiguration in autoUpdatedDependencies )
         {
@@ -72,7 +70,7 @@ internal static class AutoUpdatedVersionsFile
 
             if ( string.IsNullOrEmpty( dependencyReleasedVersion ) )
             {
-                context.Console.WriteError( $"Cannot find the '{dependencyReleasedVersion}' in '{theirAutoUpdatedVersionsFilePath}'." );
+                context.Console.WriteError( $"The '{releasedVersionPropertyName}' property in '{theirAutoUpdatedVersionsFilePath}' is not defined." );
                 errors++;
 
                 continue;
@@ -98,23 +96,97 @@ internal static class AutoUpdatedVersionsFile
             }
 
             versionElement.Value = dependencyReleasedVersion;
-            dependenciesUpdated = true;
+            hasChanges = true;
 
             context.Console.WriteMessage( $"Setting version dependency '{dependency}' from '{oldVersionValue}' to '{dependencyReleasedVersion}'." );
+
+            // Getting the inherited main version.
+            if ( context.Product.MainVersionDependency == dependency )
+            {
+                var releasedMainVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseMainVersion";
+
+                var releasedMainVersionPropertyValue = theirAutoUpdatedVersionsDocument.Root?.Element( "Project" )
+                    ?.Element( "PropertyGroup" )
+                    ?.Element( releasedVersionPropertyName )
+                    ?.Value;
+
+                if ( string.IsNullOrEmpty( releasedMainVersionPropertyValue ) )
+                {
+                    context.Console.WriteError( $"The '{releasedMainVersionPropertyName}' property in '{theirAutoUpdatedVersionsFilePath}' is not defined." );
+                    errors++;
+
+                    continue;
+                }
+
+                inheritedMainVersion = releasedMainVersionPropertyValue;
+            }
         }
 
+        // Stop here if errors.
         if ( errors > 0 )
         {
             return false;
         }
 
-        if ( dependenciesUpdated )
+        // Get the version of this component.
+        if ( !MainVersionFile.TryRead( context, out var mainVersionFile ) )
         {
-            context.Console.WriteImportantMessage( $"{(dry ? "Dry run: " : "")}Writing updated '{thisAutoUpdatedVersionsFileName}'." );
+            return false;
+        }
 
+        if ( !VersionComponents.TryCompute(
+                context,
+                BuildConfiguration.Public,
+                mainVersionFile,
+                inheritedMainVersion,
+                new VersionSpec( VersionKind.Public ),
+                null,
+                out var versionComponents ) )
+        {
+            return false;
+        }
+
+        // Update our own version.
+        var thisVersionElement = thisAutoUpdatedVersionsPropertyGroupElement.Element( $"{context.Product.ProductNameWithoutDot}ReleaseVersion" );
+        var thisMainVersionElement = thisAutoUpdatedVersionsPropertyGroupElement.Element( $"{context.Product.ProductNameWithoutDot}ReleaseMainVersion" );
+
+        if ( thisVersionElement == null )
+        {
+            thisVersionElement = new XElement( $"{context.Product.ProductNameWithoutDot}ReleaseVersion" );
+            thisAutoUpdatedVersionsPropertyGroupElement.Add( thisVersionElement );
+        }
+
+        if ( thisVersionElement.Value != versionComponents.PackageVersion )
+        {
+            hasChanges = true;
+            context.Console.WriteMessage( $"Updating '{thisVersionElement.Name}' to '{versionComponents.PackageVersion}'." );
+            thisVersionElement.Value = versionComponents.PackageVersion;
+        }
+
+        if ( thisMainVersionElement == null )
+        {
+            thisMainVersionElement = new XElement( $"{context.Product.ProductNameWithoutDot}ReleaseVersion" );
+            thisAutoUpdatedVersionsPropertyGroupElement.Add( thisVersionElement );
+        }
+
+        if ( thisMainVersionElement.Value != versionComponents.MainVersion )
+        {
+            hasChanges = true;
+            context.Console.WriteMessage( $"Updating '{thisMainVersionElement.Name}' to '{versionComponents.MainVersion}'." );
+            thisMainVersionElement.Value = versionComponents.MainVersion;
+        }
+
+        // Write changes.
+        if ( hasChanges )
+        {
             if ( !dry )
             {
                 TextFileHelper.WriteIfDifferent( thisAutoUpdatedVersionsFilePath, thisAutoUpdatedVersionsDocument.ToString(), context );
+            }
+            else
+            {
+                context.Console.WriteMessage( $"New content for '{thisAutoUpdatedVersionsFilePath}':" );
+                context.Console.WriteMessage( thisAutoUpdatedVersionsDocument.ToString() );
             }
         }
 
