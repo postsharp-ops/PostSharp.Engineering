@@ -108,15 +108,10 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
             return true;
         }
-
-        if ( !AutoUpdatedVersionsFile.TryRead( context, out _, out var currentVersion ) )
-        {
-            return false;
-        }
-
+        
         // Doing a dry run of AutoUpdatedVersionsFile both gets the versions of all dependencies and gets the current version.
         // Do not write the AutoUpdatedVersions.props file yet - we will do it after we set our own version.
-        if ( !AutoUpdatedVersionsFile.TryWrite( context, true, out var hasChangesInDependencies, out _, out _, out var currentOrInheritedVersion ) )
+        if ( !AutoUpdatedVersionsFile.TryWrite( context, true, out var hasChangesInDependencies, out _, out _, out var currentVersion ) )
         {
             return false;
         }
