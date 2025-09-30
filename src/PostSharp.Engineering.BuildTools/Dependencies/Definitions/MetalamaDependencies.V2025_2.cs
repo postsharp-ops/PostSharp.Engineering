@@ -67,6 +67,7 @@ public static partial class MetalamaDependencies
                 MetalamaGitHubOrganization.Metalama )
             {
                 EngineeringDirectory = "eng-Metalama",
+                AdditionalEngineeringDirectories = ["eng"],
 #pragma warning disable CS0618 // Type or member is obsolete
                 ParametricPrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSBuildConfiguration)", "Shipping" ),
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -199,10 +200,7 @@ public static partial class MetalamaDependencies
                 MetalamaGitHubOrganization.Metalama,
                 false,
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
-                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" )
-            {
-                Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama]
-            };
+                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" ) { Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama] };
 
         public static DependencyDefinition MetalamaPerformance { get; } =
             new MetalamaDependencyDefinition(

@@ -1,10 +1,12 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
+[PublicAPI]
 public abstract class AdditionalCiBuildConfiguration
 {
     public string Name { get; }
@@ -25,11 +27,4 @@ public abstract class AdditionalCiBuildConfiguration
     }
 
     internal abstract TeamCityBuildConfiguration TeamCityBuildConfiguration( ProductProperties productProperties );
-}
-
-public enum SourceDependenciesRequirements
-{
-    None,
-    Full,
-    EngOnly
 }

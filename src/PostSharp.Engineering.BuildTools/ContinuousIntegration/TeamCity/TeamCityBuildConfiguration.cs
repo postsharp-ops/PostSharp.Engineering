@@ -161,7 +161,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 }
             }
 
-            writer.WriteLine( $@"    }}" );
+            writer.WriteLine( "     checkoutMode = CheckoutMode.ON_AGENT" );
+            writer.WriteLine( @"    }" );
 
             // Build steps.
             if ( allBuildSteps.Count > 0 )

@@ -32,7 +32,7 @@ internal class ProductProperties
 
     public TeamCitySourceDependency[] SourceDependencies { get; }
 
-    public TeamCitySourceDependency[] EngOnlySourceDependencies { get; set; }
+    public TeamCitySourceDependency[] EngOnlySourceDependencies { get; }
 
     public ProductProperties( Product product )
     {
@@ -51,15 +51,24 @@ internal class ProductProperties
                                                                          $"+:. => {product.SourceDependenciesDirectory}/{d.Name}" ) )
             .ToArray();
 
-        this.EngOnlySourceDependencies = product.SourceDependencies.Select( d => new TeamCitySourceDependency(
-                                                                                d.CiConfiguration.ProjectId.ToString(),
-                                                                                TeamCityHelper.GetVcsId( d ),
-                                                                                true,
-                                                                                $"""
-                                                                                 +:{product.DependencyDefinition.EngineeringDirectory} => {product.SourceDependenciesDirectory}/{d.Name}/{product.DependencyDefinition.EngineeringDirectory}
-                                                                                 +:DockerBuild.ps1 => {product.SourceDependenciesDirectory}/{d.Name}/DockerBuild.ps1
-                                                                                 +:Build.ps1 => {product.SourceDependenciesDirectory}/{d.Name}/Build.ps1
-                                                                                 """ ) )
+        this.EngOnlySourceDependencies = product.SourceDependencies.Select( d =>
+            {
+                var checkoutRules = $"""
+                                     +:{d.EngineeringDirectory} => {product.SourceDependenciesDirectory}/{d.Name}/{d.EngineeringDirectory}
+                                     +:DockerBuild.ps1 => {product.SourceDependenciesDirectory}/{d.Name}/DockerBuild.ps1
+                                     +:Build.ps1 => {product.SourceDependenciesDirectory}/{d.Name}/Build.ps1
+                                     """ +
+                                    Environment.NewLine +
+                                    string.Join(
+                                        Environment.NewLine,
+                                        d.AdditionalEngineeringDirectories.Select( x => $"+{x} => {product.SourceDependenciesDirectory}/{d.Name}/{x}" ) );
+
+                return new TeamCitySourceDependency(
+                    d.CiConfiguration.ProjectId.ToString(),
+                    TeamCityHelper.GetVcsId( d ),
+                    true,
+                    checkoutRules );
+            } )
             .ToArray();
     }
 }

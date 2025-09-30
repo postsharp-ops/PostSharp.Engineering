@@ -45,7 +45,9 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             SourceDependencies = this.SourceDependenciesRequirements switch
             {
                 SourceDependenciesRequirements.None => [],
+#pragma warning disable CS0618 // Type or member is obsolete
                 SourceDependenciesRequirements.EngOnly => productProperties.EngOnlySourceDependencies,
+#pragma warning restore CS0618 // Type or member is obsolete
                 SourceDependenciesRequirements.Full => productProperties.SourceDependencies,
                 _ => throw new ArgumentOutOfRangeException()
             }

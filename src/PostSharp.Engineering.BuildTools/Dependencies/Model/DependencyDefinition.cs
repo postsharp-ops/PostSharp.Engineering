@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -57,6 +58,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public bool GenerateSnapshotDependency { get; init; } = true;
 
         public string EngineeringDirectory { get; init; } = "eng";
+
+        /// <summary>
+        /// Gets or set the list of other directories (additionally to <see cref="EngineeringDirectory"/>) that should
+        /// be checked out when <see cref="SourceDependenciesRequirements.EngOnly"/> is specified. 
+        /// </summary>
+        public string[] AdditionalEngineeringDirectories { get; init; } = [];
 
         public string CodeStyle { get; init; } = "Standard";
 
