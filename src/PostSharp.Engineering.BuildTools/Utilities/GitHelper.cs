@@ -31,9 +31,17 @@ public static class GitHelper
         return true;
     }
 
-    public static bool TryFetch( BuildContext context, string? branch ) => TryFetch( context.Console, context.RepoDirectory, branch );
+    public static bool TryFetch( BuildContext context, string? branch )
+    {
+        if ( !TryConfigureCredentials( context ) )
+        {
+            return false;
+        }
+        
+        return TryFetch( context.Console, context.RepoDirectory, branch );
+    }
 
-    public static bool TryFetch( ConsoleHelper console, string repoDirectory, string? branch )
+    private static bool TryFetch( ConsoleHelper console, string repoDirectory, string? branch )
     {
         if ( branch != null && !TryAddOrigin( console, repoDirectory, branch ) )
         {
