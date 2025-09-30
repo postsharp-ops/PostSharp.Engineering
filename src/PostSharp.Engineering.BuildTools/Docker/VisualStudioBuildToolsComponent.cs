@@ -49,6 +49,12 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
                   Remove-Item C:\\vs_buildtools.exe;
               """ );
 
+        // Define VSSDKINSTALLDIR
+        if ( this._vsComponents.Contains( "Microsoft.VisualStudio.Component.VSSDKBuildTools" ) )
+        {
+            writer.WriteLine( "ENV VSSDKINSTALL=C:\\BuildTools\\VSSDK" );
+        }
+
         // We must always create "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages" or MSBuild might complain.
         writer.WriteLine(
             """

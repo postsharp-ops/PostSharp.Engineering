@@ -15,35 +15,30 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
     {
         protected override bool ExecuteCore( BuildContext context, PublishSettings settings ) => Execute( context, settings );
 
-        public static bool Execute( BuildContext context, PublishSettings settings )
+        private static bool Execute( BuildContext context, PublishSettings settings )
         {
             context.Console.WriteHeading( "Finishing publishing." );
 
-            if ( !GitHelper.TryConfigureCredentials( context ) )
-            {
-                return false;
-            }
-
-            if ( !MasterGenerator.TryWriteFiles( context, settings ) )
-            {
-                return false;
-            }
-
             var product = context.Product;
-            var sourceBranch = product.DependencyDefinition.ReleaseBranch;
+            var releaseBranch = product.DependencyDefinition.ReleaseBranch;
 
-            if ( sourceBranch == null )
+            if ( releaseBranch == null )
             {
-                context.Console.WriteError( $"Post-publishing failed. The release branch is not set for '{product.ProductName}' product." );
+                context.Console.WriteError( $"The release branch is not set for '{product.ProductName}' product." );
 
                 return false;
             }
 
-            if ( context.Branch != sourceBranch )
+            if ( context.Branch != releaseBranch )
             {
                 context.Console.WriteError(
-                    $"Post-publishing can only be executed on the release branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+                    $"Post-publishing can only be executed on the release branch ('{releaseBranch}'). The current branch is '{context.Branch}'." );
 
+                return false;
+            }
+
+            if ( !GitHelper.TryConfigureCredentials( context ) )
+            {
                 return false;
             }
 

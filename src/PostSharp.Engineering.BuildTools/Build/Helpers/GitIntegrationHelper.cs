@@ -18,20 +18,12 @@ internal static class GitIntegrationHelper
 {
     public static bool TryAddTagToLastCommit( BuildContext context, PublishSettings settings )
     {
-        if ( !MainVersionFile.TryRead( context, out var mainVersionFileInfo ) )
+        if ( !AutoUpdatedVersionsFile.TryRead( context, out var releasedVersion, out _ ) )
         {
             return false;
         }
 
-        if ( !ArtifactManifestFile.TryRead(
-                context,
-                settings.BuildConfiguration,
-                out var preparedVersionInfo ) )
-        {
-            return false;
-        }
-
-        var versionTag = $"release/{preparedVersionInfo.PackageVersion}";
+        var versionTag = $"release/{releasedVersion}";
 
         ToolInvocationHelper.InvokeTool(
             context.Console,

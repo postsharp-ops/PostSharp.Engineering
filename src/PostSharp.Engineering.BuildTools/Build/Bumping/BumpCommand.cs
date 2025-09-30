@@ -33,10 +33,9 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
         var developmentBranch = product.DependencyDefinition.Branch;
 
-        if ( context.Branch != developmentBranch )
+        if ( context.Branch != developmentBranch && !settings.Force )
         {
-            console.WriteError(
-                $"The version bump can only be executed on the development branch ('{developmentBranch}'). The current branch is '{context.Branch}'." );
+            console.WriteError( $"The version bump can only be executed on the development branch ('{developmentBranch}'), unless --force is used." );
 
             return false;
         }
@@ -108,7 +107,7 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
             return true;
         }
-        
+
         // Doing a dry run of AutoUpdatedVersionsFile both gets the versions of all dependencies and gets the current version.
         // Do not write the AutoUpdatedVersions.props file yet - we will do it after we set our own version.
         if ( !AutoUpdatedVersionsFile.TryWrite( context, true, out var hasChangesInDependencies, out _, out _, out var currentVersion ) )
