@@ -13,8 +13,10 @@ public abstract class AdditionalCiBuildConfiguration
 
     public string Branch { get; }
 
-    public bool RequiresSourceDependencies { get; init; }
-    
+    public SourceDependenciesRequirements SourceDependenciesRequirements { get; init; }
+
+    public bool OnlyCheckoutEngineering { get; init; }
+
     protected AdditionalCiBuildConfiguration( string id, string name, string branch )
     {
         this.Id = id;
@@ -23,4 +25,11 @@ public abstract class AdditionalCiBuildConfiguration
     }
 
     internal abstract TeamCityBuildConfiguration TeamCityBuildConfiguration( ProductProperties productProperties );
+}
+
+public enum SourceDependenciesRequirements
+{
+    None,
+    Full,
+    EngOnly
 }

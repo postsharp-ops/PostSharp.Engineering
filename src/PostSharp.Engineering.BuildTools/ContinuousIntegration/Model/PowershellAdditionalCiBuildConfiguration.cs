@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using System;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
@@ -41,7 +42,13 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                     product.DockerSpec )
             ],
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh,
-            SourceDependencies = this.RequiresSourceDependencies ? productProperties.SourceDependencies : []
+            SourceDependencies = this.SourceDependenciesRequirements switch
+            {
+                SourceDependenciesRequirements.None => [],
+                SourceDependenciesRequirements.EngOnly => productProperties.EngOnlySourceDependencies,
+                SourceDependenciesRequirements.Full => productProperties.SourceDependencies,
+                _ => throw new ArgumentOutOfRangeException()
+            }
         };
 
         return downstreamMergeConfiguration;

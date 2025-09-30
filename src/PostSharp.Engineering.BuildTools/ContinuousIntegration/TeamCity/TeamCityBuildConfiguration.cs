@@ -153,7 +153,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 {
                     var objectName = sourceDependency.IsAbsoluteId ? @$"AbsoluteId(""{sourceDependency.VcsId}"")" : sourceDependency.VcsId;
 
-                    writer.WriteLine( $@"        root({objectName}, ""{sourceDependency.ArtifactRules}"")" );
+                    writer.WriteLine(
+                        $""""
+                                 root({objectName},
+                                   """{sourceDependency.CheckoutRules}""")
+                         """" );
                 }
             }
 
@@ -194,7 +198,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
             var requiresSwabra = allBuildSteps.Count > 0;
             var requiresSshAgent = this.IsSshAgentRequired;
-            var requiresAnyFeatures = requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher ;
+            var requiresAnyFeatures = requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher;
 
             // Features.
             if ( requiresAnyFeatures )
@@ -227,22 +231,23 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                                   }
                               }
                           """ );
-                    
+
                     // Integrate with PRs.
-                    writer.WriteLine($$"""
-                                       pullRequests {
-                                              vcsRootExtId = "{{this.VcsId}}"
-                                               provider = github {
-                                                   authType = token {
-                                                       token = "%env.{{EnvironmentVariableNames.GitHubToken}}%"
-                                                   }
-                                                  filterTargetBranch = "+:refs/heads/{{this.DefaultBranch}}"
-                                                  filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
-                                              }
-                                          }
-                                       
-                                       
-                                       """);
+                    writer.WriteLine(
+                        $$"""
+                          pullRequests {
+                                 vcsRootExtId = "{{this.VcsId}}"
+                                  provider = github {
+                                      authType = token {
+                                          token = "%env.{{EnvironmentVariableNames.GitHubToken}}%"
+                                      }
+                                     filterTargetBranch = "+:refs/heads/{{this.DefaultBranch}}"
+                                     filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
+                                 }
+                             }
+
+
+                          """ );
                 }
 
                 if ( requiresSshAgent )
