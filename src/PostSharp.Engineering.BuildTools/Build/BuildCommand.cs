@@ -62,22 +62,6 @@ namespace PostSharp.Engineering.BuildTools.Build
                 dateTag = DateTime.Now;
             }
 
-            // Refuse to perform a public build on a non-release branch.
-            if ( configuration == BuildConfiguration.Public && !settings.Force )
-            {
-                if ( !GitHelper.TryGetCurrentBranch( context, out var currentBranch ) )
-                {
-                    return false;
-                }
-
-                if ( !currentBranch.StartsWith( "release/", StringComparison.OrdinalIgnoreCase ) )
-                {
-                    context.Console.WriteError( "Cannot perform a public build on a non-release branch without --force." );
-
-                    return false;
-                }
-            }
-
             // Build dependencies.
             DependenciesConfigurationFile? dependenciesOverrideFile;
 
