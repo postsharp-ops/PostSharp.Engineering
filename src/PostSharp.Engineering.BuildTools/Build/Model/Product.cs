@@ -28,7 +28,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private readonly string? _versionsFile;
         private readonly string? _mainVersionFile;
         private readonly string? _autoUpdatedVersionsFile;
-        private readonly string? _bumpInfoFile;
 
         public Product( DependencyDefinition dependencyDefinition )
         {
@@ -61,12 +60,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             get => this._autoUpdatedVersionsFile ?? Path.Combine( this.EngineeringDirectory, AutoUpdatedVersionsFile.FileName );
             init => this._autoUpdatedVersionsFile = value;
-        }
-
-        public string BumpInfoFilePath
-        {
-            get => this._bumpInfoFile ?? Path.Combine( this.EngineeringDirectory, "BumpInfo.txt" );
-            init => this._bumpInfoFile = value;
         }
 
         /// <summary>
@@ -284,7 +277,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ProductExtension[] Extensions { get; init; } = [];
 
         public bool BuildRequiresSourceDependencies { get; init; } = true;
-        
+
         internal string GetPrivateArtifactsAbsoluteDirectory( BuildContext context, BuildConfiguration configuration )
             => Path.Combine(
                 context.RepoDirectory,

@@ -1,7 +1,9 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -12,16 +14,80 @@ internal static class AutoUpdatedVersionsFile
 {
     public const string FileName = "AutoUpdatedVersions.props";
 
-    public static bool TryWrite( BuildContext context, bool dry, out bool hasChanges )
+    public static bool TryRead(
+        BuildContext context,
+        [NotNullWhen( true )] out string? dependencyReleasedVersion,
+        [NotNullWhen( true )] out string? releasedMainVersionPropertyValue )
+        => TryRead(
+            context,
+            context.Product.DependencyDefinition,
+            Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath ),
+            out dependencyReleasedVersion,
+            out releasedMainVersionPropertyValue );
+
+    private static bool TryRead(
+        BuildContext context,
+        DependencyDefinition dependency,
+        string path,
+        [NotNullWhen( true )] out string? dependencyReleasedVersion,
+        [NotNullWhen( true )] out string? releasedMainVersionPropertyValue )
+    {
+        var theirAutoUpdatedVersionsDocument = XDocument.Load( path );
+
+        var releasedVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseVersion";
+
+        dependencyReleasedVersion = theirAutoUpdatedVersionsDocument.Root
+            ?.Element( "PropertyGroup" )
+            ?.Element( releasedVersionPropertyName )
+            ?.Value;
+
+        if ( string.IsNullOrEmpty( dependencyReleasedVersion ) )
+        {
+            context.Console.WriteError( $"The '{releasedVersionPropertyName}' property in '{path}' is not defined." );
+
+            releasedMainVersionPropertyValue = null;
+            dependencyReleasedVersion = null;
+
+            return false;
+        }
+
+        var releasedMainVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseMainVersion";
+
+        releasedMainVersionPropertyValue = theirAutoUpdatedVersionsDocument.Root
+            ?.Element( "PropertyGroup" )
+            ?.Element( releasedMainVersionPropertyName )
+            ?.Value;
+
+        if ( string.IsNullOrEmpty( releasedMainVersionPropertyValue ) )
+        {
+            context.Console.WriteError( $"The '{releasedMainVersionPropertyName}' property in '{path}' is not defined." );
+
+            releasedMainVersionPropertyValue = null;
+            dependencyReleasedVersion = null;
+
+            return false;
+        }
+
+        return true;
+    }
+
+    public static bool TryWrite(
+        BuildContext context,
+        bool dry,
+        out bool hasDependenciesChanges,
+        out bool hasChanges,
+        [NotNullWhen( true )] out string? packageVersion,
+        [NotNullWhen( true )] out string? mainVersion )
     {
         context.Console.WriteImportantMessage( $"Checking versions of auto-updated dependencies." );
 
         hasChanges = false;
+        hasDependenciesChanges = false;
 
         var autoUpdatedDependencies = context.Product.DependencyDefinition.GetAllDependencies( BuildConfiguration.Public )
             .Where( d => d.Definition.AutoUpdateVersion )
             .ToArray();
-        
+
         // Load XML.
         var thisAutoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
         var thisAutoUpdatedVersionsDocument = XDocument.Load( thisAutoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
@@ -37,7 +103,13 @@ internal static class AutoUpdatedVersionsFile
 
             string[] filePathCandidates =
             [
-                Path.GetFullPath( Path.Combine( context.RepoDirectory, context.Product.SourceDependenciesDirectory, dependency.Name, dependency.EngineeringDirectory, FileName ) ),
+                Path.GetFullPath(
+                    Path.Combine(
+                        context.RepoDirectory,
+                        context.Product.SourceDependenciesDirectory,
+                        dependency.Name,
+                        dependency.EngineeringDirectory,
+                        FileName ) ),
                 Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", dependency.Name, dependency.EngineeringDirectory, FileName ) )
             ];
 
@@ -52,18 +124,13 @@ internal static class AutoUpdatedVersionsFile
                 continue;
             }
 
-            var theirAutoUpdatedVersionsDocument = XDocument.Load( theirAutoUpdatedVersionsFilePath );
-
-            var releasedVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseVersion";
-
-            var dependencyReleasedVersion = theirAutoUpdatedVersionsDocument.Root
-                ?.Element( "PropertyGroup" )
-                ?.Element( releasedVersionPropertyName )
-                ?.Value;
-
-            if ( string.IsNullOrEmpty( dependencyReleasedVersion ) )
+            if ( !TryRead(
+                    context,
+                    dependency,
+                    theirAutoUpdatedVersionsFilePath,
+                    out var dependencyReleasedVersion,
+                    out var releasedMainVersionPropertyValue ) )
             {
-                context.Console.WriteError( $"The '{releasedVersionPropertyName}' property in '{theirAutoUpdatedVersionsFilePath}' is not defined." );
                 errors++;
 
                 continue;
@@ -90,27 +157,13 @@ internal static class AutoUpdatedVersionsFile
 
             versionElement.Value = dependencyReleasedVersion;
             hasChanges = true;
+            hasDependenciesChanges = true;
 
             context.Console.WriteMessage( $"Setting version dependency '{dependency}' from '{oldVersionValue}' to '{dependencyReleasedVersion}'." );
 
             // Getting the inherited main version.
             if ( context.Product.MainVersionDependency == dependency )
             {
-                var releasedMainVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseMainVersion";
-
-                var releasedMainVersionPropertyValue = theirAutoUpdatedVersionsDocument.Root
-                    ?.Element( "PropertyGroup" )
-                    ?.Element( releasedMainVersionPropertyName )
-                    ?.Value;
-
-                if ( string.IsNullOrEmpty( releasedMainVersionPropertyValue ) )
-                {
-                    context.Console.WriteError( $"The '{releasedMainVersionPropertyName}' property in '{theirAutoUpdatedVersionsFilePath}' is not defined." );
-                    errors++;
-
-                    continue;
-                }
-
                 inheritedMainVersion = releasedMainVersionPropertyValue;
             }
         }
@@ -118,12 +171,18 @@ internal static class AutoUpdatedVersionsFile
         // Stop here if errors.
         if ( errors > 0 )
         {
+            packageVersion = null;
+            mainVersion = null;
+
             return false;
         }
 
         // Get the version of this component.
         if ( !MainVersionFile.TryRead( context, out var mainVersionFile ) )
         {
+            packageVersion = null;
+            mainVersion = null;
+
             return false;
         }
 
@@ -136,6 +195,9 @@ internal static class AutoUpdatedVersionsFile
                 null,
                 out var versionComponents ) )
         {
+            packageVersion = null;
+            mainVersion = null;
+
             return false;
         }
 
@@ -152,7 +214,6 @@ internal static class AutoUpdatedVersionsFile
         if ( thisVersionElement.Value != versionComponents.PackageVersion )
         {
             hasChanges = true;
-            context.Console.WriteMessage( $"Updating '{thisVersionElement.Name}' to '{versionComponents.PackageVersion}'." );
             thisVersionElement.Value = versionComponents.PackageVersion;
         }
 
@@ -165,7 +226,6 @@ internal static class AutoUpdatedVersionsFile
         if ( thisMainVersionElement.Value != versionComponents.MainVersion )
         {
             hasChanges = true;
-            context.Console.WriteMessage( $"Updating '{thisMainVersionElement.Name}' to '{versionComponents.MainVersion}'." );
             thisMainVersionElement.Value = versionComponents.MainVersion;
         }
 
@@ -174,14 +234,17 @@ internal static class AutoUpdatedVersionsFile
         {
             if ( !dry )
             {
-                TextFileHelper.WriteIfDifferent( thisAutoUpdatedVersionsFilePath, thisAutoUpdatedVersionsDocument.ToString(), context );
+                hasChanges = TextFileHelper.WriteIfDifferent( thisAutoUpdatedVersionsFilePath, thisAutoUpdatedVersionsDocument, context );
             }
             else
             {
                 context.Console.WriteMessage( $"New content for '{thisAutoUpdatedVersionsFilePath}':" );
-                context.Console.WriteMessage( thisAutoUpdatedVersionsDocument.ToString() );
+                context.Console.WriteMessage( thisAutoUpdatedVersionsDocument.ToNiceString() );
             }
         }
+
+        packageVersion = versionComponents.PackageVersion;
+        mainVersion = versionComponents.MainVersion;
 
         return true;
     }
@@ -189,7 +252,7 @@ internal static class AutoUpdatedVersionsFile
     public static bool TryWriteAndCommit( BuildContext context, bool dry )
     {
         // Go through all dependencies and update their fixed version in AutoUpdatedVersions.props file.
-        if ( !TryWrite( context, dry, out var dependenciesUpdated ) )
+        if ( !TryWrite( context, dry, out var dependenciesUpdated, out _, out _, out _ ) )
         {
             return false;
         }

@@ -399,7 +399,6 @@ internal static class DownstreamMerge
 
                 AddFileToKeepOwn( context.Product.MainVersionFilePath );
                 AddFileToKeepOwn( context.Product.AutoUpdatedVersionsFilePath );
-                AddFileToKeepOwn( context.Product.BumpInfoFilePath );
 
                 Directory.EnumerateFiles( Path.Combine( context.RepoDirectory, ".teamcity" ), "*", SearchOption.AllDirectories )
                     .Select( p => Path.GetRelativePath( context.RepoDirectory, p ) )

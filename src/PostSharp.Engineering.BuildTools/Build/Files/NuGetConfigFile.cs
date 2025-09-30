@@ -125,7 +125,7 @@ internal static class NuGetConfigFile
             }
         }
 
-        TextFileHelper.WriteIfDifferent( targetFilePath, document.ToString(), context );
+        TextFileHelper.WriteIfDifferent( targetFilePath, document, context );
 
         return true;
 

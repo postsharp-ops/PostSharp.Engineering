@@ -28,7 +28,7 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
             return true;
         }
-        
+
         console.WriteHeading( $"Bumping the '{product.ProductName}' version" );
 
         var developmentBranch = product.DependencyDefinition.Branch;
@@ -109,22 +109,17 @@ internal class BumpCommand : BaseCommand<BumpSettings>
             return true;
         }
 
-        // Read the current version of the dependencies directly from source control.
-        if ( !TryReadDependencyVersionsFromSourceRepos( context, true, out var dependencyVersions ) )
+        if ( !AutoUpdatedVersionsFile.TryRead( context, out _, out var currentVersion ) )
         {
             return false;
         }
 
-        // Comparing the actual version of dependencies with the versions stored during the last bump.
-        var newBumpInfoFile =
-            new BumpInfoFile( dependencyVersions );
-
-        var bumpInfoFilePath = Path.Combine(
-            context.RepoDirectory,
-            product.BumpInfoFilePath );
-
-        var oldBumpFileContent = File.Exists( bumpInfoFilePath ) ? File.ReadAllText( bumpInfoFilePath ) : "";
-        var hasChangesInDependencies = newBumpInfoFile.ToString() != oldBumpFileContent;
+        // Doing a dry run of AutoUpdatedVersionsFile both gets the versions of all dependencies and gets the current version.
+        // Do not write the AutoUpdatedVersions.props file yet - we will do it after we set our own version.
+        if ( !AutoUpdatedVersionsFile.TryWrite( context, true, out var hasChangesInDependencies, out _, out _, out var currentOrInheritedVersion ) )
+        {
+            return false;
+        }
 
         if ( !hasChangesInDependencies && !hasChangesSinceLastDeployment )
         {
@@ -133,21 +128,12 @@ internal class BumpCommand : BaseCommand<BumpSettings>
             return true;
         }
 
-        // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
-        if ( hasChangesInDependencies )
-        {
-            console.WriteMessage(
-                $"'{bumpInfoFilePath}' contents are outdated. Overwriting its old content '{oldBumpFileContent}' with new content '{newBumpInfoFile}'." );
-
-            File.WriteAllText( bumpInfoFilePath, newBumpInfoFile.ToString() );
-        }
-
         Version? oldVersion;
-        Version? newVersion;
 
         if ( product.MainVersionDependency == null )
         {
-            if ( !product.BumpStrategy.TryBumpVersion( product, context, out oldVersion, out newVersion ) )
+            // This updates MainVersion.props.
+            if ( !product.BumpStrategy.TryBumpVersion( product, context, out oldVersion, out _ ) )
             {
                 return false;
             }
@@ -171,13 +157,17 @@ internal class BumpCommand : BaseCommand<BumpSettings>
                 return false;
             }
 
-            var oldBumpInfo = BumpInfoFile.Parse( oldBumpFileContent );
-            newVersion = dependencyVersions[product.MainVersionDependency.Name];
-            oldVersion = oldBumpInfo?.Dependencies[product.MainVersionDependency.Name];
+            oldVersion = new Version( currentVersion );
+        }
+
+        // Now save AutoUpdatedVersions.props.
+        if ( !AutoUpdatedVersionsFile.TryWrite( context, false, out _, out _, out _, out var newVersion ) )
+        {
+            return false;
         }
 
         // Commit the version bump.
-        if ( !GitIntegrationHelper.TryCommitVersionBump( context, oldVersion, newVersion ) )
+        if ( !GitIntegrationHelper.TryCommitVersionBump( context, oldVersion, new Version( newVersion ) ) )
         {
             return false;
         }
@@ -189,44 +179,6 @@ internal class BumpCommand : BaseCommand<BumpSettings>
             {
                 return false;
             }
-        }
-
-        return true;
-    }
-
-    private static bool TryReadDependencyVersionsFromSourceRepos(
-        BuildContext context,
-        bool snapshotDependenciesOnly,
-        [NotNullWhen( true )] out Dictionary<string, Version>? dependencyVersions )
-    {
-        var product = context.Product;
-        dependencyVersions = new Dictionary<string, Version>();
-
-        var allDependencies =
-            product.ParametrizedDependencies.Select( x => x.Definition )
-                .Union( product.SourceDependencies )
-                .Union( product.MainVersionDependency == null ? [] : [product.MainVersionDependency] );
-
-        foreach ( var dependency in allDependencies )
-        {
-            if ( snapshotDependenciesOnly && !dependency.GenerateSnapshotDependency )
-            {
-                continue;
-            }
-
-            var mainVersionFile = $"{dependency.EngineeringDirectory}/MainVersion.props";
-
-            if ( !dependency.VcsRepository.TryDownloadTextFile( context.Console, dependency.Branch, mainVersionFile, out var mainVersionContent ) )
-            {
-                return false;
-            }
-
-            if ( !MainVersionFile.TryParse( context, mainVersionContent, out var mainVersionFileInfo ) )
-            {
-                return false;
-            }
-
-            dependencyVersions.Add( dependency.Name, Version.Parse( mainVersionFileInfo.MainVersion ) );
         }
 
         return true;

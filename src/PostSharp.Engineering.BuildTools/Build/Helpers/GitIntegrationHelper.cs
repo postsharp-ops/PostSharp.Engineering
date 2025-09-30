@@ -94,7 +94,7 @@ internal static class GitIntegrationHelper
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"add {product.MainVersionFilePath} {product.BumpInfoFilePath}",
+                $"add {product.MainVersionFilePath} {product.AutoUpdatedVersionsFilePath}",
                 context.RepoDirectory ) )
         {
             return false;

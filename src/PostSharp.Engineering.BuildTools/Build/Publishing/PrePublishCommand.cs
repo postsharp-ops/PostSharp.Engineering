@@ -56,10 +56,10 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
 
         if ( settings.NoCommit )
         {
-            if ( !AutoUpdatedVersionsFile.TryWrite( context, settings.Dry, out _ ) )
+            if ( !AutoUpdatedVersionsFile.TryWrite( context, settings.Dry, out _, out _, out _, out _ ) )
             {
                 return false;
-            }   
+            }
         }
         else
         {
@@ -67,15 +67,13 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
             {
                 return false;
             }
-            
+
             if ( !GitHelper.TryPullAndMergeAndPush( context, settings, targetBranch ) )
             {
                 return false;
             }
-
         }
 
-       
         return true;
     }
 }
