@@ -142,7 +142,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 $"tool run {this.Command} {command}",
-                null,
+                context.RepoDirectory, // Must use the repo global.json (not the eng one) because that's the one used by Install.
                 options );
         }
     }
