@@ -107,7 +107,7 @@ internal static class AutoUpdatedVersionsFile
             thisAutoUpdatedVersionsPropertyGroupElement = new XElement( "PropertyGroup" );
             thisAutoUpdatedVersionsDocument.Root!.Add( thisAutoUpdatedVersionsPropertyGroupElement );
         }
-        
+
         // Update dependency versions.
         var errors = 0;
         string? inheritedMainVersion = null;
@@ -151,6 +151,12 @@ internal static class AutoUpdatedVersionsFile
                 continue;
             }
 
+            // Getting the inherited main version.
+            if ( context.Product.MainVersionDependency == dependency )
+            {
+                inheritedMainVersion = releasedMainVersionPropertyValue;
+            }
+
             // Load dependency version from public version.
             var versionElementName = $"{dependency.NameWithoutDot}Version";
             var versionElement = thisAutoUpdatedVersionsPropertyGroupElement.Element( versionElementName );
@@ -175,12 +181,6 @@ internal static class AutoUpdatedVersionsFile
             hasDependenciesChanges = true;
 
             context.Console.WriteMessage( $"Setting version dependency '{dependency}' from '{oldVersionValue}' to '{dependencyReleasedVersion}'." );
-
-            // Getting the inherited main version.
-            if ( context.Product.MainVersionDependency == dependency )
-            {
-                inheritedMainVersion = releasedMainVersionPropertyValue;
-            }
         }
 
         // Stop here if errors.
