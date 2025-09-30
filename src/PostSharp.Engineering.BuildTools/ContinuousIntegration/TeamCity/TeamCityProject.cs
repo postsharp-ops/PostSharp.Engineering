@@ -74,7 +74,7 @@ project {
                              }
                          }
                     """ );
-                
+
                 writer.WriteLine();
 
                 var configurationsOrder = string.Join( ',', project._configurations.Select( c => c.ObjectName ).Concat( this._additionalBuildTypes ) );
@@ -105,7 +105,7 @@ project {
 
             foreach ( var configuration in this._configurations.Concat( this._subProjects.SelectMany( p => p._configurations ) ) )
             {
-                configuration.GenerateTeamcityCode( writer );
+                configuration.GenerateTeamcityCode( writer, configuration.CheckoutDirectory );
                 writer.WriteLine();
             }
 

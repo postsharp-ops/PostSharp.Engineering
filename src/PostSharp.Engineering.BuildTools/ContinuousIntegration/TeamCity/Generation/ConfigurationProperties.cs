@@ -1,8 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System;
 using System.IO;
 using System.Linq;
@@ -37,7 +37,11 @@ internal class ConfigurationProperties
             .Select( d => new TeamCitySnapshotDependency(
                          d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                          true,
-                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Definition.Name}" ) )
+                         [
+                             new ArtifactRule(
+                                 $"dependencies/{d.Definition.Name}",
+                                 d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' ) )
+                         ] ) )
             .ToList();
 
         var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )

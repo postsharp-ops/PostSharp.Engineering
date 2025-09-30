@@ -92,7 +92,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string DumpDirectory { get; init; } = Path.Combine( "artifacts", "dumps" );
 
-        public string SourceDependenciesDirectory { get; init; } = Path.Combine( "source-dependencies" );
+        public string SourceDependenciesDirectory { get; init; } = "source-dependencies";
 
         public bool GenerateArcadeProperties { get; init; }
 
@@ -160,7 +160,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     ExportsToTeamCityDeploy: true,
                     RequiresUpstreamCheck: true ) );
 
-        public ImmutableArray<string> DefaultArtifactRules { get; } = ImmutableArray<string>.Empty;
+        public ArtifactRule[] DefaultArtifactRules { get; } = [];
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in *.props files specified as the dictionary keys.
