@@ -1,4 +1,4 @@
 <Project>
     <PropertyGroup>
-    </PropertyGroup>
+    <PostSharpEngineeringReleaseVersion>2023.2.242</PostSharpEngineeringReleaseVersion><PostSharpEngineeringReleaseMainVersion>2023.2.242</PostSharpEngineeringReleaseMainVersion></PropertyGroup>
 </Project>
