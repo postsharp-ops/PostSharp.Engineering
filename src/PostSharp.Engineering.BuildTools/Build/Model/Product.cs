@@ -6,7 +6,6 @@ using PostSharp.Engineering.BuildTools.Build.Bumping;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
@@ -93,7 +92,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string DumpDirectory { get; init; } = Path.Combine( "artifacts", "dumps" );
 
-        public string SourceDependenciesDirectory { get; init; } = "source-dependencies";
+        public string SourceDependenciesDirectory { get; init; } = Path.Combine( "source-dependencies" );
 
         public bool GenerateArcadeProperties { get; init; }
 
@@ -161,7 +160,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     ExportsToTeamCityDeploy: true,
                     RequiresUpstreamCheck: true ) );
 
-        public ArtifactRule[] DefaultArtifactRules { get; } = [];
+        public ImmutableArray<string> DefaultArtifactRules { get; } = ImmutableArray<string>.Empty;
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in *.props files specified as the dictionary keys.
@@ -285,7 +284,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ProductExtension[] Extensions { get; init; } = [];
 
         public bool BuildRequiresSourceDependencies { get; init; } = true;
-
+        
         internal string GetPrivateArtifactsAbsoluteDirectory( BuildContext context, BuildConfiguration configuration )
             => Path.Combine(
                 context.RepoDirectory,

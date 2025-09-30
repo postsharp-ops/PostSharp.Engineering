@@ -29,7 +29,6 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             this.Name,
             this.Branch,
             productProperties.VcsId,
-            product.ProductName,
             product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
@@ -37,7 +36,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 new PowerShellBuildStep(
                     "Exec",
                     $"Execute {this.Script}",
-                    $"{product.ProductName}/{this.Script}",
+                    this.Script,
                     this.Arguments,
                     product.DockerSpec )
             ],

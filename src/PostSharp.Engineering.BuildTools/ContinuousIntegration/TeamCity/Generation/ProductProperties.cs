@@ -45,7 +45,7 @@ internal class ProductProperties
                                                                          d.CiConfiguration.ProjectId.ToString(),
                                                                          TeamCityHelper.GetVcsId( d ),
                                                                          true,
-                                                                         $"+:. => {d.Name}" ) )
+                                                                         $"+:. => {product.SourceDependenciesDirectory}/{d.Name}" ) )
             .ToArray();
     }
 }

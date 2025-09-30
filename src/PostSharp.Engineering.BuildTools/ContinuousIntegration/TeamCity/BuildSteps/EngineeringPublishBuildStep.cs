@@ -8,10 +8,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildS
 
 internal class EngineeringPublishBuildStep : EngineeringCommandBuildStep
 {
-    public EngineeringPublishBuildStep( BuildConfiguration configuration, string checkoutDirectory, DockerSpec? dockerSpec, TimeSpan? timeSpan ) : base(
+    public EngineeringPublishBuildStep( BuildConfiguration configuration, DockerSpec? dockerSpec, TimeSpan? timeSpan ) : base(
         "Publish",
         "Publish",
-        checkoutDirectory,
         "publish",
         $"--configuration {configuration}",
         true,

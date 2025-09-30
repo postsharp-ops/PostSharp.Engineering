@@ -17,7 +17,7 @@ internal static class SourceDependenciesHelper
             return true;
         }
 
-        var sourceDependenciesDirectory = Path.Combine( context.RepoDirectory, product.SourceDependenciesDirectory );
+        var sourceDependenciesDirectory = Path.Combine( context.RepoDirectory, "source-dependencies" );
 
         if ( !Directory.Exists( sourceDependenciesDirectory ) )
         {

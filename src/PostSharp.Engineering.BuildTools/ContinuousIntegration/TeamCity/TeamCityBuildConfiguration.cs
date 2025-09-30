@@ -1,6 +1,5 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
@@ -23,8 +22,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
         public string VcsId { get; }
 
-        public string CheckoutDirectory { get; }
-
         public BuildAgentRequirements? BuildAgentRequirements { get; }
 
         public BuildStep[]? BuildSteps { get; init; }
@@ -35,19 +32,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
         public bool IsSshAgentRequired { get; init; }
 
-        public ArtifactRule[] ArtifactRules { get; init; } = [];
+        public string? ArtifactRules { get; init; }
 
-        public ArtifactRule[] AdditionalArtifactRules { get; init; } = [];
+        public string[]? AdditionalArtifactRules { get; init; }
 
-        public IBuildTrigger[] BuildTriggers { get; init; } = [];
+        public IBuildTrigger[]? BuildTriggers { get; init; }
 
-        public TeamCitySnapshotDependency[] SnapshotDependencies { get; init; } = [];
+        public TeamCitySnapshotDependency[]? SnapshotDependencies { get; init; }
 
-        public TeamCitySourceDependency[] SourceDependencies { get; init; } = [];
+        public TeamCitySourceDependency[]? SourceDependencies { get; init; }
 
         public bool IsDefaultVcsRootUsed { get; init; } = true;
 
-        public BuildConfigurationParameter[] Parameters { get; init; } = [];
+        public BuildConfigurationParameter[]? Parameters { get; init; }
 
         public bool RequiresCommitStatusPublisher { get; init; }
 
@@ -56,18 +53,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             string name,
             string defaultBranch,
             string vcsId,
-            string checkoutDirectory,
             BuildAgentRequirements? buildAgentRequirements = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
             this.DefaultBranch = defaultBranch;
             this.VcsId = vcsId;
-            this.CheckoutDirectory = checkoutDirectory;
             this.BuildAgentRequirements = buildAgentRequirements;
         }
 
-        public void GenerateTeamcityCode( TextWriter writer, string checkoutDirectory )
+        public void GenerateTeamcityCode( TextWriter writer )
         {
             writer.WriteLine(
                 $@"object {this.ObjectName} : BuildType({{
@@ -86,18 +81,21 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 writer.WriteLine();
             }
 
-            // Artifact rules.
+            if ( this.ArtifactRules != null )
             {
-                var artifactRules = this.ArtifactRules.Concat( this.AdditionalArtifactRules )
-                    .OrderBy( x => x )
-                    .Select( x => x.GetPublishRule( checkoutDirectory ) )
-                    .ToList();
+                var artifactRules = this.ArtifactRules.Replace( "\\n", "\n", StringComparison.Ordinal );
 
-                if ( artifactRules.Count > 0 )
+                if ( this.AdditionalArtifactRules != null )
                 {
-                    writer.WriteLine( $"    artifactRules = \"\"\"{string.Join( "\n", artifactRules )}\"\"\"" );
-                    writer.WriteLine();
+                    writer.WriteLine(
+                        $"    artifactRules = \"\"\"{artifactRules}\n{string.Join( "\n", this.AdditionalArtifactRules.OrderBy( x => x, StringComparer.InvariantCulture ) )}\"\"\"" );
                 }
+                else
+                {
+                    writer.WriteLine( $"    artifactRules = \"\"\"{artifactRules}\"\"\"" );
+                }
+
+                writer.WriteLine();
             }
 
             // Add required build steps.
@@ -138,7 +136,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
             if ( this.IsDefaultVcsRootUsed )
             {
-                writer.WriteLine( @$"        root(AbsoluteId(""{this.VcsId}""), ""+.=>{this.CheckoutDirectory}"")" );
+                // We set the VCS root explicitly for consolidated as well builds to enable the DefaultBranch paramater.
+                writer.WriteLine( @$"        root(AbsoluteId(""{this.VcsId}""))" );
 
                 if ( allBuildSteps.Count == 0 )
                 {
@@ -196,7 +195,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
             var requiresSwabra = allBuildSteps.Count > 0;
             var requiresSshAgent = this.IsSshAgentRequired;
-            var requiresAnyFeatures = requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher;
+            var requiresAnyFeatures = requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher ;
 
             // Features.
             if ( requiresAnyFeatures )
@@ -229,23 +228,22 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                                   }
                               }
                           """ );
-
+                    
                     // Integrate with PRs.
-                    writer.WriteLine(
-                        $$"""
-                          pullRequests {
-                                 vcsRootExtId = "{{this.VcsId}}"
-                                  provider = github {
-                                      authType = token {
-                                          token = "%env.{{EnvironmentVariableNames.GitHubToken}}%"
-                                      }
-                                     filterTargetBranch = "+:refs/heads/{{this.DefaultBranch}}"
-                                     filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
-                                 }
-                             }
-
-
-                          """ );
+                    writer.WriteLine($$"""
+                                       pullRequests {
+                                              vcsRootExtId = "{{this.VcsId}}"
+                                               provider = github {
+                                                   authType = token {
+                                                       token = "%env.{{EnvironmentVariableNames.GitHubToken}}%"
+                                                   }
+                                                  filterTargetBranch = "+:refs/heads/{{this.DefaultBranch}}"
+                                                  filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
+                                              }
+                                          }
+                                       
+                                       
+                                       """);
                 }
 
                 if ( requiresSshAgent )
@@ -303,13 +301,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                      onDependencyFailure = FailureAction.{failureAction}
             }}" );
 
-                    if ( dependency.ArtifactRules is { Length: > 0 } )
+                    if ( dependency.ArtifactRules != null )
                     {
                         writer.WriteLine(
                             $@"
             artifacts {{
                 cleanDestination = true
-                artifactRules = ""{string.Join( "\\n", dependency.ArtifactRules.OrderBy( x => x ).Select( x => x.GetRestoreRule( checkoutDirectory ) ) )}""
+                artifactRules = ""{dependency.ArtifactRules}""
             }}" );
                     }
 

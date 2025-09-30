@@ -18,7 +18,6 @@ internal class EngineeringCommandBuildStep : PowerShellBuildStep
     public EngineeringCommandBuildStep(
         string id,
         string name,
-        string checkoutDirectory,
         string command,
         string? arguments = null,
         bool areCustomArgumentsAllowed = false,
@@ -26,7 +25,7 @@ internal class EngineeringCommandBuildStep : PowerShellBuildStep
         TimeSpan? timeout = null ) : base(
         id,
         name,
-        $"{checkoutDirectory}/Build.ps1",
+        "Build.ps1",
         GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, timeout ),
         dockerSpec )
     {

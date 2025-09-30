@@ -12,12 +12,12 @@ public enum ExitCode
     /// <summary>
     /// Handled error.
     /// </summary>
-    Error = 1,
+    Error,
 
     /// <summary>
     /// No change was made.
     /// </summary>
-    NoChangeMade = 2,
+    NoChangeMade,
 
     /// <summary>
     /// Unhandled exception.

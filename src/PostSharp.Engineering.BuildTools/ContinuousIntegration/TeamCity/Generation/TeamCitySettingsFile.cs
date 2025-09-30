@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -38,30 +37,26 @@ internal static class TeamCitySettingsFile
 
             if ( configurationInfo.AdditionalArtifactRules != null )
             {
-                additionalArtifactRules = [..product.DefaultArtifactRules, ..configurationInfo.AdditionalArtifactRules];
+                additionalArtifactRules = product.DefaultArtifactRules.AddRange( configurationInfo.AdditionalArtifactRules );
             }
 
             // Create configuration-specific properties
             var configurationProperties = new ConfigurationProperties( product, configuration );
 
             // Set artifact rules using both ProductProperties and ConfigurationProperties.
-            var deployedArtifactRules = new List<ArtifactRule>
-            {
-                new( productProperties.PublicArtifactsDirectory, productProperties.PublicArtifactsDirectory ),
-                new( configurationProperties.PrivateArtifactsDirectory, configurationProperties.PrivateArtifactsDirectory )
-            };
+            var deployedArtifactRules = $"+:{productProperties.PublicArtifactsDirectory}/**/*=>{productProperties.PublicArtifactsDirectory}";
+            deployedArtifactRules += $@"\n+:{configurationProperties.PrivateArtifactsDirectory}/**/*=>{configurationProperties.PrivateArtifactsDirectory}";
 
-            var publishedArtifactRules = new List<ArtifactRule>();
-            publishedArtifactRules.AddRange( deployedArtifactRules );
-            publishedArtifactRules.Add( new ArtifactRule( productProperties.TestResultsDirectory, "testResults" ) );
-            publishedArtifactRules.Add( new ArtifactRule( productProperties.LogsDirectory, "logs" ) );
-            publishedArtifactRules.Add( new ArtifactRule( productProperties.DumpsDirectory, "dumps" ) );
+            var publishedArtifactRules = deployedArtifactRules;
+            publishedArtifactRules += $@"\n+:{productProperties.TestResultsDirectory}/**/*=>{productProperties.TestResultsDirectory}";
+            publishedArtifactRules += $@"\n+:{productProperties.LogsDirectory}/**/*=>logs";
+            publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
 
             var teamCityBuildConfiguration = CreateBuildConfiguration(
                 context,
                 productProperties,
                 configurationProperties,
-                publishedArtifactRules.ToArray(),
+                publishedArtifactRules,
                 additionalArtifactRules );
 
             teamCityBuildConfigurations.Add( teamCityBuildConfiguration );
@@ -77,7 +72,7 @@ internal static class TeamCitySettingsFile
                         productProperties,
                         configurationProperties,
                         teamCityBuildConfiguration,
-                        deployedArtifactRules.ToArray(),
+                        deployedArtifactRules,
                         false );
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -89,7 +84,7 @@ internal static class TeamCitySettingsFile
                         productProperties,
                         configurationProperties,
                         teamCityBuildConfiguration,
-                        deployedArtifactRules.ToArray(),
+                        deployedArtifactRules,
                         true );
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -158,7 +153,7 @@ internal static class TeamCitySettingsFile
         ProductProperties productProperties,
         ConfigurationProperties configurationProperties,
         TeamCityBuildConfiguration teamCityBuildConfiguration,
-        ArtifactRule[] deployedArtifactRules,
+        string deployedArtifactRules,
         bool isStandalone )
     {
         var product = productProperties.Product;
@@ -167,14 +162,13 @@ internal static class TeamCitySettingsFile
             new EngineeringCommandBuildStep(
                 "Publish",
                 "Publish",
-                product.ProductName,
                 "publish",
                 $"--configuration {configurationProperties.Configuration}{(isStandalone ? " --standalone" : "")}",
                 true,
                 product.DockerSpec,
                 configurationProperties.BuildConfigurationInfo.DeploymentTimeout ?? product.DeploymentTimeout );
 
-        var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration.Where( d => d.ArtifactRules is { Length: > 0 } )
+        var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration.Where( d => d.ArtifactRules != null )
             .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] );
 
         if ( !isStandalone )
@@ -194,7 +188,6 @@ internal static class TeamCitySettingsFile
                                                          ?? $"Deploy [{configurationProperties.Configuration}]"),
             productProperties.DefaultBranch,
             productProperties.VcsId,
-            product.ProductName,
             buildAgentRequirements: product.ResolvedBuildAgentRequirements )
         {
             BuildSteps = [step],
@@ -219,17 +212,13 @@ internal static class TeamCitySettingsFile
                 product.ParametrizedDependencies
                     .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.DownstreamProductFamily != null )
                     .Select( d => d.Definition )
-                    .Select( d => new TeamCitySnapshotDependency(
-                                 d.CiConfiguration.DownstreamMergeBuildType,
-                                 true,
-                                 FailureAction: FailureAction.AddProblem ) ) );
+                    .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DownstreamMergeBuildType, true, FailureAction: FailureAction.AddProblem ) ) );
 
         var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
             "DownstreamMerge",
             "Downstream Merge",
             productProperties.DefaultBranch,
             productProperties.VcsId,
-            product.ProductName,
             product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
@@ -237,7 +226,6 @@ internal static class TeamCitySettingsFile
                 new EngineeringCommandBuildStep(
                     "DownstreamMerge",
                     "Merge downstream",
-                    product.ProductName,
                     "tools git merge-downstream",
                     areCustomArgumentsAllowed: true,
                     dockerSpec: product.DockerSpec,
@@ -258,7 +246,6 @@ internal static class TeamCitySettingsFile
             name: $"Version Bump",
             productProperties.DefaultBranch,
             productProperties.VcsId,
-            productProperties.Product.ProductName,
             buildAgentRequirements: productProperties.Product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
@@ -266,7 +253,6 @@ internal static class TeamCitySettingsFile
                 new EngineeringCommandBuildStep(
                     "Bump",
                     "Bump",
-                    productProperties.Product.ProductName,
                     "bump",
                     areCustomArgumentsAllowed: true,
                     dockerSpec: productProperties.Product.DockerSpec,
@@ -297,7 +283,6 @@ internal static class TeamCitySettingsFile
             name: configurationProperties.BuildConfigurationInfo.TeamCitySwapName ?? $"Swap [{configurationProperties.Configuration}]",
             productProperties.DeploymentBranch,
             productProperties.VcsId,
-            productProperties.Product.ProductName,
             buildAgentRequirements: productProperties.Product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
@@ -305,7 +290,6 @@ internal static class TeamCitySettingsFile
                 new EngineeringCommandBuildStep(
                     "Swap",
                     "Swap",
-                    productProperties.Product.ProductName,
                     "swap",
                     $"--configuration {configurationProperties.Configuration}",
                     true,
@@ -323,16 +307,15 @@ internal static class TeamCitySettingsFile
         BuildContext context,
         ProductProperties productProperties,
         ConfigurationProperties configurationProperties,
-        ArtifactRule[] publishedArtifactRules,
-        ArtifactRule[] additionalArtifactRules )
+        string publishedArtifactRules,
+        ImmutableArray<string> additionalArtifactRules )
     {
         var product = productProperties.Product;
         var teamCityBuildSteps = new List<BuildStep>();
 
         if ( !product.UseDocker )
         {
-            teamCityBuildSteps.Add(
-                new EngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", productProperties.Product.ProductName, "tools kill" ) );
+            teamCityBuildSteps.Add( new EngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
         }
 
         var requiresUpstreamCheck =
@@ -352,19 +335,16 @@ internal static class TeamCitySettingsFile
                 new EngineeringCommandBuildStep(
                     "UpstreamCheck",
                     "Check pending upstream changes",
-                    product.ProductName,
                     "tools git check-upstream",
                     areCustomArgumentsAllowed: true,
                     dockerSpec: product.DockerSpec ) );
         }
 
-        teamCityBuildSteps.Add(
-            new EngineeringBuildBuildStep( configurationProperties.Configuration, product.ProductName, true, product.DockerSpec, context.BuildTimeout ) );
+        teamCityBuildSteps.Add( new EngineeringBuildBuildStep( configurationProperties.Configuration, true, product.DockerSpec, context.BuildTimeout ) );
 
         if ( !product.UseDocker )
         {
-            teamCityBuildSteps.Add(
-                new EngineeringCommandBuildStep( "PostKill", "Kill background processes before next build", product.ProductName, "tools kill" ) );
+            teamCityBuildSteps.Add( new EngineeringCommandBuildStep( "PostKill", "Kill background processes before next build", "tools kill" ) );
         }
 
         // The default branch for the public build cannot be set to the release branch,
@@ -380,13 +360,12 @@ internal static class TeamCitySettingsFile
             configurationProperties.BuildConfigurationInfo.TeamCityBuildName ?? $"Build [{configurationProperties.Configuration}]",
             productProperties.DefaultBranch,
             productProperties.VcsId,
-            product.ProductName,
             product.ResolvedBuildAgentRequirements )
         {
             BuildSteps = teamCityBuildSteps.ToArray(),
             ArtifactRules = publishedArtifactRules,
             AdditionalArtifactRules = additionalArtifactRules.ToArray(),
-            BuildTriggers = configurationProperties.BuildConfigurationInfo.BuildTriggers ?? [],
+            BuildTriggers = configurationProperties.BuildConfigurationInfo.BuildTriggers,
             SnapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration,
             SourceDependencies = product.BuildRequiresSourceDependencies ? productProperties.SourceDependencies : [],
             IsSshAgentRequired = requiresUpstreamCheck && productProperties.IsRepoRemoteSsh,
