@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
+using System;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
@@ -17,6 +18,8 @@ public class SourceBuildTrigger : IBuildTrigger
     public string? BranchFilter { get; init; }
 
     public BuildConfigurationParameter[]? Parameters { get; init; }
+    
+    public TimeSpan? QuietPeriod { get; init; } = TimeSpan.FromHours( 2 );
 
     public void GenerateTeamcityCode( TextWriter writer, string? branchFilter = null )
     {
@@ -32,6 +35,12 @@ public class SourceBuildTrigger : IBuildTrigger
 
         branchFilter = this.BranchFilter ?? branchFilter ?? "+:<default>";
         WriteIndented( $"branchFilter = \"{branchFilter}\"" );
+
+        if ( this.QuietPeriod != null )
+        {
+            WriteIndented( " quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_CUSTOM" );
+            WriteIndented( $" quietPeriod = {this.QuietPeriod.Value.TotalSeconds}" );
+        }
 
         WriteIndented( "// Build will not trigger automatically if the commit message contains comment value." );
         WriteIndented( "triggerRules = \"-:comment=<<VERSION_BUMP>>|<<DEPENDENCIES_UPDATED>>:**\"" );
