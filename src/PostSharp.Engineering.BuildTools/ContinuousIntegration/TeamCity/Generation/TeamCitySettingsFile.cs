@@ -232,7 +232,6 @@ internal static class TeamCitySettingsFile
                     timeout: product.DownstreamMergeTimeout )
             ],
             SnapshotDependencies = snapshotDependencies.ToArray(),
-            BuildTriggers = [new SourceBuildTrigger()],
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh
         };
 

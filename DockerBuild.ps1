@@ -13,6 +13,7 @@ param(
     [string]$BuildAgentPath = 'C:\BuildAgent',
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
     [switch]$StartVsmon, # Enable the remote debugger.
+    [string]$Script = 'Build.ps1', # The build script to be executed inside Docker.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container.
 )
@@ -25,6 +26,8 @@ $EnvironmentVariables = 'AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AZ_IDENTITY_USE
 
 $ErrorActionPreference = "Stop"
 $dockerContextDirectory = "$EngPath/docker-context"
+
+Set-Location $PSScriptRoot
 
 # Function to create secrets JSON file
 function New-EnvJson
@@ -90,6 +93,12 @@ function New-EnvJson
     return $jsonPath
 }
 
+if ($env:RUNNING_IN_DOCKER)
+{
+    Write-Error "Already running in Docker."
+    exit 1
+}
+
 # Generate ImageName from script directory if not provided
 if ( [string]::IsNullOrEmpty($ImageName))
 {
@@ -103,7 +112,8 @@ if ( [string]::IsNullOrEmpty($ImageName))
         $ImageTag = "docker-build-image"
     }
     Write-Host "Generated image name from directory: $ImageTag" -ForegroundColor Cyan
-} else
+}
+else
 {
     # Generate a hash of the repo directory tagging (4 bytes, 8 hex chars)
     $hashBytes = (New-Object -TypeName System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($PSScriptRoot))
@@ -264,7 +274,7 @@ Write-Host "Git directories: " $gitDirectoriesAsString -ForegroundColor Gray
 # Kill all containers
 docker ps -q --filter "ancestor=$ImageTag" | ForEach-Object {
     Write-Host "Killing container $_"
-    docker kill $_ 
+    docker kill $_
 }
 
 # Building the image.
@@ -316,9 +326,9 @@ if (-not $BuildImage)
     $dockerArgsAsString = $dockerArgs -join " "
 
 
-    Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -w $SourceDirName $ImageTag pwsh $pwshArgs -Command `"& .\Build.ps1 $buildArgsString`; $pwshExitCommand`"" -ForegroundColor Cyan
+    Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -w $SourceDirName $ImageTag pwsh $pwshArgs -Command `"& .\$Script $buildArgsString`; $pwshExitCommand`"" -ForegroundColor Cyan
 
-    docker run --rm --memory=12g $dockerArgs @VolumeMappings -w $SourceDirName @dockerArgs $ImageTag pwsh $pwshArgs -Command "& .\Build.ps1 $buildArgsString`; $pwshExitCommand; "
+    docker run --rm --memory=12g $dockerArgs @VolumeMappings -w $SourceDirName @dockerArgs $ImageTag pwsh $pwshArgs -Command "& .\$Script $buildArgsString`; $pwshExitCommand; "
     if ($LASTEXITCODE -ne 0)
     {
         Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red
