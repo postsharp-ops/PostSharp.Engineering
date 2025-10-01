@@ -151,23 +151,24 @@ internal static class DownstreamMerge
             return false;
         }
 
-        var sourceProductFamily = context.Product.ProductFamily;
-        var downstreamProductFamily = context.Product.ProductFamily.DownstreamProductFamily;
+        var product = context.Product;
+        var sourceProductFamily = product.ProductFamily;
+        var downstreamProductFamily = product.ProductFamily.DownstreamProductFamily;
 
         if ( downstreamProductFamily == null )
         {
             context.Console.WriteWarning(
-                $"The downstream version product family for '{context.Product.ProductFamily.Version}' is not configured. Skipping downstream merge." );
+                $"The downstream version product family for '{product.ProductFamily.Version}' is not configured. Skipping downstream merge." );
 
             return true;
         }
 
-        var sourceBranch = context.Product.DependencyDefinition.Branch;
+        var sourceBranch = product.DependencyDefinition.Branch;
 
-        if ( !downstreamProductFamily.TryGetDependencyDefinition( context.Product.ProductName, out var downstreamDependencyDefinition ) )
+        if ( !downstreamProductFamily.TryGetDependencyDefinition( product.ProductName, out var downstreamDependencyDefinition ) )
         {
             context.Console.WriteError(
-                $"The '{context.Product.ProductName}' downstream product version '{downstreamProductFamily.Version}' is not configured." );
+                $"The '{product.ProductName}' downstream product version '{downstreamProductFamily.Version}' is not configured." );
 
             return false;
         }
@@ -222,10 +223,10 @@ internal static class DownstreamMerge
 
         if ( isPullRequestRequired )
         {
-            targetBranch = $"merge/{downstreamProductFamily.Version}/{context.Product.ProductFamily.Version}-{sourceCommitHash}";
+            targetBranch = $"merge/{downstreamProductFamily.Version}/{product.ProductFamily.Version}-{sourceCommitHash}";
 
             context.Console.WriteMessage(
-                $"Checking '{context.Product.ProductName}' product version '{downstreamProductFamily.Version}' for pending merge branches." );
+                $"Checking '{product.ProductName}' product version '{downstreamProductFamily.Version}' for pending merge branches." );
 
             var filter = $"merge/{downstreamProductFamily.Version}/*";
 
@@ -240,7 +241,17 @@ internal static class DownstreamMerge
 
             var formerTargetBranchReferences = references.Where( r => r.Reference != targetBranchReference ).ToArray();
 
-            if ( formerTargetBranchReferences.Length > 0 && !settings.Force )
+            var reusableBranches = formerTargetBranchReferences.Where( r => r.Reference.StartsWith(
+                                                                           $"refs/heads/merge/{downstreamProductFamily.Version}/{product.ProductFamily.Version}-",
+                                                                           StringComparison.OrdinalIgnoreCase ) )
+                .ToArray();
+
+            if ( reusableBranches.Length == 1 )
+            {
+                targetBranch = reusableBranches[0].Reference.Substring( "refs/heads/".Length );
+                targetBranchExistsRemotely = true;
+            }
+            else if ( formerTargetBranchReferences.Length > 0 && !settings.Force )
             {
                 ExplainUnmergedBranches(
                     context.Console,
@@ -328,9 +339,7 @@ internal static class DownstreamMerge
             {
                 return false;
             }
-
-            context.Console.WriteSuccess( $"Created pull request: {pullRequestUrl}" );
-
+            
             if ( requiresBuild )
             {
                 if ( !TryScheduleBuild(
@@ -345,7 +354,12 @@ internal static class DownstreamMerge
                     return false;
                 }
 
-                context.Console.WriteSuccess( $"Scheduled build: {buildUrl}" );
+                context.Console.WriteSuccess( $"Created pull request {pullRequestUrl} and scheduled build {buildUrl}." );
+            }
+            else
+            {
+                context.Console.WriteSuccess( $"Created and merged pull request {pullRequestUrl}." );
+
             }
         }
 
@@ -465,11 +479,9 @@ internal static class DownstreamMerge
         {
             var pullRequestTitle = $"Downstream merge from '{sourceBranch}' branch";
 
-            (bool Success, string? Url, bool RequiresBuild) newPullRequest;
-
             if ( VcsUrlParser.TryGetRepository( remoteUrl, out var repository ) )
             {
-                newPullRequest = repository.TryCreatePullRequestAsync(
+                var newPullRequest = repository.TryCreatePullRequestAsync(
                         context.Console,
                         targetBranch,
                         downstreamBranch,
