@@ -104,16 +104,6 @@ internal static class NuGetConfigFile
 
             if ( dependencySource.Value.SourceKind == DependencySourceKind.Local )
             {
-                var parametrizedDependency = product.ParametrizedDependencies.SingleOrDefault( d => d.Name == dependencySource.Key );
-
-                if ( parametrizedDependency == null )
-                {
-                    // This case is not implemented.
-                    context.Console.WriteWarning( $"Cannot find ParametrizedDependencies for {dependencySource.Key}. Probably a transitive dependency." );
-
-                    continue;
-                }
-
                 dependencyDirectory = Path.Combine(
                     dependencyDirectory,
                     dependencyDefinition.GetPrivateArtifactsDirectory( configuration ) );
