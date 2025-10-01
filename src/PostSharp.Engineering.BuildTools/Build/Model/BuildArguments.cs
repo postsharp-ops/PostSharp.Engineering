@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -24,7 +25,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             product.DependencyDefinition,
             packagePreviewVersion ) { }
 
-        internal BuildArguments(
+        private BuildArguments(
             string? packageVersion,
             BuildConfiguration configuration,
             DependencyDefinition dependencyDefinition,
@@ -34,7 +35,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             dependencyDefinition.MSBuildConfiguration[configuration],
             packagePreviewVersion ) { }
 
-        internal BuildArguments( string? packageVersion, string configuration, string msBuildConfiguration, string? packagePreviewVersion )
+        private BuildArguments( string? packageVersion, string configuration, string msBuildConfiguration, string? packagePreviewVersion )
         {
             this.PackageVersion = packageVersion;
             this.Configuration = configuration;
@@ -55,7 +56,33 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string? PackagePreviewVersion { get; init; }
 
-        public static BuildArguments Read( BuildContext context, BuildConfiguration buildConfiguration )
+        public static BuildArguments ReadFromArtifactManifest( BuildContext context, BuildConfiguration buildConfiguration )
             => ArtifactManifestFile.CreateParametricStringArguments( context, buildConfiguration );
+
+        public static bool TryCreate( BuildContext context, BuildConfiguration configuration, [NotNullWhen( true )] out BuildArguments? buildArguments )
+        {
+            if ( !MainVersionFile.TryRead( context, out var mainVersionFile ) )
+            {
+                buildArguments = null;
+
+                return false;
+            }
+
+            if ( !AutoUpdatedVersionsFile.TryRead( context, out var packageVersion, out var packageMainVersion ) )
+            {
+                buildArguments = null;
+
+                return false;
+            }
+
+            buildArguments = new BuildArguments()
+            {
+                MSBuildConfiguration = context.Product.DependencyDefinition.MSBuildConfiguration[configuration],
+                Configuration = configuration.ToString(),
+                PackageVersion = packageVersion
+            };
+
+            return true;
+        }
     }
 }

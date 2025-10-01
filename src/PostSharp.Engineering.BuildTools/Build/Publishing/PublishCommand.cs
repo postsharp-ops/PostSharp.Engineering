@@ -84,13 +84,8 @@ internal class PublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        if ( !MasterGenerator.TryWriteFiles( context, settings ) )
-        {
-            return false;
-        }
-
         // TODO: Verification is broken - NuGet verification is slow and makes the verification fail
-        // on seemimngly unpublished packages.
+        // on seemingly unpublished packages.
         // if ( settings.BuildConfiguration == BuildConfiguration.Public )
         // {
         //     if ( !product.Verify( context, settings ) )
@@ -100,7 +95,12 @@ internal class PublishCommand : BaseCommand<PublishSettings>
         // }
 
         var configuration = settings.BuildConfiguration;
-        var buildArguments = BuildArguments.Read( context, configuration );
+
+        if ( !BuildArguments.TryCreate( context, configuration, out var buildArguments ) )
+        {
+            return false;
+        }
+
         var directories = product.GetArtifactsAbsoluteDirectories( context, configuration );
         var configurationInfo = product.Configurations.GetValue( configuration );
         var hasTarget = false;
