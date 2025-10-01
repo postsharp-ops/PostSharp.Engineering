@@ -99,6 +99,8 @@ pullRequests {
         vcs {
             watchChangesInDependencies = true
             branchFilter = "+:develop/2023.2"
+             quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_CUSTOM
+             quietPeriod = 7200
             // Build will not trigger automatically if the commit message contains comment value.
             triggerRules = "-:comment=<<VERSION_BUMP>>|<<DEPENDENCIES_UPDATED>>:**"
         }
