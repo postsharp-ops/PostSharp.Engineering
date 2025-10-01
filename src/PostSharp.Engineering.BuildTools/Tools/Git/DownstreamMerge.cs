@@ -167,8 +167,7 @@ internal static class DownstreamMerge
 
         if ( !downstreamProductFamily.TryGetDependencyDefinition( product.ProductName, out var downstreamDependencyDefinition ) )
         {
-            context.Console.WriteError(
-                $"The '{product.ProductName}' downstream product version '{downstreamProductFamily.Version}' is not configured." );
+            context.Console.WriteError( $"The '{product.ProductName}' downstream product version '{downstreamProductFamily.Version}' is not configured." );
 
             return false;
         }
@@ -190,180 +189,195 @@ internal static class DownstreamMerge
             return false;
         }
 
-        context.Console.WriteImportantMessage( $"Pulling changes from '{downstreamBranch}' downstream branch" );
-
-        if ( !GitHelper.TryCheckoutAndPull( context, downstreamBranch ) )
+        try
         {
-            return false;
-        }
+            context.Console.WriteImportantMessage( $"Pulling changes from '{downstreamBranch}' downstream branch" );
 
-        if ( !GitHelper.TryGetCommitsCount( context, "HEAD", sourceBranch, sourceProductFamily, out var commitsCount ) )
-        {
-            return false;
-        }
-
-        if ( commitsCount < 0 )
-        {
-            throw new InvalidOperationException( $"Invalid commits count: {commitsCount}" );
-        }
-
-        if ( commitsCount == 0 )
-        {
-            context.Console.WriteSuccess( $"There are no commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
-
-            return true;
-        }
-
-        context.Console.WriteImportantMessage( $"There are {commitsCount} commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
-
-        var pullRequestStatusCheckBuildTypeId = downstreamDependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
-        var isPullRequestRequired = pullRequestStatusCheckBuildTypeId != null;
-        string targetBranch;
-        bool targetBranchExistsRemotely;
-
-        if ( isPullRequestRequired )
-        {
-            targetBranch = $"merge/{downstreamProductFamily.Version}/{product.ProductFamily.Version}-{sourceCommitHash}";
-
-            context.Console.WriteMessage(
-                $"Checking '{product.ProductName}' product version '{downstreamProductFamily.Version}' for pending merge branches." );
-
-            var filter = $"merge/{downstreamProductFamily.Version}/*";
-
-            if ( !GitHelper.TryGetRemoteReferences( context, settings, filter, out var references ) )
+            if ( !GitHelper.TryCheckoutAndPull( context, downstreamBranch ) )
             {
                 return false;
             }
 
-            var targetBranchReference = $"refs/heads/{targetBranch}";
-
-            targetBranchExistsRemotely = references.Any( r => r.Reference == targetBranchReference );
-
-            var formerTargetBranchReferences = references.Where( r => r.Reference != targetBranchReference ).ToArray();
-
-            var reusableBranches = formerTargetBranchReferences.Where( r => r.Reference.StartsWith(
-                                                                           $"refs/heads/merge/{downstreamProductFamily.Version}/{product.ProductFamily.Version}-",
-                                                                           StringComparison.OrdinalIgnoreCase ) )
-                .ToArray();
-
-            if ( reusableBranches.Length == 1 )
+            if ( !GitHelper.TryGetCommitsCount( context, "HEAD", sourceBranch, sourceProductFamily, out var commitsCount ) )
             {
-                targetBranch = reusableBranches[0].Reference.Substring( "refs/heads/".Length );
-                targetBranchExistsRemotely = true;
+                return false;
             }
-            else if ( formerTargetBranchReferences.Length > 0 && !settings.Force )
-            {
-                ExplainUnmergedBranches(
-                    context.Console,
-                    formerTargetBranchReferences.Select( r => r.Reference ),
-                    settings.Force,
-                    targetBranchExistsRemotely
-                        ? $"Until a new commit is pushed to the '{sourceBranch}' source branch, there's no need to delete the '{targetBranch}' target branch, as it will be reused next time the downstream merge is run."
-                        : null );
 
-                if ( !settings.Force )
+            if ( commitsCount < 0 )
+            {
+                throw new InvalidOperationException( $"Invalid commits count: {commitsCount}" );
+            }
+
+            if ( commitsCount == 0 )
+            {
+                context.Console.WriteSuccess( $"There are no commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
+
+                return true;
+            }
+
+            context.Console.WriteImportantMessage( $"There are {commitsCount} commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
+
+            var pullRequestStatusCheckBuildTypeId = downstreamDependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
+            var isPullRequestRequired = pullRequestStatusCheckBuildTypeId != null;
+            string targetBranch;
+            bool targetBranchExistsRemotely;
+
+            if ( isPullRequestRequired )
+            {
+                targetBranch = $"merge/{downstreamProductFamily.Version}/{product.ProductFamily.Version}-{sourceCommitHash}";
+
+                context.Console.WriteMessage(
+                    $"Checking '{product.ProductName}' product version '{downstreamProductFamily.Version}' for pending merge branches." );
+
+                var filter = $"merge/{downstreamProductFamily.Version}/*";
+
+                if ( !GitHelper.TryGetRemoteReferences( context, settings, filter, out var references ) )
                 {
                     return false;
                 }
-            }
-        }
-        else
-        {
-            targetBranch = downstreamBranch;
-            targetBranchExistsRemotely = true;
-        }
 
-        bool targetBranchExists;
+                var targetBranchReference = $"refs/heads/{targetBranch}";
 
-        if ( targetBranchExistsRemotely )
-        {
-            targetBranchExists = true;
-        }
-        else
-        {
-            if ( !GitHelper.TryGetCurrentCommitHash( context, targetBranch, out var targetBranchCurrentCommitHash ) )
-            {
-                return false;
-            }
+                targetBranchExistsRemotely = references.Any( r => r.Reference == targetBranchReference );
 
-            targetBranchExists = targetBranchCurrentCommitHash != null;
-        }
+                var formerTargetBranchReferences = references.Where( r => r.Reference != targetBranchReference ).ToArray();
 
-        if ( targetBranchExists )
-        {
-            context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
+                var reusableBranches = formerTargetBranchReferences.Where( r => r.Reference.StartsWith(
+                                                                               $"refs/heads/merge/{downstreamProductFamily.Version}/{product.ProductFamily.Version}-",
+                                                                               StringComparison.OrdinalIgnoreCase ) )
+                    .ToArray();
 
-            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
-            {
-                return false;
-            }
-        }
-        else
-        {
-            context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch doesn't exits. Let's create it." );
-
-            if ( !GitHelper.TryCreateBranch( context, targetBranch ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteImportantMessage( $"The '{targetBranch}' target was created." );
-        }
-
-        // Push the branch now to avoid issues when the DownstreamMergeCommand
-        // is executed again with the same upstream changes
-        // or when developers are required to resolve conflicts.
-        if ( !GitHelper.TryPush( context ) )
-        {
-            return false;
-        }
-
-        if ( !TryMerge( context, sourceBranch, targetBranch, downstreamBranch, out var areChangesPending ) )
-        {
-            return false;
-        }
-
-        if ( !areChangesPending )
-        {
-            // This shouldn't happen often - just when the merge conflict is solved without using the merge branch prepared by the tool.
-            context.Console.WriteSuccess( $"There is nothing to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
-
-            return true;
-        }
-
-        context.Console.WriteSuccess( $"Changes from '{sourceBranch}' missing in '{downstreamBranch}' branch have been merged in branch '{targetBranch}'." );
-
-        if ( isPullRequestRequired )
-        {
-            if ( !TryCreatePullRequest( context, targetBranch, downstreamBranch, sourceBranch, out var pullRequestUrl, out var requiresBuild ) )
-            {
-                return false;
-            }
-            
-            if ( requiresBuild )
-            {
-                if ( !TryScheduleBuild(
-                        downstreamDependencyDefinition.CiConfiguration,
+                if ( reusableBranches.Length == 1 )
+                {
+                    targetBranch = reusableBranches[0].Reference.Substring( "refs/heads/".Length );
+                    targetBranchExistsRemotely = true;
+                }
+                else if ( formerTargetBranchReferences.Length > 0 && !settings.Force )
+                {
+                    ExplainUnmergedBranches(
                         context.Console,
-                        targetBranch,
-                        sourceBranch,
-                        pullRequestUrl,
-                        pullRequestStatusCheckBuildTypeId!, // Checked by isPullRequestRequired
-                        out var buildUrl ) )
-                {
-                    return false;
-                }
+                        formerTargetBranchReferences.Select( r => r.Reference ),
+                        settings.Force,
+                        targetBranchExistsRemotely
+                            ? $"Until a new commit is pushed to the '{sourceBranch}' source branch, there's no need to delete the '{targetBranch}' target branch, as it will be reused next time the downstream merge is run."
+                            : null );
 
-                context.Console.WriteSuccess( $"Created pull request {pullRequestUrl} and scheduled build {buildUrl}." );
+                    if ( !settings.Force )
+                    {
+                        return false;
+                    }
+                }
             }
             else
             {
-                context.Console.WriteSuccess( $"Created and merged pull request {pullRequestUrl}." );
+                targetBranch = downstreamBranch;
+                targetBranchExistsRemotely = true;
+            }
 
+            bool targetBranchExists;
+
+            if ( targetBranchExistsRemotely )
+            {
+                targetBranchExists = true;
+            }
+            else
+            {
+                if ( !GitHelper.TryGetCurrentCommitHash( context, targetBranch, out var targetBranchCurrentCommitHash ) )
+                {
+                    return false;
+                }
+
+                targetBranchExists = targetBranchCurrentCommitHash != null;
+            }
+
+            if ( targetBranchExists )
+            {
+                context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
+
+                if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch doesn't exits. Let's create it." );
+
+                if ( !GitHelper.TryCreateBranch( context, targetBranch ) )
+                {
+                    return false;
+                }
+
+                context.Console.WriteImportantMessage( $"The '{targetBranch}' target was created." );
+            }
+
+            // Push the branch now to avoid issues when the DownstreamMergeCommand
+            // is executed again with the same upstream changes
+            // or when developers are required to resolve conflicts.
+            if ( !GitHelper.TryPush( context ) )
+            {
+                return false;
+            }
+
+            if ( !TryMerge( context, sourceBranch, targetBranch, downstreamBranch, out var areChangesPending ) )
+            {
+                return false;
+            }
+
+            if ( !areChangesPending )
+            {
+                // This shouldn't happen often - just when the merge conflict is solved without using the merge branch prepared by the tool.
+                context.Console.WriteSuccess( $"There is nothing to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
+
+                return true;
+            }
+
+            context.Console.WriteSuccess(
+                $"Changes from '{sourceBranch}' missing in '{downstreamBranch}' branch have been merged in branch '{targetBranch}'." );
+
+            if ( isPullRequestRequired )
+            {
+                if ( !TryCreatePullRequest( context, targetBranch, downstreamBranch, sourceBranch, out var pullRequestUrl, out var requiresBuild ) )
+                {
+                    return false;
+                }
+
+                if ( requiresBuild )
+                {
+                    if ( !TryScheduleBuild(
+                            downstreamDependencyDefinition.CiConfiguration,
+                            context.Console,
+                            targetBranch,
+                            sourceBranch,
+                            pullRequestUrl,
+                            pullRequestStatusCheckBuildTypeId!, // Checked by isPullRequestRequired
+                            out var buildUrl ) )
+                    {
+                        return false;
+                    }
+
+                    context.Console.WriteSuccess( $"Created pull request {pullRequestUrl} and scheduled build {buildUrl}." );
+                }
+                else
+                {
+                    context.Console.WriteSuccess( $"Created and merged pull request {pullRequestUrl}." );
+                }
+            }
+
+            return true;
+        }
+        finally
+        {
+            try
+            {
+                // Go back to the original branch.
+                GitHelper.TryCheckoutAndPull( context, product.DependencyDefinition.Branch );
+            }
+            catch ( Exception e )
+            {
+                context.Console.WriteError( e.ToString() );
             }
         }
-
-        return true;
     }
 
     private static bool TryMerge(
