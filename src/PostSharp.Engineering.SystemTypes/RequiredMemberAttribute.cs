@@ -1,7 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
-#if !NET7_0_OR_GREATER
+﻿#if !NET7_0_OR_GREATER
 using System.ComponentModel;
 
 namespace System.Runtime.CompilerServices
@@ -12,6 +9,9 @@ namespace System.Runtime.CompilerServices
         AllowMultiple = false,
         Inherited = false )]
     [EditorBrowsable( EditorBrowsableState.Never )]
-    internal sealed class RequiredMemberAttribute : Attribute;
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
+    internal sealed class RequiredMemberAttribute : Attribute { }
 }
 #endif

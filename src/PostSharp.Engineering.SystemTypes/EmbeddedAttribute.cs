@@ -1,3 +1,4 @@
+#if EMBED_SYSTEM_TYPES
 using System;
 
 namespace Microsoft.CodeAnalysis
@@ -7,3 +8,4 @@ namespace Microsoft.CodeAnalysis
     {
     }
 }
+#endif

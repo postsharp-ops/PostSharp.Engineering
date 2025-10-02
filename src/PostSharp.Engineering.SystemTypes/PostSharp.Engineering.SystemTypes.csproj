@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <!-- See README.md -->
+    <PropertyGroup>
+        <TargetFramework>net472</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>10</LangVersion>
+        <DefineConstants>EMBED_SYSTEM_TYPES</DefineConstants>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+</Project>

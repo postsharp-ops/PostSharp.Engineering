@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PostSharp.Engineering.Sdk",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostSharp.Engineering.DocFx", "src\PostSharp.Engineering.DocFx\PostSharp.Engineering.DocFx.csproj", "{53B2C52E-9095-4D49-8C34-5507BB941EE6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostSharp.Engineering.SystemTypes", "src\PostSharp.Engineering.SystemTypes\PostSharp.Engineering.SystemTypes.csproj", "{B6DB99A8-CF03-44CB-9C5E-2FEC7888DA3E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{53B2C52E-9095-4D49-8C34-5507BB941EE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{53B2C52E-9095-4D49-8C34-5507BB941EE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{53B2C52E-9095-4D49-8C34-5507BB941EE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6DB99A8-CF03-44CB-9C5E-2FEC7888DA3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6DB99A8-CF03-44CB-9C5E-2FEC7888DA3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6DB99A8-CF03-44CB-9C5E-2FEC7888DA3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6DB99A8-CF03-44CB-9C5E-2FEC7888DA3E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

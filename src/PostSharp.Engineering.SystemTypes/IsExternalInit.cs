@@ -1,6 +1,3 @@
-// Copyright (c) SharpCrafters s.r.o. All rights reserved.
-// This project is not open source. Please see the LICENSE.md file in the repository root for details.
-
 #if !NET5_0_OR_GREATER
 using System.ComponentModel;
 using System.Reflection;
@@ -13,6 +10,9 @@ namespace System.Runtime.CompilerServices
     /// Reserved to be used by the compiler for tracking metadata.
     /// This class should not be used by developers in source code.
     /// </summary>
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     [EditorBrowsable( EditorBrowsableState.Never )]
     [Obfuscation( Exclude = true )]
     internal static class IsExternalInit { }

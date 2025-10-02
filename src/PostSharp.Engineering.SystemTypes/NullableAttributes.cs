@@ -1,7 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. All rights reserved.
-// This project is not open source. Please see the LICENSE.md file in the repository root for details.
-
-#if !NET5_0_OR_GREATER
+﻿#if !NET5_0_OR_GREATER
 using System.Reflection;
 
 // ReSharper disable All
@@ -14,30 +11,45 @@ namespace System.Diagnostics.CodeAnalysis
     [AttributeUsage( AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class AllowNullAttribute : Attribute { }
 
     /// <summary>Specifies that null is disallowed as an input even if the corresponding type allows it.</summary>
     [AttributeUsage( AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class DisallowNullAttribute : Attribute { }
 
     /// <summary>Specifies that an output may be null even if the corresponding type disallows it.</summary>
     [AttributeUsage( AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property | AttributeTargets.ReturnValue )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class MaybeNullAttribute : Attribute { }
 
     /// <summary>Specifies that an output will not be null even if the corresponding type allows it. Specifies that an input argument was not null when the call returns.</summary>
     [AttributeUsage( AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property | AttributeTargets.ReturnValue )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class NotNullAttribute : Attribute { }
 
     /// <summary>Specifies that when a method returns <see cref="ReturnValue"/>, the parameter may be null even if the corresponding type disallows it.</summary>
     [AttributeUsage( AttributeTargets.Parameter )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class MaybeNullWhenAttribute : Attribute
     {
         /// <summary>Initializes the attribute with the specified return value condition.</summary>
@@ -57,6 +69,9 @@ namespace System.Diagnostics.CodeAnalysis
     [AttributeUsage( AttributeTargets.Parameter )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class NotNullWhenAttribute : Attribute
     {
         /// <summary>Initializes the attribute with the specified return value condition.</summary>
@@ -76,6 +91,9 @@ namespace System.Diagnostics.CodeAnalysis
     [AttributeUsage( AttributeTargets.Parameter | AttributeTargets.Property | AttributeTargets.ReturnValue, AllowMultiple = true )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class NotNullIfNotNullAttribute : Attribute
     {
         /// <summary>Initializes the attribute with the associated parameter name.</summary>
@@ -94,12 +112,18 @@ namespace System.Diagnostics.CodeAnalysis
     /// <summary>Applied to a method that will never return under any circumstance.</summary>
     [AttributeUsage( AttributeTargets.Method, Inherited = false )]
     [Obfuscation( Exclude = true )]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class DoesNotReturnAttribute : Attribute { }
 
     /// <summary>Specifies that the method will not return if the associated Boolean parameter is passed the specified value.</summary>
     [AttributeUsage( AttributeTargets.Parameter )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class DoesNotReturnIfAttribute : Attribute
     {
         /// <summary>Initializes the attribute with the specified parameter value.</summary>
@@ -120,6 +144,9 @@ namespace System.Diagnostics.CodeAnalysis
     [AttributeUsage( AttributeTargets.Method | AttributeTargets.Property, Inherited = false, AllowMultiple = true )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class MemberNotNullAttribute : Attribute
     {
         /// <summary>Initializes the attribute with a field or property member.</summary>
@@ -148,6 +175,9 @@ namespace System.Diagnostics.CodeAnalysis
     [AttributeUsage( AttributeTargets.Method | AttributeTargets.Property, Inherited = false, AllowMultiple = true )]
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal sealed class MemberNotNullWhenAttribute : Attribute
     {
         /// <summary>Initializes the attribute with the specified return value condition and a field or property member.</summary>

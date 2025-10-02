@@ -1,9 +1,7 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+﻿#if !NETCOREAPP && !NETSTANDARD2_1
 
-#if !NETCOREAPP && !NETSTANDARD2_1
 using System.Runtime.CompilerServices;
+
 namespace System
 {
     /// <summary>Represent a type can be used to index a collection either from the start or the end.</summary>
@@ -14,6 +12,9 @@ namespace System
     /// int lastElement = someArray[^1]; // lastElement = 5
     /// </code>
     /// </remarks>
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
     internal readonly struct Index : IEquatable<Index>
     {
         private readonly int _value;
@@ -24,56 +25,60 @@ namespace System
         /// <remarks>
         /// If the Index constructed from the end, index value 1 means pointing at the last element and index value 0 means pointing at beyond last element.
         /// </remarks>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Index(int value, bool fromEnd = false)
+        [MethodImpl( MethodImplOptions.AggressiveInlining )]
+        public Index( int value, bool fromEnd = false )
         {
             if (value < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "Non-negative number required.");
+                throw new ArgumentOutOfRangeException( nameof(value), value, "Non-negative number required." );
             }
 
             if (fromEnd)
+            {
                 _value = ~value;
+            }
             else
+            {
                 _value = value;
+            }
         }
 
         // The following private constructors mainly created for perf reason to avoid the checks
-        private Index(int value)
+        private Index( int value )
         {
             _value = value;
         }
 
         /// <summary>Create an Index pointing at first element.</summary>
-        public static Index Start => new Index(0);
+        public static Index Start => new( 0 );
 
         /// <summary>Create an Index pointing at beyond last element.</summary>
-        public static Index End => new Index(~0);
+        public static Index End => new( ~0 );
 
         /// <summary>Create an Index from the start at the position indicated by the value.</summary>
         /// <param name="value">The index value from the start.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Index FromStart(int value)
+        [MethodImpl( MethodImplOptions.AggressiveInlining )]
+        public static Index FromStart( int value )
         {
             if (value < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "Non-negative number required.");
+                throw new ArgumentOutOfRangeException( nameof(value), value, "Non-negative number required." );
             }
 
-            return new Index(value);
+            return new Index( value );
         }
 
         /// <summary>Create an Index from the end at the position indicated by the value.</summary>
         /// <param name="value">The index value from the end.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Index FromEnd(int value)
+        [MethodImpl( MethodImplOptions.AggressiveInlining )]
+        public static Index FromEnd( int value )
         {
             if (value < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "Non-negative number required.");
+                throw new ArgumentOutOfRangeException( nameof(value), value, "Non-negative number required." );
             }
 
-            return new Index(~value);
+            return new Index( ~value );
         }
 
         /// <summary>Returns the index value.</summary>
@@ -82,9 +87,13 @@ namespace System
             get
             {
                 if (_value < 0)
+                {
                     return ~_value;
+                }
                 else
+                {
                     return _value;
+                }
             }
         }
 
@@ -99,10 +108,11 @@ namespace System
         /// It is expected Index will be used with collections which always have non negative length/count. If the returned offset is negative and
         /// then used to index a collection will get out of range exception which will be same affect as the validation.
         /// </remarks>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetOffset(int length)
+        [MethodImpl( MethodImplOptions.AggressiveInlining )]
+        public int GetOffset( int length )
         {
-            int offset = _value;
+            var offset = _value;
+
             if (IsFromEnd)
             {
                 // offset = length - (~value)
@@ -111,30 +121,33 @@ namespace System
 
                 offset += length + 1;
             }
+
             return offset;
         }
 
         /// <summary>Indicates whether the current Index object is equal to another object of the same type.</summary>
         /// <param name="value">An object to compare with this object</param>
-        public override bool Equals(object? value) => value is Index && _value == ((Index)value)._value;
+        public override bool Equals( object? value ) => value is Index && _value == ( (Index)value )._value;
 
         /// <summary>Indicates whether the current Index object is equal to another Index object.</summary>
         /// <param name="other">An object to compare with this object</param>
-        public bool Equals(Index other) => _value == other._value;
+        public bool Equals( Index other ) => _value == other._value;
 
         /// <summary>Returns the hash code for this instance.</summary>
         public override int GetHashCode() => _value;
 
         /// <summary>Converts integer number to an Index.</summary>
-        public static implicit operator Index(int value) => FromStart(value);
+        public static implicit operator Index( int value ) => FromStart( value );
 
         /// <summary>Converts the value of the current Index object to its equivalent string representation.</summary>
         public override string ToString()
         {
             if (IsFromEnd)
-                return $"^{((uint)Value).ToString()}";
+            {
+                return $"^{( (uint)Value ).ToString()}";
+            }
 
-            return ((uint)Value).ToString();
+            return ( (uint)Value ).ToString();
         }
     }
 }

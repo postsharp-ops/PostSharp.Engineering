@@ -1,20 +1,17 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
-#if !NET7_0_OR_GREATER
-
-using Microsoft.CodeAnalysis;
+﻿#if !NET7_0_OR_GREATER
 
 namespace System.Runtime.CompilerServices
 {
     /// <summary>
     /// Indicates that compiler support for a particular feature is required for the location where this attribute is applied.
     /// </summary>
-    [AttributeUsage(AttributeTargets.All, AllowMultiple = true, Inherited = false)]
-    [Embedded]
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
+    [AttributeUsage( AttributeTargets.All, AllowMultiple = true, Inherited = false )]
     internal sealed class CompilerFeatureRequiredAttribute : Attribute
     {
-        public CompilerFeatureRequiredAttribute(string featureName)
+        public CompilerFeatureRequiredAttribute( string featureName )
         {
             FeatureName = featureName;
         }

@@ -1,17 +1,17 @@
-// Copyright (c) 2020-2025 SharpCrafters s.r.o. and contributors.
-// SharpCrafters s.r.o. licenses this file to you under either the MIT license or a proprietary license, depending on the repository from which it was obtained.
-// Refer to LICENSE.md in the repository root for complete details.
-
 #if !NETCOREAPP
+
 // ReSharper disable once CheckNamespace
 namespace System.Runtime.CompilerServices;
 
+#if EMBED_SYSTEM_TYPES
+[Microsoft.CodeAnalysis.Embedded]
+#endif
 [AttributeUsage( AttributeTargets.Parameter )]
 internal sealed class CallerArgumentExpressionAttribute : Attribute
 {
     public CallerArgumentExpressionAttribute( string parameterName )
     {
-        this.ParameterName = parameterName;
+        ParameterName = parameterName;
     }
 
     public string ParameterName { get; }
