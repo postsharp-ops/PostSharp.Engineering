@@ -9,8 +9,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildS
 
 internal class EngineeringCommandBuildStep : PowerShellBuildStep
 {
-    private static string GetCustomArgumentsParameterName( string id ) => $"{id}.Arguments";
-
     private static string GetTimeoutParameterName( string id ) => $"{id}.Timeout";
 
     public EngineeringCommandBuildStep(
@@ -24,19 +22,10 @@ internal class EngineeringCommandBuildStep : PowerShellBuildStep
         id,
         name,
         "Build.ps1",
-        GetScriptArguments( id, command, arguments, areCustomArgumentsAllowed, timeout ),
-        dockerSpec )
+        GetScriptArguments( id, command, arguments, timeout ),
+        dockerSpec,
+        areCustomArgumentsAllowed )
     {
-        if ( areCustomArgumentsAllowed )
-        {
-            this.AddParameter(
-                new TextBuildConfigurationParameter(
-                    GetCustomArgumentsParameterName( id ),
-                    $"{this.ScriptPath} Arguments",
-                    $"Arguments to append to the '{name}' build step.",
-                    allowEmpty: true ) );
-        }
-
         if ( timeout != null )
         {
             this.AddParameter(
@@ -50,10 +39,9 @@ internal class EngineeringCommandBuildStep : PowerShellBuildStep
         string id,
         string command,
         string? arguments,
-        bool areCustomArgumentsAllowed,
         TimeSpan? timeout )
     {
-        var args = $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}";
+        var args = $"{command}{(arguments == null ? "" : $" {arguments}")}";
 
         if ( timeout != null )
         {

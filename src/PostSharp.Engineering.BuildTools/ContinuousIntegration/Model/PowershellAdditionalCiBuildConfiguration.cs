@@ -39,7 +39,8 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                     $"Execute {this.Script}",
                     this.Script,
                     this.Arguments,
-                    product.DockerSpec )
+                    product.DockerSpec,
+                    true )
             ],
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh,
             SourceDependencies = this.SourceDependenciesRequirements switch
