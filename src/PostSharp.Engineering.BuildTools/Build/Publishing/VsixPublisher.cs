@@ -35,7 +35,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
             if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( EnvironmentVariableNames.VsMarketplaceAccessToken ) ) )
             {
-                context.Console.WriteError( $"The VS_MARKETPLACE_ACCESS_TOKEN environment variable is not defined." );
+                context.Console.WriteError( $"The {EnvironmentVariableNames.VsMarketplaceAccessToken} environment variable is not defined." );
                 hasEnvironmentError = true;
             }
 
@@ -49,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             var exe = $@"{vsSdkDir}\VisualStudioIntegration\Tools\Bin\VsixPublisher.exe";
 
             var args =
-                $" publish -payload \"{file}\" -publishManifest \"{file}.json\" -personalAccessToken \"%{nameof(EnvironmentVariableNames.VsMarketplaceAccessToken)}%\"";
+                $" publish -payload \"{file}\" -publishManifest \"{file}.json\" -personalAccessToken \"%{EnvironmentVariableNames.VsMarketplaceAccessToken}%\"";
 
             if ( settings.Dry )
             {
