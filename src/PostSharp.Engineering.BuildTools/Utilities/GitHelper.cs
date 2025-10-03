@@ -98,7 +98,7 @@ public static class GitHelper
 
         context.Console.WriteMessage( $"Merging branch '{sourceBranch}' to '{targetBranch}'." );
 
-        // Checkout to target branch branch and pull to update the local repository.
+        // Checkout to target branch and pull to update the local repository.
         if ( !TryCheckoutAndPull( context, targetBranch ) )
         {
             return false;
