@@ -44,9 +44,9 @@ internal class PublishCommand : BaseCommand<PublishSettings>
             {
                 context.Console.WriteWarning( $"There are no new unpublished changes since the last deployment." );
             }
-            else if ( !hasBumpSinceLastDeployment )
+            else if ( !hasBumpSinceLastDeployment && !settings.Force )
             {
-                context.Console.WriteError( "There are changes since the last deployment but the version has not been bumped." );
+                context.Console.WriteError( "There are changes since the last deployment but the version has not been bumped, and --force was not used." );
 
                 return false;
             }
