@@ -43,6 +43,12 @@ Write-Host "Executing daily maintenance..."
 # Remove all Docker images that have not been used for 7 days.
 docker image prune -a --filter "until=168h" --force
 
+# Remove PostSharp and Metalama from the NuGet package cache
+# We assume that TeamCity runs as SYSTEM.
+$packageDir = "C:\Windows\system32\config\systemprofile\.nuget\packages"
+Remove-Item $packageDir/Metalama* -Force -Recurse
+Remove-Item $packageDir/PostSharp* -Force -Recurse
+
 # Pull this repo.
 git pull
 
