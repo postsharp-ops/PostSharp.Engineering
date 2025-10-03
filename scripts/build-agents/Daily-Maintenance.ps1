@@ -6,6 +6,9 @@ $ErrorActionPreference = 'Stop'
 
 # Get the script's directory
 $scriptDir = $PSScriptRoot
+
+Set-Location $scriptDir
+
 $lastExecutionFile = Join-Path $scriptDir "last-execution.txt"
 $executionLogFile = Join-Path $scriptDir "Daily-Maintenance.log"
 
