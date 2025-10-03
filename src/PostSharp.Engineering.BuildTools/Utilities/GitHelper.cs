@@ -70,7 +70,7 @@ public static class GitHelper
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"checkout {branch} --force",
+                $"checkout {branch} --force -q",
                 context.RepoDirectory ) )
         {
             return false;
