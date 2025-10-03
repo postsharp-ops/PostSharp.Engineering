@@ -20,6 +20,8 @@ public class GitComponent : ContainerComponent
                 $pathsToAdd = @('C:\git\cmd', 'C:\git\bin', 'C:\git\usr\bin'); `
                 $newPath = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + ($pathsToAdd -join ';'); `
                 [Environment]::SetEnvironmentVariable('PATH', $newPath, 'Machine');
+                
+            RUN "C:\Git\cmd\git.exe" config --system core.longpaths true
             """ );
     }
 }
