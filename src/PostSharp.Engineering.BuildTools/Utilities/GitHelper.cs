@@ -51,7 +51,7 @@ public static class GitHelper
         if ( !ToolInvocationHelper.InvokeTool(
                 console,
                 "git",
-                $"fetch",
+                $"fetch -q",
                 repoDirectory ) )
         {
             return false;
