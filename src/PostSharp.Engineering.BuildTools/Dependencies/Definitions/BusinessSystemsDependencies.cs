@@ -20,7 +20,10 @@ public static class BusinessSystemsDependencies
                 null,
                 isGitHub ? new GitHubRepository( dependencyName, "postsharp" ) : new AzureDevOpsRepository( Family.Name, dependencyName ),
                 TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ) ),
-                false ) { }
+                false )
+        {
+            this.Dependencies = [DevelopmentDependencies.PostSharpEngineering];
+        }
     }
 
     public static ProductFamily Family { get; } = new( "Business%20Systems", "1.0", DevelopmentDependencies.Family );

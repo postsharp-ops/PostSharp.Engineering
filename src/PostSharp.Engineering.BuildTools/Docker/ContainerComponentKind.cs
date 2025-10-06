@@ -13,5 +13,7 @@ public enum ContainerComponentKind
     DotNet,
     DotNetDump,
     VsBuildTools,
+    Chocolatey,
+    NodeJs,
     Epilogue
 }
