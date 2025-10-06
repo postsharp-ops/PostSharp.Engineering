@@ -14,11 +14,11 @@ public class ChocolateyComponent : ContainerComponent
     {
         writer.WriteLine(
             """
-            RUN powershell -c "irm https://community.chocolatey.org/install.ps1|iex" ` 
-            $pathsToAdd = @('C:\ProgramData\chocolatey\bin'); `
-            $newPath = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + ($pathsToAdd -join ';'); `
-            [Environment]::SetEnvironmentVariable('PATH', $newPath, 'Machine'); `
-            & C:\ProgramData\chocolatey\bin\choco.exe feature enable -n allowGlobalConfirmation
+            RUN powershell -c 'irm https://community.chocolatey.org/install.ps1|iex'; ` 
+                $pathsToAdd = @('C:\ProgramData\chocolatey\bin'); `
+                $newPath = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + ($pathsToAdd -join ';'); `
+                [Environment]::SetEnvironmentVariable('PATH', $newPath, 'Machine'); `
+                & C:\ProgramData\chocolatey\bin\choco.exe feature enable -n allowGlobalConfirmation
             """ );
     }
 }
