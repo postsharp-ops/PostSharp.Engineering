@@ -15,5 +15,7 @@ public enum ContainerComponentKind
     VsBuildTools,
     Chocolatey,
     NodeJs,
+    Python,
+    Gulp,
     Epilogue
 }
