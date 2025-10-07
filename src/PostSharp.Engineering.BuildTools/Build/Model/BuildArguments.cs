@@ -59,7 +59,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public static BuildArguments ReadFromArtifactManifest( BuildContext context, BuildConfiguration buildConfiguration )
             => ArtifactManifestFile.CreateParametricStringArguments( context, buildConfiguration );
 
+        [Obsolete( "Renamed TryReadFromAutoUpdatedVersions." )]
         public static bool TryCreate( BuildContext context, BuildConfiguration configuration, [NotNullWhen( true )] out BuildArguments? buildArguments )
+            => TryReadFromAutoUpdatedVersionsFile( context, configuration, out buildArguments );
+
+        public static bool TryReadFromAutoUpdatedVersionsFile(
+            BuildContext context,
+            BuildConfiguration configuration,
+            [NotNullWhen( true )] out BuildArguments? buildArguments )
         {
             if ( !MainVersionFile.TryRead( context, out var mainVersionFile ) )
             {
@@ -80,6 +87,44 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 MSBuildConfiguration = context.Product.DependencyDefinition.MSBuildConfiguration[configuration],
                 Configuration = configuration.ToString(),
                 PackageVersion = packageVersion
+            };
+
+            return true;
+        }
+
+        public static bool TryCreate(
+            BuildContext context,
+            BuildSettings settings,
+            [NotNullWhen( true )] out BuildArguments? buildArguments )
+            => TryCreate( context, settings.BuildConfiguration, settings.GetVersionSpec( settings.BuildConfiguration ), settings.UserName, out buildArguments );
+        
+        public static bool TryCreate(
+            BuildContext context,
+            BuildConfiguration configuration,
+            VersionSpec versionSpec,
+            string? userName,
+            [NotNullWhen( true )] out BuildArguments? buildArguments )
+        {
+            if ( !MainVersionFile.TryRead( context, out var mainVersionFile ) )
+            {
+                buildArguments = null;
+
+                return false;
+            }
+
+            
+            if ( !VersionComponents.TryCompute( context, configuration, mainVersionFile, null, versionSpec,  userName, out var versionComponents  ) )
+            {
+                buildArguments = null;
+
+                return false;
+            }
+
+            buildArguments = new BuildArguments()
+            {
+                MSBuildConfiguration = context.Product.DependencyDefinition.MSBuildConfiguration[configuration],
+                Configuration = configuration.ToString(),
+                PackageVersion = versionComponents.PackageVersion
             };
 
             return true;

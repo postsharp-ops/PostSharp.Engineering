@@ -27,10 +27,7 @@ internal class SwapCommand : BaseCommand<SwapSettings>
         var product = context.Product;
         var configuration = product.Configurations.GetValue( settings.BuildConfiguration );
 
-        if ( !BuildArguments.TryCreate( context, settings.BuildConfiguration, out var buildArguments ) )
-        {
-            return false;
-        }
+        var buildArguments = BuildArguments.ReadFromArtifactManifest( context, settings.BuildConfiguration );
 
         var directories = product.GetArtifactsAbsoluteDirectories( context, settings.BuildConfiguration );
 

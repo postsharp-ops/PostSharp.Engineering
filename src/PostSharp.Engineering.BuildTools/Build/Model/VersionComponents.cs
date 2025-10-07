@@ -127,7 +127,7 @@ internal record VersionComponents
         BuildContext context,
         BuildConfiguration configuration,
         MainVersionFile mainVersionFile,
-        string? inheritedMainVersion,
+        string? mainVersionOverride,
         VersionSpec versionSpec,
         string? userName,
         [NotNullWhen( true )] out VersionComponents? version )
@@ -137,16 +137,18 @@ internal record VersionComponents
 
         version = null;
 
+        var mainVersion = mainVersionOverride ?? mainVersionFile.MainVersion;
+
         if ( !string.IsNullOrEmpty( mainVersionFile.OverriddenPatchVersion )
-             && !mainVersionFile.OverriddenPatchVersion.StartsWith( inheritedMainVersion ?? mainVersionFile.MainVersion + ".", StringComparison.Ordinal ) )
+             && !mainVersionFile.OverriddenPatchVersion.StartsWith( mainVersionOverride ?? mainVersionFile.MainVersion + ".", StringComparison.Ordinal ) )
         {
             context.Console.WriteError(
-                $"The OverriddenPatchVersion property in MainVersion.props ({mainVersionFile.OverriddenPatchVersion}) does not match the MainVersion property value ({inheritedMainVersion ?? mainVersionFile.MainVersion})." );
+                $"The OverriddenPatchVersion property in MainVersion.props ({mainVersionFile.OverriddenPatchVersion}) does not match the MainVersion property value ({mainVersion})." );
 
             return false;
         }
 
-        var versionPrefix = inheritedMainVersion ?? mainVersionFile.MainVersion;
+        var versionPrefix = mainVersion;
         string versionSuffix;
         int patchNumber;
 
@@ -217,7 +219,7 @@ internal record VersionComponents
                 throw new InvalidOperationException();
         }
 
-        version = new VersionComponents( inheritedMainVersion ?? mainVersionFile.MainVersion, versionPrefix, patchNumber, versionSuffix, configuration, product );
+        version = new VersionComponents( mainVersion, versionPrefix, patchNumber, versionSuffix, configuration, product );
 
         return true;
     }

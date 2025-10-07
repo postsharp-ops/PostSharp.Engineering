@@ -12,7 +12,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
     {
         [Description( "Sets the build configuration (Debug | Release | Public) to swap" )]
         [CommandOption( "-c|--configuration" )]
-        public BuildConfiguration BuildConfiguration { get; set; }
+        public BuildConfiguration BuildConfiguration { get; init; }
 
         [Description( "Prints the command line, but does not execute it" )]
         [CommandOption( "--dry" )]

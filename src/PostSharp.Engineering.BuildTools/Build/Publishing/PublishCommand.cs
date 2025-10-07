@@ -96,7 +96,7 @@ internal class PublishCommand : BaseCommand<PublishSettings>
 
         var configuration = settings.BuildConfiguration;
 
-        if ( !BuildArguments.TryCreate( context, configuration, out var buildArguments ) )
+        if ( !BuildArguments.TryCreate( context, settings, out var buildArguments ) )
         {
             return false;
         }
