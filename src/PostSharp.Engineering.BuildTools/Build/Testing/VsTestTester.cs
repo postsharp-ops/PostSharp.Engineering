@@ -1,7 +1,9 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -39,7 +41,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Testing
                 var packagePath = Path.Combine( artifactsDirectory, this.TestPackageName.ToString( buildArguments ) );
                 ZipFile.ExtractToDirectory( packagePath, tempDirectory );
 
-                var exe = @"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\Extensions\TestPlatform\vstest.console.exe";
+                var vsDir = Environment.GetEnvironmentVariable( "VSINSTALLDIR" );
+
+                if ( string.IsNullOrEmpty( vsDir ) )
+                {
+                    context.Console.WriteError( "The VSINSTALLDIR environment variable is not defined." );
+
+                    return SuccessCode.Fatal;
+                }
+
+                var exe = Path.Combine( vsDir, @"Common7\IDE\Extensions\TestPlatform\vstest.console.exe" );
 
                 var argsList = new List<string>();
 
@@ -73,6 +84,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Testing
             {
                 Directory.Delete( tempDirectory, true );
             }
+        }
+
+        public override bool VerifyContainerRequirements( BuildContext context, ContainerRequirements requirements )
+        {
+            return base.VerifyContainerRequirements( context, requirements )
+                   && requirements.RequireComponent<VisualStudioBuildToolsComponent>( context, out var vs )
+                   && vs.RequireVSComponent( context, "Microsoft.VisualStudio.Component.TestTools.BuildTools" );
         }
     }
 }

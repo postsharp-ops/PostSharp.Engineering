@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
 
 namespace PostSharp.Engineering.BuildTools.Build.Swapping
@@ -59,5 +60,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
 
             return AzHelper.Run( context, args, settings.Dry ) ? SuccessCode.Success : SuccessCode.Error;
         }
+
+        public override bool VerifyContainerRequirements( BuildContext context, ContainerRequirements requirements )
+            => base.VerifyContainerRequirements( context, requirements )
+               && requirements.RequireComponent<AzureCliComponent>( context );
     }
 }

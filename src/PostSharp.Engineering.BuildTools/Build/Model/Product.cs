@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using Microsoft.VisualStudio.Services.Common;
 using PostSharp.Engineering.BuildTools.BillOfMaterials;
 using PostSharp.Engineering.BuildTools.Build.Bumping;
 using PostSharp.Engineering.BuildTools.Build.Files;
@@ -152,6 +153,36 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     PublicPublishers: DefaultPublicPublishers.ToArray(),
                     ExportsToTeamCityDeploy: true,
                     RequiresUpstreamCheck: true ) );
+
+        public IEnumerable<IBuildComponent> GetBuildComponents()
+        {
+            HashSet<IBuildComponent> components = new();
+
+            foreach ( var configuration in this.Configurations.All )
+            {
+                AddComponents( configuration.PublicPublishers );
+                AddComponents( configuration.PrivatePublishers );
+                AddComponents( configuration.Swappers );
+            }
+
+            return components;
+
+            void AddComponents( IEnumerable<IBuildComponent>? newComponents )
+            {
+                if ( newComponents == null )
+                {
+                    return;
+                }
+
+                foreach ( var component in newComponents )
+                {
+                    if ( components.Add( component ) )
+                    {
+                        AddComponents( component.Children );
+                    }
+                }
+            }
+        }
 
         public ImmutableArray<string> DefaultArtifactRules { get; } = ImmutableArray<string>.Empty;
 

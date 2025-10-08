@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 
@@ -13,7 +14,8 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 public sealed class VisualStudioBuildToolsComponent : ContainerComponent
 {
     private readonly VisualStudioBuildToolsComponentVersion _version;
-    private readonly string[] _vsComponents;
+
+    public string[] Components { get; }
 
     public override string Name => "Install VS Build Tools";
 
@@ -25,12 +27,12 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
     public VisualStudioBuildToolsComponent( VisualStudioBuildToolsComponentVersion version, string[] vsComponents )
     {
         this._version = version;
-        this._vsComponents = vsComponents;
+        this.Components = vsComponents;
     }
 
     public override void WriteDockerfile( TextWriter writer )
     {
-        var components = string.Join( ", ", this._vsComponents.Select( x => $"\"--add\", \"{x}\"" ) );
+        var components = string.Join( ", ", this.Components.Select( x => $"\"--add\", \"{x}\"" ) );
 
         writer.WriteLine(
             $$"""
@@ -49,8 +51,11 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
                   Remove-Item C:\\vs_buildtools.exe;
               """ );
 
+        // Define VSINSTALLDIR
+        writer.WriteLine( "ENV VSINSTALLDIR=C:\\BuildTools" );
+
         // Define VSSDKINSTALLDIR
-        if ( this._vsComponents.Contains( "Microsoft.VisualStudio.Component.VSSDKBuildTools" ) )
+        if ( this.Components.Contains( "Microsoft.VisualStudio.Component.VSSDKBuildTools" ) )
         {
             writer.WriteLine( "ENV VSSDKINSTALL=C:\\BuildTools\\VSSDK" );
         }
@@ -66,5 +71,17 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
     public override void PopulateContextDirectory( BuildContext context, string directory )
     {
         EmbeddedResourceHelper.ExtractResource( context, this._version.ManifestFilename, directory );
+    }
+
+    public bool RequireVSComponent( BuildContext context, string component )
+    {
+        if ( !this.Components.Contains( component ) )
+        {
+            context.Console.WriteError( $"The VS component {component} is required." );
+
+            return false;
+        }
+
+        return true;
     }
 }

@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 
@@ -62,6 +63,19 @@ public record ContainerRequirements : BuildAgentRequirements
             }
         }
 
+        // Validate publishers and testers.
+        var hasMissingRequirement = false;
+
+        foreach ( var buildComponent in context.Product.GetBuildComponents() )
+        {
+            hasMissingRequirement = !buildComponent.VerifyContainerRequirements( context, this );
+        }
+
+        if ( hasMissingRequirement )
+        {
+            return false;
+        }
+
         // Order components.
         var orderedComponents = allComponents.OrderBy( x => x ).ToList();
 
@@ -84,6 +98,25 @@ public record ContainerRequirements : BuildAgentRequirements
         }
 
         TextFileHelper.WriteIfDifferent( dockerfilePath, dockerfileContent.ToString(), context );
+
+        return true;
+    }
+
+    public bool RequireComponent<T>( BuildContext context )
+        where T : ContainerComponent
+        => this.RequireComponent<T>( context, out _ );
+
+    public bool RequireComponent<T>( BuildContext context, [NotNullWhen( true )] out T? component )
+        where T : ContainerComponent
+    {
+        component = this.Components.OfType<T>().SingleOrDefault();
+
+        if ( component == null )
+        {
+            context.Console.WriteError( $"The {typeof(T).Name} component is required." );
+
+            return false;
+        }
 
         return true;
     }

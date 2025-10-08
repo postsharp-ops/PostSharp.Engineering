@@ -5,6 +5,7 @@ using Spectre.Console;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -449,6 +450,23 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     }
                 }
             }
+
+            return false;
+        }
+
+        public static bool TryFindInPath( string file, [NotNullWhen( true )] out string? path )
+        {
+            foreach ( var directory in Environment.GetEnvironmentVariable( "PATH" )!.Split( ";" ) )
+            {
+                path = Path.Combine( directory, file );
+
+                if ( File.Exists( path ) )
+                {
+                    return true;
+                }
+            }
+
+            path = null;
 
             return false;
         }

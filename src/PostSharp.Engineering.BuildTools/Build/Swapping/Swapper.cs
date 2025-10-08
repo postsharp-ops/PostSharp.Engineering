@@ -3,6 +3,8 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Testing;
+using PostSharp.Engineering.BuildTools.Docker;
+using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Build.Swapping
 {
@@ -10,7 +12,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
     /// A swapper is some logic that swaps a deployment slot (typically a staging one) onto another deployment slop (typically the production one).
     /// </summary>
     [PublicAPI]
-    public abstract class Swapper
+    public abstract class Swapper : IBuildComponent
     {
         /// <summary>
         /// When set to false, the swapper will not swap when the product is pre-release. Default is true.
@@ -42,5 +44,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
             SwapSettings settings,
             BuildConfigurationInfo configuration,
             BuildArguments buildArguments );
+
+        public virtual bool VerifyContainerRequirements( BuildContext context, ContainerRequirements requirements ) => true;
+
+        IEnumerable<IBuildComponent> IBuildComponent.Children => this.Testers;
     }
 }

@@ -1,6 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
@@ -15,6 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
     /// <summary>
     /// A <see cref="Publisher"/> that uses <c>MSDeploy</c> to deploy a web site.
     /// </summary>
+    [PublicAPI]
     public class MsDeployPublisher : ArtifactPublisher
     {
         private readonly ImmutableArray<MsDeployConfiguration> _configurations;
@@ -57,6 +60,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             return true;
         }
 
+        public override bool VerifyContainerRequirements( BuildContext context, ContainerRequirements requirements )
+        {
+            return base.VerifyContainerRequirements( context, requirements )
+                   && requirements.RequireComponent<VisualStudioBuildToolsComponent>( context, out var vs )
+                   && vs.RequireVSComponent( context, "Microsoft.VisualStudio.Component.WebDeploy" );
+        }
+
         public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
@@ -73,7 +83,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             }
 
             context.Console.WriteMessage( $"Publishing {file} to {publishProfile.PublishUrl}{packageConfiguration.VirtualDirectory}." );
-
+            
             var exe = @"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe";
 
             var iisWebApplicationName = packageConfiguration.VirtualDirectory == null
