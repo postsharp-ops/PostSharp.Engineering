@@ -54,6 +54,8 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2025.0", DevelopmentDependencies.Family, PostSharpDependencies.V2025_0.Family )
         {
+            ConsolidatedProjectName = "Metalama.Consolidated"
+
             // Downstream merge to 2025.1 is disabled because of repo merge.
             // UpstreamProductFamily = V2024_2.Family,
             // DownstreamProductFamily = V2025_1.Family
@@ -67,7 +69,7 @@ public static partial class MetalamaDependencies
 
         public static DependencyDefinition Consolidated { get; } =
             new MetalamaDependencyDefinition(
-                ProductFamily.ConsolidatedProjectName,
+                "Metalama.Consolidated",
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.Metalama,
                 false,

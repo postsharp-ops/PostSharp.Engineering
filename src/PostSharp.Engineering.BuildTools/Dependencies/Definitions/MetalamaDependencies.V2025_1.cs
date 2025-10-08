@@ -56,7 +56,7 @@ public static partial class MetalamaDependencies
         public static ProductFamily Family { get; } = new( _projectName, "2025.1", DevelopmentDependencies.Family, PostSharpDependencies.V2025_1.Family )
         {
             // UpstreamProductFamily = V2025_0.Family,
-            DownstreamProductFamily = V2025_2.Family
+            DownstreamProductFamily = V2025_2.Family, ConsolidatedProjectName = "Metalama.Consolidated"
         };
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
@@ -213,7 +213,7 @@ public static partial class MetalamaDependencies
 
         public static DependencyDefinition Consolidated { get; } =
             new MetalamaDependencyDefinition(
-                ProductFamily.ConsolidatedProjectName,
+                "Metalama.Consolidated",
                 VcsProvider.GitHub,
                 MetalamaGitHubOrganization.Metalama,
                 false,

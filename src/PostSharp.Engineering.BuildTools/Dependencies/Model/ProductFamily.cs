@@ -19,7 +19,7 @@ public class ProductFamily
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitionsByCiId = new();
     private readonly ProductFamily[] _relativeFamilies;
 
-    public static string ConsolidatedProjectName { get; } = "Metalama.Consolidated";
+    public string? ConsolidatedProjectName { get; init; }
 
     public string Name { get; set; }
 
@@ -33,7 +33,7 @@ public class ProductFamily
 
     public BuildAgentRequirements DefaultBuildAgentRequirements { get; init; } = BuildAgentRequirements.Default;
 
-    public bool HasConsolidatedBuild => this.TryGetDependencyDefinition( ConsolidatedProjectName, out _ );
+    public bool HasConsolidatedProduct => this.ConsolidatedProjectName != null;
 
     public ProductFamily( string name, string version, params ProductFamily[] relativeFamilies )
     {

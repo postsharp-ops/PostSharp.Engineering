@@ -125,6 +125,28 @@ internal record VersionComponents
 
     public static bool TryCompute(
         BuildContext context,
+        BuildSettings settings,
+        [NotNullWhen( true )] out VersionComponents? version )
+    {
+        if ( !MainVersionFile.TryRead( context, out var mainVersionFile ) )
+        {
+            version = null;
+
+            return false;
+        }
+
+        return TryCompute(
+            context,
+            settings.BuildConfiguration,
+            mainVersionFile,
+            null,
+            settings.GetVersionSpec( settings.BuildConfiguration ),
+            settings.UserName,
+            out version );
+    }
+
+    public static bool TryCompute(
+        BuildContext context,
         BuildConfiguration configuration,
         MainVersionFile mainVersionFile,
         string? mainVersionOverride,

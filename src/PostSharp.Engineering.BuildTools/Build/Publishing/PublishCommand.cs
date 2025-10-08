@@ -129,8 +129,9 @@ internal class PublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        // For consolidated deployments, this is part of the post-deployment step.
-        if ( !product.ProductFamily.HasConsolidatedBuild && !settings.IsStandalone )
+        // Tag the commit in the release branch.
+        // For product families that have a consolidated product, this is not done, because this is part of the post-deployment step.
+        if ( product is { DependencyDefinition.IsVersioned: true, ProductFamily.HasConsolidatedProduct: false } && !settings.IsStandalone )
         {
             if ( !GitHelper.TryConfigureCredentials( context ) )
             {

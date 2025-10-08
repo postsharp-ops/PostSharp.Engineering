@@ -105,7 +105,7 @@ internal static class TeamCitySettingsFile
         }
 
         // Only versioned products that don't have consolidated version bump can be bumped individually.
-        if ( !product.ProductFamily.HasConsolidatedBuild && product.DependencyDefinition.IsVersioned )
+        if ( !product.ProductFamily.HasConsolidatedProduct && product.DependencyDefinition.IsVersioned )
         {
             var dependencies = product.ParametrizedDependencies;
 
@@ -212,7 +212,10 @@ internal static class TeamCitySettingsFile
                 product.ParametrizedDependencies
                     .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.DownstreamProductFamily != null )
                     .Select( d => d.Definition )
-                    .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DownstreamMergeBuildType, true, FailureAction: FailureAction.AddProblem ) ) );
+                    .Select( d => new TeamCitySnapshotDependency(
+                                 d.CiConfiguration.DownstreamMergeBuildType,
+                                 true,
+                                 FailureAction: FailureAction.AddProblem ) ) );
 
         var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
             "DownstreamMerge",
