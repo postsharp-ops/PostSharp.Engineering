@@ -7,7 +7,7 @@ namespace System.Runtime.CompilerServices;
 #if EMBED_SYSTEM_TYPES
 [Microsoft.CodeAnalysis.Embedded]
 #endif
-public sealed class InterpolatedStringHandlerArgumentAttribute : Attribute
+internal sealed class InterpolatedStringHandlerArgumentAttribute : Attribute
 {
     public InterpolatedStringHandlerArgumentAttribute( string argument )
     {
