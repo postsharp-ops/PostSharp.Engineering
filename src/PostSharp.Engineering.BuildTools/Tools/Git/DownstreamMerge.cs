@@ -427,6 +427,9 @@ internal static class DownstreamMerge
 
                 AddFileToKeepOwn( context.Product.MainVersionFilePath );
                 AddFileToKeepOwn( context.Product.AutoUpdatedVersionsFilePath );
+                AddFileToKeepOwn( "Build.ps1" );
+                AddFileToKeepOwn( "DockerBuild.ps1" );
+                AddFileToKeepOwn( "Directory.Packages.props" );
 
                 Directory.EnumerateFiles( Path.Combine( context.RepoDirectory, ".teamcity" ), "*", SearchOption.AllDirectories )
                     .Select( p => Path.GetRelativePath( context.RepoDirectory, p ) )
