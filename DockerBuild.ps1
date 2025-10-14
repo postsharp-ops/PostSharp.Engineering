@@ -145,19 +145,17 @@ if (-not $KeepEnv)
     }
 
     # Add git identity to environment
-    $env:GIT_USER_EMAIL = git config --global user.email
-    $env:GIT_USER_NAME = git config --global user.name
-
     if ($env:IS_TEAMCITY_AGENT)
     {
-        if (-not $env:GIT_USER_EMAIL)
-        {
-            $env:GIT_USER_EMAIL = 'teamcity@postsharp.net'
-        }
-        if (-not $env:GIT_USER_NAME)
-        {
-            $env:GIT_USER_NAME = 'teamcity'
-        }
+        # On TeamCity agents, use a fixed git user.
+        $env:GIT_USER_EMAIL = 'teamcity@postsharp.net'
+        $env:GIT_USER_NAME = 'teamcity'
+    }
+    else
+    {
+        # On developer machines, use the current git user.
+        $env:GIT_USER_EMAIL = git config --global user.email
+        $env:GIT_USER_NAME = git config --global user.name
     }
 
     New-EnvJson -EnvironmentVariableList $EnvironmentVariables
