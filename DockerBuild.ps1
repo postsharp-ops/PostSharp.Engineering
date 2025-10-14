@@ -147,9 +147,12 @@ if (-not $KeepEnv)
     # Add git identity to environment
     if ($env:IS_TEAMCITY_AGENT)
     {
-        # On TeamCity agents, use a fixed git user.
-        $env:GIT_USER_EMAIL = 'teamcity@postsharp.net'
-        $env:GIT_USER_NAME = 'teamcity'
+        # On TeamCity agents, check if the environment variables are set.
+        if (-not $env:GIT_USER_EMAIL -or -not $env:GIT_USER_NAME)
+        {
+            Write-Error "On TeamCity agents, the GIT_USER_EMAIL and GIT_USER_NAME environment variables must be set."
+            exit 1
+        }
     }
     else
     {
