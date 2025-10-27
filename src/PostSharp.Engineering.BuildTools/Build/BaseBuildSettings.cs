@@ -20,6 +20,7 @@ namespace PostSharp.Engineering.BuildTools.Build;
 public class BaseBuildSettings : CommonCommandSettings
 {
     private BuildConfiguration? _resolvedConfiguration;
+    private BuildConfiguration? _specifiedConfiguration;
 
     [Description( "Sets the build configuration (Debug | Release | Public)" )]
     [CommandOption( "-c|--configuration" )]
@@ -28,7 +29,7 @@ public class BaseBuildSettings : CommonCommandSettings
         get
             => this._resolvedConfiguration
                ?? throw new InvalidOperationException( "Call the Initialize method or set the BuildConfiguration first ." );
-        set => this._resolvedConfiguration = value;
+        set => this._specifiedConfiguration = value;
     }
 
     [Description( "Overrides the .NET SDK version." )]
@@ -52,8 +53,10 @@ public class BaseBuildSettings : CommonCommandSettings
 
     public override void Initialize( BuildContext context )
     {
-        if ( this._resolvedConfiguration != null )
+        if ( this._specifiedConfiguration != null )
         {
+            this._resolvedConfiguration = this._specifiedConfiguration;
+            
             return;
         }
 
@@ -70,6 +73,14 @@ public class BaseBuildSettings : CommonCommandSettings
             context.Console.WriteMessage( $"Using the prepared build configuration: {defaultConfiguration.Value}." );
 
             this._resolvedConfiguration = defaultConfiguration.Value;
+        }
+    }
+
+    public void OverrideDefaultBuildConfiguration( BuildConfiguration configuration )
+    {
+        if ( this._specifiedConfiguration == null )
+        {
+            this._resolvedConfiguration = configuration;
         }
     }
 }

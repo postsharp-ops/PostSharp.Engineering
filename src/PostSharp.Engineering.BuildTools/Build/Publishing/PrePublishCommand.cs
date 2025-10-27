@@ -18,6 +18,13 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
     private static bool Execute( BuildContext context, PublishSettings settings )
     {
         var product = context.Product;
+        
+        settings.OverrideDefaultBuildConfiguration( BuildConfiguration.Public );
+        
+        if ( settings.BuildConfiguration != BuildConfiguration.Public && !settings.Force )
+        {
+            context.Console.WriteError( $"This command must be executed with the `-c Public` argument unless --force is used." );
+        }
 
         if ( !GitHelper.TryConfigureCredentials( context ) )
         {

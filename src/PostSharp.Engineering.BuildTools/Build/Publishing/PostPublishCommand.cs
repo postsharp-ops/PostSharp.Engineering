@@ -37,6 +37,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                 return false;
             }
 
+            settings.OverrideDefaultBuildConfiguration( BuildConfiguration.Public );
+        
+            if ( settings.BuildConfiguration != BuildConfiguration.Public && !settings.Force )
+            {
+                context.Console.WriteError( $"This command must be executed with the `-c Public` argument unless --force is used." );
+            }
+            
             if ( !GitHelper.TryConfigureCredentials( context ) )
             {
                 return false;
