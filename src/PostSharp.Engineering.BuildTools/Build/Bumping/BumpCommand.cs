@@ -22,13 +22,6 @@ internal class BumpCommand : BaseCommand<BumpSettings>
         var product = context.Product;
         var console = context.Console;
 
-        if ( !product.DependencyDefinition.IsVersioned )
-        {
-            console.WriteWarning( "Ignoring the version bumping because this product is not versioned." );
-
-            return true;
-        }
-
         console.WriteHeading( $"Bumping the '{product.ProductName}' version" );
 
         var developmentBranch = product.DependencyDefinition.Branch;
