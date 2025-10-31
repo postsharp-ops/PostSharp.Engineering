@@ -179,9 +179,11 @@ namespace PostSharp.Engineering.BuildTools.Build
             }
 
             // Check that the build produced the expected artifacts.
-            var allFilesPattern = product.PublicArtifacts.Append( product.PrivateArtifacts );
+            var allPublicArtifacts = product.PublicArtifacts.Append( buildConfigurationInfo.PublicArtifacts );
+            var allPrivateArtifacts = product.PrivateArtifacts.Append( buildConfigurationInfo.PrivateArtifacts );
+            var allArtifacts = allPrivateArtifacts.Append( allPublicArtifacts );
 
-            if ( !allFilesPattern.Verify( context, privateArtifactsDirectory, buildInfo ) )
+            if ( !allArtifacts.Verify( context, privateArtifactsDirectory, buildInfo ) )
             {
                 return false;
             }
@@ -223,7 +225,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 File.WriteAllText( emptyFile, "This file is intentionally empty." );
             }
 
-            if ( product.PublicArtifacts.IsEmpty )
+            if ( allPublicArtifacts.IsEmpty )
             {
                 context.Console.WriteMessage( "Do not prepare public artifacts because there is none." );
                 CreateEmptyPublicDirectory();
@@ -239,7 +241,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 context.Console.WriteHeading( "Copying public artifacts" );
                 var filePatternMatches = new List<FilePatternMatch>();
 
-                product.PublicArtifacts.TryGetFiles( privateArtifactsDirectory, buildInfo, filePatternMatches );
+                allPublicArtifacts.TryGetFiles( privateArtifactsDirectory, buildInfo, filePatternMatches );
                 IEnumerable<string> files = filePatternMatches.Select( m => m.Path ).ToArray();
 
                 // Automatically include respective symbol NuGet packages.

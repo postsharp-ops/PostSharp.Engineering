@@ -94,8 +94,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public Solution[] Solutions { get; init; } = [];
 
+        /// <summary>
+        /// Gets the pattern selecting private artifacts for all configuration.
+        /// </summary>
+        /// <seealso cref="BuildConfigurationInfo.PrivateArtifacts"/>
         public Pattern PrivateArtifacts { get; init; } = Pattern.Empty;
 
+        /// <summary>
+        /// Gets the pattern selecting public artifacts for all configuration.
+        /// </summary>
+        /// <seealso cref="BuildConfigurationInfo.PublicArtifacts"/>
         public Pattern PublicArtifacts { get; init; } = Pattern.Empty;
 
         public bool KeepEditorConfig { get; init; }

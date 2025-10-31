@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.Build.Swapping;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
@@ -19,10 +20,10 @@ namespace PostSharp.Engineering.BuildTools.Build;
 /// <param name="TeamCityDeploymentName">Name of the TeamCity configuration implementing the <b>Deploy</b> action.</param>
 /// <param name="TeamCitySwapName">Name of the TeamCity configuration implementing the <b>Swap</b> action.</param>
 public record BuildConfigurationInfo(
-
-    // ReSharper disable once InconsistentNaming
     bool RequiresSigning = false,
     IBuildTrigger[]? BuildTriggers = null,
+    Pattern? PublicArtifacts = null,
+    Pattern? PrivateArtifacts = null,
 
     // Publishers for public artifacts.
     Publisher[]? PublicPublishers = null,
