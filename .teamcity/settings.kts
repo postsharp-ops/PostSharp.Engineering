@@ -11,178 +11,13 @@ version = "2025.07"
 
 project {
 
-    buildType(DebugBuild)
-    buildType(ReleaseBuild)
     buildType(PublicBuild)
     buildType(PublicDeployment)
     buildType(VersionBump)
 
-    buildTypesOrder = arrayListOf(DebugBuild,ReleaseBuild,PublicBuild,PublicDeployment,VersionBump)
+    buildTypesOrder = arrayListOf(PublicBuild,PublicDeployment,VersionBump)
 
 }
-
-object DebugBuild : BuildType({
-
-    name = "Build [Debug]"
-
-    artifactRules = """+:artifacts/publish/public/**/*=>artifacts/publish/public
-+:artifacts/publish/private/**/*=>artifacts/publish/private
-+:artifacts/testResults/**/*=>artifacts/testResults
-+:artifacts/logs/**/*=>logs
-+:artifacts/dumps/**/*=>dumps
-"""
-
-    params {
-        text("Build.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
-        param("Build.Timeout", "30")
-    }
-
-    vcs {
-        root(AbsoluteId("Engineering_PostSharpEngineering"))
-     checkoutMode = CheckoutMode.ON_AGENT
-    }
-
-    steps {
-        powerShell {
-            name = "Prepare Docker image postsharpengineering-2023.2"
-            id = "PrepareImage"
-            scriptMode = file {
-                path = "DockerBuild.ps1"
-            }
-            noProfile = false
-            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
-        }
-        powerShell {
-            name = "Build"
-            id = "Build"
-            scriptMode = file {
-                path = "DockerBuild.ps1"
-            }
-            noProfile = false
-            scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% --timeout %Build.Timeout%"
-        }
-    }
-
-    requirements {
-        equals("env.BuildAgentType", "docker-win-x64-md")
-    }
-
-    features {
-        swabra {
-            lockingProcesses = Swabra.LockingProcessPolicy.KILL
-            verbose = true
-        }
-    commitStatusPublisher {
-        vcsRootExtId = "Engineering_PostSharpEngineering"
-        publisher = github {
-            githubUrl = "https://api.github.com"
-            authType = personalToken {
-                token = "%env.GITHUB_TOKEN%"
-            }
-        }
-    }
-pullRequests {
-       vcsRootExtId = "Engineering_PostSharpEngineering"
-        provider = github {
-            authType = token {
-                token = "%env.GITHUB_TOKEN%"
-            }
-           filterTargetBranch = "+:refs/heads/develop/2023.2"
-           filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
-       }
-   }
-
-
-    }
-
-    triggers {
-        vcs {
-            watchChangesInDependencies = true
-            branchFilter = "+:develop/2023.2"
-             quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_CUSTOM
-             quietPeriod = 7200
-            // Build will not trigger automatically if the commit message contains comment value.
-            triggerRules = "-:comment=<<VERSION_BUMP>>|<<DEPENDENCIES_UPDATED>>:**"
-        }
-    }
-
-})
-
-object ReleaseBuild : BuildType({
-
-    name = "Build [Release]"
-
-    artifactRules = """+:artifacts/publish/public/**/*=>artifacts/publish/public
-+:artifacts/publish/private/**/*=>artifacts/publish/private
-+:artifacts/testResults/**/*=>artifacts/testResults
-+:artifacts/logs/**/*=>logs
-+:artifacts/dumps/**/*=>dumps
-"""
-
-    params {
-        text("Build.Arguments", "", label = "DockerBuild.ps1 Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
-        param("Build.Timeout", "30")
-    }
-
-    vcs {
-        root(AbsoluteId("Engineering_PostSharpEngineering"))
-     checkoutMode = CheckoutMode.ON_AGENT
-    }
-
-    steps {
-        powerShell {
-            name = "Prepare Docker image postsharpengineering-2023.2"
-            id = "PrepareImage"
-            scriptMode = file {
-                path = "DockerBuild.ps1"
-            }
-            noProfile = false
-            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
-        }
-        powerShell {
-            name = "Build"
-            id = "Build"
-            scriptMode = file {
-                path = "DockerBuild.ps1"
-            }
-            noProfile = false
-            scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% --timeout %Build.Timeout%"
-        }
-    }
-
-    requirements {
-        equals("env.BuildAgentType", "docker-win-x64-md")
-    }
-
-    features {
-        swabra {
-            lockingProcesses = Swabra.LockingProcessPolicy.KILL
-            verbose = true
-        }
-    commitStatusPublisher {
-        vcsRootExtId = "Engineering_PostSharpEngineering"
-        publisher = github {
-            githubUrl = "https://api.github.com"
-            authType = personalToken {
-                token = "%env.GITHUB_TOKEN%"
-            }
-        }
-    }
-pullRequests {
-       vcsRootExtId = "Engineering_PostSharpEngineering"
-        provider = github {
-            authType = token {
-                token = "%env.GITHUB_TOKEN%"
-            }
-           filterTargetBranch = "+:refs/heads/develop/2023.2"
-           filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
-       }
-   }
-
-
-    }
-
-})
 
 object PublicBuild : BuildType({
 
@@ -213,7 +48,7 @@ object PublicBuild : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2 "
         }
         powerShell {
             name = "Build"
@@ -222,7 +57,7 @@ object PublicBuild : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %Build.Arguments% --timeout %Build.Timeout%"
+            scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --timeout %Build.Timeout% %Build.Arguments%"
         }
     }
 
@@ -284,7 +119,7 @@ object PublicDeployment : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2 "
         }
         powerShell {
             name = "Publish"
@@ -293,7 +128,7 @@ object PublicDeployment : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public %Publish.Arguments% --timeout %Publish.Timeout%"
+            scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage publish --configuration Public --timeout %Publish.Timeout% %Publish.Arguments%"
         }
     }
 
@@ -345,7 +180,7 @@ object VersionBump : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2"
+            scriptArgs = "-BuildImage -ImageName postsharpengineering-2023.2 "
         }
         powerShell {
             name = "Bump"
@@ -354,7 +189,7 @@ object VersionBump : BuildType({
                 path = "DockerBuild.ps1"
             }
             noProfile = false
-            scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage bump %Bump.Arguments% --timeout %Bump.Timeout%"
+            scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage bump --timeout %Bump.Timeout% %Bump.Arguments%"
         }
     }
 

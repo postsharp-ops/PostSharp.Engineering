@@ -17,3 +17,4 @@ global.json
 *.g.ps1
 scripts/build-agents/last-execution.txt
 *.log
+copilot.data.*
