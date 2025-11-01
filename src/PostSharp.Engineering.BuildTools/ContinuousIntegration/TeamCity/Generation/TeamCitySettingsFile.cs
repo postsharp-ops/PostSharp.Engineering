@@ -98,7 +98,8 @@ internal static class TeamCitySettingsFile
                     productProperties,
                     configurationProperties,
                     teamCityDeploymentConfiguration,
-                    teamCityBuildConfiguration );
+                    teamCityBuildConfiguration,
+                    deployedArtifactRules );
 
                 teamCityBuildConfigurations.Add( swapConfiguration );
             }
@@ -270,14 +271,15 @@ internal static class TeamCitySettingsFile
         ProductProperties productProperties,
         ConfigurationProperties configurationProperties,
         TeamCityBuildConfiguration? teamCityDeploymentConfiguration,
-        TeamCityBuildConfiguration teamCityBuildConfiguration )
+        TeamCityBuildConfiguration teamCityBuildConfiguration,
+        string deployedArtifactRule )
     {
         var snapshotDependencies = new List<TeamCitySnapshotDependency>();
 
         if ( teamCityDeploymentConfiguration != null )
         {
             snapshotDependencies.Add( new TeamCitySnapshotDependency( teamCityDeploymentConfiguration.ObjectName, false ) );
-            snapshotDependencies.Add( new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false ) );
+            snapshotDependencies.Add( new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRule ) );
         }
 
         var swapConfiguration = new TeamCityBuildConfiguration(
