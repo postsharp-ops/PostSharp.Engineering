@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -39,5 +40,13 @@ public static partial class PostSharpDependencies
 
     public static DependencyDefinition PostSharpDocumentation { get; } = new PostSharpDocumentationDependencyDefinition(
         "PostSharp.Documentation",
-        VcsProvider.GitHub );
+        VcsProvider.GitHub )
+    {
+        Dependencies =
+        [
+            DevelopmentDependencies.PostSharpEngineering.ToDependency(),
+            V2025_1.PostSharp.ToDependency(
+                new ConfigurationSpecific<BuildConfiguration>( BuildConfiguration.Release, BuildConfiguration.Release, BuildConfiguration.Release ) )
+        ]
+    };
 }
