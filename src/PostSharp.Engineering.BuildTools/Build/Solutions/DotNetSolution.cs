@@ -18,6 +18,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
     {
         public DotNetSolution( string solutionPath ) : base( solutionPath ) { }
 
+        public bool IsSingleFile => Path.GetExtension( this.SolutionPath ).Equals( ".cs", StringComparison.OrdinalIgnoreCase );
+
         public override bool Build( BuildContext context, BuildSettings settings ) => this.RunBuildOrTests( context, settings, test: false );
 
         public override bool Pack( BuildContext context, BuildSettings settings )
@@ -73,7 +75,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             string command;
             string args;
 
-            if ( test )
+            if ( this.IsSingleFile )
+            {
+                command = "run";
+                args = "";
+            }
+            else if ( test )
             {
                 command = "test";
                 args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory \"{resultsDirectory}\"";
@@ -112,7 +119,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                     return true;
                 }
 
-                context.Console.WriteMessage( $"Running {(test ? "test" : "build")} as configured in '{testJsonFile}'." );
+                context.Console.WriteMessage( $"Running `dotnet {command}` as configured in '{testJsonFile}'." );
 
                 _ = DotNetHelper.Run(
                     context,

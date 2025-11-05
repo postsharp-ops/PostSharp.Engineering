@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -95,8 +96,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             if ( isRunCommand )
             {
-                // The command `dotnet run SomeProject.csproj` does not work, it requires explicit argument name.
-                projectPrefix = "--project ";
+                if ( !Path.GetExtension( projectOrSolution ).Equals( ".cs", StringComparison.OrdinalIgnoreCase ) )
+                {
+                    // The command `dotnet run SomeProject.csproj` does not work, it requires explicit argument name.
+                    projectPrefix = "--project ";
+                }
 
                 // dotnet run does not support --nologo.
                 nologo = string.Empty;

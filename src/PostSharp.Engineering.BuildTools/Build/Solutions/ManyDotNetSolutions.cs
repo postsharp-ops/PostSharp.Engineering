@@ -183,7 +183,10 @@ public class ManyDotNetSolutions : Solution
             {
                 // Do not process recursively if we find a file we can build.
                 // The order of processing is significant.
-                if ( AddFiles( directory, "*.proj", Model.BuildMethod.Build ) || AddFiles( directory, "*.sln" ) || AddFiles( directory, "*.csproj" ) )
+                if ( AddFiles( directory, "*.proj", Model.BuildMethod.Build )
+                     || AddFiles( directory, "*.sln" )
+                     || AddFiles( directory, "*.csproj" )
+                     || AddFiles( directory, "Program.cs" ) )
                 {
                     return;
                 }
