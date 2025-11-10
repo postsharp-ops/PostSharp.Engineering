@@ -43,7 +43,7 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                     context.Console,
                     "dotnet",
                     "--version",
-                    Path.GetDirectoryName( formattableSolution.SolutionPath ),
+                    Path.Combine( context.RepoDirectory, Path.GetDirectoryName( formattableSolution.SolutionPath )! ),
                     out _,
                     out var sdkVersionString,
                     ToolInvocationOptions.Default with { Silent = true } );

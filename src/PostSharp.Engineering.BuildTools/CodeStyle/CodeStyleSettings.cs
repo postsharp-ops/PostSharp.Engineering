@@ -16,6 +16,10 @@ internal class CodeStyleSettings : CommonCommandSettings
     [CommandOption( "--create" )]
     public bool Create { get; init; }
 
+    [Description( "Path to PostSharp.Engineering.CodeStyle. The default value is `../PostSharp.Engineering.CodeStyle`." )]
+    [CommandArgument( 0, "[path]" )]
+    public string Path { get; init; } = "../PostSharp.Engineering.CodeStyle";
+    
     [Description( "Remote URL of the repo." )]
     [CommandOption( "-u|--url" )]
     public string Url { get; init; } =

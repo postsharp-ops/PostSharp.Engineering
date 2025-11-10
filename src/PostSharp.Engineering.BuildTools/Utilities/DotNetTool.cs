@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Immutable;
@@ -21,7 +22,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public static DotNetTool SignClient { get; } = new SignTool();
 
-        public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2024.3.0", "jb" );
+        public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2025.2.0", "jb" );
 
         public static ImmutableArray<DotNetTool> DefaultTools { get; } = [SignClient, Resharper];
 
@@ -69,9 +70,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
             else
             {
-                var installedVersion = System.Version.Parse( installedVersionString );
+                var installedVersion = NuGetVersion.Parse( installedVersionString );
 
-                if ( installedVersion < System.Version.Parse( this.Version ) )
+                if ( installedVersion < NuGetVersion.Parse( this.Version ) )
                 {
                     installVerb = "update";
                 }
