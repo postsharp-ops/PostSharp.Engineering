@@ -22,7 +22,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public static DotNetTool SignClient { get; } = new SignTool();
 
-        public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2025.2.0", "jb" );
+        public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2025.3.0-rc01", "jb" );
 
         public static ImmutableArray<DotNetTool> DefaultTools { get; } = [SignClient, Resharper];
 

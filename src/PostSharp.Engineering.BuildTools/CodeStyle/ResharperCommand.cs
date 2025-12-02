@@ -8,7 +8,7 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle;
 
-internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
+internal abstract class ResharperCommand : BaseCommand<ResharperCommandSettings>
 {
     protected abstract string Title { get; }
 
@@ -16,7 +16,7 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
 
     protected virtual void OnSuccessfulExecution( BuildContext context, Solution solution ) { }
 
-    protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
+    protected override bool ExecuteCore( BuildContext context, ResharperCommandSettings settings )
     {
         context.Console.WriteHeading( this.Title );
 
@@ -31,9 +31,12 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
             }
 
             // Before formatting, the solution must be built.
-            if ( !solution.Build( context, buildSettings ) )
+            if ( !settings.NoBuild )
             {
-                return false;
+                if ( !solution.Build( context, buildSettings ) )
+                {
+                    return false;
+                }
             }
 
             foreach ( var formattableSolution in solution.GetFormattableSolutions( context ) )

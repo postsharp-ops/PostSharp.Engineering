@@ -40,13 +40,13 @@ if (-not $Interactive -or $BuildArgs)
     # Change the working directory so we can use a global.json that is specific to eng.
     $previousLocation = Get-Location
 
-    Set-Location $PSScriptRoot\$EngPath\src
+    Set-Location (Join-Path $PSScriptRoot $EngPath "src")
 
     try
     {
 
         # Run the project.
-        & dotnet run --project "$PSScriptRoot\$EngPath\src\Build$ProductName.csproj" -- $BuildArgs
+        & dotnet run --project (Join-Path $PSScriptRoot $EngPath "src" "Build$ProductName.csproj") -- $BuildArgs
 
         if ($StartVsmon)
         {

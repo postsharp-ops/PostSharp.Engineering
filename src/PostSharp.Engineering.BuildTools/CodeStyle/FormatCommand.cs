@@ -26,7 +26,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
             return command;
         }
 
-        protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
+        protected override bool ExecuteCore( BuildContext context, ResharperCommandSettings settings )
         {
             if ( !GitHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
             {
