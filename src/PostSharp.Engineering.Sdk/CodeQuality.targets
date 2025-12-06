@@ -9,13 +9,9 @@
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
 
-    <!-- Documentation -->
-    <PropertyGroup Condition="'$(GenerateDocumentationFile)'!='False'">
-
-        <NoWarn>$(NoWarn),SA0001</NoWarn>
-        <!-- Disable XML doc warnings for now -->
-        <NoWarn>$(NoWarn),CS1591,CS1572,CS1573</NoWarn>
-
+    <!-- Documentation: suppress XML doc warnings unless strict mode is enabled -->
+    <PropertyGroup Condition="'$(GenerateDocumentationFile)'!='False' AND '$(StrictXmlDocQuality)'!='True'">
+        <NoWarn>$(NoWarn);CS1591;CS1572;CS1573</NoWarn>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(DisableCodeQuality)'!='True' AND '$(ContinuousIntegrationBuild)'=='True'">
