@@ -10,6 +10,30 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 
 public static class ProcessKiller
 {
+    public static void KillWinMerge( ConsoleHelper console )
+    {
+        var currentSessionId = Process.GetCurrentProcess().SessionId;
+
+        var processesToKill = Process.GetProcesses()
+            .Where( p => p.SessionId == currentSessionId )
+            .Where( p => p.ProcessName.StartsWith( "WinMerge", StringComparison.OrdinalIgnoreCase ) )
+            .ToList();
+
+        foreach ( var process in processesToKill )
+        {
+            console.WriteMessage( $"Killing process {process.Id} ({process.ProcessName})" );
+
+            try
+            {
+                process.Kill( true );
+            }
+            catch ( Exception e )
+            {
+                console.WriteWarning( $"Cannot kill {process.Id} ({process.ProcessName}): {e.Message}" );
+            }
+        }
+    }
+
     public static bool KillWellKnownProcesses( ConsoleHelper console, bool dry = false )
     {
         var currentSessionId = Process.GetCurrentProcess().SessionId;

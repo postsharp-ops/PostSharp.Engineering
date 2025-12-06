@@ -18,6 +18,9 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         public static bool Execute( BuildContext context, BuildSettings settings )
         {
+            // Kill WinMerge to release any file locks it may hold.
+            ProcessKiller.KillWinMerge( context.Console );
+
             var product = context.Product;
 
             void DeleteDirectory( string directory )
