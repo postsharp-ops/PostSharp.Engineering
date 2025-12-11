@@ -10,13 +10,14 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 
 public static class ProcessKiller
 {
-    public static void KillWinMerge( ConsoleHelper console )
+    public static void KillProcessesBeforeClean( ConsoleHelper console )
     {
         var currentSessionId = Process.GetCurrentProcess().SessionId;
 
         var processesToKill = Process.GetProcesses()
             .Where( p => p.SessionId == currentSessionId )
-            .Where( p => p.ProcessName.StartsWith( "WinMerge", StringComparison.OrdinalIgnoreCase ) )
+            .Where( p => p.ProcessName.StartsWith( "WinMerge", StringComparison.OrdinalIgnoreCase )
+                         || p.ProcessName.StartsWith( "redis-server", StringComparison.OrdinalIgnoreCase ) )
             .ToList();
 
         foreach ( var process in processesToKill )

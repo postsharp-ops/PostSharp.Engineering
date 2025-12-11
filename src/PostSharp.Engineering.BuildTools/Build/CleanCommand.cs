@@ -18,8 +18,8 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         public static bool Execute( BuildContext context, BuildSettings settings )
         {
-            // Kill WinMerge to release any file locks it may hold.
-            ProcessKiller.KillWinMerge( context.Console );
+            // Kill processes that may hold file locks.
+            ProcessKiller.KillProcessesBeforeClean( context.Console );
 
             var product = context.Product;
 

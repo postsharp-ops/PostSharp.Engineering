@@ -179,8 +179,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Documentation",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama,
-                false )
+                MetalamaGitHubOrganization.Metalama )
             {
                 Dependencies = [DevelopmentDependencies.PostSharpEngineering, MetalamaSamples], SourceDependencies = [MetalamaSamples, MetalamaCommunity]
             };
