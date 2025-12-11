@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"X:\\src\\PostSharp.Engineering\" diff)",
+      "Bash(git -C \"X:\\src\\PostSharp.Engineering\" log --oneline -10)",
+      "Bash(git -C \"X:\\src\\PostSharp.Engineering\" status)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
