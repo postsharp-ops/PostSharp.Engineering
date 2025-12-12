@@ -9,6 +9,8 @@ param(
     [switch]$NoClean, # Does not clean up.
     [switch]$NoNuGetCache, # Does not mount the host nuget cache in the container.
     [switch]$KeepEnv, # Does not override the env.g.json file.
+    [switch]$Claude, # Run Claude CLI instead of Build.ps1.
+    [string]$ClaudePrompt, # Optional prompt for Claude (non-interactive mode).
     [string]$ImageName, # Image name (defaults to a name based on the directory).
     [string]$BuildAgentPath = 'C:\BuildAgent',
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
@@ -93,6 +95,51 @@ function New-EnvJson
     return $jsonPath
 }
 
+# Function to create Claude-specific env.g.json with filtered/renamed variables
+function New-ClaudeEnvJson
+{
+    $claudeEnv = @{ }
+
+    # CLAUDE_GITHUB_TOKEN -> GITHUB_TOKEN (renamed)
+    if ($env:CLAUDE_GITHUB_TOKEN)
+    {
+        $claudeEnv["GITHUB_TOKEN"] = $env:CLAUDE_GITHUB_TOKEN
+    }
+
+    # Preserved variables
+    if ($env:ANTHROPIC_API_KEY)
+    {
+        $claudeEnv["ANTHROPIC_API_KEY"] = $env:ANTHROPIC_API_KEY
+    }
+    if ($env:IS_POSTSHARP_OWNED)
+    {
+        $claudeEnv["IS_POSTSHARP_OWNED"] = $env:IS_POSTSHARP_OWNED
+    }
+    if ($env:IS_TEAMCITY_AGENT)
+    {
+        $claudeEnv["IS_TEAMCITY_AGENT"] = $env:IS_TEAMCITY_AGENT
+    }
+
+    # Convert to JSON and save
+    $jsonPath = Join-Path $dockerContextDirectory "env.g.json"
+
+    # Write a test JSON file with GUID first
+    @{ guid = [System.Guid]::NewGuid().ToString() } | ConvertTo-Json | Set-Content -Path $jsonPath -Encoding UTF8
+
+    # Check if secrets file is tracked by git
+    $gitStatus = git status --porcelain $jsonPath 2> $null
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($gitStatus))
+    {
+        Write-Error "Secrets file '$jsonPath' is tracked by git. Please add it to .gitignore first."
+        exit 1
+    }
+
+    $claudeEnv | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonPath -Encoding UTF8
+    Write-Host "Created Claude secrets file: $jsonPath" -ForegroundColor Cyan
+
+    return $jsonPath
+}
+
 if ($env:RUNNING_IN_DOCKER)
 {
     Write-Error "Already running in Docker."
@@ -139,29 +186,38 @@ Write-Host "Preparing context and mounts." -ForegroundColor Green
 # Create secrets JSON file.
 if (-not $KeepEnv)
 {
-    if (-not $env:ENG_USERNAME)
+    if ($Claude)
     {
-        $env:ENG_USERNAME = $env:USERNAME
-    }
-
-    # Add git identity to environment
-    if ($env:IS_TEAMCITY_AGENT)
-    {
-        # On TeamCity agents, check if the environment variables are set.
-        if (-not $env:GIT_USER_EMAIL -or -not $env:GIT_USER_NAME)
-        {
-            Write-Error "On TeamCity agents, the GIT_USER_EMAIL and GIT_USER_NAME environment variables must be set."
-            exit 1
-        }
+        # Use Claude-specific environment variables (filtered and renamed)
+        New-ClaudeEnvJson
     }
     else
     {
-        # On developer machines, use the current git user.
-        $env:GIT_USER_EMAIL = git config --global user.email
-        $env:GIT_USER_NAME = git config --global user.name
-    }
+        # Use standard build environment variables
+        if (-not $env:ENG_USERNAME)
+        {
+            $env:ENG_USERNAME = $env:USERNAME
+        }
 
-    New-EnvJson -EnvironmentVariableList $EnvironmentVariables
+        # Add git identity to environment
+        if ($env:IS_TEAMCITY_AGENT)
+        {
+            # On TeamCity agents, check if the environment variables are set.
+            if (-not $env:GIT_USER_EMAIL -or -not $env:GIT_USER_NAME)
+            {
+                Write-Error "On TeamCity agents, the GIT_USER_EMAIL and GIT_USER_NAME environment variables must be set."
+                exit 1
+            }
+        }
+        else
+        {
+            # On developer machines, use the current git user.
+            $env:GIT_USER_EMAIL = git config --global user.email
+            $env:GIT_USER_NAME = git config --global user.name
+        }
+
+        New-EnvJson -EnvironmentVariableList $EnvironmentVariables
+    }
 }
 
 # Get the source directory name from $PSScriptRoot
@@ -179,9 +235,9 @@ if (-not (Test-Path $dockerContextDirectory))
 
 
 # Prepare volume mappings
-$VolumeMappings = @("-v", "${SourceDirName}:${SourceDirName}")
-$MountPoints = @($SourceDirName, "c:\packages")
-$GitDirectories = @($SourceDirName)
+    $VolumeMappings = @("-v", "${SourceDirName}:${SourceDirName}")
+    $MountPoints = @($SourceDirName, "c:\packages")
+    $GitDirectories = @($SourceDirName)
 
 # Define static Git system directory for mapping. This used by Teamcity as an LFS parent repo.
 $gitSystemDir = "$BuildAgentPath\system\git"
@@ -281,17 +337,46 @@ docker ps -q --filter "ancestor=$ImageTag" | ForEach-Object {
 # Building the image.
 if (-not $NoBuildImage)
 {
-    Write-Host "Building the image with tag: $ImageTag" -ForegroundColor Green
+    Write-Host "Building the base image with tag: $ImageTag" -ForegroundColor Green
     Get-Content -Raw Dockerfile | docker build -t $ImageTag  --build-arg GITDIRS="$gitDirectoriesAsString"  --build-arg MOUNTPOINTS="$mountPointsAsString"  -f - $dockerContextDirectory
     if ($LASTEXITCODE -ne 0)
     {
         Write-Host "Docker build failed with exit code $LASTEXITCODE" -ForegroundColor Red
         exit $LASTEXITCODE
     }
+
+    # Build Claude image if requested
+    if ($Claude)
+    {
+        $ClaudeImageTag = "$ImageTag-claude"
+        Write-Host "Building the Claude image with tag: $ClaudeImageTag" -ForegroundColor Green
+
+        if (-not (Test-Path "Dockerfile.claude"))
+        {
+            Write-Error "Dockerfile.claude not found. Make sure generate-scripts was run with a NodeJs component."
+            exit 1
+        }
+
+        Get-Content -Raw Dockerfile.claude | docker build -t $ClaudeImageTag --build-arg BASE_IMAGE="$ImageTag" -f - $dockerContextDirectory
+        if ($LASTEXITCODE -ne 0)
+        {
+            Write-Host "Docker build (Claude) failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+        }
+
+        # Use Claude image for the run
+        $ImageTag = $ClaudeImageTag
+    }
 }
 else
 {
     Write-Host "Skipping image build (-NoBuildImage specified)." -ForegroundColor Yellow
+
+    # If Claude mode and skipping build, use the Claude image tag
+    if ($Claude)
+    {
+        $ImageTag = "$ImageTag-claude"
+    }
 }
 
 
@@ -299,42 +384,42 @@ else
 if (-not $BuildImage)
 {
 
-    # Delete now and not in the container because it's much faster and lock error messages are more relevant.
-    Write-Host "Building the product in the container." -ForegroundColor Green
+        # Delete now and not in the container because it's much faster and lock error messages are more relevant.
+        Write-Host "Building the product in the container." -ForegroundColor Green
 
-    # Prepare Build.ps1 arguments
-    if ($StartVsmon)
-    {
-        $BuildArgs = @("-StartVsmon") + $BuildArgs
-    }
+        # Prepare Build.ps1 arguments
+        if ($StartVsmon)
+        {
+            $BuildArgs = @("-StartVsmon") + $BuildArgs
+        }
 
-    if ($Interactive)
-    {
-        $pwshArgs = "-NoExit"
-        $BuildArgs = @("-Interactive") + $BuildArgs
-        $dockerArgs = @("-it")
-        $pwshExitCommand = ""
-    }
-    else
-    {
-        $pwshArgs = "-NonInteractive"
-        $dockerArgs = @()
+        if ($Interactive)
+        {
+            $pwshArgs = "-NoExit"
+            $BuildArgs = @("-Interactive") + $BuildArgs
+            $dockerArgs = @("-it")
+            $pwshExitCommand = ""
+        }
+        else
+        {
+            $pwshArgs = "-NonInteractive"
+            $dockerArgs = @()
         $pwshExitCommand = "exit `$LASTEXITCODE`;"
-    }
+        }
 
-    $buildArgsString = $BuildArgs -join " "
-    $VolumeMappingsAsString = $VolumeMappings -join " "
-    $dockerArgsAsString = $dockerArgs -join " "
+        $buildArgsString = $BuildArgs -join " "
+        $VolumeMappingsAsString = $VolumeMappings -join " "
+        $dockerArgsAsString = $dockerArgs -join " "
 
 
     Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -w $SourceDirName $ImageTag pwsh $pwshArgs -Command `"& .\$Script $buildArgsString`; $pwshExitCommand`"" -ForegroundColor Cyan
 
     docker run --rm --memory=12g $dockerArgs @VolumeMappings -w $SourceDirName @dockerArgs $ImageTag pwsh $pwshArgs -Command "& .\$Script $buildArgsString`; $pwshExitCommand; "
-    if ($LASTEXITCODE -ne 0)
-    {
-        Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red
-        exit $LASTEXITCODE
-    }
+        if ($LASTEXITCODE -ne 0)
+        {
+            Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+        }
 
 }
 else

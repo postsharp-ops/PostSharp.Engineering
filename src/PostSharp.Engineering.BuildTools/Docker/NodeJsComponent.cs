@@ -16,6 +16,8 @@ public class NodeJsComponent : ContainerComponent
         this._version = version;
     }
 
+    public string Version => this._version;
+
     public override string Name => "Install Node.js";
 
     public override ContainerComponentKind Kind => ContainerComponentKind.NodeJs;
