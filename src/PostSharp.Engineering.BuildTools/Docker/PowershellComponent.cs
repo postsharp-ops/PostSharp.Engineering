@@ -17,10 +17,10 @@ public class PowershellComponent : ContainerComponent
             RUN Invoke-WebRequest -Uri https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/PowerShell-7.5.2-win-x64.msi -OutFile PowerShell.msi; `
                 $process = Start-Process msiexec.exe -Wait -PassThru -ArgumentList '/I PowerShell.msi /quiet'; `
                 if ($process.ExitCode -ne 0) { exit $process.ExitCode }; `
-                Remove-Item PowerShell.msi; `
-                $pathsToAdd = @('C:\Program Files\PowerShell\7'); `
-                $newPath = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + ($pathsToAdd -join ';'); `
-                [Environment]::SetEnvironmentVariable('PATH', $newPath, 'Machine');
+                Remove-Item PowerShell.msi
+
+            # Add PowerShell 7 to PATH using ENV directive (persists across shell switches)
+            ENV PATH="C:\Program Files\PowerShell\7;${PATH}"
             """ );
     }
 }

@@ -18,7 +18,7 @@ if ($Prompt)
 else
 {
     Write-Host "Running Claude in interactive mode" -ForegroundColor Cyan
-    claude
+    claude --dangerously-skip-permissions
 }
 
 exit $LASTEXITCODE

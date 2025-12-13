@@ -29,20 +29,35 @@ public record ContainerRequirements : BuildAgentRequirements
     public override bool IsDockerized => true;
 
     public bool WriteDockerfile( BuildContext context )
+        => this.WriteDockerfileCore( context, "Dockerfile", null, true );
+
+    public bool WriteClaudeDockerfile( BuildContext context )
+        => this.WriteDockerfileCore( context, "Dockerfile.claude", new ClaudeComponent(), false );
+
+    private bool WriteDockerfileCore( BuildContext context, string dockerfileName, ContainerComponent? additionalComponent, bool validateBuildComponents )
     {
         var contextDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "docker-context" );
 
         Directory.CreateDirectory( contextDirectory );
 
-        // Add components.
-        var allComponents = new List<ContainerComponent>();
-        allComponents.Add( new PrologComponent() );
-        allComponents.Add( new PowershellComponent() );
-        allComponents.Add( new GitComponent() );
-        allComponents.Add( new EpilogueComponent() );
+        // Add base components
+        var allComponents = new List<ContainerComponent>
+        {
+            new PrologComponent(),
+            new PowershellComponent(),
+            new GitComponent(),
+            new EpilogueComponent()
+        };
+
         allComponents.AddRange( this.Components );
 
-        // Add required components.
+        // Add additional component if specified (e.g., Claude)
+        if ( additionalComponent != null )
+        {
+            allComponents.Add( additionalComponent );
+        }
+
+        // Add required components
         foreach ( var component in allComponents.ToList() )
         {
             void Add( ContainerComponent c )
@@ -54,7 +69,7 @@ public record ContainerRequirements : BuildAgentRequirements
             component.AddRequirements( allComponents, Add );
         }
 
-        // Validate components.
+        // Validate components
         foreach ( var component in allComponents )
         {
             if ( !component.Validate( context, contextDirectory ) )
@@ -63,28 +78,33 @@ public record ContainerRequirements : BuildAgentRequirements
             }
         }
 
-        // Validate publishers and testers.
-        var hasMissingRequirement = false;
-
-        foreach ( var buildComponent in context.Product.GetBuildComponents() )
+        // Validate publishers and testers (only for base Dockerfile)
+        if ( validateBuildComponents )
         {
-            hasMissingRequirement = !buildComponent.VerifyContainerRequirements( context, this );
+            var hasMissingRequirement = false;
+
+            foreach ( var buildComponent in context.Product.GetBuildComponents() )
+            {
+                hasMissingRequirement = !buildComponent.VerifyContainerRequirements( context, this );
+            }
+
+            if ( hasMissingRequirement )
+            {
+                return false;
+            }
         }
 
-        if ( hasMissingRequirement )
-        {
-            return false;
-        }
-
-        // Order components.
+        // Order components
         var orderedComponents = allComponents.OrderBy( x => x ).ToList();
 
-        var dockerfilePath = Path.Combine( context.RepoDirectory, "Dockerfile" );
+        var dockerfilePath = Path.Combine( context.RepoDirectory, dockerfileName );
         using var dockerfileContent = new StringWriter();
+
+        var componentLabel = additionalComponent != null ? "Claude container" : "container";
 
         foreach ( var component in orderedComponents )
         {
-            context.Console.WriteMessage( $"Processing container component '{component.Name}'." );
+            context.Console.WriteMessage( $"Processing {componentLabel} component '{component.Name}'." );
 
             if ( component.Kind != ContainerComponentKind.Prolog )
             {
@@ -117,62 +137,6 @@ public record ContainerRequirements : BuildAgentRequirements
 
             return false;
         }
-
-        return true;
-    }
-
-    public bool WriteClaudeDockerfile( BuildContext context )
-    {
-        // Start with base image components to check for version conflicts
-        var allComponents = new List<ContainerComponent>( this.Components );
-
-        // Add Claude component
-        var claudeComponent = new ClaudeComponent();
-        allComponents.Add( claudeComponent );
-
-        // Track which components are new (not in base image)
-        var newComponents = new List<ContainerComponent> { claudeComponent };
-
-        // Use AddRequirements to auto-add NodeJs if missing, or throw if version too low
-        void Add( ContainerComponent c )
-        {
-            allComponents.Add( c );
-            newComponents.Add( c );
-            c.AddRequirements( allComponents, Add );
-        }
-
-        claudeComponent.AddRequirements( allComponents, Add );
-
-        // Order only the new components (base image components are already installed)
-        var orderedNewComponents = newComponents.OrderBy( x => x ).ToList();
-
-        // Build Claude Dockerfile that layers on top of the base image
-        var dockerfilePath = Path.Combine( context.RepoDirectory, "Dockerfile.claude" );
-        using var dockerfileContent = new StringWriter();
-
-        // Write prolog for Claude Dockerfile (FROM base image)
-        dockerfileContent.WriteLine(
-            """
-            # escape=`
-
-            # This file is auto-generated by PostSharp.Engineering.
-            # This Dockerfile builds a Claude-enabled image on top of the base product image.
-
-            ARG BASE_IMAGE
-            FROM ${BASE_IMAGE}
-
-            """ );
-
-        // Add only the new components (not already in base image)
-        foreach ( var component in orderedNewComponents )
-        {
-            context.Console.WriteMessage( $"Processing Claude container component '{component.Name}'." );
-            dockerfileContent.WriteLine();
-            dockerfileContent.WriteLine( $"# {component.Name}" );
-            component.WriteDockerfile( dockerfileContent );
-        }
-
-        TextFileHelper.WriteIfDifferent( dockerfilePath, dockerfileContent.ToString(), context );
 
         return true;
     }

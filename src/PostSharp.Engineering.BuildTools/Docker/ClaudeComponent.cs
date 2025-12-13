@@ -19,11 +19,16 @@ public class ClaudeComponent : ContainerComponent
     {
         writer.WriteLine(
             """
-            RUN npm install --global @anthropic-ai/claude-code
+            # Configure npm global directory to avoid Windows container path issues
+            ENV NPM_CONFIG_PREFIX=C:\npm
+            ENV PATH="C:\npm;${PATH}"
 
-            # Add PostSharp.Engineering.AISkills as a plugin marketplace and install plugins
-            RUN claude plugin marketplace add postsharp/PostSharp.Engineering.AISkills && `
-                claude plugin marketplace update postsharp-engineering-aiskills
+            # Install Claude CLI using cmd shell to avoid HCS issues with PowerShell
+            SHELL ["cmd", "/S", "/C"]
+            RUN C:\nodejs\npm.cmd install --global @anthropic-ai/claude-code
+
+            # Restore PowerShell shell using full path
+            SHELL ["C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "-Command"]
             """ );
     }
 

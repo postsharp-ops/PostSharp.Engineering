@@ -44,11 +44,12 @@ public sealed class DotNetComponent : ContainerComponent
 
     public override void WriteDockerfile( TextWriter writer )
     {
+        // Run script directly since we're already in a PowerShell shell
         if ( this.DotNetComponentKind == DotNetComponentKind.Sdk )
         {
             writer.WriteLine(
                 $"""
-                 RUN powershell -ExecutionPolicy Bypass -File dotnet-install.ps1 -Version {this.Version} -InstallDir 'C:\Program Files\dotnet'; 
+                 RUN & .\dotnet-install.ps1 -Version {this.Version} -InstallDir 'C:\Program Files\dotnet'
                  """ );
         }
         else
@@ -63,7 +64,7 @@ public sealed class DotNetComponent : ContainerComponent
 
             writer.WriteLine(
                 $"""
-                 RUN powershell -ExecutionPolicy Bypass -File dotnet-install.ps1 -Version {this.Version} -Runtime {runtime} -InstallDir 'C:\Program Files\dotnet'; 
+                 RUN & .\dotnet-install.ps1 -Version {this.Version} -Runtime {runtime} -InstallDir 'C:\Program Files\dotnet'
                  """ );
         }
     }

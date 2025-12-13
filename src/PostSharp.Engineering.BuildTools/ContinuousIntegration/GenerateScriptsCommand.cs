@@ -32,7 +32,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         if ( product.UseDocker )
         {
             EmbeddedResourceHelper.ExtractScript( context, "DockerBuild.ps1", "" );
-            EmbeddedResourceHelper.ExtractScript( context, "RunClaude.ps1", "eng" );
+            EmbeddedResourceHelper.ExtractScript( context, "RunClaude.g.ps1", "eng" );
             var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
             if ( !image.WriteDockerfile( context ) )

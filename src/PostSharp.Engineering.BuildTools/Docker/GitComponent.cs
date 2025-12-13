@@ -12,16 +12,20 @@ public class GitComponent : ContainerComponent
 
     public override void WriteDockerfile( TextWriter writer )
     {
+        // Use full Git for Windows (not MinGit) to include bash.exe which is required by Claude Code
         writer.WriteLine(
             """
-            RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.50.0.windows.1/MinGit-2.50.0-64-bit.zip -OutFile MinGit.zip; `
-                Expand-Archive c:\\MinGit.zip -DestinationPath C:\\git; `
-                Remove-Item C:\\MinGit.zip; `
-                $pathsToAdd = @('C:\git\cmd', 'C:\git\bin', 'C:\git\usr\bin'); `
-                $newPath = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + ($pathsToAdd -join ';'); `
-                [Environment]::SetEnvironmentVariable('PATH', $newPath, 'Machine');
-                
-            RUN "C:\Git\cmd\git.exe" config --system core.longpaths true
+            RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.50.0.windows.1/PortableGit-2.50.0-64-bit.7z.exe -OutFile PortableGit.exe; `
+                Start-Process -FilePath .\PortableGit.exe -ArgumentList '-o"C:\git"', '-y' -Wait; `
+                Remove-Item PortableGit.exe
+
+            # Add git to PATH using ENV directive (persists across shell switches)
+            ENV PATH="C:\git\cmd;C:\git\bin;C:\git\usr\bin;${PATH}"
+
+            RUN git config --system core.longpaths true
+
+            # Set CLAUDE_CODE_GIT_BASH_PATH for Claude Code
+            ENV CLAUDE_CODE_GIT_BASH_PATH=C:\git\bin\bash.exe
             """ );
     }
 }

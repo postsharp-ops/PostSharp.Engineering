@@ -20,8 +20,8 @@ internal class PrologComponent : ContainerComponent
 
             FROM mcr.microsoft.com/windows/servercore:ltsc2025
 
-            # The initial shell is PowerShell Desktop.
-            SHELL ["powershell", "-Command"]
+            # The initial shell is Windows PowerShell (use full path to avoid HCS issues)
+            SHELL ["C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "-Command"]
 
             # Prepare environment
             ENV PSExecutionPolicyPreference=Bypass
@@ -29,6 +29,9 @@ internal class PrologComponent : ContainerComponent
             ENV TEMP=C:\Temp
             ENV TMP=C:\Temp
             ENV RUNNING_IN_DOCKER=TRUE
+
+            # Add Windows PowerShell to PATH (pwsh added later by PowershellComponent)
+            ENV PATH="C:\Windows\System32\WindowsPowerShell\v1.0;${PATH}"
 
             # Enable long path support
             RUN Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1

@@ -9,7 +9,14 @@
       "Bash(dotnet build:*)",
       "Bash(winget search:*)",
       "Bash(git -C \"X:\\src\\PostSharp.Engineering\" diff --stat)",
-      "Bash(git -C \"X:\\src\\PostSharp.Engineering\" log --oneline -20)"
+      "Bash(git -C \"X:\\src\\PostSharp.Engineering\" log --oneline -20)",
+      "WebSearch",
+      "Bash(ForEach-Object { docker rmi $_ -f })",
+      "Bash(docker images:*)",
+      "Bash(findstr:*)",
+      "Bash(docker run:*)",
+      "Bash(.DockerBuild.ps1 -Claude -SkipBuild)",
+      "Bash(dotnet restore:*)"
     ],
     "deny": [],
     "ask": []
