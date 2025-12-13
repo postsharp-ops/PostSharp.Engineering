@@ -60,13 +60,13 @@ internal class PublishCommand : BaseCommand<PublishSettings>
         var product = context.Product;
         context.Console.WriteHeading( "Publishing files" );
 
-        if ( !context.Product.IsPublishingNonReleaseBranchesAllowed && !settings.IsStandalone )
+        if ( !context.Product.IsPublishingNonReleaseBranchesAllowed && !settings.IsStandalone && !settings.Force )
         {
             var publishingBranch = context.Product.DependencyDefinition.PublishingBranch;
 
             if ( context.Branch != publishingBranch )
             {
-                context.Console.WriteError( $"Publishing can only be executed on the '{publishingBranch}' branch. The current branch is '{context.Branch}'." );
+                context.Console.WriteError( $"Publishing can only be executed on the '{publishingBranch}' branch. The current branch is '{context.Branch}'. Use --force to override." );
 
                 return false;
             }
