@@ -119,6 +119,26 @@ function New-ClaudeEnvJson
         $claudeEnv["IS_TEAMCITY_AGENT"] = $env:IS_TEAMCITY_AGENT
     }
 
+    # Git identity - read from host git config if not set in environment
+    $gitUserName = $env:GIT_USER_NAME
+    $gitUserEmail = $env:GIT_USER_EMAIL
+    if (-not $gitUserName)
+    {
+        $gitUserName = git config --global user.name
+    }
+    if (-not $gitUserEmail)
+    {
+        $gitUserEmail = git config --global user.email
+    }
+    if ($gitUserName)
+    {
+        $claudeEnv["GIT_USER_NAME"] = $gitUserName
+    }
+    if ($gitUserEmail)
+    {
+        $claudeEnv["GIT_USER_EMAIL"] = $gitUserEmail
+    }
+
     # Convert to JSON and save
     $jsonPath = Join-Path $dockerContextDirectory "env.g.json"
 
@@ -367,6 +387,22 @@ $MountPoints = $MountPoints | ForEach-Object { Get-ContainerPath $_ }
 $GitDirectories = $GitDirectories | ForEach-Object { Get-ContainerPath $_ }
 $ContainerSourceDir = Get-ContainerPath $SourceDirName
 
+# Add both the unmapped (C:\X\...) and mapped (X:\...) paths to GitDirectories for safe.directory
+# Git may resolve paths differently depending on how it's invoked
+$expandedGitDirectories = @()
+foreach ($dir in $GitDirectories)
+{
+    $expandedGitDirectories += $dir
+    # If path is C:\<letter>\... (unmapped subst path), also add <letter>:\... (mapped path)
+    if ($dir -match '^C:\\([A-Za-z])\\(.*)$')
+    {
+        $letter = $Matches[1].ToUpper()
+        $rest = $Matches[2]
+        $expandedGitDirectories += "${letter}:\$rest"
+    }
+}
+$GitDirectories = $expandedGitDirectories
+
 # Build subst commands string for inline execution in docker run
 $substCommandsInline = ""
 foreach ($letter in $driveLetters.Keys | Sort-Object)
@@ -378,9 +414,34 @@ if ($driveLetters.Count -gt 0)
     Write-Host "Drive letter mappings for container: $($driveLetters.Keys -join ', ')" -ForegroundColor Cyan
 }
 
-# Create empty Init.g.ps1 for Dockerfile COPY (required by Dockerfile but not used for drive mapping)
+# Create Init.g.ps1 with git configuration (safe.directory and user identity)
 $initScript = Join-Path $dockerContextDirectory "Init.g.ps1"
-"# Drive mappings are handled inline in docker run command" | Set-Content -Path $initScript -Encoding UTF8
+$initScriptContent = @"
+# Auto-generated initialization script for container startup
+
+# Configure git user identity from Machine environment variables
+`$gitUserName = [Environment]::GetEnvironmentVariable('GIT_USER_NAME', 'Machine')
+`$gitUserEmail = [Environment]::GetEnvironmentVariable('GIT_USER_EMAIL', 'Machine')
+if (`$gitUserName) {
+    git config --global user.name `$gitUserName
+}
+if (`$gitUserEmail) {
+    git config --global user.email `$gitUserEmail
+}
+
+# Configure git safe.directory for all mounted directories
+`$gitDirectories = @(
+$(($GitDirectories | ForEach-Object { "    '$_'" }) -join ",`n")
+)
+
+foreach (`$dir in `$gitDirectories) {
+    if (`$dir) {
+        `$normalizedDir = (`$dir -replace '\\\\', '/').TrimEnd('/') + '/'
+        git config --global --add safe.directory `$normalizedDir
+    }
+}
+"@
+$initScriptContent | Set-Content -Path $initScript -Encoding UTF8
 
 $mountPointsAsString = $MountPoints -Join ";"
 $gitDirectoriesAsString = $GitDirectories -Join ";"
@@ -410,7 +471,7 @@ if (-not $NoBuildImage)
             exit 1
         }
 
-        Get-Content -Raw Dockerfile.claude | docker build -t $ImageTag --build-arg GITDIRS="$gitDirectoriesAsString" --build-arg MOUNTPOINTS="$mountPointsAsString" -f - $dockerContextDirectory
+        Get-Content -Raw Dockerfile.claude | docker build -t $ImageTag --build-arg MOUNTPOINTS="$mountPointsAsString" -f - $dockerContextDirectory
         if ($LASTEXITCODE -ne 0)
         {
             Write-Host "Docker build (Claude) failed with exit code $LASTEXITCODE" -ForegroundColor Red
@@ -421,7 +482,7 @@ if (-not $NoBuildImage)
     {
         # Build base image
         Write-Host "Building the base image with tag: $ImageTag" -ForegroundColor Green
-        Get-Content -Raw Dockerfile | docker build -t $ImageTag --build-arg GITDIRS="$gitDirectoriesAsString" --build-arg MOUNTPOINTS="$mountPointsAsString" -f - $dockerContextDirectory
+        Get-Content -Raw Dockerfile | docker build -t $ImageTag --build-arg MOUNTPOINTS="$mountPointsAsString" -f - $dockerContextDirectory
         if ($LASTEXITCODE -ne 0)
         {
             Write-Host "Docker build failed with exit code $LASTEXITCODE" -ForegroundColor Red
@@ -498,13 +559,13 @@ if (-not $BuildImage)
         {
             # Non-interactive mode with prompt - no -it flags
             $dockerArgs = @()
-            $inlineScript = "${substCommandsInline}${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.g.ps1 -Prompt `"$ClaudePrompt`""
+            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.g.ps1 -Prompt `"$ClaudePrompt`""
         }
         else
         {
             # Interactive mode - requires TTY
             $dockerArgs = @("-it")
-            $inlineScript = "${substCommandsInline}${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.g.ps1"
+            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.g.ps1"
         }
 
         $dockerArgsAsString = $dockerArgs -join " "
@@ -552,8 +613,8 @@ if (-not $BuildImage)
         $VolumeMappingsAsString = $VolumeMappings -join " "
         $dockerArgsAsString = $dockerArgs -join " "
 
-        # Build inline script: subst drives, cd to source, run build
-        $inlineScript = "${substCommandsInline}cd '$SourceDirName'; & .\$Script $buildArgsString; $pwshExitCommand"
+        # Build inline script: subst drives, run init, cd to source, run build
+        $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; cd '$SourceDirName'; & .\$Script $buildArgsString; $pwshExitCommand"
 
         $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
         Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan

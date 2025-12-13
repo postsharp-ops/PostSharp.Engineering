@@ -41,10 +41,6 @@ internal class EpilogueComponent : ContainerComponent
 
             # Configure .NET SDK
             ENV DOTNET_NOLOGO=1
-
-            # Configure git (safe.directory is configured in Init.g.ps1)
-            RUN if ( $env:GIT_USER_NAME ) { git config --global user.name $env:GIT_USER_NAME } `
-                if ( $env:GIT_USER_EMAIL ) { git config --global user.email $env:GIT_USER_EMAIL }
             """ );
     }
 

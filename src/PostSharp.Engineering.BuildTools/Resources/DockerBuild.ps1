@@ -414,10 +414,21 @@ if ($driveLetters.Count -gt 0)
     Write-Host "Drive letter mappings for container: $($driveLetters.Keys -join ', ')" -ForegroundColor Cyan
 }
 
-# Create Init.g.ps1 with git safe.directory configuration
+# Create Init.g.ps1 with git configuration (safe.directory and user identity)
 $initScript = Join-Path $dockerContextDirectory "Init.g.ps1"
 $initScriptContent = @"
 # Auto-generated initialization script for container startup
+
+# Configure git user identity from Machine environment variables
+`$gitUserName = [Environment]::GetEnvironmentVariable('GIT_USER_NAME', 'Machine')
+`$gitUserEmail = [Environment]::GetEnvironmentVariable('GIT_USER_EMAIL', 'Machine')
+if (`$gitUserName) {
+    git config --global user.name `$gitUserName
+}
+if (`$gitUserEmail) {
+    git config --global user.email `$gitUserEmail
+}
+
 # Configure git safe.directory for all mounted directories
 `$gitDirectories = @(
 $(($GitDirectories | ForEach-Object { "    '$_'" }) -join ",`n")
