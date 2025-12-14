@@ -35,11 +35,11 @@ public sealed class ExecuteCommandTool
     }
 
     [McpServerTool]
-    [Description( "Execute a command on the host machine. Requires human approval. Use this for git push, GitHub operations, and other actions that affect external systems." )]
+    [Description( "Execute a PowerShell command on the host machine. Requires human approval. Use this for git push, GitHub operations, and other actions that affect external systems or require privileges or tokens that the container does not have." )]
     public async Task<CommandResult> ExecuteCommand(
         [Description( "Unique session identifier for tracking command history" )]
         string sessionId,
-        [Description( "The command to execute (e.g., 'git push origin main')" )]
+        [Description( "The command to execute (e.g., 'git push origin main'). Must be valid PowerShell script." )]
         string command,
         [Description( "The working directory for command execution" )]
         string workingDirectory,

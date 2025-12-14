@@ -74,3 +74,30 @@ Do NOT use the MCP server for:
 - Reading files or exploring the codebase
 
 These operations should be done directly in the container using standard tools.
+
+## Version Bumping
+
+Before scheduling a TeamCity build or deploy, the version must be bumped. This is done via the `VersionBump` build configuration on TeamCity.
+
+### How to Bump Version
+
+Use the MCP `ExecuteCommand` tool to trigger the VersionBump build via TeamCity API (requires `TEAMCITY_CLOUD_TOKEN` on host):
+
+```powershell
+$headers = @{
+    "Authorization" = "Bearer $env:TEAMCITY_CLOUD_TOKEN"
+    "Content-Type" = "application/json"
+    "Accept" = "application/json"
+}
+$body = @{
+    buildType = @{ id = "<ProjectPrefix>_VersionBump" }
+    branchName = "<branch>"
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "https://postsharp.teamcity.com/app/rest/buildQueue" -Method Post -Headers $headers -Body $body
+```
+
+### Finding the Build Type ID
+
+1. Check `.teamcity/settings.kts` for the VCS root: `AbsoluteId("...")`
+2. The build type ID is: `<VcsRootId>_VersionBump`
+3. For this repo: `Engineering_PostSharpEngineering_VersionBump`
