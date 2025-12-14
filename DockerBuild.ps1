@@ -10,6 +10,7 @@ param(
     [switch]$NoNuGetCache, # Does not mount the host nuget cache in the container.
     [switch]$KeepEnv, # Does not override the env.g.json file.
     [switch]$Claude, # Run Claude CLI instead of Build.ps1. Use -Claude for interactive, -Claude "prompt" for non-interactive.
+    [switch]$NoMcp, # Do not start the MCP approval server (for -Claude mode).
     [string]$ImageName, # Image name (defaults to a name based on the directory).
     [string]$BuildAgentPath = 'C:\BuildAgent',
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
@@ -332,6 +333,54 @@ if (Test-Path $sourceDependenciesDir)
     }
 }
 
+# Mount sibling directories from the product family (parent directory)
+# Only if parent is a recognized product family (PostSharp* or Metalama*)
+$parentDir = Split-Path $SourceDirName -Parent
+$parentDirName = Split-Path $parentDir -Leaf
+if ($parentDir -and (Test-Path $parentDir) -and ($parentDirName -like "PostSharp*" -or $parentDirName -like "Metalama*"))
+{
+    Write-Host "Detected product family directory: $parentDirName" -ForegroundColor Cyan
+    $siblingDirs = Get-ChildItem -Path $parentDir -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -ne $SourceDirName }
+
+    foreach ($sibling in $siblingDirs)
+    {
+        $siblingPath = $sibling.FullName
+        # Skip if already mounted
+        $alreadyMounted = $VolumeMappings | Where-Object { $_ -like "*${siblingPath}:*" }
+        if (-not $alreadyMounted)
+        {
+            Write-Host "Mounting product family sibling: $siblingPath" -ForegroundColor Cyan
+            $VolumeMappings += @("-v", "${siblingPath}:${siblingPath}:ro")
+            $MountPoints += $siblingPath
+            $GitDirectories += $siblingPath
+        }
+    }
+}
+
+# Mount PostSharp.Engineering.* directories from grandparent
+# This provides access to engineering tools and related repos
+$grandparentDir = Split-Path $parentDir -Parent
+if ($grandparentDir -and (Test-Path $grandparentDir))
+{
+    $engineeringDirs = Get-ChildItem -Path $grandparentDir -Directory -Filter "PostSharp.Engineering*" -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -ne $SourceDirName }
+
+    foreach ($engDir in $engineeringDirs)
+    {
+        $engPath = $engDir.FullName
+        # Skip if already mounted
+        $alreadyMounted = $VolumeMappings | Where-Object { $_ -like "*${engPath}:*" }
+        if (-not $alreadyMounted)
+        {
+            Write-Host "Mounting engineering repo: $engPath" -ForegroundColor Cyan
+            $VolumeMappings += @("-v", "${engPath}:${engPath}:ro")
+            $MountPoints += $engPath
+            $GitDirectories += $engPath
+        }
+    }
+}
+
 # Execute auto-generated DockerMounts.g.ps1 script to add more directory mounts.
 $dockerMountsScript = Join-Path $EngPath 'DockerMounts.g.ps1'
 if (Test-Path $dockerMountsScript)
@@ -440,6 +489,38 @@ foreach (`$dir in `$gitDirectories) {
         git config --global --add safe.directory `$normalizedDir
     }
 }
+
+# Configure MCP approval server if available (for Claude mode)
+`$mcpServerUrl = [Environment]::GetEnvironmentVariable('MCP_APPROVAL_SERVER')
+if (`$mcpServerUrl) {
+    Write-Host "Configuring MCP approval server: `$mcpServerUrl" -ForegroundColor Cyan
+
+    # Read existing settings or create new
+    `$settingsPath = "`$env:USERPROFILE\.claude\settings.json"
+    `$settingsDir = Split-Path `$settingsPath -Parent
+    if (-not (Test-Path `$settingsDir)) {
+        New-Item -ItemType Directory -Path `$settingsDir -Force | Out-Null
+    }
+
+    if (Test-Path `$settingsPath) {
+        `$settings = Get-Content `$settingsPath -Raw | ConvertFrom-Json -AsHashtable
+    } else {
+        `$settings = @{}
+    }
+
+    # Add MCP server configuration
+    if (-not `$settings.ContainsKey('mcpServers')) {
+        `$settings['mcpServers'] = @{}
+    }
+    `$settings['mcpServers']['host-approval'] = @{
+        'type' = 'http'
+        'url' = `$mcpServerUrl
+    }
+
+    # Write updated settings
+    `$settings | ConvertTo-Json -Depth 10 | Set-Content `$settingsPath -Encoding UTF8
+    Write-Host "MCP server configured in Claude settings" -ForegroundColor Green
+}
 "@
 $initScriptContent | Set-Content -Path $initScript -Encoding UTF8
 
@@ -507,6 +588,56 @@ if (-not $BuildImage)
 {
     if ($Claude)
     {
+        # Start MCP approval server on host with dynamic port in new terminal tab
+        $mcpPort = $null
+        $mcpPortFile = $null
+        if (-not $NoMcp) {
+            Write-Host "Starting MCP approval server..." -ForegroundColor Green
+            $mcpPortFile = Join-Path $PSScriptRoot $dockerContextDirectory "mcp-port.txt"
+            if (Test-Path $mcpPortFile) {
+                Remove-Item $mcpPortFile
+            }
+
+            # Build the command to run in the new tab
+            $mcpCommand = "& '$SourceDirName\Build.ps1' tools mcp-server --port-file '$mcpPortFile'"
+
+            # Try Windows Terminal first (wt.exe), fall back to conhost
+            $wtPath = Get-Command wt.exe -ErrorAction SilentlyContinue
+            if ($wtPath) {
+                # Open new tab in current Windows Terminal window
+                # The -w 0 option targets the current window
+                # Use single argument string for proper escaping
+                $wtArgString = "-w 0 new-tab --title `"MCP Approval Server`" -- pwsh -NoExit -Command `"$mcpCommand`""
+                $mcpServerProcess = Start-Process -FilePath "wt.exe" -ArgumentList $wtArgString -PassThru
+            } else {
+                # Fallback: start in new console window
+                $mcpServerProcess = Start-Process -FilePath "pwsh" `
+                    -ArgumentList "-NoExit", "-Command", $mcpCommand `
+                    -PassThru
+            }
+
+            # Wait for port file to be written (with timeout)
+            $timeout = 30
+            $elapsed = 0
+            while (-not (Test-Path $mcpPortFile) -and $elapsed -lt $timeout) {
+                Start-Sleep -Milliseconds 500
+                $elapsed += 0.5
+            }
+
+            if (-not (Test-Path $mcpPortFile)) {
+                Write-Error "MCP server failed to start within $timeout seconds"
+                if ($mcpServerProcess -and !$mcpServerProcess.HasExited) {
+                    Stop-Process -Id $mcpServerProcess.Id -Force -ErrorAction SilentlyContinue
+                }
+                exit 1
+            }
+
+            $mcpPort = (Get-Content $mcpPortFile -Raw).Trim()
+            Write-Host "MCP approval server running on port $mcpPort" -ForegroundColor Cyan
+        } else {
+            Write-Host "Skipping MCP approval server (-NoMcp specified)." -ForegroundColor Yellow
+        }
+
         # Run Claude mode
         Write-Host "Running Claude in the container." -ForegroundColor Green
 
@@ -572,15 +703,67 @@ if (-not $BuildImage)
         $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
 
         # Set HOME/USERPROFILE so Claude finds its config in the mounted location
-        $envArgs = @("-e", "HOME=$containerUserProfile", "-e", "USERPROFILE=$containerUserProfile")
+        # Also pass MCP approval server URL if available
+        $envArgs = @(
+            "-e", "HOME=$containerUserProfile",
+            "-e", "USERPROFILE=$containerUserProfile"
+        )
+        if ($mcpPort) {
+            $envArgs += @("-e", "MCP_APPROVAL_SERVER=http://host.docker.internal:$mcpPort")
+        }
 
-        Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
-        docker run --rm --memory=12g $dockerArgs @VolumeMappings @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
+        $mcpEnvDisplay = if ($mcpPort) { " -e MCP_APPROVAL_SERVER=http://host.docker.internal:$mcpPort" } else { "" }
+        Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile$mcpEnvDisplay -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
 
-        if ($LASTEXITCODE -ne 0)
+        try {
+            docker run --rm --memory=12g $dockerArgs @VolumeMappings @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
+            $dockerExitCode = $LASTEXITCODE
+        }
+        finally {
+            # Cleanup MCP server after container exits (only if it was started)
+            if ($mcpPort) {
+                Write-Host "Stopping MCP approval server..." -ForegroundColor Cyan
+
+                # Find the process listening on the MCP port and kill it
+                try {
+                    # Find PID using netstat
+                    $netstatOutput = netstat -ano | Select-String ":$mcpPort\s" | Select-Object -First 1
+                    if ($netstatOutput) {
+                        $parts = $netstatOutput.Line.Trim() -split '\s+'
+                        $mcpPid = $parts[-1]
+                        if ($mcpPid -and $mcpPid -match '^\d+$') {
+                            Stop-Process -Id $mcpPid -Force -ErrorAction SilentlyContinue
+                            Write-Host "Stopped MCP server process (PID: $mcpPid)" -ForegroundColor Cyan
+                        }
+                    }
+                } catch {
+                    Write-Host "Could not stop MCP server via port lookup: $_" -ForegroundColor Yellow
+                }
+
+                # Fallback: try to find by command line
+                $mcpProcesses = Get-Process -Name pwsh, dotnet -ErrorAction SilentlyContinue |
+                    Where-Object { $_.CommandLine -like "*mcp-server*" }
+
+                foreach ($proc in $mcpProcesses) {
+                    try {
+                        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                        Write-Host "Stopped MCP server process $($proc.Id)" -ForegroundColor Cyan
+                    } catch {
+                        # Process may have already exited
+                    }
+                }
+            }
+
+            # Clean up port file
+            if ($mcpPortFile -and (Test-Path $mcpPortFile)) {
+                Remove-Item $mcpPortFile -ErrorAction SilentlyContinue
+            }
+        }
+
+        if ($dockerExitCode -ne 0)
         {
-            Write-Host "Docker run (Claude) failed with exit code $LASTEXITCODE" -ForegroundColor Red
-            exit $LASTEXITCODE
+            Write-Host "Docker run (Claude) failed with exit code $dockerExitCode" -ForegroundColor Red
+            exit $dockerExitCode
         }
     }
     else

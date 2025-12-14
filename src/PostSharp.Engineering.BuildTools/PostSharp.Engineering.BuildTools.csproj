@@ -40,6 +40,7 @@
         <PackageReference Include="System.Text.Json" /> <!-- Resolves vulnerability. -->
         <PackageReference Include="System.Text.RegularExpressions" /> <!-- Resolves vulnerability. -->
         <PackageReference Include="Typesense" />
+        <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <PackageReference Include="Octokit" />
         <PackageReference Include="Octokit.GraphQL" />
         <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" />
