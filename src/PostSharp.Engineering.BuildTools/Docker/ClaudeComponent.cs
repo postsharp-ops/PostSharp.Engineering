@@ -48,5 +48,11 @@ public class ClaudeComponent : ContainerComponent
             throw new InvalidOperationException(
                 $"Claude CLI requires Node.js >= {_minNodeVersion}, but {existingNodeJs.Version} is configured." );
         }
+
+        // Auto-add GitHubCliComponent if not already present
+        if ( !components.OfType<GitHubCliComponent>().Any() )
+        {
+            add( new GitHubCliComponent() );
+        }
     }
 }

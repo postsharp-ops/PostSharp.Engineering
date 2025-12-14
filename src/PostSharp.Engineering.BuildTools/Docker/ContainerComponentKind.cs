@@ -17,6 +17,7 @@ public enum ContainerComponentKind
     NodeJs,
     Python,
     Gulp,
+    GitHubCli,
     Claude,
     Epilogue
 }
