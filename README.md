@@ -1,405 +1,568 @@
-# PostSharp Engineering
+# PostSharp.Engineering
 
-## Table of contents
-
-- [PostSharp Engineering](#postsharp-engineering)
-  - [Table of contents](#table-of-contents)
-  - [Content](#content)
-  - [Concepts](#concepts)
-    - [Terminology](#terminology)
-    - [Build and testing locally](#build-and-testing-locally)
-    - [Versioning](#versioning)
-      - [Objectives](#objectives)
-      - [Configuring the version of the current product](#configuring-the-version-of-the-current-product)
-    - [Configuring the version of dependent products or packages.](#configuring-the-version-of-dependent-products-or-packages)
-    - [Using a local build of a referenced product](#using-a-local-build-of-a-referenced-product)
-  - [Installation](#installation)
-    - [Step 1. Edit global.json](#step-1-edit-globaljson)
-    - [Step 2. Packaging.props](#step-2-packagingprops)
-    - [Step 3. MainVersion.props](#step-3-mainversionprops)
-    - [Step 4. Versions.props](#step-4-versionsprops)
-    - [Step 5. Directory.Build.props](#step-5-directorybuildprops)
-    - [Step 6. Directory.Build.targets](#step-6-directorybuildtargets)
-    - [Step 7. Create the front-end build project](#step-7-create-the-front-end-build-project)
-    - [Step 8. Create Build.ps1, the front-end build script](#step-8-create-buildps1-the-front-end-build-script)
-    - [Step 9. Editing .gitignore](#step-9-editing-gitignore)
-  - [Build Concepts](#build-concepts)
-  - [Continuous integration](#continuous-integration)
-    - [Artifacts](#artifacts)
-    - [Commands](#commands)
-    - [Required environment variables](#required-environment-variables)
+Build orchestration SDK for PostSharp and Metalama repositories.
 
 ## Overview
 
-This repository contains build scripts and tools common to all Metalama repos. We released `PostSharp.Engineering` under an open-source license because it is a dependency of other open-source Metalama projects. Although you can use this project to build your own products, our intention is not to maintain a build framework for the general public, but an ad-hoc solution for our own needs.
+PostSharp.Engineering is an internal build orchestration framework designed for complex multi-repository .NET projects. It provides:
 
-This repo produces two NuGet packages:
- 
-* _PostSharp.Engineering.BuildTools_ is meant to be added as a package reference from the facade C# build program.
-  
-* _PostSharp.Engineering.Sdk_ is meant to be used as an SDK project.
+- **Unified build workflow** via `Build.ps1` front-end script
+- **Dependency management** across repositories (local, feed, and build server sources)
+- **CI/CD integration** with TeamCity project and build configuration generation
+- **Multi-target publishing** to NuGet feeds, VSIX marketplace, AWS S3, IIS, and more
+- **Version management** with automatic bumping and tagging
+- **Docker support** for containerized builds
 
-  * `AssemblyMetadata.targets`: Adds package versions to assembly metadata.
-  * `BuildOptions.props`: Sets the compiler options like language version, nullability and other build options like output path.
-  * `TeamCity.targets`: Enables build and tests reporting to TeamCity.
-  * `SourceLink.props`: Enables SourceLink support.
-  * `Coverage.props`:
-    Enabled code coverage. This script should be imported in test projects only (not in projects being tested). This script
-    adds a package to _coverlet_ so there is no need to have in in test projects (and these references should be removed).
-  * `MetalamaBranding.props` and `PostSharpBranding.props`: Configure the proper icon for the nuget package.
-  * `PackagesConfig.targets`: Makes the Restore and Pack targets work for projects referencing NuGet using packages.config.
-  * `WebPublish.targets`: Configures the release build of web projects to be published as a zipped artifact.
-  * `TestsPublish.targets`: Configures the release build of test projects to be published as a zipped artifact.
+While released under an open-source license (as a dependency of Metalama), this SDK is an ad-hoc solution for PostSharp/Metalama projects, not a general-purpose build framework.
 
-Both packages must be used at the same time and the versions must match.
+## Packages
 
-## Concepts
+This repository produces three NuGet packages:
 
-### Terminology
+| Package | Purpose |
+|---------|---------|
+| **PostSharp.Engineering.BuildTools** | Core build SDK, added as a PackageReference from the `eng/src` build project |
+| **PostSharp.Engineering.Sdk** | MSBuild SDK with `.props` and `.targets` files for project configuration |
+| **PostSharp.Engineering.DocFx** | DocFx documentation generation extensions |
 
-A _product_ is almost a synonym for _repository__. There is a single product per repository, and the product name must be the same as the repository name. A product can contain several C# solutions.
+Both `BuildTools` and `Sdk` packages must be used together with matching versions.
 
-### Building and testing locally
+## Versioning
 
-For details, do `Build.ps1` in PowerShell and read the help.
+Version management is centralized in the `eng/` directory. All solutions and projects in a product share the same version.
 
-### Versioning
+### Version Files
 
-#### Objectives
+| File | Purpose |
+|------|---------|
+| `eng/MainVersion.props` | Defines the product version (required) |
+| `eng/Versions.props` | Defines dependency versions and imports MainVersion.props |
+| `eng/Versions.g.props` | Auto-generated overrides for local/build-server dependencies |
+| `eng/Dependencies.props` | Manual dependency source overrides |
 
-A major goal of this SDK is to allow to build and test repositories that have references to other repositories _without_ having to publish the nuget package.
-That is, it is possible and quite easy, with this SDK, to perform builds that reference local clones of repositories. All solutions or projects in the same product share have the same version.
+### MainVersion.props Properties
 
-#### Configuring the version of the current product
+| Property | Description | Example |
+|----------|-------------|---------|
+| `MainVersion` | The main version number (3 components: major.minor.patch) | `2023.2.279` |
+| `PackageVersionSuffix` | Version suffix for pre-release packages (empty for RTM) | `-preview`, `-rc` |
+| `OverriddenPatchVersion` | Optional 4-component version for patch releases | `2023.2.279.1` |
+| `OurPatchVersion` | Patch counter when using `OverriddenPatchVersion` | `1` |
 
-The product package version and package version suffix configuration is centralized in the `eng\MainVersion.props`
-script via the `MainVersion` and `PackageVersionSuffix` properties, respectively. For RTM products, leave
-the `PackageVersionSuffix` property value empty.
+### Version Computation
 
-### Configuring the version of dependent products or packages.
+The final package version is computed as:
+- **Standard**: `{MainVersion}{PackageVersionSuffix}` (e.g., `2023.2.279-preview`)
+- **RTM**: `{MainVersion}` with empty suffix (e.g., `2023.2.279`)
+- **Patch**: `{OverriddenPatchVersion}{PackageVersionSuffix}` (e.g., `2023.2.279.1`)
 
-Package dependencies versions configuration is centralized in the `eng\Versions.props` script. Each dependency version
-is configured in a property named `<[DependencyName]Version>`, eg. `<SystemCollectionsImmutableVersion>`.
+### Patch Versions
 
-This property value is then available in all MSBuild project files in the repository and can be used in
-the `PackageReference` items. For example:
+The `OverriddenPatchVersion` property enables releasing patches of repo B without releasing a new build of dependent repo A:
 
+```xml
+<Project>
+    <PropertyGroup>
+        <MainVersion>2023.2.279</MainVersion>
+        <PackageVersionSuffix></PackageVersionSuffix>
+        <OverriddenPatchVersion>2023.2.279.1</OverriddenPatchVersion>
+        <OurPatchVersion>1</OurPatchVersion>
+    </PropertyGroup>
+</Project>
 ```
-<ItemGroup>
-    <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" />
-</ItemGroup>
+
+The `OverriddenPatchVersion` must start with the `MainVersion` value.
+
+### Versions.props Structure
+
+```xml
+<Project>
+    <!-- Import the main version -->
+    <Import Project="MainVersion.props" />
+
+    <!-- Define product version properties -->
+    <PropertyGroup>
+        <MyProductVersion>$(MainVersion)$(PackageVersionSuffix)</MyProductVersion>
+        <MyProductAssemblyVersion>$(MainVersion)</MyProductAssemblyVersion>
+    </PropertyGroup>
+
+    <!-- Dependency versions -->
+    <PropertyGroup>
+        <SomeDependencyVersion>1.2.3</SomeDependencyVersion>
+    </PropertyGroup>
+
+    <!-- Import auto-generated overrides (for local/build-server dependencies) -->
+    <Import Project="Versions.g.props" Condition="Exists('Versions.g.props')" />
+
+    <!-- Import manual overrides -->
+    <Import Project="Dependencies.props" Condition="Exists('Dependencies.props')" />
+
+    <!-- Set MSBuild version properties -->
+    <PropertyGroup>
+        <AssemblyVersion>$(MyProductAssemblyVersion)</AssemblyVersion>
+        <Version>$(MyProductVersion)</Version>
+    </PropertyGroup>
+</Project>
 ```
 
-### Using a local build of a referenced product
+### AutoUpdatedVersions.props
 
-Dependencies must be checked out under the same root directory (typically `c:\src`) under their canonic name.
+The `eng/AutoUpdatedVersions.props` file tracks released versions of dependencies and the current product. It is automatically updated during publishing and version bumping.
 
-Then, use `Build.ps1 dependencies set local <DEPENDENCY>` to specify which dependencies should be run locally.
+```xml
+<Project>
+    <PropertyGroup>
+        <!-- Released versions of dependencies (auto-updated from their repos) -->
+        <MetalamaCompilerVersion>2026.0.1</MetalamaCompilerVersion>
+        <MetalamaVersion>2026.0.15</MetalamaVersion>
 
-This will generate `eng/Versions.g.props`, which you should have imported in `eng/Versions.props`.
+        <!-- This product's released version (updated after publishing) -->
+        <MyProductReleaseVersion>2026.0.5</MyProductReleaseVersion>
+        <MyProductReleaseMainVersion>2026.0.5</MyProductReleaseMainVersion>
+    </PropertyGroup>
+</Project>
+```
 
+This file serves two purposes:
+1. **Dependency tracking**: Stores the released versions of dependencies with `AutoUpdateVersion = true`
+2. **Release tracking**: Records this product's last released version (`{ProductName}ReleaseVersion` and `{ProductName}ReleaseMainVersion`)
+
+### AutoUpdateVersion Property
+
+The `DependencyDefinition.AutoUpdateVersion` property (default: `true`) controls whether a dependency's version is automatically updated in `AutoUpdatedVersions.props` during bumping:
+
+```csharp
+public static DependencyDefinition PostSharpEngineering { get; } = new(...)
+{
+    // Set to false for dependencies that should not trigger auto-updates
+    AutoUpdateVersion = false
+};
+```
+
+Dependencies with `AutoUpdateVersion = false` (like `PostSharp.Engineering` itself) are excluded from automatic version propagation.
+
+### MainVersionDependency
+
+Products can inherit their version from a parent dependency using `MainVersionDependency`:
+
+```csharp
+var product = new Product(...)
+{
+    // This product's version comes from Metalama's version
+    MainVersionDependency = MetalamaDependencies.V2026_0.Metalama
+};
+```
+
+When set, the product doesn't maintain its own `MainVersion` but inherits from the specified dependency's released version.
+
+### Version Bumping
+
+The `bump` command increments the product version after a successful deployment:
+
+```powershell
+Build.ps1 bump              # Bump version (only on development branch)
+Build.ps1 bump --force      # Bump even on non-development branches
+Build.ps1 bump --override   # Ignore previous bump commits
+```
+
+**Bump workflow:**
+1. Verifies we're on the development branch
+2. Checks for pending changes from the release branch
+3. Reads `AutoUpdatedVersions.props` from all dependencies with `AutoUpdateVersion = true`
+4. If there are changes since last deployment:
+   - For products with their own version: increments `MainVersion` patch number (e.g., `2023.2.279` → `2023.2.280`)
+   - For products with `MainVersionDependency`: uses the inherited version
+5. Updates `AutoUpdatedVersions.props` with new dependency versions and this product's new version
+6. Commits and pushes the changes (on CI)
+
+**Bump strategies** (see [`IBumpStrategy`](src/PostSharp.Engineering.BuildTools/Build/Bumping/IBumpStrategy.cs)):
+- `DefaultBumpStrategy`: Increments the patch component of `MainVersion`
+- `PatchVersionBumpStrategy`: Increments `OurPatchVersion` for 4-component versioning
+
+For implementation details, see:
+- [`MainVersionFile.cs`](src/PostSharp.Engineering.BuildTools/Build/Files/MainVersionFile.cs) - MainVersion.props parsing
+- [`AutoUpdatedVersionsFile.cs`](src/PostSharp.Engineering.BuildTools/Build/Files/AutoUpdatedVersionsFile.cs) - AutoUpdatedVersions.props management
+- [`BumpCommand.cs`](src/PostSharp.Engineering.BuildTools/Build/Bumping/BumpCommand.cs) - Bump workflow
+- [`VersionComponents.cs`](src/PostSharp.Engineering.BuildTools/Build/Model/VersionComponents.cs) - Version computation
+
+## Quick Start
+
+For new projects, use the template repository: https://github.com/postsharp/PostSharp.Engineering.ProductTemplate
+
+### Build Commands
+
+```powershell
+# Show help
+Build.ps1 --help
+
+# Prepare dependencies (generates version files)
+Build.ps1 prepare
+
+# Build all packages
+Build.ps1 build
+
+# Build and run tests
+Build.ps1 test
+
+# Publish artifacts
+Build.ps1 publish
+```
+
+### Dependency Management
+
+```powershell
+# List dependencies
+Build.ps1 dependencies list
+
+# Use local clone of a dependency
+Build.ps1 dependencies set local <DEPENDENCY>
+
+# Reset to default (feed/build server)
+Build.ps1 dependencies reset --all
+
+# Fetch latest from build server
+Build.ps1 dependencies fetch
+
+# Update to newest version
+Build.ps1 dependencies update
+```
+
+## Command Reference
+
+### Core Commands
+
+| Command | Description |
+|---------|-------------|
+| `prepare` | Creates files required to build (version props, NuGet config) |
+| `build` | Builds all packages (implies `prepare`) |
+| `test` | Builds and runs all tests (implies `build`) |
+| `publish` | Publishes built artifacts to configured destinations |
+| `prepublish` | Prepares for publishing (validation, checks) |
+| `postpublish` | Finalizes publishing (version bump, tagging) |
+| `swap` | Swaps deployment slots (blue/green deployment) |
+| `bump` | Bumps the product version |
+| `verify` | Verifies public artifact dependencies are published |
+| `clean` | Cleans build artifacts |
+
+### Dependency Commands
+
+| Command | Description |
+|---------|-------------|
+| `dependencies list` | Lists product dependencies |
+| `dependencies set` | Sets dependency source (local, feed, build server) |
+| `dependencies reset` | Resets to default configuration |
+| `dependencies fetch` | Fetches from build server |
+| `dependencies update` | Updates to newest available version |
+| `dependencies update-eng` | Updates PostSharp.Engineering version |
+
+### Code Style Commands
+
+| Command | Description |
+|---------|-------------|
+| `codestyle format` | Formats code using ReSharper |
+| `codestyle inspect` | Inspects code for warnings |
+| `codestyle push` | Pushes code style changes to engineering repo |
+| `codestyle pull` | Pulls code style from engineering repo |
+
+### TeamCity Commands
+
+| Command | Description |
+|---------|-------------|
+| `teamcity run` | Triggers a TeamCity build |
+| `teamcity project get` | Gets TeamCity project details |
+| `teamcity project create` | Creates a new TeamCity project |
+| `teamcity project create-this` | Creates project for current repo |
+
+### Tool Commands
+
+| Command | Description |
+|---------|-------------|
+| `tools kill` | Kills compiler processes (useful after failed builds) |
+| `tools dump` | Dumps process information |
+| `tools git merge-downstream` | Merges to downstream branch |
+| `tools git check-upstream` | Checks upstream for unmerged changes |
+| `tools nuget rename` | Renames packages in a directory |
+| `tools nuget verify-public` | Verifies packages reference only public packages |
+| `generate-scripts` | Generates CI and Docker scripts |
+
+## MSBuild SDK Files
+
+The `PostSharp.Engineering.Sdk` package provides:
+
+### Props Files
+
+| File | Purpose |
+|------|---------|
+| `BuildOptions.props` | Compiler settings (language version, nullability, output paths) |
+| `SourceLink.props` | SourceLink configuration for debugging |
+| `Coverage.props` | Code coverage with Coverlet (test projects only) |
+| `StrongName.props` | Strong name signing configuration |
+| `MetalamaBranding.props` | Metalama NuGet package branding |
+| `PostSharpBranding.props` | PostSharp NuGet package branding |
+| `SystemTypes.props` | Modern C# features for older target frameworks |
+
+### Targets Files
+
+| File | Purpose |
+|------|---------|
+| `AssemblyMetadata.targets` | Adds package versions to assembly metadata |
+| `TeamCity.targets` | Build and test reporting for TeamCity |
+| `AspNetPublish.targets` | ASP.NET Core project publishing |
+| `WebPublish.targets` | Web project artifact publishing |
+| `TestsPublish.targets` | Test project artifact publishing |
+| `PackagesConfig.targets` | Legacy packages.config support |
+| `CleanXmlDoc.targets` | XML documentation cleanup |
 
 ## Installation
 
-The easiest way to get started is from this repo template: https://github.com/postsharp/PostSharp.Engineering.ProductTemplate.
-
 ### Step 1. Edit global.json
-
-Add or update the reference to `PostSharp.Engineering.Sdk` in `global.json`.
 
 ```json
 {
   "sdk": {
-    "version": "5.0.206",
-    "rollForward": "disable"
+    "version": "9.0.100",
+    "rollForward": "latestPatch"
   },
   "msbuild-sdks": {
-    "PostSharp.Engineering.Sdk": "1.0.0"
+    "PostSharp.Engineering.Sdk": "2023.2.1"
   }
 }
 ```
 
-### Step 2. Packaging.props
-
-
-Create `eng\Packaging.props` file. The content should look like this:
+### Step 2. Create eng/Packaging.props
 
 ```xml
 <Project>
-
-    <!-- Properties of NuGet packages-->
     <PropertyGroup>
-        <Authors>PostSharp Technologies</Authors>
-        <PackageProjectUrl>https://github.com/postsharp/Metalama</PackageProjectUrl>
-        <PackageTags>PostSharp Metalama AOP</PackageTags>
+        <Authors>Your Company</Authors>
+        <PackageProjectUrl>https://github.com/your/repo</PackageProjectUrl>
+        <PackageTags>your tags</PackageTags>
         <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-        <PackageIcon>PostSharpIcon.png</PackageIcon>
+        <PackageIcon>Icon.png</PackageIcon>
         <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     </PropertyGroup>
 
-    <!-- Additional content of NuGet packages -->
     <ItemGroup>
-        <None Include="$(MSBuildThisFileDirectory)..\PostSharpIcon.png" Visible="false" Pack="true" PackagePath="" />
+        <None Include="$(MSBuildThisFileDirectory)..\Icon.png" Visible="false" Pack="true" PackagePath="" />
         <None Include="$(MSBuildThisFileDirectory)..\LICENSE.md" Visible="false" Pack="true" PackagePath="" />
-        <None Include="$(MSBuildThisFileDirectory)..\THIRD-PARTY-NOTICES.TXT" Visible="false" Pack="true" PackagePath="" />
     </ItemGroup>
-
 </Project>
 ```
 
-Make sure that all the files referenced in the previous step exist, or modify the file.
-
-### Step 3. MainVersion.props
-
-Create `eng\MainVersion.props` file. The content should look like:
+### Step 3. Create eng/MainVersion.props
 
 ```xml
 <Project>
     <PropertyGroup>
-        <MainVersion>0.3.6</MainVersion>
+        <MainVersion>1.0.0</MainVersion>
         <PackageVersionSuffix>-preview</PackageVersionSuffix>
     </PropertyGroup>
 </Project>
 ```
 
-Additionally, there may be a property named `PatchVersion`, which may contain a version number with 4 components.
-The `PatchVersion` property value MUST start with the value of the `MainVersion` property. The use case for this property is when a repo A has a version dependency on another repo B but we want to release a patch of repo B without releasing a new build of repo A.
-
-
-### Step 4. Versions.props
-
-Create `eng\Versions.props` file. The content should look like this (replace `My` by the name of the repo without dot):
+### Step 4. Create eng/Versions.props
 
 ```xml
 <Project>
+    <Import Project="MainVersion.props" />
 
-    <!-- Version of My. -->
-    <Import Project="MainVersion.props" Condition="!Exists('MyVersion.props')" />
-    
     <PropertyGroup>
-        <MyVersion>$(MainVersion)$(PackageVersionSuffix)</MyVersion>
-        <MyAssemblyVersion>$(MainVersion)</MyAssemblyVersion>
+        <MyProductVersion>$(MainVersion)$(PackageVersionSuffix)</MyProductVersion>
+        <MyProductAssemblyVersion>$(MainVersion)</MyProductAssemblyVersion>
     </PropertyGroup>
 
-    <!-- Versions of dependencies -->
+    <!-- Dependency versions -->
     <PropertyGroup>
-        <RoslynVersion>3.8.0</RoslynVersion>
-        <MetalamaCompilerVersion>3.8.12-preview</MetalamaCompilerVersion>
-        <MicrosoftCSharpVersion>4.7.0</MicrosoftCSharpVersion>
+        <SomeDependencyVersion>1.2.3</SomeDependencyVersion>
     </PropertyGroup>
 
-    <!-- Overrides by local settings -->
-    <Import Project="../artifacts/publish/private/MyVersion.props" Condition="Exists('../artifacts/publish/private/MyVersion.props')" />
+    <!-- Local overrides -->
     <Import Project="Dependencies.props" Condition="Exists('Dependencies.props')" />
 
-    <!-- Other properties depending on the versions set above -->
     <PropertyGroup>
-        <AssemblyVersion>$(MyAssemblyVersion)</AssemblyVersion>
-        <Version>$(MyVersion)</Version>
+        <AssemblyVersion>$(MyProductAssemblyVersion)</AssemblyVersion>
+        <Version>$(MyProductVersion)</Version>
     </PropertyGroup>
-    
-
 </Project>
 ```
 
-### Step 5. Directory.Build.props
-
-Add the following content to `Directory.Build.props`:
+### Step 5. Create Directory.Build.props
 
 ```xml
 <Project>
-
   <PropertyGroup>
     <RepoDirectory>$(MSBuildThisFileDirectory)</RepoDirectory>
-    <RepoKind>AzureRepos</RepoKind>
+    <RepoKind>GitHub</RepoKind>
   </PropertyGroup>
 
   <Import Project="eng\Versions.props" />
   <Import Project="eng\Packaging.props" />
 
   <Import Sdk="PostSharp.Engineering.Sdk" Project="BuildOptions.props" />
-  <Import Sdk="PostSharp.Engineering.Sdk" Project="CodeQuality.props" />
   <Import Sdk="PostSharp.Engineering.Sdk" Project="SourceLink.props" />
-
 </Project>
 ```
 
-### Step 6. Directory.Build.targets
-
-Add the following content to `Directory.Build.targets`:
+### Step 6. Create Directory.Build.targets
 
 ```xml
 <Project>
-
-  <Import Sdk="PostSharp.Engineering.Sdk"  Project="AssemblyMetadata.targets" />
-  <Import Sdk="PostSharp.Engineering.Sdk"  Project="TeamCity.targets" />
-
+  <Import Sdk="PostSharp.Engineering.Sdk" Project="AssemblyMetadata.targets" />
+  <Import Sdk="PostSharp.Engineering.Sdk" Project="TeamCity.targets" />
 </Project>
 ```
 
-### Step 7. Create the front-end build project
-
-Create a file `eng\src\Build.csproj` with the following content:
+### Step 7. Create the build project (eng/src/Build.csproj)
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
-
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <AssemblyName>Build</AssemblyName>
-        <GenerateDocumentationFile>false</GenerateDocumentationFile>
         <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
-        <NoWarn>SA0001;CS8002</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="PostSharp.Engineering.BuildTools.csproj" Version="$(PostSharpEngineeringVersion)" />
+        <PackageReference Include="PostSharp.Engineering.BuildTools" Version="$(PostSharpEngineeringVersion)" />
     </ItemGroup>
-
 </Project>
 ```
 
-Create also a file `eng\src\Program.cs` with content that varies according to your repo. You can use all the power of C#
-and PowerShell to customize the build. Note that in the `PublicArtifacts`, the strings `$(Configuration)`
-and `$(PackageVersion)`, and only those strings, are replaced by their value.
+### Step 8. Create eng/src/Program.cs
 
-```cs
+```csharp
 using PostSharp.Engineering.BuildTools;
-using PostSharp.Engineering.BuildTools.Commands.Build;
-using Spectre.Console.Cli;
-using System.Collections.Immutable;
+using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Solutions;
 
-namespace BuildMetalama
+var product = new Product(/* your dependency definition */)
 {
-    internal class Program
-    {
-        private static int Main( string[] args )
-        {
-            var product = new Product
-            {
-                ProductName = "Metalama",
-                Solutions = ImmutableArray.Create<Solution>(
-                    new DotNetSolution( "Metalama.sln" )
-                    {
-                        SupportsTestCoverage = true
-                    },
-                    new DotNetSolution( "Tests\\Metalama.Framework.TestApp\\Metalama.Framework.TestApp.sln" )
-                    {
-                        IsTestOnly = true
-                    } ),
-                PublicArtifacts = ImmutableArray.Create(
-                    "bin\\$(Configuration)\\Metalama.Framework.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Metalama.TestFramework.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Metalama.Framework.Redist.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Metalama.Framework.Sdk.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Metalama.Framework.Impl.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Metalama.Framework.DesignTime.Contracts.$(PackageVersion).nupkg" ),
-                 Dependencies = ImmutableArray.Create(
-                    new ProductDependency("Metalama.Compiler"), 
-                    new ProductDependency("PostSharp.Engineering.BuildTools") )    
-            };
-            var commandApp = new CommandApp();
-            commandApp.AddProductCommands( product );
+    Solutions =
+    [
+        new DotNetSolution("YourProduct.sln") { SupportsTestCoverage = true }
+    ],
+    PublicArtifacts = Pattern.Create(
+        "YourPackage.$(PackageVersion).nupkg")
+};
 
-            return commandApp.Run( args );
-        }
-    }
-}
+var app = new EngineeringApp(product);
+return app.Run(args);
 ```
 
-### Step 8. Create Build.ps1, the front-end build script
-
-Create `Build.ps1` file in the repo root directory. The content should look like:
+### Step 9. Create Build.ps1
 
 ```powershell
-if ( $env:VisualStudioVersion -eq $null ) {
-    Import-Module "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-    Enter-VsDevShell -VsInstallPath "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\" -StartInPath $(Get-Location)
+if ($env:VisualStudioVersion -eq $null) {
+    Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+    Enter-VsDevShell -VsInstallPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\" -StartInPath $(Get-Location)
 }
 
 & dotnet run --project "$PSScriptRoot\eng\src\Build.csproj" -- $args
 exit $LASTEXITCODE
 ```
 
-### Step 9. Editing .gitignore
-
-Exclude this:
+### Step 10. Update .gitignore
 
 ```
-artifacts
-eng/tools
-*.Import.props
+artifacts/
+eng/tools/
+*.g.props
 ```
 
-## Build Concepts
-
-The code in `Program.cs` uses the concepts described here.
+## Architecture
 
 ```mermaid
 classDiagram
+    class Product {
+        +Solutions
+        +Dependencies
+        +Configurations
+        +PublicArtifacts
+        +Publishers
+    }
 
-  class Product {
+    class Solution {
+        <<abstract>>
+    }
 
-  }
+    class DotNetSolution
+    class Publisher {
+        <<abstract>>
+    }
 
-  class Solution {
-
-  }
-
-
-
-  Program o-- "1" Product 
-  Product o-- "*" Solution
-  Product  o-- "*" DependencyDefinition
-  Product  o-- "3" BuildConfigurationInfo
-  BuildConfigurationInfo  o-- "*" IBuildTrigger
-  BuildConfigurationInfo o-- "*" Publisher
-  BuildConfigurationInfo o-- "*" Swapper
-  Swapper o-- "*" Tester
-  Solution <|-- DotNetSolution
-  Solution <|-- MSBuildSolution
-  Tester <|-- VSTestTester
-  IBuildTrigger <|-- NightlyBuildTrigger
-  IBuildTrigger <|-- SourceBuildTrigger
-  Publisher <|-- MSDeployPublisher
-  Publisher <|-- NuGetPublisher
-  Publisher <|-- VsixPublisher
-  
-
+    Product o-- "*" Solution
+    Product o-- "*" DependencyDefinition
+    Product o-- "3" BuildConfigurationInfo
+    BuildConfigurationInfo o-- "*" Publisher
+    BuildConfigurationInfo o-- "*" Swapper
+    Solution <|-- DotNetSolution
+    Publisher <|-- NugetPublisher
+    Publisher <|-- VsixPublisher
+    Publisher <|-- S3Publisher
+    Publisher <|-- MsDeployPublisher
 ```
 
-* _Program_ is your program, i.e. `BuildMyProduct`.
-* _Product_ is a unique instance configured by _Program_, the root object that defines the build for the whole repo.
-* _Solution_ represents a solution, project, or other build script in your repo. A solution is something that can be restored, built, packed, tested. Two standard implementations are _DotNetSolution_ and _MSBuildSolution_.
-* _BuildConfigurationInfo_ represents properties that are specific to a build configuration (i.e. _Debug_, _Release_ or _Public_) for the product.
-* _DependencyDefinition_ are dependencies to other repositories.
-* _Publisher_ is something that publishes, or deploys, an already-built artefact to a feed, marketplace, deployment slot, or anything. There are standard implementations for NuGet, VSIX, web sites.
-* _Swapper_ is something that swaps a staging deployment slot into the production deployment slot.
-* _Tester_ is a test suite, typically running against a staging deployment, that must execute successfully before the staging deployment is swapped into the production deployment.
+### Key Concepts
 
-## Continuous integration
+- **Product**: Root configuration representing a repository
+- **Solution**: A buildable unit (solution, project, or script)
+- **BuildConfigurationInfo**: Configuration-specific settings (Debug, Release, Public)
+- **DependencyDefinition**: Reference to another repository/product
+- **Publisher**: Deploys artifacts to feeds, marketplaces, or servers
+- **Swapper**: Blue/green deployment slot swapping
 
-We use TeamCity as our CI/CD pipeline, and we use Kotlin scripts stored in the Git repo. For an example, see the `.teamcity` directory
-the current repo.
+## Continuous Integration
+
+We use TeamCity with Kotlin DSL configuration stored in `.teamcity/`.
+
+### Build Configurations
+
+```powershell
+# Debug build
+Build.ps1 test --numbered %build.number%
+
+# Release build (signed)
+Build.ps1 test --configuration Release --sign
+
+# Publish to internal feeds
+Build.ps1 publish
+
+# Publish to public feeds
+Build.ps1 publish --public
+```
 
 ### Artifacts
 
-All TeamCity artifacts are published under `artifacts/publish`. All build configurations should export and import these artifacts.
+All artifacts are published to `artifacts/publish/`. TeamCity configurations should export and import these paths.
 
-### Commands
+### Required Environment Variables
 
-All TeamCity build configurations use the front-end `Build.ps1`:
+Common environment variables (see [`EnvironmentVariableNames.cs`](src/PostSharp.Engineering.BuildTools/EnvironmentVariableNames.cs) for the complete list):
 
-* Debug Build and Test: `Build.ps1 test --numbered  %build.number%`
-* Release Build and Test:  `Build.ps1 test --public --sign`
-* Publish to internal package sources:  `Build.ps1 publish`
-* Publish to internal _and_ public package source:  `Build.ps1 publish --public`
+| Variable | Purpose |
+|----------|---------|
+| `SIGNSERVER_SECRET` | Code signing server authentication |
+| `NUGET_ORG_API_KEY` | nuget.org API key |
+| `GITHUB_TOKEN` | GitHub API access |
+| `TEAMCITY_CLOUD_TOKEN` | TeamCity API access |
+| `AWS_ACCESS_KEY_ID` | AWS S3 publishing |
+| `AWS_SECRET_ACCESS_KEY` | AWS S3 publishing |
+| `VS_MARKETPLACE_ACCESS_TOKEN` | VSIX publishing |
+| `AZURE_DEVOPS_TOKEN` | Azure DevOps integration |
+| `TYPESENSE_API_KEY` | Search indexing |
 
-### Required environment variables
+## Documentation
 
-- SIGNSERVER_SECRET
-- INTERNAL_NUGET_PUSH_URL
-- INTERNAL_NUGET_API_KEY
-- NUGET_ORG_API_KEY
+Additional design documentation is available in the [doc/](doc/) folder:
+
+- [Vision](doc/vision.md) - Project goals
+- [Use Cases](doc/use-cases.md) - Supported scenarios
+- [Build Flow](doc/build-flow.md) - Build process diagrams
+- [Publish Flow](doc/publish-flow.md) - Publishing process
+- [Dependencies](doc/dependencies.md) - Metalama dependency graph
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE.md](LICENSE.md) for details.

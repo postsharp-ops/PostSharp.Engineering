@@ -1,9 +1,10 @@
 # PostSharp.Engineering Design
 
-To get the idea, read the docs in the following order:
+Design documentation for the PostSharp.Engineering build SDK. Read in the following order:
 
-1. [Vision](vision.md)
-1. [Use Cases](use-cases.md)
-1. [Build Flow](build-flow.md)
-1. [Product Publishing](publish-flow.md)
-1. [One-Click Publishing](publish-button.md)
+1. [Vision](vision.md) - Project goals and principles
+2. [Use Cases](use-cases.md) - Supported scenarios and workflows
+3. [Build Flow](build-flow.md) - Build process diagrams
+4. [Product Publishing](publish-flow.md) - Publishing workflow
+5. [One-Click Publishing](publish-button.md) - TeamCity "Publish All" configuration
+6. [Dependencies](dependencies.md) - Metalama dependency graph and management
