@@ -139,7 +139,7 @@ public sealed class RiskAnalyzer
 
         try
         {
-            using var timeoutCts = new CancellationTokenSource( TimeSpan.FromSeconds( 60 ) );
+            using var timeoutCts = new CancellationTokenSource( TimeSpan.FromSeconds( 120 ) );
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource( cancellationToken, timeoutCts.Token );
 
             var startInfo = new ProcessStartInfo

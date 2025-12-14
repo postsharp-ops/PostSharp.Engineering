@@ -553,6 +553,63 @@ Common environment variables (see [`EnvironmentVariableNames.cs`](src/PostSharp.
 | `AZURE_DEVOPS_TOKEN` | Azure DevOps integration |
 | `TYPESENSE_API_KEY` | Search indexing |
 
+## MCP Approval Server (Docker Support)
+
+When running Claude Code inside Docker containers, certain operations require host-level access (git push, GitHub CLI, etc.). The MCP Approval Server provides a secure, human-in-the-loop workflow for these operations.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────┐
+│ Docker Container                        │
+│  ┌─────────────┐                        │
+│  │ Claude Code │──▶ MCP Client          │
+│  └─────────────┘    (execute_command)   │
+└──────────────────────┬──────────────────┘
+                       │ HTTP/SSE
+                       ▼
+┌─────────────────────────────────────────┐
+│ Host: MCP Approval Server               │
+│  1. Receive request                     │
+│  2. AI risk analysis (Claude CLI)       │
+│  3. Auto-approve/reject or prompt user  │
+│  4. Execute if approved                 │
+│  5. Return result                       │
+└─────────────────────────────────────────┘
+```
+
+### Features
+
+- **AI Risk Analysis**: Each command is analyzed by Claude CLI for risk assessment
+- **Auto-approve**: LOW risk commands with AI APPROVE recommendation
+- **Auto-reject**: HIGH/CRITICAL risk commands with AI REJECT recommendation
+- **Git Push Analysis**: Automatically fetches and analyzes commit diffs for secrets, credentials, and inappropriate content
+- **Session Tracking**: Maintains command history to detect suspicious patterns
+- **Attack Detection**: Detects unicode homoglyphs, shell injection, path traversal, and other evasion techniques
+
+### Usage
+
+The MCP server starts automatically with `DockerBuild.ps1 -Claude`. To disable:
+
+```powershell
+.\DockerBuild.ps1 -Claude -NoMcp
+```
+
+Inside the container, privileged commands are routed through the MCP server automatically via the `host-approval` MCP configuration.
+
+### Supported Operations
+
+| Operation | Risk Level |
+|-----------|------------|
+| `gh pr view` | LOW |
+| `gh pr create` | LOW |
+| `git push` (feature branch) | LOW |
+| `git push` (main/develop) | MEDIUM |
+| `gh pr merge` | MEDIUM |
+| `git push --force` | HIGH |
+| `dotnet nuget push` | HIGH |
+| Secret exfiltration attempts | CRITICAL |
+
 ## Documentation
 
 Additional design documentation is available in the [doc/](doc/) folder:

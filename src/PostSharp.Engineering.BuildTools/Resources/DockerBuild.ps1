@@ -495,31 +495,46 @@ foreach (`$dir in `$gitDirectories) {
 if (`$mcpServerUrl) {
     Write-Host "Configuring MCP approval server: `$mcpServerUrl" -ForegroundColor Cyan
 
-    # Read existing settings or create new
-    `$settingsPath = "`$env:USERPROFILE\.claude\settings.json"
-    `$settingsDir = Split-Path `$settingsPath -Parent
-    if (-not (Test-Path `$settingsDir)) {
-        New-Item -ItemType Directory -Path `$settingsDir -Force | Out-Null
-    }
+    # Use claude mcp add command to properly register the server
+    # This ensures the configuration is in the correct format
+    `$sseUrl = "`$mcpServerUrl/sse"
 
-    if (Test-Path `$settingsPath) {
-        `$settings = Get-Content `$settingsPath -Raw | ConvertFrom-Json -AsHashtable
+    # Remove existing host-approval server if present (ignore errors)
+    & claude mcp remove host-approval 2>`$null
+
+    # Add the MCP server using the CLI
+    & claude mcp add host-approval --transport http `$sseUrl
+
+    if (`$LASTEXITCODE -eq 0) {
+        Write-Host "MCP server configured via 'claude mcp add'" -ForegroundColor Green
     } else {
-        `$settings = @{}
-    }
+        Write-Host "Warning: Failed to configure MCP server via CLI, trying settings.json fallback" -ForegroundColor Yellow
 
-    # Add MCP server configuration
-    if (-not `$settings.ContainsKey('mcpServers')) {
-        `$settings['mcpServers'] = @{}
-    }
-    `$settings['mcpServers']['host-approval'] = @{
-        'type' = 'http'
-        'url' = `$mcpServerUrl
-    }
+        # Fallback: write to settings.json directly
+        `$settingsPath = "`$env:USERPROFILE\.claude\settings.json"
+        `$settingsDir = Split-Path `$settingsPath -Parent
+        if (-not (Test-Path `$settingsDir)) {
+            New-Item -ItemType Directory -Path `$settingsDir -Force | Out-Null
+        }
 
-    # Write updated settings
-    `$settings | ConvertTo-Json -Depth 10 | Set-Content `$settingsPath -Encoding UTF8
-    Write-Host "MCP server configured in Claude settings" -ForegroundColor Green
+        if (Test-Path `$settingsPath) {
+            `$settings = Get-Content `$settingsPath -Raw | ConvertFrom-Json -AsHashtable
+        } else {
+            `$settings = @{}
+        }
+
+        # Add MCP server configuration with SSE URL
+        if (-not `$settings.ContainsKey('mcpServers')) {
+            `$settings['mcpServers'] = @{}
+        }
+        `$settings['mcpServers']['host-approval'] = @{
+            'url' = `$sseUrl
+        }
+
+        # Write updated settings
+        `$settings | ConvertTo-Json -Depth 10 | Set-Content `$settingsPath -Encoding UTF8
+        Write-Host "MCP server configured in Claude settings.json" -ForegroundColor Green
+    }
 }
 "@
 $initScriptContent | Set-Content -Path $initScript -Encoding UTF8
