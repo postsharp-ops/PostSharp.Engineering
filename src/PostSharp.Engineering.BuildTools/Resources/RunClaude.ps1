@@ -7,6 +7,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if ($env:RUNNING_IN_DOCKER -ne "true")
+{
+    Write-Error "This script must be run inside a Docker container. Set RUNNING_IN_DOCKER=true to override."
+    exit 1
+}
+
 Write-Host "Starting Claude CLI..." -ForegroundColor Green
 
 # Run Claude

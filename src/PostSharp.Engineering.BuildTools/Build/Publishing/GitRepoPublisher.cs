@@ -17,16 +17,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing;
 [PublicAPI]
 public class GitRepoPublisher : ArtifactPublisher
 {
-    private readonly string _gitHubUrl;
-    private readonly string _commitMessage;
+    private readonly ParametricString _gitHubUrl;
+    private readonly ParametricString _commitMessage;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GitRepoPublisher"/> class.
     /// </summary>
     /// <param name="files">The pattern matching the zip file(s) to publish.</param>
-    /// <param name="gitHubUrl">The GitHub repository URL to publish to.</param>
-    /// <param name="commitMessage">The commit message to use when pushing changes.</param>
-    public GitRepoPublisher( Pattern files, string gitHubUrl, string commitMessage ) : base( files )
+    /// <param name="gitHubUrl">The GitHub repository URL to publish to. Supports parameters like <c>$(PackageVersion)</c>.</param>
+    /// <param name="commitMessage">The commit message to use when pushing changes. Supports parameters like <c>$(PackageVersion)</c>.</param>
+    public GitRepoPublisher( Pattern files, ParametricString gitHubUrl, ParametricString commitMessage ) : base( files )
     {
         this._gitHubUrl = gitHubUrl;
         this._commitMessage = commitMessage;
@@ -43,13 +43,13 @@ public class GitRepoPublisher : ArtifactPublisher
 
         console.WriteMessage( $"Publishing '{file}' to git repository '{this._gitHubUrl}'." );
 
-        // Expand environment variables in the URL and commit message.
-        var gitHubUrl = Environment.ExpandEnvironmentVariables( this._gitHubUrl );
-        var commitMessage = Environment.ExpandEnvironmentVariables( this._commitMessage );
+        // Expand parametric strings like $(PackageVersion).
+        var gitHubUrl = this._gitHubUrl.ToString( buildArguments );
+        var commitMessage = this._commitMessage.ToString( buildArguments );
 
         if ( string.IsNullOrEmpty( gitHubUrl ) )
         {
-            console.WriteError( "The GitHub URL is empty or the environment variable is not defined." );
+            console.WriteError( "The GitHub URL is empty." );
 
             return SuccessCode.Fatal;
         }

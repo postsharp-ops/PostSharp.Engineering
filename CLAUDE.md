@@ -2,6 +2,9 @@
 
 Build orchestration SDK for PostSharp/Metalama repositories.
 
+> [!IMPORTANT]
+> Read this file entirely before doing any work or answering any question for this project, especially regarding loading skills.
+
 ## Discovering Plugin Skills
 
 The `postsharp-engineering` plugin provides skills and slash commands. To discover them:
