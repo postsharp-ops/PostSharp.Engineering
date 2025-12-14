@@ -490,52 +490,6 @@ foreach (`$dir in `$gitDirectories) {
     }
 }
 
-# Configure MCP approval server if available (for Claude mode)
-`$mcpServerUrl = [Environment]::GetEnvironmentVariable('MCP_APPROVAL_SERVER')
-if (`$mcpServerUrl) {
-    Write-Host "Configuring MCP approval server: `$mcpServerUrl" -ForegroundColor Cyan
-
-    # Use claude mcp add command to properly register the server
-    # This ensures the configuration is in the correct format
-    `$sseUrl = "`$mcpServerUrl/sse"
-
-    # Remove existing host-approval server if present (ignore errors)
-    & claude mcp remove host-approval 2>`$null
-
-    # Add the MCP server using the CLI
-    & claude mcp add host-approval --transport http `$sseUrl
-
-    if (`$LASTEXITCODE -eq 0) {
-        Write-Host "MCP server configured via 'claude mcp add'" -ForegroundColor Green
-    } else {
-        Write-Host "Warning: Failed to configure MCP server via CLI, trying settings.json fallback" -ForegroundColor Yellow
-
-        # Fallback: write to settings.json directly
-        `$settingsPath = "`$env:USERPROFILE\.claude\settings.json"
-        `$settingsDir = Split-Path `$settingsPath -Parent
-        if (-not (Test-Path `$settingsDir)) {
-            New-Item -ItemType Directory -Path `$settingsDir -Force | Out-Null
-        }
-
-        if (Test-Path `$settingsPath) {
-            `$settings = Get-Content `$settingsPath -Raw | ConvertFrom-Json -AsHashtable
-        } else {
-            `$settings = @{}
-        }
-
-        # Add MCP server configuration with SSE URL
-        if (-not `$settings.ContainsKey('mcpServers')) {
-            `$settings['mcpServers'] = @{}
-        }
-        `$settings['mcpServers']['host-approval'] = @{
-            'url' = `$sseUrl
-        }
-
-        # Write updated settings
-        `$settings | ConvertTo-Json -Depth 10 | Set-Content `$settingsPath -Encoding UTF8
-        Write-Host "MCP server configured in Claude settings.json" -ForegroundColor Green
-    }
-}
 "@
 $initScriptContent | Set-Content -Path $initScript -Encoding UTF8
 
@@ -608,10 +562,7 @@ if (-not $BuildImage)
         $mcpPortFile = $null
         if (-not $NoMcp) {
             Write-Host "Starting MCP approval server..." -ForegroundColor Green
-            $mcpPortFile = Join-Path $PSScriptRoot $dockerContextDirectory "mcp-port.txt"
-            if (Test-Path $mcpPortFile) {
-                Remove-Item $mcpPortFile
-            }
+            $mcpPortFile = Join-Path $env:TEMP "mcp-port-$([System.Guid]::NewGuid().ToString('N').Substring(0,8)).txt"
 
             # Build the command to run in the new tab
             $mcpCommand = "& '$SourceDirName\Build.ps1' tools mcp-server --port-file '$mcpPortFile'"
@@ -705,30 +656,27 @@ if (-not $BuildImage)
         {
             # Non-interactive mode with prompt - no -it flags
             $dockerArgs = @()
-            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.ps1 -Prompt `"$ClaudePrompt`""
+            $mcpArg = if ($mcpPort) { " -McpPort $mcpPort" } else { "" }
+            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.ps1 -Prompt `"$ClaudePrompt`"$mcpArg"
         }
         else
         {
             # Interactive mode - requires TTY
             $dockerArgs = @("-it")
-            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.ps1"
+            $mcpArg = if ($mcpPort) { " -McpPort $mcpPort" } else { "" }
+            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.ps1$mcpArg"
         }
 
         $dockerArgsAsString = $dockerArgs -join " "
         $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
 
         # Set HOME/USERPROFILE so Claude finds its config in the mounted location
-        # Also pass MCP approval server URL if available
         $envArgs = @(
             "-e", "HOME=$containerUserProfile",
             "-e", "USERPROFILE=$containerUserProfile"
         )
-        if ($mcpPort) {
-            $envArgs += @("-e", "MCP_APPROVAL_SERVER=http://host.docker.internal:$mcpPort")
-        }
 
-        $mcpEnvDisplay = if ($mcpPort) { " -e MCP_APPROVAL_SERVER=http://host.docker.internal:$mcpPort" } else { "" }
-        Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile$mcpEnvDisplay -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
+        Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
 
         try {
             docker run --rm --memory=12g $dockerArgs @VolumeMappings @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript

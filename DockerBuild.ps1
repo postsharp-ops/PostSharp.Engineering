@@ -490,37 +490,6 @@ foreach (`$dir in `$gitDirectories) {
     }
 }
 
-# Configure MCP approval server if available (for Claude mode)
-`$mcpServerUrl = [Environment]::GetEnvironmentVariable('MCP_APPROVAL_SERVER')
-if (`$mcpServerUrl) {
-    Write-Host "Configuring MCP approval server: `$mcpServerUrl" -ForegroundColor Cyan
-
-    # Read existing settings or create new
-    `$settingsPath = "`$env:USERPROFILE\.claude\settings.json"
-    `$settingsDir = Split-Path `$settingsPath -Parent
-    if (-not (Test-Path `$settingsDir)) {
-        New-Item -ItemType Directory -Path `$settingsDir -Force | Out-Null
-    }
-
-    if (Test-Path `$settingsPath) {
-        `$settings = Get-Content `$settingsPath -Raw | ConvertFrom-Json -AsHashtable
-    } else {
-        `$settings = @{}
-    }
-
-    # Add MCP server configuration
-    if (-not `$settings.ContainsKey('mcpServers')) {
-        `$settings['mcpServers'] = @{}
-    }
-    `$settings['mcpServers']['host-approval'] = @{
-        'type' = 'http'
-        'url' = `$mcpServerUrl
-    }
-
-    # Write updated settings
-    `$settings | ConvertTo-Json -Depth 10 | Set-Content `$settingsPath -Encoding UTF8
-    Write-Host "MCP server configured in Claude settings" -ForegroundColor Green
-}
 "@
 $initScriptContent | Set-Content -Path $initScript -Encoding UTF8
 
@@ -593,10 +562,7 @@ if (-not $BuildImage)
         $mcpPortFile = $null
         if (-not $NoMcp) {
             Write-Host "Starting MCP approval server..." -ForegroundColor Green
-            $mcpPortFile = Join-Path $PSScriptRoot $dockerContextDirectory "mcp-port.txt"
-            if (Test-Path $mcpPortFile) {
-                Remove-Item $mcpPortFile
-            }
+            $mcpPortFile = Join-Path $env:TEMP "mcp-port-$([System.Guid]::NewGuid().ToString('N').Substring(0,8)).txt"
 
             # Build the command to run in the new tab
             $mcpCommand = "& '$SourceDirName\Build.ps1' tools mcp-server --port-file '$mcpPortFile'"
@@ -690,30 +656,27 @@ if (-not $BuildImage)
         {
             # Non-interactive mode with prompt - no -it flags
             $dockerArgs = @()
-            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.ps1 -Prompt `"$ClaudePrompt`""
+            $mcpArg = if ($mcpPort) { " -McpPort $mcpPort" } else { "" }
+            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.ps1 -Prompt `"$ClaudePrompt`"$mcpArg"
         }
         else
         {
             # Interactive mode - requires TTY
             $dockerArgs = @("-it")
-            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.ps1"
+            $mcpArg = if ($mcpPort) { " -McpPort $mcpPort" } else { "" }
+            $inlineScript = "${substCommandsInline}& c:\Init.g.ps1; ${copyClaudeJsonScript}cd '$SourceDirName'; & .\eng\RunClaude.ps1$mcpArg"
         }
 
         $dockerArgsAsString = $dockerArgs -join " "
         $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
 
         # Set HOME/USERPROFILE so Claude finds its config in the mounted location
-        # Also pass MCP approval server URL if available
         $envArgs = @(
             "-e", "HOME=$containerUserProfile",
             "-e", "USERPROFILE=$containerUserProfile"
         )
-        if ($mcpPort) {
-            $envArgs += @("-e", "MCP_APPROVAL_SERVER=http://host.docker.internal:$mcpPort")
-        }
 
-        $mcpEnvDisplay = if ($mcpPort) { " -e MCP_APPROVAL_SERVER=http://host.docker.internal:$mcpPort" } else { "" }
-        Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile$mcpEnvDisplay -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
+        Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
 
         try {
             docker run --rm --memory=12g $dockerArgs @VolumeMappings @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript

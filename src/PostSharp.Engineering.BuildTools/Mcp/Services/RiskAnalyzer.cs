@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Mcp.Models;
+using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -142,10 +143,14 @@ public sealed class RiskAnalyzer
             using var timeoutCts = new CancellationTokenSource( TimeSpan.FromSeconds( 120 ) );
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource( cancellationToken, timeoutCts.Token );
 
+            var escapedPrompt = EscapeForShell( prompt );
+            AnsiConsole.MarkupLine( "[dim]Starting Claude CLI for risk analysis...[/]" );
+            AnsiConsole.MarkupLine( $"[dim]Prompt length: {prompt.Length} chars[/]" );
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = "claude",
-                Arguments = $"-p \"{EscapeForShell( prompt )}\"",
+                Arguments = $"-p \"{escapedPrompt}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -156,14 +161,35 @@ public sealed class RiskAnalyzer
 
             if ( process == null )
             {
+                AnsiConsole.MarkupLine( "[red]Failed to start Claude CLI process[/]" );
+
                 return RiskAssessment.Default( "Failed to start Claude CLI for analysis" );
             }
 
+            AnsiConsole.MarkupLine( $"[dim]Claude CLI started (PID: {process.Id})[/]" );
+
             var output = await process.StandardOutput.ReadToEndAsync( linkedCts.Token );
+            var stderr = await process.StandardError.ReadToEndAsync( linkedCts.Token );
             await process.WaitForExitAsync( linkedCts.Token );
+
+            AnsiConsole.MarkupLine( $"[dim]Claude CLI exited with code: {process.ExitCode}[/]" );
+
+            if ( !string.IsNullOrWhiteSpace( stderr ) )
+            {
+                AnsiConsole.MarkupLine( $"[yellow]Claude CLI stderr:[/]" );
+                AnsiConsole.WriteLine( stderr );
+            }
+
+            if ( !string.IsNullOrWhiteSpace( output ) )
+            {
+                AnsiConsole.MarkupLine( $"[dim]Claude CLI output:[/]" );
+                AnsiConsole.WriteLine( output.Length > 500 ? output[..500] + "..." : output );
+            }
 
             if ( process.ExitCode != 0 )
             {
+                AnsiConsole.MarkupLine( $"[red]Claude CLI failed with exit code {process.ExitCode}[/]" );
+
                 return RiskAssessment.Default( "Claude CLI analysis failed" );
             }
 
@@ -171,10 +197,14 @@ public sealed class RiskAnalyzer
         }
         catch ( OperationCanceledException )
         {
+            AnsiConsole.MarkupLine( "[yellow]Claude CLI analysis timed out[/]" );
+
             return RiskAssessment.Default( "Analysis timed out - human review required" );
         }
         catch ( Exception ex )
         {
+            AnsiConsole.MarkupLine( $"[red]Claude CLI error: {ex.Message}[/]" );
+
             return RiskAssessment.Default( $"Analysis error: {ex.Message}" );
         }
     }
