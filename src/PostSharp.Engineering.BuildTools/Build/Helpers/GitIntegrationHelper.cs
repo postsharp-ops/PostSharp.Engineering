@@ -119,6 +119,42 @@ internal static class GitIntegrationHelper
         return true;
     }
 
+    /// <summary>
+    /// Commits only the AutoUpdatedVersions.props file without bumping the main version.
+    /// Used when the version has already been bumped but AutoUpdatedVersions.props needs updating.
+    /// </summary>
+    public static bool TryCommitAutoUpdatedVersions( BuildContext context )
+    {
+        var product = context.Product;
+
+        // Adds updated AutoUpdatedVersions.props to Git staging area.
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"add {product.AutoUpdatedVersionsFilePath}",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        // Gets the remote origin.
+        if ( !GitHelper.TryGetRemoteUrl( context, out var gitOrigin ) )
+        {
+            return false;
+        }
+
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "commit -m \"<<AUTO_UPDATED_VERSIONS>>\"",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     internal static bool TryAnalyzeGitHistory(
         BuildContext context,
         MainVersionFile mainVersionFile,

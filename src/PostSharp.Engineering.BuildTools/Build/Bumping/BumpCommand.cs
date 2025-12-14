@@ -94,18 +94,44 @@ internal class BumpCommand : BaseCommand<BumpSettings>
             return false;
         }
 
+        // Doing a dry run of AutoUpdatedVersionsFile both gets the versions of all dependencies and gets the current version.
+        // Do not write the AutoUpdatedVersions.props file yet - we will do it after we set our own version.
+        if ( !AutoUpdatedVersionsFile.TryWrite( context, true, out var hasChangesInDependencies, out var hasChangesInAutoUpdatedVersionsFile, out _, out var currentVersion ) )
+        {
+            return false;
+        }
+
         if ( hasBumpSinceLastDeployment && !settings.OverridePreviousBump )
         {
             console.WriteWarning( "Version has already been bumped since the last deployment." );
 
-            return true;
-        }
+            // Even though the version has been bumped, we still need to verify that AutoUpdatedVersions.props is correct.
+            if ( hasChangesInAutoUpdatedVersionsFile )
+            {
+                console.WriteWarning( "AutoUpdatedVersions.props needs to be updated. Updating now." );
 
-        // Doing a dry run of AutoUpdatedVersionsFile both gets the versions of all dependencies and gets the current version.
-        // Do not write the AutoUpdatedVersions.props file yet - we will do it after we set our own version.
-        if ( !AutoUpdatedVersionsFile.TryWrite( context, true, out var hasChangesInDependencies, out _, out _, out var currentVersion ) )
-        {
-            return false;
+                if ( !AutoUpdatedVersionsFile.TryWrite( context, false, out _, out _, out _, out _ ) )
+                {
+                    return false;
+                }
+
+                // Commit the changes.
+                if ( !GitIntegrationHelper.TryCommitAutoUpdatedVersions( context ) )
+                {
+                    return false;
+                }
+
+                // If we are running in TeamCity, push.
+                if ( context.IsContinuousIntegrationBuild )
+                {
+                    if ( !GitHelper.TryPush( context ) )
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
 
         if ( !hasChangesInDependencies && !hasChangesSinceLastDeployment )

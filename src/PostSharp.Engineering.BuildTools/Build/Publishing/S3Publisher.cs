@@ -80,7 +80,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                     {
                         context.Console.WriteError( "AmazonS3Client failed to publish the file." );
 
-                        return SuccessCode.Fatal;
+                        return SuccessCode.Error;
                     }
 
                     return SuccessCode.Success;
@@ -91,7 +91,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                         "AWS S3 error encountered. Message:'{0}' when writing an object",
                         e.Message );
 
-                    return SuccessCode.Fatal;
+                    return SuccessCode.Error;
                 }
                 catch ( Exception e )
                 {
@@ -99,7 +99,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                         "Unknown error encountered. Message:'{0}' when writing an object",
                         e.Message );
 
-                    return SuccessCode.Fatal;
+                    return SuccessCode.Error;
                 }
             }
         }

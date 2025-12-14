@@ -72,7 +72,7 @@ public class GitRepoPublisher : ArtifactPublisher
             {
                 console.WriteError( "Failed to clone the repository." );
 
-                return SuccessCode.Fatal;
+                return SuccessCode.Error;
             }
 
             // Delete all files in the repo except .git directory.
@@ -113,7 +113,7 @@ public class GitRepoPublisher : ArtifactPublisher
             {
                 console.WriteError( "Failed to get git status." );
 
-                return SuccessCode.Fatal;
+                return SuccessCode.Error;
             }
 
             var changes = statusOutput.Split( '\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
@@ -136,7 +136,7 @@ public class GitRepoPublisher : ArtifactPublisher
             {
                 console.WriteError( "Failed to stage changes." );
 
-                return SuccessCode.Fatal;
+                return SuccessCode.Error;
             }
 
             // Commit the changes.
@@ -151,7 +151,7 @@ public class GitRepoPublisher : ArtifactPublisher
             {
                 console.WriteError( "Failed to commit changes." );
 
-                return SuccessCode.Fatal;
+                return SuccessCode.Error;
             }
 
             // Push to remote (skip in dry mode).
@@ -172,7 +172,7 @@ public class GitRepoPublisher : ArtifactPublisher
                 {
                     console.WriteError( "Failed to push changes to remote repository." );
 
-                    return SuccessCode.Fatal;
+                    return SuccessCode.Error;
                 }
 
                 console.WriteSuccess( $"Successfully published '{file}' to '{gitHubUrl}'." );
@@ -184,7 +184,7 @@ public class GitRepoPublisher : ArtifactPublisher
         {
             console.WriteError( $"Error publishing to git repository: {e.Message}" );
 
-            return SuccessCode.Fatal;
+            return SuccessCode.Error;
         }
         finally
         {
