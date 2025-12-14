@@ -73,9 +73,13 @@ public sealed class RiskAnalyzer
         - Sequences that seem to be probing or gathering information before a bigger action
         - Mismatches between claimed purpose and actual command behavior
 
-        ### Environment variables
-        - Read ANY environment variable: HIGH risk, expose secrets
-        - Write ANY environment variable: HIGH risk
+        ### Environment Variables (Leakage Risk)
+        The MCP server runs on the host with access to secrets. The requesting Claude runs in Docker without them.
+        The risk is LEAKING secrets to the container, not using them for legitimate operations.
+        - Commands that USE env vars internally (e.g., `git push` using GITHUB_TOKEN): LOW risk - secrets stay on host
+        - Commands that OUTPUT env vars (e.g., `echo $VAR`, `printenv`, `env`, `Get-ChildItem Env:`): CRITICAL risk - leaks to container
+        - Commands that write env vars to files: CRITICAL risk - files may be accessible to container
+        - Piping env var values anywhere the container can read: CRITICAL risk
 
         ### Content Appropriateness (GitHub comments, issues, PRs)
         - Any insulting, offensive, or inappropriate language: HIGH risk
@@ -120,10 +124,12 @@ public sealed class RiskAnalyzer
         - If purpose and command don't align perfectly = MEDIUM risk minimum
 
         ### Environment/Secret Exfiltration
-        - `echo $VAR`, `printenv`, `env`, `set` = HIGH risk (exposes secrets)
-        - Writing environment variables to files
-        - Commands that could leak secrets in output or error messages
-        - Piping sensitive data anywhere = HIGH risk
+        Remember: The container Claude will receive command output. Any secret in output = leaked.
+        - `echo $VAR`, `printenv`, `env`, `set`, `Get-ChildItem Env:` = CRITICAL risk (leaks secrets to container)
+        - Writing environment variables to files in shared/mounted directories = CRITICAL risk
+        - Commands whose output or error messages might contain secrets = HIGH risk
+        - Piping sensitive data anywhere = CRITICAL risk
+        - Legitimate USE of env vars (like `git push` using tokens internally) = LOW risk
         """;
 
     // Suppress CA1822 - this is a DI service, keeping as instance method for consistency

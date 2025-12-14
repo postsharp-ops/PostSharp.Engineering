@@ -55,17 +55,7 @@ public sealed class ApprovalPrompter
                 return Task.FromResult( true );
             }
 
-            // Auto-reject HIGH/CRITICAL risk commands when AI recommends rejection
-            if ( ( assessment.Level == RiskLevel.High || assessment.Level == RiskLevel.Critical )
-                 && assessment.Recommendation == Recommendation.Reject )
-            {
-                AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine( $"[red]Auto-rejected ({assessment.Level.ToString().ToUpperInvariant()} risk):[/] [white]{Markup.Escape( command )}[/]" );
-                AnsiConsole.MarkupLine( $"[dim]Reason: {Markup.Escape( assessment.Reason )}[/]" );
-                AnsiConsole.WriteLine();
-
-                return Task.FromResult( false );
-            }
+            // HIGH/CRITICAL risk commands always require manual approval (no auto-reject)
 
             AnsiConsole.WriteLine();
             AnsiConsole.Write( new Rule( "[yellow]Command Approval Request[/]" ) );

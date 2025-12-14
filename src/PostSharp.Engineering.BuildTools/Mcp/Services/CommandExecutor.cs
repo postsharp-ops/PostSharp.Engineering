@@ -1,8 +1,11 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Mcp.Models;
+using Spectre.Console;
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,12 +24,17 @@ public sealed class CommandExecutor
         CancellationToken cancellationToken = default )
 #pragma warning restore CA1822
     {
+        // Write the command to a temp file to avoid escaping issues
+        var tempFile = Path.Combine( Path.GetTempPath(), $"mcp-cmd-{Guid.NewGuid():N}.ps1" );
+
         try
         {
+            await File.WriteAllTextAsync( tempFile, command, Encoding.UTF8, cancellationToken );
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = "pwsh",
-                Arguments = $"-NoProfile -Command \"{EscapeForPowerShell( command )}\"",
+                Arguments = $"-NoProfile -File \"{tempFile}\"",
                 WorkingDirectory = workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -41,24 +49,67 @@ public sealed class CommandExecutor
                 return CommandResult.Error( "Failed to start PowerShell process" );
             }
 
-            var stdout = await process.StandardOutput.ReadToEndAsync( cancellationToken );
-            var stderr = await process.StandardError.ReadToEndAsync( cancellationToken );
+            var stdoutBuilder = new StringBuilder();
+            var stderrBuilder = new StringBuilder();
+
+            // Stream output to console in real-time
+            var stdoutTask = ReadStreamAsync( process.StandardOutput, stdoutBuilder, "stdout", cancellationToken );
+            var stderrTask = ReadStreamAsync( process.StandardError, stderrBuilder, "stderr", cancellationToken );
+
+            await Task.WhenAll( stdoutTask, stderrTask );
             await process.WaitForExitAsync( cancellationToken );
 
-            return CommandResult.Success( stdout, stderr, process.ExitCode );
+            return CommandResult.Success( stdoutBuilder.ToString(), stderrBuilder.ToString(), process.ExitCode );
         }
         catch ( Exception ex )
         {
             return CommandResult.Error( $"Execution error: {ex.Message}" );
         }
+        finally
+        {
+            // Clean up temp file
+            try
+            {
+                if ( File.Exists( tempFile ) )
+                {
+                    File.Delete( tempFile );
+                }
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
+        }
     }
 
-    private static string EscapeForPowerShell( string command )
+    private static async Task ReadStreamAsync(
+        StreamReader reader,
+        StringBuilder output,
+        string streamName,
+        CancellationToken cancellationToken )
     {
-        // Escape double quotes for PowerShell command line
-        // Using backtick (`) as the PowerShell escape character
-        return command
-            .Replace( "\"", "`\"", StringComparison.Ordinal )
-            .Replace( "$", "`$", StringComparison.Ordinal );
+        var isStderr = streamName == "stderr";
+
+        while ( !cancellationToken.IsCancellationRequested )
+        {
+            var line = await reader.ReadLineAsync( cancellationToken );
+
+            if ( line == null )
+            {
+                break;
+            }
+
+            output.AppendLine( line );
+
+            // Display to console with appropriate formatting
+            if ( isStderr )
+            {
+                AnsiConsole.MarkupLine( $"[red]{line.EscapeMarkup()}[/]" );
+            }
+            else
+            {
+                AnsiConsole.WriteLine( line );
+            }
+        }
     }
 }
