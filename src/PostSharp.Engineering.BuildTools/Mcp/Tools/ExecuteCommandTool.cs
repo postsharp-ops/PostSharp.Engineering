@@ -82,18 +82,27 @@ public sealed class ExecuteCommandTool
 
             if ( approved )
             {
+                AnsiConsole.Write( new Rule( "[green]Request Approved[/]" ) );
+                AnsiConsole.WriteLine();
+                AnsiConsole.Write( new Rule( "[blue]Executing Request[/]" ) );
+                AnsiConsole.WriteLine();
+
                 result = await this._executor.ExecuteAsync( command, workingDirectory, cancellationToken );
+
+                AnsiConsole.WriteLine();
+                AnsiConsole.Write( new Rule( "[blue]Request Completed[/]" ) );
+                AnsiConsole.WriteLine();
             }
             else
             {
+                AnsiConsole.Write( new Rule( "[red]Request Rejected[/]" ) );
+                AnsiConsole.WriteLine();
+
                 result = CommandResult.Rejected();
             }
 
             // 5. Record in history
             this._history.Record( sessionId, command, claimedPurpose, approved, result );
-
-            AnsiConsole.Write( new Rule( $"[{( approved ? "green" : "red" )}]Request {( approved ? "Approved" : "Rejected" )}[/]" ) );
-            AnsiConsole.WriteLine();
 
             return result;
         }

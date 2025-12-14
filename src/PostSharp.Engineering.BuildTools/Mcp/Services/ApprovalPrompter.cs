@@ -48,7 +48,7 @@ public sealed class ApprovalPrompter
             if ( assessment.Level == RiskLevel.Low && assessment.Recommendation == Recommendation.Approve )
             {
                 AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine( $"[green]Auto-approved (LOW risk):[/] [white]{Markup.Escape( command )}[/]" );
+                AnsiConsole.MarkupLine( "[green]Auto-approved (LOW risk)[/]" );
                 AnsiConsole.MarkupLine( $"[dim]Reason: {Markup.Escape( assessment.Reason )}[/]" );
                 AnsiConsole.WriteLine();
 
