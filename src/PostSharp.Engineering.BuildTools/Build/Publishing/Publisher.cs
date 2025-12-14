@@ -60,6 +60,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                     continue;
                 }
 
+                context.Console.WriteHeading( $"Publishing with {publisher.GetType().Name}" );
+
                 if ( !publisher.Publish(
                         context,
                         settings,
