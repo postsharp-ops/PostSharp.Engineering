@@ -27,7 +27,7 @@ public sealed class RiskAnalyzer
         ## Common Situations and Guidance
 
         ### Git Operations
-        - `git push`: LOW risk if pushing to a feature (topic) branch, MEDIUM if pushing to main/master/develop
+        - `git push`: LOW risk if pushing to a feature (topic) branch, MEDIUM if pushing to main, master, develop/*, release/*
         - `git push --force`: HIGH risk - can destroy history, always flag for careful review
         - `git tag` / `git push --tags`: MEDIUM risk - tags are often used for releases
         - `git checkout` / `git switch`: LOW risk - just changing branches locally
