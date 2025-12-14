@@ -74,6 +74,7 @@ public sealed class ExecuteCommandTool
             var approved = await this._prompter.RequestApprovalAsync(
                 command,
                 claimedPurpose,
+                workingDirectory,
                 assessment );
 
             // 4. Execute if approved
@@ -85,7 +86,7 @@ public sealed class ExecuteCommandTool
             }
             else
             {
-                result = CommandResult.Rejected( assessment.Reason );
+                result = CommandResult.Rejected();
             }
 
             // 5. Record in history

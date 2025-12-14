@@ -21,6 +21,7 @@ public sealed class ApprovalPrompter
     public Task<bool> RequestApprovalAsync(
         string command,
         string claimedPurpose,
+        string workingDirectory,
         RiskAssessment assessment )
 #pragma warning restore CA1822
     {
@@ -43,6 +44,29 @@ public sealed class ApprovalPrompter
 
         try
         {
+            // Auto-approve LOW risk commands when AI recommends approval
+            if ( assessment.Level == RiskLevel.Low && assessment.Recommendation == Recommendation.Approve )
+            {
+                AnsiConsole.WriteLine();
+                AnsiConsole.MarkupLine( $"[green]Auto-approved (LOW risk):[/] [white]{Markup.Escape( command )}[/]" );
+                AnsiConsole.MarkupLine( $"[dim]Reason: {Markup.Escape( assessment.Reason )}[/]" );
+                AnsiConsole.WriteLine();
+
+                return Task.FromResult( true );
+            }
+
+            // Auto-reject HIGH/CRITICAL risk commands when AI recommends rejection
+            if ( ( assessment.Level == RiskLevel.High || assessment.Level == RiskLevel.Critical )
+                 && assessment.Recommendation == Recommendation.Reject )
+            {
+                AnsiConsole.WriteLine();
+                AnsiConsole.MarkupLine( $"[red]Auto-rejected ({assessment.Level.ToString().ToUpperInvariant()} risk):[/] [white]{Markup.Escape( command )}[/]" );
+                AnsiConsole.MarkupLine( $"[dim]Reason: {Markup.Escape( assessment.Reason )}[/]" );
+                AnsiConsole.WriteLine();
+
+                return Task.FromResult( false );
+            }
+
             AnsiConsole.WriteLine();
             AnsiConsole.Write( new Rule( "[yellow]Command Approval Request[/]" ) );
             AnsiConsole.WriteLine();
@@ -53,6 +77,7 @@ public sealed class ApprovalPrompter
             table.Border( TableBorder.Rounded );
 
             table.AddRow( "[bold]Command[/]", $"[white]{Markup.Escape( command )}[/]" );
+            table.AddRow( "[bold]Working Directory[/]", $"[blue]{Markup.Escape( workingDirectory )}[/]" );
             table.AddRow( "[bold]Purpose[/]", $"[dim]{Markup.Escape( claimedPurpose )}[/]" );
             table.AddRow( "[bold]Risk Level[/]", GetRiskMarkup( assessment.Level ) );
             table.AddRow( "[bold]AI Recommendation[/]", GetRecommendationMarkup( assessment.Recommendation ) );
@@ -61,8 +86,9 @@ public sealed class ApprovalPrompter
             AnsiConsole.Write( table );
             AnsiConsole.WriteLine();
 
-            // Default to false (reject) for safety
-            var approved = AnsiConsole.Confirm( "Approve this command?", defaultValue: false );
+            // Default to AI recommendation
+            var defaultApprove = assessment.Recommendation == Recommendation.Approve;
+            var approved = AnsiConsole.Confirm( "Approve this command?", defaultValue: defaultApprove );
 
             return Task.FromResult( approved );
         }
