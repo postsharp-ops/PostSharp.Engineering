@@ -18,4 +18,5 @@ global.json
 eng/docker-context/claude.json
 scripts/build-agents/last-execution.txt
 *.log
-copilot.data.*eng/docker-context/.credentials.json
+copilot.data.*
+eng/docker-context/.credentials.json
