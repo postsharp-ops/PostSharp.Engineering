@@ -350,7 +350,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 {
                     var mountPoint = Path.GetDirectoryName( file )!;
                     dockerMountsWriter!.WriteLine( $"# {file}" );
-                    dockerMountsWriter.WriteLine( $"$VolumeMappings += @(\"-v\", \"{mountPoint}:{mountPoint}:ro\")" );
+                    dockerMountsWriter.WriteLine( $"$VolumeMappings += \"{mountPoint}:{mountPoint}:ro\"" );
                     dockerMountsWriter.WriteLine( $"$MountPoints += \"{mountPoint}\"" );
                     dockerMountsWriter.WriteLine();
                 }

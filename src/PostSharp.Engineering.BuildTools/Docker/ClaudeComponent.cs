@@ -51,6 +51,7 @@ public class ClaudeComponent : ContainerComponent
             # Set HOME/USERPROFILE so Claude CLI finds credentials during build
             ENV HOME=C:\\Users\\ContainerUser
             ENV USERPROFILE=C:\\Users\\ContainerUser
+            ENV CLAUDE_CODE_SHELL=pwsh
 
             # Create Claude config directory (credentials are mounted at runtime)
             RUN mkdir C:\Users\ContainerUser\.claude

@@ -315,10 +315,6 @@ if ($Claude -and -not $NoMcp)
 if (-not $env:IS_TEAMCITY_AGENT -and -not $NoClean)
 {
     Write-Host "Cleaning up." -ForegroundColor Green
-    if (Test-Path "artifacts")
-    {
-        Remove-Item artifacts -Force -Recurse  -ErrorAction SilentlyContinue
-    }
     Get-ChildItem "bin" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
     Get-ChildItem "obj" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 }
@@ -375,8 +371,8 @@ if (-not (Test-Path $dockerContextDirectory))
 }
 
 
-# Prepare volume mappings
-$VolumeMappings = @("-v", "${SourceDirName}:${SourceDirName}")
+# Prepare volume mappings (stored as mapping strings, "-v" flags added later)
+$VolumeMappings = @("${SourceDirName}:${SourceDirName}")
 $MountPoints = @($SourceDirName, "c:\packages")
 $GitDirectories = @($SourceDirName)
 
@@ -385,7 +381,7 @@ $gitSystemDir = "$BuildAgentPath\system\git"
 
 if (Test-Path $gitSystemDir)
 {
-    $VolumeMappings += @("-v", "${gitSystemDir}:${gitSystemDir}:ro")
+    $VolumeMappings += "${gitSystemDir}:${gitSystemDir}:ro"
     $MountPoints += $gitSystemDir
 }
 
@@ -400,7 +396,7 @@ if (-not $NoNuGetCache)
         New-Item -ItemType Directory -Force -Path $nugetCacheDir | Out-Null
     }
 
-    $VolumeMappings += @("-v", "${nugetCacheDir}:c:\packages")
+    $VolumeMappings += "${nugetCacheDir}:c:\packages"
 }
 
 # Mount VS Remote Debugger
@@ -420,7 +416,7 @@ if ($StartVsmon)
     }
 
     $remoteDebuggerContainerDir = "C:\msvsmon"
-    $VolumeMappings += @("-v", "${remoteDebuggerHostDir}:${remoteDebuggerContainerDir}:ro")
+    $VolumeMappings += "${remoteDebuggerHostDir}:${remoteDebuggerContainerDir}:ro"
     $MountPoints += $remoteDebuggerContainerDir
 
 }
@@ -437,7 +433,7 @@ if (Test-Path $sourceDependenciesDir)
         if (-not [string]::IsNullOrEmpty($targetPath) -and (Test-Path $targetPath))
         {
             Write-Host "Found symbolic link '$( $link.Name )' -> '$targetPath'" -ForegroundColor Cyan
-            $VolumeMappings += @("-v", "${targetPath}:${targetPath}:ro")
+            $VolumeMappings += "${targetPath}:${targetPath}:ro"
             $MountPoints += $targetPath
             $GitDirectories += $targetPath
         }
@@ -467,15 +463,10 @@ if ($parentDir -and (Test-Path $parentDir) -and ($parentDirName -like "PostSharp
     foreach ($sibling in $siblingDirs)
     {
         $siblingPath = $sibling.FullName
-        # Skip if already mounted
-        $alreadyMounted = $VolumeMappings | Where-Object { $_ -like "*${siblingPath}:*" }
-        if (-not $alreadyMounted)
-        {
-            Write-Host "Mounting product family sibling: $siblingPath" -ForegroundColor Cyan
-            $VolumeMappings += @("-v", "${siblingPath}:${siblingPath}:ro")
-            $MountPoints += $siblingPath
-            $GitDirectories += $siblingPath
-        }
+        Write-Host "Mounting product family sibling: $siblingPath" -ForegroundColor Cyan
+        $VolumeMappings += "${siblingPath}:${siblingPath}:ro"
+        $MountPoints += $siblingPath
+        $GitDirectories += $siblingPath
     }
 }
 
@@ -489,16 +480,11 @@ if ($grandparentDir -and (Test-Path $grandparentDir))
 
     foreach ($engDir in $engineeringDirs)
     {
-        $engPath = $engDir.FullName
-        # Skip if already mounted
-        $alreadyMounted = $VolumeMappings | Where-Object { $_ -like "*${engPath}:*" }
-        if (-not $alreadyMounted)
-        {
-            Write-Host "Mounting engineering repo: $engPath" -ForegroundColor Cyan
-            $VolumeMappings += @("-v", "${engPath}:${engPath}:ro")
-            $MountPoints += $engPath
-            $GitDirectories += $engPath
-        }
+        $engDirPath = $engDir.FullName
+        Write-Host "Mounting engineering repo: $engDirPath" -ForegroundColor Cyan
+        $VolumeMappings += "${engDirPath}:${engDirPath}:ro"
+        $MountPoints += $engDirPath
+        $GitDirectories += $engDirPath
     }
 }
 
@@ -508,6 +494,11 @@ if (Test-Path $dockerMountsScript)
 {
     Write-Host "Importing Docker mount points from $dockerMountsScript" -ForegroundColor Cyan
     . $dockerMountsScript
+}
+elseif (-not $env:IS_TEAMCITY_AGENT)
+{
+    Write-Error "DockerMounts.g.ps1 not found at '$dockerMountsScript'. Run './Build.ps1 prepare' or './Build.ps1 dependencies update' to generate it."
+    exit 1
 }
 
 # Handle non-C: drive letters for Docker (Windows containers only have C: by default)
@@ -531,11 +522,8 @@ function Get-ContainerPath($hostPath)
 
 # Transform all volume mappings to use container paths
 $transformedVolumeMappings = @()
-for ($i = 0; $i -lt $VolumeMappings.Count; $i += 2)
+foreach ($mapping in $VolumeMappings)
 {
-    $flag = $VolumeMappings[$i]
-    $mapping = $VolumeMappings[$i + 1]
-
     # Parse volume mapping: hostPath:containerPath[:options]
     if ($mapping -match '^([A-Za-z]:\\[^:]*):([A-Za-z]:\\[^:]*)(:.+)?$')
     {
@@ -543,11 +531,11 @@ for ($i = 0; $i -lt $VolumeMappings.Count; $i += 2)
         $containerPath = $Matches[2]
         $options = $Matches[3]
         $newContainerPath = Get-ContainerPath $containerPath
-        $transformedVolumeMappings += @($flag, "${hostPath}:${newContainerPath}${options}")
+        $transformedVolumeMappings += "${hostPath}:${newContainerPath}${options}"
     }
     else
     {
-        $transformedVolumeMappings += @($flag, $mapping)
+        $transformedVolumeMappings += $mapping
     }
 }
 $VolumeMappings = $transformedVolumeMappings
@@ -572,6 +560,11 @@ foreach ($dir in $GitDirectories)
     }
 }
 $GitDirectories = $expandedGitDirectories
+
+# Deduplicate again after transformations and expansions (case-insensitive for Windows paths)
+$VolumeMappings = $VolumeMappings | Group-Object { $_.ToLower() } | ForEach-Object { $_.Group[0] }
+$MountPoints = $MountPoints | Group-Object { $_.ToLower() } | ForEach-Object { $_.Group[0] }
+$GitDirectories = $GitDirectories | Group-Object { $_.ToLower() } | ForEach-Object { $_.Group[0] }
 
 # Build subst commands string for inline execution in docker run
 $substCommandsInline = ""
@@ -774,7 +767,7 @@ if (-not $BuildImage)
         # Mount .claude directory (settings and credentials)
         if (Test-Path "$hostUserProfile\.claude")
         {
-            $VolumeMappings += @("-v", "${hostUserProfile}\.claude:${containerUserProfile}\.claude")
+            $VolumeMappings += "${hostUserProfile}\.claude:${containerUserProfile}\.claude"
         }
 
         # Copy .claude.json to docker-context (cannot mount files on Windows Docker)
@@ -798,10 +791,16 @@ if (-not $BuildImage)
         # Mount .cache\claude (cache)
         if (Test-Path "$hostUserProfile\.cache\claude")
         {
-            $VolumeMappings += @("-v", "${hostUserProfile}\.cache\claude:${containerUserProfile}\.cache\claude")
+            $VolumeMappings += "${hostUserProfile}\.cache\claude:${containerUserProfile}\.cache\claude"
         }
 
-        $VolumeMappingsAsString = $VolumeMappings -join " "
+        # Convert volume mappings to docker args format (interleave "-v" flags)
+        $volumeArgs = @()
+        foreach ($mapping in $VolumeMappings)
+        {
+            $volumeArgs += @("-v", $mapping)
+        }
+        $VolumeMappingsAsString = ($VolumeMappings | ForEach-Object { "-v $_" }) -join " "
 
         # Extract Claude prompt from remaining arguments if present
         # Usage: -Claude for interactive, -Claude "prompt" for non-interactive
@@ -844,7 +843,7 @@ if (-not $BuildImage)
         Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
 
         try {
-            docker run --rm --memory=12g $dockerArgs @VolumeMappings @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
+            docker run --rm --memory=12g $dockerArgs @volumeArgs @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
             $dockerExitCode = $LASTEXITCODE
         }
         finally {
@@ -927,7 +926,14 @@ if (-not $BuildImage)
         }
 
         $buildArgsString = $BuildArgs -join " "
-        $VolumeMappingsAsString = $VolumeMappings -join " "
+
+        # Convert volume mappings to docker args format (interleave "-v" flags)
+        $volumeArgs = @()
+        foreach ($mapping in $VolumeMappings)
+        {
+            $volumeArgs += @("-v", $mapping)
+        }
+        $VolumeMappingsAsString = ($VolumeMappings | ForEach-Object { "-v $_" }) -join " "
         $dockerArgsAsString = $dockerArgs -join " "
 
         # Build inline script: subst drives, run init, cd to source, run build
@@ -936,7 +942,7 @@ if (-not $BuildImage)
         $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
         Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
 
-        docker run --rm --memory=12g $dockerArgs @VolumeMappings -w $ContainerSourceDir $ImageTag $pwshPath $pwshArgs -Command $inlineScript
+        docker run --rm --memory=12g $dockerArgs @volumeArgs -w $ContainerSourceDir $ImageTag $pwshPath $pwshArgs -Command $inlineScript
         if ($LASTEXITCODE -ne 0)
         {
             Write-Host "Docker run (build) failed with exit code $LASTEXITCODE" -ForegroundColor Red

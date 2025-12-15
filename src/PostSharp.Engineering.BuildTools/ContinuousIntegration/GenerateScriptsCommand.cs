@@ -2,7 +2,9 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
 
@@ -43,6 +45,20 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
 
             // Generate Claude Dockerfile (will auto-add NodeJs if not present)
             if ( !image.WriteClaudeDockerfile( context ) )
+            {
+                return false;
+            }
+
+            // Generate DockerMounts.g.ps1 to define additional mount points for dependencies
+            var buildSettings = new BuildSettings { BuildConfiguration = BuildConfiguration.Debug };
+            buildSettings.Initialize( context );
+
+            if ( !DependenciesConfigurationFile.TryLoad( context, buildSettings, buildSettings.BuildConfiguration, out var dependenciesOverrideFile ) )
+            {
+                return false;
+            }
+
+            if ( !dependenciesOverrideFile.TryWrite( context ) )
             {
                 return false;
             }
