@@ -98,7 +98,7 @@ if (-not $Interactive -or $BuildArgs)
         if ($needsBuild)
         {
             # Build is needed
-            Write-Host "Rebuilding Build$ProductName..." -ForegroundColor Cyan
+            Write-Host "Building Build$ProductName..." -ForegroundColor Cyan
             & dotnet build $projectPath
             if ($LASTEXITCODE -ne 0)
             {
@@ -121,11 +121,7 @@ if (-not $Interactive -or $BuildArgs)
                 throw "Build succeeded but output DLL '$outputDll' not found."
             }
         }
-        else
-        {
-            Write-Host "Build cache valid, skipping build." -ForegroundColor Green
-        }
-
+      
         # Run the project using dotnet exec (faster than dotnet run)
         if (-not $outputDll -or -not (Test-Path $outputDll))
         {

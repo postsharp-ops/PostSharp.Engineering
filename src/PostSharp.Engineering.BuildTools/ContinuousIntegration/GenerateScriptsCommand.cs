@@ -27,6 +27,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         }
 
         EmbeddedResourceHelper.ExtractScript( context, "Build.ps1", "" );
+        EmbeddedResourceHelper.ExtractScript( context, "build.sh", "" );
 
         // Docker.
         if ( product.UseDocker )

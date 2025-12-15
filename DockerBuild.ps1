@@ -696,7 +696,8 @@ if (-not $BuildImage)
                 # Generate 128-bit (16 byte) random secret for authentication
                 $randomBytes = New-Object byte[] 16
                 [Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
-                $mcpSecret = [Convert]::ToBase64String($randomBytes)
+                # Use URL-safe Base64 encoding (replace / with _, + with -, remove =)
+                $mcpSecret = [Convert]::ToBase64String($randomBytes).Replace('/', '_').Replace('+', '-').TrimEnd('=')
                 Write-Host "Generated MCP authentication secret" -ForegroundColor Cyan
 
                 # Use the MCP server snapshot saved before cleanup
