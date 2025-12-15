@@ -35,6 +35,12 @@ public sealed class RiskAssessment
 
     public required string Reason { get; init; }
 
+    /// <summary>
+    /// Gets the name of the rule that triggered this assessment (for regex-based rules).
+    /// Null for AI-driven assessments.
+    /// </summary>
+    public string? RuleName { get; init; }
+
     public static RiskAssessment Default( string reason )
     {
         return new RiskAssessment

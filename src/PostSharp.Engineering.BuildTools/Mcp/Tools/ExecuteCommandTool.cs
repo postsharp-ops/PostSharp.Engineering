@@ -19,17 +19,20 @@ public sealed class ExecuteCommandTool
 {
     private readonly CommandHistoryService _history;
     private readonly RiskAnalyzer _analyzer;
+    private readonly RegexRuleEngine _regexEngine;
     private readonly ApprovalPrompter _prompter;
     private readonly CommandExecutor _executor;
 
     public ExecuteCommandTool(
         CommandHistoryService history,
         RiskAnalyzer analyzer,
+        RegexRuleEngine regexEngine,
         ApprovalPrompter prompter,
         CommandExecutor executor )
     {
         this._history = history;
         this._analyzer = analyzer;
+        this._regexEngine = regexEngine;
         this._prompter = prompter;
         this._executor = executor;
     }
@@ -62,22 +65,38 @@ public sealed class ExecuteCommandTool
             // 1. Get session history
             var sessionHistory = this._history.GetHistory( sessionId );
 
-            // 2. Risk analysis
-            var assessment = await this._analyzer.AnalyzeAsync(
+            // 2. Risk analysis - run both AI and Regex analyzers in parallel
+            var aiTask = this._analyzer.AnalyzeAsync(
                 command,
                 claimedPurpose,
                 workingDirectory,
                 sessionHistory,
                 cancellationToken );
 
-            // 3. Prompt user for approval
+            var regexTask = this._regexEngine.EvaluateAsync(
+                command,
+                claimedPurpose,
+                workingDirectory,
+                sessionHistory,
+                cancellationToken );
+
+            var assessments = await Task.WhenAll( aiTask, regexTask );
+            var aiAssessment = assessments[0];
+            var regexAssessment = assessments[1];
+
+            // 3. Combine assessments (take maximum risk)
+            var assessment = RiskCombiner.Combine( aiAssessment, regexAssessment );
+
+            // 4. Prompt user for approval (pass both assessments for display)
             var approved = await this._prompter.RequestApprovalAsync(
                 command,
                 claimedPurpose,
                 workingDirectory,
-                assessment );
+                assessment,
+                aiAssessment,
+                regexAssessment );
 
-            // 4. Execute if approved
+            // 5. Execute if approved
             CommandResult result;
 
             if ( approved )
@@ -101,7 +120,7 @@ public sealed class ExecuteCommandTool
                 result = CommandResult.Rejected();
             }
 
-            // 5. Record in history
+            // 6. Record in history
             this._history.Record( sessionId, command, claimedPurpose, approved, result );
 
             return result;

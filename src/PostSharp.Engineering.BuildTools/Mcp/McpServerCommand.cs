@@ -38,8 +38,12 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
             // Register services for tool dependencies
             builder.Services.AddSingleton<CommandHistoryService>();
             builder.Services.AddSingleton<RiskAnalyzer>();
+            builder.Services.AddSingleton<RegexRuleEngine>();
             builder.Services.AddSingleton<ApprovalPrompter>();
             builder.Services.AddSingleton<CommandExecutor>();
+
+            // Register ConsoleHelper for GitHelper usage
+            builder.Services.AddSingleton( _ => new PostSharp.Engineering.BuildTools.Utilities.ConsoleHelper() );
 
             // Register the tool itself
             builder.Services.AddScoped<ExecuteCommandTool>();

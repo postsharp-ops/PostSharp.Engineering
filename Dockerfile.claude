@@ -80,12 +80,19 @@ ENV PATH="C:\Program Files\GitHub CLI;${PATH}"
 
 # Install Claude CLI
 # Configure npm global directory to avoid Windows container path issues
-ENV NPM_CONFIG_PREFIX=C:\npm
-ENV PATH="C:\npm;${PATH}"
+ENV NPM_CONFIG_PREFIX=C:\\npm
+ENV PATH="C:\\npm;${PATH}"
 
 # Install Claude CLI using cmd shell to avoid HCS issues with PowerShell
 SHELL ["cmd", "/S", "/C"]
-RUN C:\nodejs\npm.cmd install --global @anthropic-ai/claude-code
+RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code
+
+# Set HOME/USERPROFILE so Claude CLI finds credentials during build
+ENV HOME=C:\\Users\\ContainerUser
+ENV USERPROFILE=C:\\Users\\ContainerUser
+
+# Create Claude config directory (credentials are mounted at runtime)
+RUN mkdir C:\Users\ContainerUser\.claude
 
 # Restore PowerShell shell using full path
 SHELL ["C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "-Command"]

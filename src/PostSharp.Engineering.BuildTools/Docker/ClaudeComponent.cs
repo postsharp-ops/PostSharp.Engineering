@@ -56,6 +56,7 @@ public class ClaudeComponent : ContainerComponent
             RUN mkdir C:\Users\ContainerUser\.claude
             """ );
 
+/*
         // Add marketplaces if any are specified
         foreach ( var marketplace in this.Marketplaces )
         {
@@ -67,7 +68,7 @@ public class ClaudeComponent : ContainerComponent
         {
             writer.WriteLine( $"RUN C:\\npm\\claude.cmd plugin install {plugin}" );
         }
-
+*/
         writer.WriteLine(
             """
 

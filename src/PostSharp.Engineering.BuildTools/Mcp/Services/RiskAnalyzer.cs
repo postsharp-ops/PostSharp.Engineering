@@ -52,8 +52,8 @@ public sealed class RiskAnalyzer
         - `gh pr merge`: MEDIUM risk - merging changes the target branch
         - `gh release create`: MEDIUM risk - creates a public release
         - `gh issue create/comment`: LOW risk - creating issues is low impact
-        - `gh issue close`: MEDIUM risk - can be reponed
-        - `gh issue delete`: HIGH risk - can be reponed
+        - `gh issue close`: MEDIUM risk - can be re-opened
+        - `gh issue delete`: HIGH risk - cannot be restored
         - `gh repo delete`: CRITICAL risk - never approve without explicit confirmation
 
         ### Build/Package Operations

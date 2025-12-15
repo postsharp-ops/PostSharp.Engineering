@@ -22,7 +22,9 @@ public sealed class ApprovalPrompter
         string command,
         string claimedPurpose,
         string workingDirectory,
-        RiskAssessment assessment )
+        RiskAssessment combinedAssessment,
+        RiskAssessment aiAssessment,
+        RiskAssessment regexAssessment )
 #pragma warning restore CA1822
     {
         // Beep to alert the user
@@ -44,12 +46,12 @@ public sealed class ApprovalPrompter
 
         try
         {
-            // Auto-approve LOW risk commands when AI recommends approval
-            if ( assessment.Level == RiskLevel.Low && assessment.Recommendation == Recommendation.Approve )
+            // Auto-approve LOW risk commands when combined assessment recommends approval
+            if ( combinedAssessment.Level == RiskLevel.Low && combinedAssessment.Recommendation == Recommendation.Approve )
             {
                 AnsiConsole.WriteLine();
                 AnsiConsole.MarkupLine( "[green]Auto-approved (LOW risk)[/]" );
-                AnsiConsole.MarkupLine( $"[dim]Reason: {Markup.Escape( assessment.Reason )}[/]" );
+                AnsiConsole.MarkupLine( $"[dim]Reason: {Markup.Escape( combinedAssessment.Reason )}[/]" );
                 AnsiConsole.WriteLine();
 
                 return Task.FromResult( true );
@@ -69,15 +71,37 @@ public sealed class ApprovalPrompter
             table.AddRow( "[bold]Command[/]", $"[white]{Markup.Escape( command )}[/]" );
             table.AddRow( "[bold]Working Directory[/]", $"[blue]{Markup.Escape( workingDirectory )}[/]" );
             table.AddRow( "[bold]Purpose[/]", $"[dim]{Markup.Escape( claimedPurpose )}[/]" );
-            table.AddRow( "[bold]Risk Level[/]", GetRiskMarkup( assessment.Level ) );
-            table.AddRow( "[bold]AI Recommendation[/]", GetRecommendationMarkup( assessment.Recommendation ) );
-            table.AddRow( "[bold]Reason[/]", $"[dim]{Markup.Escape( assessment.Reason )}[/]" );
+
+            // AI Assessment section
+            table.AddRow( "", "" ); // Empty row for spacing
+            table.AddRow( "[bold yellow]AI Assessment[/]", "" );
+            table.AddRow( "  Risk Level", GetRiskMarkup( aiAssessment.Level ) );
+            table.AddRow( "  Recommendation", GetRecommendationMarkup( aiAssessment.Recommendation ) );
+            table.AddRow( "  Reason", $"[dim]{Markup.Escape( aiAssessment.Reason )}[/]" );
+
+            // Regex Assessment section
+            table.AddRow( "", "" ); // Empty row for spacing
+            table.AddRow( "[bold cyan]Regex Assessment[/]", "" );
+            table.AddRow( "  Risk Level", GetRiskMarkup( regexAssessment.Level ) );
+            table.AddRow( "  Recommendation", GetRecommendationMarkup( regexAssessment.Recommendation ) );
+            table.AddRow( "  Reason", $"[dim]{Markup.Escape( regexAssessment.Reason )}[/]" );
+
+            if ( regexAssessment.RuleName != null )
+            {
+                table.AddRow( "  Rule Name", $"[dim]{Markup.Escape( regexAssessment.RuleName )}[/]" );
+            }
+
+            // Combined Assessment section
+            table.AddRow( "", "" ); // Empty row for spacing
+            table.AddRow( "[bold green]Combined (Final)[/]", "" );
+            table.AddRow( "  Risk Level", GetRiskMarkup( combinedAssessment.Level ) );
+            table.AddRow( "  Recommendation", GetRecommendationMarkup( combinedAssessment.Recommendation ) );
 
             AnsiConsole.Write( table );
             AnsiConsole.WriteLine();
 
-            // Default to AI recommendation
-            var defaultApprove = assessment.Recommendation == Recommendation.Approve;
+            // Default to combined recommendation
+            var defaultApprove = combinedAssessment.Recommendation == Recommendation.Approve;
             var approved = AnsiConsole.Confirm( "Approve this command?", defaultValue: defaultApprove );
 
             return Task.FromResult( approved );
