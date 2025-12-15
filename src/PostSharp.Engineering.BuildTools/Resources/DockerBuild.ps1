@@ -160,6 +160,98 @@ function New-ClaudeEnvJson
     return $jsonPath
 }
 
+# Function to prepare MCP server for execution by copying to temp directory
+# This avoids file locking issues when running the MCP server
+function Copy-McpServerToTemp
+{
+    param(
+        [string]$SourceRootDir
+    )
+
+    # Find the BuildTools Debug directory
+    $debugDir = Join-Path $SourceRootDir "$EngPath\src\bin\Debug"
+
+    if (-not (Test-Path $debugDir))
+    {
+        throw "MCP server Debug directory not found: $debugDir. Please build the project first using: Build.ps1"
+    }
+
+    # Get the single subdirectory (e.g., net8.0, net9.0)
+    $targetFrameworkDirs = Get-ChildItem -Path $debugDir -Directory
+
+    if ($targetFrameworkDirs.Count -eq 0)
+    {
+        throw "No target framework directory found in $debugDir. Please build the project first using: Build.ps1"
+    }
+
+    if ($targetFrameworkDirs.Count -gt 1)
+    {
+        Write-Warning "Multiple target framework directories found in $debugDir"
+        Write-Warning "Using the first one: $($targetFrameworkDirs[0].Name)"
+    }
+
+    $targetFrameworkDir = $targetFrameworkDirs[0].FullName
+    Write-Host "Found MCP server build directory: $targetFrameworkDir" -ForegroundColor Cyan
+
+    # Find the executable (.exe) or library (.dll)
+    $exeFiles = Get-ChildItem -Path $targetFrameworkDir -Filter "*.exe"
+    $dllFiles = Get-ChildItem -Path $targetFrameworkDir -Filter "*.dll" | Where-Object { $_.Name -notlike "*.resources.dll" }
+
+    $executableFile = $null
+    if ($exeFiles.Count -gt 0)
+    {
+        $executableFile = $exeFiles[0]
+    }
+    elseif ($dllFiles.Count -gt 0)
+    {
+        # Prefer files with "Build" in the name
+        $buildDll = $dllFiles | Where-Object { $_.Name -like "*Build*" } | Select-Object -First 1
+        if ($buildDll)
+        {
+            $executableFile = $buildDll
+        }
+        else
+        {
+            $executableFile = $dllFiles[0]
+        }
+    }
+    else
+    {
+        throw "No executable (.exe) or assembly (.dll) found in $targetFrameworkDir"
+    }
+
+    Write-Host "Found MCP server executable: $($executableFile.Name)" -ForegroundColor Cyan
+
+    # Create temporary directory using hash of source directory
+    # This ensures the same repo always uses the same temp path (avoiding firewall prompts)
+    # but different repos won't conflict
+    $hashBytes = (New-Object -TypeName System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($SourceRootDir))
+    $directoryHash = [System.BitConverter]::ToString($hashBytes, 0, 4).Replace("-", "").ToLower()
+    $tempDir = Join-Path $env:TEMP "mcp-server-$directoryHash"
+
+    # Clean up old temp directory if it exists
+    if (Test-Path $tempDir)
+    {
+        Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+    Write-Host "Created temporary directory: $tempDir" -ForegroundColor Cyan
+
+    # Copy the entire target framework directory to temp
+    $tempTargetDir = Join-Path $tempDir $targetFrameworkDirs[0].Name
+    Copy-Item -Path $targetFrameworkDir -Destination $tempTargetDir -Recurse -Force
+    Write-Host "Copied MCP server files to temporary directory" -ForegroundColor Cyan
+
+    # Return the path to the executable and the temp directory for cleanup
+    $tempExecutable = Join-Path $tempTargetDir $executableFile.Name
+    return @{
+        ExecutablePath = $tempExecutable
+        TempDirectory = $tempDir
+        IsExe = $executableFile.Extension -eq ".exe"
+    }
+}
+
 if ($env:RUNNING_IN_DOCKER)
 {
     Write-Error "Already running in Docker."
@@ -189,7 +281,36 @@ else
     Write-Host "Image will be tagged as: $ImageTag" -ForegroundColor Cyan
 }
 
-# When building locally (as opposed as on the build agent), we must do a complete cleanup because 
+# Save MCP server files to temp directory BEFORE cleanup (for -Claude mode)
+# This must happen before cleaning because cleanup removes all bin directories
+$mcpServerSnapshot = $null
+if ($Claude -and -not $NoMcp)
+{
+    try
+    {
+        Write-Host "Building MCP server before cleanup..." -ForegroundColor Cyan
+        $mcpProjectPath = Join-Path $PSScriptRoot "$EngPath\src"
+
+        # Build the MCP server project
+        & dotnet build $mcpProjectPath --configuration Debug --nologo --verbosity quiet
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "Failed to build MCP server project at $mcpProjectPath"
+        }
+
+        Write-Host "Saving MCP server files before cleanup..." -ForegroundColor Cyan
+        $mcpServerSnapshot = Copy-McpServerToTemp -SourceRootDir $PSScriptRoot
+        Write-Host "MCP server files saved to: $($mcpServerSnapshot.TempDirectory)" -ForegroundColor Cyan
+    }
+    catch
+    {
+        Write-Host "WARNING: Could not save MCP server files: $_" -ForegroundColor Yellow
+        Write-Host "MCP server will not be available." -ForegroundColor Yellow
+        $mcpServerSnapshot = $null
+    }
+}
+
+# When building locally (as opposed as on the build agent), we must do a complete cleanup because
 # obj files may point to the host filesystem.
 if (-not $env:IS_TEAMCITY_AGENT -and -not $NoClean)
 {
@@ -561,52 +682,83 @@ if (-not $BuildImage)
         $mcpPort = $null
         $mcpPortFile = $null
         $mcpSecret = $null
+        $mcpTempDir = $null
         if (-not $NoMcp) {
-            Write-Host "Starting MCP approval server..." -ForegroundColor Green
-            $mcpPortFile = Join-Path $env:TEMP "mcp-port-$([System.Guid]::NewGuid().ToString('N').Substring(0,8)).txt"
+            try {
+                # Check if MCP server snapshot was saved before cleanup
+                if (-not $mcpServerSnapshot) {
+                    throw "MCP server files were not saved before cleanup. Cannot start MCP server."
+                }
 
-            # Generate 128-bit (16 byte) random secret for authentication
-            $randomBytes = New-Object byte[] 16
-            [Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
-            $mcpSecret = [Convert]::ToBase64String($randomBytes)
-            Write-Host "Generated MCP authentication secret" -ForegroundColor Cyan
+                Write-Host "Starting MCP approval server..." -ForegroundColor Green
+                $mcpPortFile = Join-Path $env:TEMP "mcp-port-$([System.Guid]::NewGuid().ToString('N').Substring(0,8)).txt"
 
-            # Build the command to run in the new tab
-            $mcpCommand = "& '$SourceDirName\Build.ps1' tools mcp-server --port-file '$mcpPortFile' --secret '$mcpSecret'"
+                # Generate 128-bit (16 byte) random secret for authentication
+                $randomBytes = New-Object byte[] 16
+                [Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
+                $mcpSecret = [Convert]::ToBase64String($randomBytes)
+                Write-Host "Generated MCP authentication secret" -ForegroundColor Cyan
 
-            # Try Windows Terminal first (wt.exe), fall back to conhost
-            $wtPath = Get-Command wt.exe -ErrorAction SilentlyContinue
-            if ($wtPath) {
-                # Open new tab in current Windows Terminal window
-                # The -w 0 option targets the current window
-                # Use single argument string for proper escaping
-                $wtArgString = "-w 0 new-tab --title `"MCP Approval Server`" -- pwsh -NoExit -Command `"$mcpCommand`""
-                $mcpServerProcess = Start-Process -FilePath "wt.exe" -ArgumentList $wtArgString -PassThru
-            } else {
-                # Fallback: start in new console window
-                $mcpServerProcess = Start-Process -FilePath "pwsh" `
-                    -ArgumentList "-NoExit", "-Command", $mcpCommand `
-                    -PassThru
+                # Use the MCP server snapshot saved before cleanup
+                $mcpServerInfo = $mcpServerSnapshot
+                $mcpTempDir = $mcpServerInfo.TempDirectory
+
+                # Build the command to run in the new tab
+                if ($mcpServerInfo.IsExe) {
+                    # Run executable directly
+                    $mcpCommand = "& '$($mcpServerInfo.ExecutablePath)' tools mcp-server --port-file '$mcpPortFile' --secret '$mcpSecret'"
+                } else {
+                    # Run DLL with dotnet
+                    $mcpCommand = "dotnet '$($mcpServerInfo.ExecutablePath)' tools mcp-server --port-file '$mcpPortFile' --secret '$mcpSecret'"
+                }
+
+                # Try Windows Terminal first (wt.exe), fall back to conhost
+                $wtPath = Get-Command wt.exe -ErrorAction SilentlyContinue
+                if ($wtPath) {
+                    # Open new tab in current Windows Terminal window
+                    # The -w 0 option targets the current window
+                    # Use single argument string for proper escaping
+                    $wtArgString = "-w 0 new-tab --title `"MCP Approval Server`" -- pwsh -NoExit -Command `"$mcpCommand`""
+                    $mcpServerProcess = Start-Process -FilePath "wt.exe" -ArgumentList $wtArgString -PassThru
+                } else {
+                    # Fallback: start in new console window
+                    $mcpServerProcess = Start-Process -FilePath "pwsh" `
+                        -ArgumentList "-NoExit", "-Command", $mcpCommand `
+                        -PassThru
+                }
+
+                # Wait for port file to be written (with timeout)
+                $timeout = 30
+                $elapsed = 0
+                while (-not (Test-Path $mcpPortFile) -and $elapsed -lt $timeout) {
+                    Start-Sleep -Milliseconds 500
+                    $elapsed += 0.5
+                }
+
+                if (-not (Test-Path $mcpPortFile)) {
+                    throw "MCP server failed to start within $timeout seconds"
+                }
+
+                $mcpPort = (Get-Content $mcpPortFile -Raw).Trim()
+                Write-Host "MCP approval server running on port $mcpPort" -ForegroundColor Cyan
             }
+            catch {
+                Write-Host "ERROR: Failed to start MCP approval server: $_" -ForegroundColor Red
+                Write-Host "Continuing without MCP server support." -ForegroundColor Yellow
 
-            # Wait for port file to be written (with timeout)
-            $timeout = 30
-            $elapsed = 0
-            while (-not (Test-Path $mcpPortFile) -and $elapsed -lt $timeout) {
-                Start-Sleep -Milliseconds 500
-                $elapsed += 0.5
-            }
-
-            if (-not (Test-Path $mcpPortFile)) {
-                Write-Error "MCP server failed to start within $timeout seconds"
+                # Clean up on error
                 if ($mcpServerProcess -and !$mcpServerProcess.HasExited) {
                     Stop-Process -Id $mcpServerProcess.Id -Force -ErrorAction SilentlyContinue
                 }
-                exit 1
-            }
+                if ($mcpTempDir -and (Test-Path $mcpTempDir)) {
+                    Remove-Item $mcpTempDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
 
-            $mcpPort = (Get-Content $mcpPortFile -Raw).Trim()
-            Write-Host "MCP approval server running on port $mcpPort" -ForegroundColor Cyan
+                # Reset variables to continue without MCP
+                $mcpPort = $null
+                $mcpSecret = $null
+                $mcpTempDir = $null
+            }
         } else {
             Write-Host "Skipping MCP approval server (-NoMcp specified)." -ForegroundColor Yellow
         }
@@ -732,6 +884,12 @@ if (-not $BuildImage)
             # Clean up port file
             if ($mcpPortFile -and (Test-Path $mcpPortFile)) {
                 Remove-Item $mcpPortFile -ErrorAction SilentlyContinue
+            }
+
+            # Clean up temporary MCP server directory
+            if ($mcpTempDir -and (Test-Path $mcpTempDir)) {
+                Write-Host "Cleaning up temporary MCP server directory: $mcpTempDir" -ForegroundColor Cyan
+                Remove-Item $mcpTempDir -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
 
