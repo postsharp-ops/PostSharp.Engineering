@@ -37,8 +37,6 @@ public sealed class ExecuteCommandTool
     [McpServerTool]
     [Description( "Execute a PowerShell command on the host machine. Requires human approval. Use this for git push, GitHub operations, and other actions that affect external systems or require privileges or tokens that the container does not have." )]
     public async Task<CommandResult> ExecuteCommand(
-        [Description( "Unique session identifier for tracking command history" )]
-        string sessionId,
         [Description( "The command to execute (e.g., 'git push origin main'). Must be valid PowerShell script." )]
         string command,
         [Description( "The working directory for command execution" )]
@@ -47,11 +45,13 @@ public sealed class ExecuteCommandTool
         string claimedPurpose,
         CancellationToken cancellationToken = default )
     {
+        // Use a constant session ID for single session model
+        const string sessionId = "default";
+
         // Log incoming request
         AnsiConsole.WriteLine();
         AnsiConsole.Write( new Rule( "[yellow]Incoming Command Request[/]" ) );
         AnsiConsole.MarkupLine( $"[dim]Time:[/] {DateTime.Now:yyyy-MM-dd HH:mm:ss}" );
-        AnsiConsole.MarkupLine( $"[dim]Session:[/] {sessionId}" );
         AnsiConsole.MarkupLine( $"[dim]Command:[/] [white]{command.EscapeMarkup()}[/]" );
         AnsiConsole.MarkupLine( $"[dim]Working Directory:[/] {workingDirectory.EscapeMarkup()}" );
         AnsiConsole.MarkupLine( $"[dim]Purpose:[/] {claimedPurpose.EscapeMarkup()}" );

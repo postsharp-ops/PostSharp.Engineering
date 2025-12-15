@@ -63,16 +63,26 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
 
             var app = builder.Build();
 
-            // Add request logging middleware
-            app.Use( async ( httpContext, next ) =>
+            // Add request logging middleware (only if verbose mode is enabled)
+            if ( settings.Verbose )
             {
-                AnsiConsole.MarkupLine( $"[dim]HTTP {httpContext.Request.Method} {httpContext.Request.Path}[/]" );
+                app.Use( async ( httpContext, next ) =>
+                {
+                    AnsiConsole.MarkupLine( $"[dim]HTTP {httpContext.Request.Method} {httpContext.Request.Path}[/]" );
 
-                await next();
-            } );
+                    await next();
+                } );
+            }
 
-            // Map MCP endpoints
-            app.MapMcp();
+            // Map MCP endpoints with token as base path (if configured)
+            if ( !string.IsNullOrEmpty( settings.Secret ) )
+            {
+                app.MapMcp( $"/{settings.Secret}" );
+            }
+            else
+            {
+                app.MapMcp();
+            }
 
             // Start the server
             await app.StartAsync();
@@ -91,9 +101,6 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
             AnsiConsole.MarkupLine( $"[green]Server listening on port {actualPort}[/]" );
             AnsiConsole.MarkupLine( "[dim]Press Ctrl+C to stop the server[/]" );
             AnsiConsole.WriteLine();
-
-            // Write to stdout for programmatic consumption
-            Console.WriteLine( $"MCP_SERVER_PORT={actualPort}" );
 
             // Wait for shutdown signal
             await app.WaitForShutdownAsync();

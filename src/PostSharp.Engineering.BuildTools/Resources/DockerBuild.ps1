@@ -560,12 +560,19 @@ if (-not $BuildImage)
         # Start MCP approval server on host with dynamic port in new terminal tab
         $mcpPort = $null
         $mcpPortFile = $null
+        $mcpSecret = $null
         if (-not $NoMcp) {
             Write-Host "Starting MCP approval server..." -ForegroundColor Green
             $mcpPortFile = Join-Path $env:TEMP "mcp-port-$([System.Guid]::NewGuid().ToString('N').Substring(0,8)).txt"
 
+            # Generate 128-bit (16 byte) random secret for authentication
+            $randomBytes = New-Object byte[] 16
+            [Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
+            $mcpSecret = [Convert]::ToBase64String($randomBytes)
+            Write-Host "Generated MCP authentication secret" -ForegroundColor Cyan
+
             # Build the command to run in the new tab
-            $mcpCommand = "& '$SourceDirName\Build.ps1' tools mcp-server --port-file '$mcpPortFile'"
+            $mcpCommand = "& '$SourceDirName\Build.ps1' tools mcp-server --port-file '$mcpPortFile' --secret '$mcpSecret'"
 
             # Try Windows Terminal first (wt.exe), fall back to conhost
             $wtPath = Get-Command wt.exe -ErrorAction SilentlyContinue
@@ -675,6 +682,11 @@ if (-not $BuildImage)
             "-e", "HOME=$containerUserProfile",
             "-e", "USERPROFILE=$containerUserProfile"
         )
+
+        # Pass MCP secret to container if MCP server is running
+        if ($mcpSecret) {
+            $envArgs += @("-e", "MCP_APPROVAL_SERVER_TOKEN=$mcpSecret")
+        }
 
         Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
 

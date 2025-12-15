@@ -18,4 +18,13 @@ public sealed class McpServerCommandSettings : CommandSettings
     [CommandOption( "--port-file" )]
     [Description( "File path to write the assigned port number. Used for dynamic port discovery." )]
     public string? PortFile { get; init; }
+
+    [CommandOption( "--verbose" )]
+    [Description( "Enable verbose logging including HTTP requests." )]
+    [DefaultValue( false )]
+    public bool Verbose { get; init; }
+
+    [CommandOption( "--secret" )]
+    [Description( "Security token for authenticating requests. Required for production use." )]
+    public string? Secret { get; init; }
 }

@@ -16,7 +16,10 @@
       "Bash(findstr:*)",
       "Bash(docker run:*)",
       "Bash(.DockerBuild.ps1 -Claude -SkipBuild)",
-      "Bash(dotnet restore:*)"
+      "Bash(dotnet restore:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(cat:*)",
+      "Bash(npx @anthropic-ai/claude-code:*)"
     ],
     "deny": [],
     "ask": []

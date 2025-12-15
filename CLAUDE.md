@@ -18,6 +18,14 @@ Before any work in this repo, read these skills:
 
 When running inside a Docker container, you have access to the `host-approval` MCP server for executing privileged commands on the host machine. These commands require human approval before execution.
 
+### Security Model
+
+The MCP server uses token-based authentication:
+- DockerBuild.ps1 generates a random 128-bit secret when starting the MCP server
+- The secret is passed to the container via the `MCP_APPROVAL_SERVER_TOKEN` environment variable
+- All MCP requests include this secret as a URL parameter for authentication
+- The MCP server validates the token before processing any commands
+
 ### When to Use the MCP Server
 
 Use the `ExecuteCommand` tool from the `host-approval` MCP server for:
@@ -48,7 +56,6 @@ Use the `ExecuteCommand` tool from the `host-approval` MCP server for:
 ### How to Use
 
 Call the `ExecuteCommand` tool with:
-- `sessionId`: Use a consistent session ID for your conversation (e.g., "session-{timestamp}")
 - `command`: The command to execute
 - `workingDirectory`: The working directory (use forward slashes: `X:/src/RepoName`)
 - `claimedPurpose`: A clear explanation of why this command is needed
@@ -58,7 +65,6 @@ Call the `ExecuteCommand` tool with:
 To push a feature branch:
 ```
 ExecuteCommand(
-  sessionId: "session-20241214",
   command: "git push origin feature/my-feature",
   workingDirectory: "X:/src/PostSharp.Engineering",
   claimedPurpose: "Push the feature branch with MCP implementation to remote for PR creation"
