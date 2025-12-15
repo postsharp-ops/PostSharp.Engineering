@@ -17,6 +17,8 @@ namespace PostSharp.Engineering.BuildTools.Mcp.Tools;
 [McpServerToolType]
 public sealed class ExecuteCommandTool
 {
+    private static readonly SemaphoreSlim _approvalLock = new( 1, 1 );
+
     private readonly CommandHistoryService _history;
     private readonly RiskAnalyzer _analyzer;
     private readonly RegexRuleEngine _regexEngine;
@@ -51,17 +53,29 @@ public sealed class ExecuteCommandTool
         // Use a constant session ID for single session model
         const string sessionId = "default";
 
-        // Log incoming request
-        AnsiConsole.WriteLine();
-        AnsiConsole.Write( new Rule( "[yellow]Incoming Command Request[/]" ) );
-        AnsiConsole.MarkupLine( $"[dim]Time:[/] {DateTime.Now:yyyy-MM-dd HH:mm:ss}" );
-        AnsiConsole.MarkupLine( $"[dim]Command:[/] [white]{command.EscapeMarkup()}[/]" );
-        AnsiConsole.MarkupLine( $"[dim]Working Directory:[/] {workingDirectory.EscapeMarkup()}" );
-        AnsiConsole.MarkupLine( $"[dim]Purpose:[/] {claimedPurpose.EscapeMarkup()}" );
-        AnsiConsole.WriteLine();
+        // Check if another approval request is already in progress
+        if ( !await _approvalLock.WaitAsync( 0, cancellationToken ) )
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine( "[red]Another approval request is being processed. Wait until this request is approved.[/]" );
+            AnsiConsole.WriteLine();
+
+            return CommandResult.Error( "Another approval request is being processed. Wait until this request is approved." );
+        }
 
         try
         {
+            // Log incoming request
+            AnsiConsole.WriteLine();
+            AnsiConsole.Write( new Rule( "[yellow]Incoming Command Request[/]" ) );
+            AnsiConsole.MarkupLine( $"[dim]Time:[/] {DateTime.Now:yyyy-MM-dd HH:mm:ss}" );
+            AnsiConsole.MarkupLine( $"[dim]Command:[/] [white]{command.EscapeMarkup()}[/]" );
+            AnsiConsole.MarkupLine( $"[dim]Working Directory:[/] {workingDirectory.EscapeMarkup()}" );
+            AnsiConsole.MarkupLine( $"[dim]Purpose:[/] {claimedPurpose.EscapeMarkup()}" );
+            AnsiConsole.WriteLine();
+
+            try
+            {
             // 1. Get session history
             var sessionHistory = this._history.GetHistory( sessionId );
 
@@ -124,13 +138,19 @@ public sealed class ExecuteCommandTool
             this._history.Record( sessionId, command, claimedPurpose, approved, result );
 
             return result;
-        }
-        catch ( Exception ex )
-        {
-            AnsiConsole.MarkupLine( $"[red]Error: {ex.Message.EscapeMarkup()}[/]" );
-            AnsiConsole.WriteException( ex );
+            }
+            catch ( Exception ex )
+            {
+                AnsiConsole.MarkupLine( $"[red]Error: {ex.Message.EscapeMarkup()}[/]" );
+                AnsiConsole.WriteException( ex );
 
-            return CommandResult.Error( ex.Message );
+                return CommandResult.Error( ex.Message );
+            }
+        }
+        finally
+        {
+            // Always release the lock when done
+            _approvalLock.Release();
         }
     }
 }
