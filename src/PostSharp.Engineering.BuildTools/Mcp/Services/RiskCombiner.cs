@@ -18,6 +18,12 @@ public static class RiskCombiner
     /// <returns>A combined risk assessment with the maximum risk level and most restrictive recommendation.</returns>
     public static RiskAssessment Combine( RiskAssessment aiAssessment, RiskAssessment regexAssessment )
     {
+        // If regex assessment is agnostic, use only AI assessment
+        if ( regexAssessment.IsAgnostic )
+        {
+            return aiAssessment;
+        }
+
         // Take the maximum (most restrictive) risk level
         var maxLevel = (RiskLevel) Math.Max( (int) aiAssessment.Level, (int) regexAssessment.Level );
 

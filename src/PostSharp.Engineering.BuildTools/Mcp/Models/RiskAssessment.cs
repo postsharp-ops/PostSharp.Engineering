@@ -41,6 +41,12 @@ public sealed class RiskAssessment
     /// </summary>
     public string? RuleName { get; init; }
 
+    /// <summary>
+    /// Gets a value indicating whether this assessment is agnostic (defers to AI analysis).
+    /// When true, this regex-based assessment should be ignored and only AI assessment used.
+    /// </summary>
+    public bool IsAgnostic { get; init; }
+
     public static RiskAssessment Default( string reason )
     {
         return new RiskAssessment

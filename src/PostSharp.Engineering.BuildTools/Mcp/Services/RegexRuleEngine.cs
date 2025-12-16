@@ -58,7 +58,8 @@ public sealed class RegexRuleEngine
                 Level = rule.RiskLevel,
                 Recommendation = rule.Recommendation,
                 Reason = rule.Reason,
-                RuleName = rule.Name
+                RuleName = rule.Name,
+                IsAgnostic = rule.IsAgnostic
             } );
         }
 

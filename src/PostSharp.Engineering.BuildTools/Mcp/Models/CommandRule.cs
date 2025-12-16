@@ -40,4 +40,10 @@ public sealed class CommandRule
     /// If null, the rule applies whenever the pattern matches.
     /// </summary>
     public Func<CommandContext, bool>? Condition { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether this rule is agnostic (defers to AI analysis).
+    /// When true, matching this rule will not influence the risk assessment - only AI will determine risk.
+    /// </summary>
+    public bool IsAgnostic { get; init; }
 }
