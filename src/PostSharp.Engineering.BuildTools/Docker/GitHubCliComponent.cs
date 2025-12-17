@@ -21,7 +21,6 @@ public sealed class GitHubCliComponent : ContainerComponent
                 if ($process.ExitCode -ne 0) { exit $process.ExitCode }; `
                 Remove-Item gh.msi
 
-            # Add GitHub CLI to PATH using ENV directive (persists across shell switches)
             ENV PATH="C:\Program Files\GitHub CLI;${PATH}"
             """ );
     }

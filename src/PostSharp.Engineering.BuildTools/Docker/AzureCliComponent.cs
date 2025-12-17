@@ -20,6 +20,8 @@ public sealed class AzureCliComponent : ContainerComponent
                 $process = Start-Process msiexec.exe -Wait -PassThru -ArgumentList '/I AzureCLI.msi /quiet'; `
                 if ($process.ExitCode -ne 0) { exit $process.ExitCode }; `
                 Remove-Item AzureCLI.msi
+
+            ENV PATH="C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin;${PATH}"
             """ );
     }
 }

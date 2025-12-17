@@ -32,13 +32,11 @@ public class NodeJsComponent : ContainerComponent
 
         writer.WriteLine(
             $$"""
-             # Install Node.js {{version}} directly
              RUN Invoke-WebRequest -Uri "https://nodejs.org/dist/v{{version}}/node-v{{version}}-win-x64.zip" -OutFile node.zip; `
                  Expand-Archive node.zip -DestinationPath C:\; `
                  Rename-Item "C:\node-v{{version}}-win-x64" "C:\nodejs"; `
                  Remove-Item node.zip
 
-             # Add Node.js to PATH using ENV directive (persists across shell switches)
              ENV PATH="C:\nodejs;${PATH}"
              """ );
     }
