@@ -28,7 +28,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         public override bool Test( BuildContext context, BuildSettings settings ) => this.RunBuildOrTests( context, settings, test: true );
 
         public override bool Restore( BuildContext context, BuildSettings settings )
-            => this.RunDotNet( context, settings, "restore", "--no-cache", addConfigurationFlag: false );
+        {
+            if ( this.IsSingleFile )
+            {
+                context.Console.WriteImportantMessage( "Restore skipped for single-file program." );
+
+                return true;
+            }
+
+            return this.RunDotNet( context, settings, "restore", "--no-cache", addConfigurationFlag: false );
+        }
 
         private string GetFinalSolutionPath( BuildContext context )
             => FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
