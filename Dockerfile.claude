@@ -42,7 +42,6 @@ RUN Invoke-WebRequest -Uri https://github.com/PowerShell/PowerShell/releases/dow
     if ($process.ExitCode -ne 0) { exit $process.ExitCode }; `
     Remove-Item PowerShell.msi
 
-# Add PowerShell 7 to PATH using ENV directive (persists across shell switches)
 ENV PATH="C:\Program Files\PowerShell\7;${PATH}"
 
 
@@ -58,13 +57,11 @@ RUN & .\dotnet-install.ps1 -Version 9.0.305 -InstallDir 'C:\Program Files\dotnet
 
 
 # Install Node.js
-# Install Node.js 22.0.0 directly
 RUN Invoke-WebRequest -Uri "https://nodejs.org/dist/v22.0.0/node-v22.0.0-win-x64.zip" -OutFile node.zip; `
     Expand-Archive node.zip -DestinationPath C:\; `
     Rename-Item "C:\node-v22.0.0-win-x64" "C:\nodejs"; `
     Remove-Item node.zip
 
-# Add Node.js to PATH using ENV directive (persists across shell switches)
 ENV PATH="C:\nodejs;${PATH}"
 
 
@@ -74,7 +71,6 @@ RUN Invoke-WebRequest -Uri https://github.com/cli/cli/releases/download/v2.63.2/
     if ($process.ExitCode -ne 0) { exit $process.ExitCode }; `
     Remove-Item gh.msi
 
-# Add GitHub CLI to PATH using ENV directive (persists across shell switches)
 ENV PATH="C:\Program Files\GitHub CLI;${PATH}"
 
 
@@ -119,9 +115,6 @@ RUN c:\ReadEnvironmentVariables.ps1 c:\env.g.json
 
 # Copy Init.g.ps1 placeholder (drive mappings handled inline in docker run)
 COPY Init.g.ps1 c:\Init.g.ps1
-
-# Configure NuGet
-ENV NUGET_PACKAGES=c:\packages
 
 # Configure .NET SDK
 ENV DOTNET_NOLOGO=1

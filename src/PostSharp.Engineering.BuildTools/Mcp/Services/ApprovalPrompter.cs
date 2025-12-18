@@ -27,7 +27,32 @@ public sealed class ApprovalPrompter
         RiskAssessment regexAssessment )
 #pragma warning restore CA1822
     {
-        // Beep to alert the user
+        // Auto-approve LOW risk commands when combined assessment recommends approval
+        if ( combinedAssessment.Level == RiskLevel.Low && combinedAssessment.Recommendation == Recommendation.Approve )
+        {
+            // Pleasant single beep for auto-approve
+            try
+            {
+#pragma warning disable CA1416 // Platform compatibility - we handle non-Windows in catch
+                Console.Beep( 1200, 150 );
+#pragma warning restore CA1416
+            }
+            catch
+            {
+                // Beep may not be supported on all systems
+            }
+
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine( "[green]Auto-approved (LOW risk)[/]" );
+            AnsiConsole.MarkupLine( $"[dim]Reason: {Markup.Escape( combinedAssessment.Reason )}[/]" );
+            AnsiConsole.WriteLine();
+
+            return Task.FromResult( true );
+        }
+
+        // HIGH/CRITICAL risk commands always require manual approval (no auto-reject)
+
+        // Alert beep for user approval required
         try
         {
 #pragma warning disable CA1416 // Platform compatibility - we handle non-Windows in catch
@@ -46,19 +71,6 @@ public sealed class ApprovalPrompter
 
         try
         {
-            // Auto-approve LOW risk commands when combined assessment recommends approval
-            if ( combinedAssessment.Level == RiskLevel.Low && combinedAssessment.Recommendation == Recommendation.Approve )
-            {
-                AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine( "[green]Auto-approved (LOW risk)[/]" );
-                AnsiConsole.MarkupLine( $"[dim]Reason: {Markup.Escape( combinedAssessment.Reason )}[/]" );
-                AnsiConsole.WriteLine();
-
-                return Task.FromResult( true );
-            }
-
-            // HIGH/CRITICAL risk commands always require manual approval (no auto-reject)
-
             AnsiConsole.WriteLine();
             AnsiConsole.Write( new Rule( "[yellow]Command Approval Request[/]" ) );
             AnsiConsole.WriteLine();
