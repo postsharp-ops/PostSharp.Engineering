@@ -58,17 +58,16 @@ public sealed class RegexRuleEngine
                 Level = rule.RiskLevel,
                 Recommendation = rule.Recommendation,
                 Reason = rule.Reason,
-                RuleName = rule.Name,
-                IsAgnostic = rule.IsAgnostic
+                RuleName = rule.Name
             } );
         }
 
-        // No rules matched - return default LOW/APPROVE
+        // No rules matched - return agnostic (defer to AI analysis)
         return Task.FromResult( new RiskAssessment
         {
             Level = RiskLevel.Low,
-            Recommendation = Recommendation.Approve,
-            Reason = "No regex rules matched - command appears safe",
+            Recommendation = Recommendation.None,
+            Reason = "No regex rules matched - deferring to AI analysis",
             RuleName = null
         } );
     }

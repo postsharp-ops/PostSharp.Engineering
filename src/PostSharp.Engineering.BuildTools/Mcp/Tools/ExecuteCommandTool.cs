@@ -76,10 +76,42 @@ public sealed class ExecuteCommandTool
 
             try
             {
-            // 1. Get session history
+            // 1. Check if this exact command was previously approved
+            if ( this._history.WasPreviouslyApproved( sessionId, command, workingDirectory ) )
+            {
+                AnsiConsole.MarkupLine( "[green]Auto-approved (previously approved)[/]" );
+                AnsiConsole.WriteLine();
+                AnsiConsole.Write( new Rule( "[blue]Executing Request[/]" ) );
+                AnsiConsole.WriteLine();
+
+                // Pleasant single beep for auto-approve (same as LOW risk)
+                try
+                {
+#pragma warning disable CA1416 // Platform compatibility - we handle non-Windows in catch
+                    Console.Beep( 1200, 150 );
+#pragma warning restore CA1416
+                }
+                catch
+                {
+                    // Beep may not be supported on all systems
+                }
+
+                var autoApprovedResult = await this._executor.ExecuteAsync( command, workingDirectory, cancellationToken );
+
+                AnsiConsole.WriteLine();
+                AnsiConsole.Write( new Rule( "[blue]Request Completed[/]" ) );
+                AnsiConsole.WriteLine();
+
+                // Record in history
+                this._history.Record( sessionId, command, workingDirectory, claimedPurpose, approved: true, autoApprovedResult );
+
+                return autoApprovedResult;
+            }
+
+            // 2. Get session history
             var sessionHistory = this._history.GetHistory( sessionId );
 
-            // 2. Risk analysis - run both AI and Regex analyzers in parallel
+            // 3. Risk analysis - run both AI and Regex analyzers in parallel
             var aiTask = this._analyzer.AnalyzeAsync(
                 command,
                 claimedPurpose,
@@ -98,10 +130,10 @@ public sealed class ExecuteCommandTool
             var aiAssessment = assessments[0];
             var regexAssessment = assessments[1];
 
-            // 3. Combine assessments (take maximum risk)
+            // 4. Combine assessments (take maximum risk)
             var assessment = RiskCombiner.Combine( aiAssessment, regexAssessment );
 
-            // 4. Prompt user for approval (pass both assessments for display)
+            // 5. Prompt user for approval (pass both assessments for display)
             var approved = await this._prompter.RequestApprovalAsync(
                 command,
                 claimedPurpose,
@@ -110,7 +142,7 @@ public sealed class ExecuteCommandTool
                 aiAssessment,
                 regexAssessment );
 
-            // 5. Execute if approved
+            // 6. Execute if approved
             CommandResult result;
 
             if ( approved )
@@ -134,8 +166,8 @@ public sealed class ExecuteCommandTool
                 result = CommandResult.Rejected();
             }
 
-            // 6. Record in history
-            this._history.Record( sessionId, command, claimedPurpose, approved, result );
+            // 7. Record in history
+            this._history.Record( sessionId, command, workingDirectory, claimedPurpose, approved, result );
 
             return result;
             }

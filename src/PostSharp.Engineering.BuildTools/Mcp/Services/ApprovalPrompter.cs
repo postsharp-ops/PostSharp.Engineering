@@ -172,6 +172,7 @@ public sealed class ApprovalPrompter
     {
         return recommendation switch
         {
+            Recommendation.None => "[dim]NONE (agnostic)[/]",
             Recommendation.Approve => "[green]APPROVE[/]",
             Recommendation.Reject => "[red]REJECT[/]",
             _ => recommendation.ToString()

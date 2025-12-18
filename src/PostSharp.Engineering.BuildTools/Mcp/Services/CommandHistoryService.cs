@@ -34,6 +34,7 @@ public sealed class CommandHistoryService
     public void Record(
         string sessionId,
         string command,
+        string workingDirectory,
         string claimedPurpose,
         bool approved,
         CommandResult result )
@@ -42,6 +43,7 @@ public sealed class CommandHistoryService
         {
             Timestamp = DateTime.UtcNow,
             Command = command,
+            WorkingDirectory = workingDirectory,
             ClaimedPurpose = claimedPurpose,
             Approved = approved,
             ExitCode = result.ExitCode,
@@ -60,6 +62,22 @@ public sealed class CommandHistoryService
 
                 return list;
             } );
+    }
+
+    public bool WasPreviouslyApproved( string sessionId, string command, string workingDirectory )
+    {
+        if ( !this._sessions.TryGetValue( sessionId, out var history ) )
+        {
+            return false;
+        }
+
+        lock ( this._lock )
+        {
+            return history.Any( r =>
+                r.Approved &&
+                r.Command.Equals( command, StringComparison.Ordinal ) &&
+                r.WorkingDirectory.Equals( workingDirectory, StringComparison.OrdinalIgnoreCase ) );
+        }
     }
 
     public void ClearSession( string sessionId )

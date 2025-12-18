@@ -291,9 +291,8 @@ public static class CommandRules
             Name = "export-env-variables",
             Pattern = new Regex( @"\$env:\w+\s*=", RegexOptions.IgnoreCase ),
             RiskLevel = RiskLevel.Low,
-            Recommendation = Recommendation.Approve,
-            Reason = "Setting environment variables - deferring to AI to determine if secrets are exposed",
-            IsAgnostic = true
+            Recommendation = Recommendation.None,
+            Reason = "Setting environment variables - deferring to AI to determine if secrets are exposed"
         },
 
         new CommandRule
@@ -301,9 +300,8 @@ public static class CommandRules
             Name = "env-var-reference-powershell",
             Pattern = new Regex( @"\$env:\w+", RegexOptions.IgnoreCase ),
             RiskLevel = RiskLevel.Low,
-            Recommendation = Recommendation.Approve,
-            Reason = "Environment variable reference detected - deferring to AI to determine if leaked",
-            IsAgnostic = true
+            Recommendation = Recommendation.None,
+            Reason = "Environment variable reference detected - deferring to AI to determine if leaked"
         },
 
         new CommandRule
@@ -311,9 +309,8 @@ public static class CommandRules
             Name = "env-var-reference-bash",
             Pattern = new Regex( @"\$\{?\w+\}?", RegexOptions.None ),
             RiskLevel = RiskLevel.Low,
-            Recommendation = Recommendation.Approve,
-            Reason = "Potential environment variable reference detected - deferring to AI analysis",
-            IsAgnostic = true
+            Recommendation = Recommendation.None,
+            Reason = "Potential environment variable reference detected - deferring to AI analysis"
         }
     };
 

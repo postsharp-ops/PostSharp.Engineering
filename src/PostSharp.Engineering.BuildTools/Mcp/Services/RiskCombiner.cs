@@ -18,8 +18,8 @@ public static class RiskCombiner
     /// <returns>A combined risk assessment with the maximum risk level and most restrictive recommendation.</returns>
     public static RiskAssessment Combine( RiskAssessment aiAssessment, RiskAssessment regexAssessment )
     {
-        // If regex assessment is agnostic, use only AI assessment
-        if ( regexAssessment.IsAgnostic )
+        // If regex assessment has no recommendation (agnostic), use only AI assessment
+        if ( regexAssessment.Recommendation == Recommendation.None )
         {
             return aiAssessment;
         }
