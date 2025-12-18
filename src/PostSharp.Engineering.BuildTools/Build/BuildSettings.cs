@@ -43,6 +43,11 @@ namespace PostSharp.Engineering.BuildTools.Build
             {
                 stringBuilder.Append( "--no-dependencies " );
             }
+            
+            if ( this.NoRestore )
+            {
+                stringBuilder.Append( "--no-restore " );
+            }
 
             if ( this.IncludeTests )
             {
@@ -111,6 +116,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         [Description( "Executes only the current command, but not the previous command" )]
         [CommandOption( "--no-dependencies" )]
         public bool NoDependencies { get; set; }
+        
+        [Description( "Does not restore package before executing the command" )]
+        [CommandOption( "--no-restore" )]
+        public bool NoRestore { get; set; }
 
         [Description( "Determines whether test-only assemblies should be included in the operation" )]
         [CommandOption( "--include-tests" )]

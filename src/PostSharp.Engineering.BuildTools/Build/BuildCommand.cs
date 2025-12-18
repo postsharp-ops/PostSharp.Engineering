@@ -148,7 +148,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 {
                     context.Console.WriteHeading( $"Building {solution.Name} ({settings.BuildConfiguration} configuration)" );
 
-                    if ( !settings.NoDependencies )
+                    if ( !settings.NoRestore )
                     {
                         if ( !solution.Restore( context, settings ) )
                         {
