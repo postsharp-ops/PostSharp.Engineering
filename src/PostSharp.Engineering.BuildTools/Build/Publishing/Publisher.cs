@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Docker;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -23,6 +24,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
         IEnumerable<IBuildComponent> IBuildComponent.Children => [];
 
+        public virtual void AddDependencies( List<Publisher> publishers, int currentIndex ) { }
+
         protected abstract bool Publish(
             BuildContext context,
             PublishSettings settings,
@@ -41,11 +44,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             bool isPublic,
             ref bool hasTarget )
         {
-            var publishers = isPublic ? configuration.PublicPublishers : configuration.PrivatePublishers;
+            var publishers = isPublic ? configuration.PublicPublishers?.ToList() : configuration.PrivatePublishers?.ToList();
 
-            if ( publishers is not { Length: > 0 } )
+            if ( publishers == null || publishers.Count == 0 )
             {
                 return true;
+            }
+
+            for ( var i = 0; i < publishers.Count; i++ )
+            {
+                publishers[i].AddDependencies( publishers, i );
             }
 
             var publishingSucceeded = true;
@@ -62,15 +70,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
                 context.Console.WriteHeading( $"Publishing with {publisher.GetType().Name}" );
 
-                if ( !publisher.Publish(
-                        context,
-                        settings,
-                        directories,
-                        configuration,
-                        buildArguments,
-                        isPublic,
-                        ref hasTarget ) )
+                try
                 {
+                    if ( !publisher.Publish(
+                            context,
+                            settings,
+                            directories,
+                            configuration,
+                            buildArguments,
+                            isPublic,
+                            ref hasTarget ) )
+                    {
+                        publishingSucceeded = false;
+                    }
+                }
+                catch ( Exception e )
+                {
+                    context.Console.WriteError( $"Publisher '' failed with {e.GetType().Name}: {e}" );
                     publishingSucceeded = false;
                 }
             }
