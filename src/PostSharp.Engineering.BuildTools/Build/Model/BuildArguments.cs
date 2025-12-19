@@ -75,7 +75,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if ( !AutoUpdatedVersionsFile.TryRead( context, out var packageVersion, out var packageMainVersion ) )
+            if ( !AutoUpdatedVersionsFile.TryRead( context, out var packageVersion, out _ ) )
             {
                 buildArguments = null;
 
@@ -97,7 +97,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildSettings settings,
             [NotNullWhen( true )] out BuildArguments? buildArguments )
             => TryCreate( context, settings.BuildConfiguration, settings.GetVersionSpec( settings.BuildConfiguration ), settings.UserName, out buildArguments );
-        
+
         public static bool TryCreate(
             BuildContext context,
             BuildConfiguration configuration,
@@ -112,8 +112,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            
-            if ( !VersionComponents.TryCompute( context, configuration, mainVersionFile, null, versionSpec,  userName, out var versionComponents  ) )
+            if ( !VersionComponents.TryCompute( context, configuration, mainVersionFile, null, versionSpec, userName, out var versionComponents ) )
             {
                 buildArguments = null;
 

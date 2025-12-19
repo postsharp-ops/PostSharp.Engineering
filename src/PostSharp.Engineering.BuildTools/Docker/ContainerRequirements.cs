@@ -28,11 +28,9 @@ public record ContainerRequirements : BuildAgentRequirements
 
     public override bool IsDockerized => true;
 
-    public bool WriteDockerfile( BuildContext context )
-        => this.WriteDockerfileCore( context, "Dockerfile", null, true );
+    public bool WriteDockerfile( BuildContext context ) => this.WriteDockerfileCore( context, "Dockerfile", null, true );
 
-    public bool WriteClaudeDockerfile( BuildContext context )
-        => this.WriteDockerfileCore( context, "Dockerfile.claude", new ClaudeComponent(), false );
+    public bool WriteClaudeDockerfile( BuildContext context ) => this.WriteDockerfileCore( context, "Dockerfile.claude", new ClaudeComponent(), false );
 
     private bool WriteDockerfileCore( BuildContext context, string dockerfileName, ContainerComponent? additionalComponent, bool validateBuildComponents )
     {
@@ -41,13 +39,7 @@ public record ContainerRequirements : BuildAgentRequirements
         Directory.CreateDirectory( contextDirectory );
 
         // Add base components
-        var allComponents = new List<ContainerComponent>
-        {
-            new PrologComponent(),
-            new PowershellComponent(),
-            new GitComponent(),
-            new EpilogueComponent()
-        };
+        var allComponents = new List<ContainerComponent> { new PrologComponent(), new PowershellComponent(), new GitComponent(), new EpilogueComponent() };
 
         allComponents.AddRange( this.Components );
 

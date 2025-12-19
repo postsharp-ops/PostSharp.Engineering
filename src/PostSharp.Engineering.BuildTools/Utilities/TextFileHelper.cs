@@ -9,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 internal static class TextFileHelper
 {
     public static bool WriteIfDifferent( string path, XDocument content, BuildContext context ) => WriteIfDifferent( path, content.ToNiceString(), context );
-    
+
     public static bool WriteIfDifferent( string path, string content, BuildContext context )
     {
         if ( File.Exists( path ) && content == File.ReadAllText( path ) )

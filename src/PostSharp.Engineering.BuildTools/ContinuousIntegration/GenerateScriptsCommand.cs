@@ -2,7 +2,6 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;

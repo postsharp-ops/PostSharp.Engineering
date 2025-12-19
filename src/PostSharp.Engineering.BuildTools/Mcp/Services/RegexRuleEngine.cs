@@ -33,7 +33,7 @@ public sealed class RegexRuleEngine
         CancellationToken cancellationToken = default )
     {
         // Build command context with git information
-        var context = BuildContext( command, workingDirectory );
+        var context = this.BuildContext( command, workingDirectory );
 
         // Evaluate all rules in order
         foreach ( var rule in CommandRules.DefaultRules )
@@ -51,34 +51,24 @@ public sealed class RegexRuleEngine
             }
 
             // Rule matched! Log and return assessment
-            AnsiConsole.MarkupLine( $"[yellow][[Regex Rule Matched]][/] {Markup.Escape( rule.Name )}: {Markup.Escape( rule.Reason )} ({rule.RiskLevel}/{rule.Recommendation})" );
+            AnsiConsole.MarkupLine(
+                $"[yellow][[Regex Rule Matched]][/] {Markup.Escape( rule.Name )}: {Markup.Escape( rule.Reason )} ({rule.RiskLevel}/{rule.Recommendation})" );
 
-            return Task.FromResult( new RiskAssessment
-            {
-                Level = rule.RiskLevel,
-                Recommendation = rule.Recommendation,
-                Reason = rule.Reason,
-                RuleName = rule.Name
-            } );
+            return Task.FromResult(
+                new RiskAssessment { Level = rule.RiskLevel, Recommendation = rule.Recommendation, Reason = rule.Reason, RuleName = rule.Name } );
         }
 
         // No rules matched - return agnostic (defer to AI analysis)
-        return Task.FromResult( new RiskAssessment
-        {
-            Level = RiskLevel.Low,
-            Recommendation = Recommendation.None,
-            Reason = "No regex rules matched - deferring to AI analysis",
-            RuleName = null
-        } );
+        return Task.FromResult(
+            new RiskAssessment
+            {
+                Level = RiskLevel.Low, Recommendation = Recommendation.None, Reason = "No regex rules matched - deferring to AI analysis", RuleName = null
+            } );
     }
 
     private CommandContext BuildContext( string command, string workingDirectory )
     {
-        var context = new CommandContext
-        {
-            Command = command,
-            WorkingDirectory = workingDirectory
-        };
+        var context = new CommandContext { Command = command, WorkingDirectory = workingDirectory };
 
         // Only gather git context if working directory exists and is a git repository
         if ( !Directory.Exists( workingDirectory ) )
@@ -100,13 +90,13 @@ public sealed class RegexRuleEngine
         }
 
         // Try to get remote URL (using git config command directly)
-        if ( TryGetRemoteUrl( workingDirectory, "origin", out var remoteUrl ) )
+        if ( this.TryGetRemoteUrl( workingDirectory, "origin", out var remoteUrl ) )
         {
             context = context with { RemoteUrl = remoteUrl };
         }
 
         // Try to check if merge is in progress (using git rev-parse command directly)
-        if ( TryGetIsMergeInProgress( workingDirectory, out var isMerging ) )
+        if ( this.TryGetIsMergeInProgress( workingDirectory, out var isMerging ) )
         {
             context = context with { IsMergeInProgress = isMerging };
         }

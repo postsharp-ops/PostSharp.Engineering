@@ -44,7 +44,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Appends a pattern after the current pattern and returns the result.
         /// </summary>
-        public Pattern Append( Pattern? pattern ) => pattern == null ? this : new( this.Items.AddRange( pattern.Items ) );
+        public Pattern Append( Pattern? pattern ) => pattern == null ? this : new Pattern( this.Items.AddRange( pattern.Items ) );
 
         /// <summary>
         /// Creates a new additive pattern.

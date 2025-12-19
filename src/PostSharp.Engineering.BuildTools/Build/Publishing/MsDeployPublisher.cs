@@ -83,7 +83,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             }
 
             context.Console.WriteMessage( $"Publishing {file} to {publishProfile.PublishUrl}{packageConfiguration.VirtualDirectory}." );
-            
+
             var exe = @"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe";
 
             var iisWebApplicationName = packageConfiguration.VirtualDirectory == null

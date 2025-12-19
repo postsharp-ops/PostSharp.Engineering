@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 
@@ -73,6 +72,7 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
         EmbeddedResourceHelper.ExtractResource( context, this._version.ManifestFilename, directory );
     }
 
+    // ReSharper disable once InconsistentNaming
     public bool RequireVSComponent( BuildContext context, string component )
     {
         if ( !this.Components.Contains( component ) )

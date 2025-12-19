@@ -1,5 +1,6 @@
 ﻿#if !NET5_0_OR_GREATER
 using System.Reflection;
+using Microsoft.CodeAnalysis;
 
 // ReSharper disable All
 
@@ -12,7 +13,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class AllowNullAttribute : Attribute { }
 
@@ -21,7 +22,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class DisallowNullAttribute : Attribute { }
 
@@ -30,7 +31,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class MaybeNullAttribute : Attribute { }
 
@@ -39,7 +40,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class NotNullAttribute : Attribute { }
 
@@ -48,7 +49,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class MaybeNullWhenAttribute : Attribute
     {
@@ -70,7 +71,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class NotNullWhenAttribute : Attribute
     {
@@ -92,7 +93,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class NotNullIfNotNullAttribute : Attribute
     {
@@ -113,7 +114,7 @@ namespace System.Diagnostics.CodeAnalysis
     [AttributeUsage( AttributeTargets.Method, Inherited = false )]
     [Obfuscation( Exclude = true )]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class DoesNotReturnAttribute : Attribute { }
 
@@ -122,7 +123,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class DoesNotReturnIfAttribute : Attribute
     {
@@ -145,7 +146,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class MemberNotNullAttribute : Attribute
     {
@@ -176,7 +177,7 @@ namespace System.Diagnostics.CodeAnalysis
     [Obfuscation( Exclude = true )]
     [ExcludeFromCodeCoverage]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class MemberNotNullWhenAttribute : Attribute
     {

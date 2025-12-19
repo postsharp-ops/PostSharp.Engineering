@@ -1,5 +1,6 @@
 ﻿#if !NET7_0_OR_GREATER
 using System.ComponentModel;
+using Microsoft.CodeAnalysis;
 
 namespace System.Runtime.CompilerServices
 {
@@ -10,7 +11,7 @@ namespace System.Runtime.CompilerServices
         Inherited = false )]
     [EditorBrowsable( EditorBrowsableState.Never )]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     internal sealed class RequiredMemberAttribute : Attribute { }
 }

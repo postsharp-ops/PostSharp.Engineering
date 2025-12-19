@@ -1,3 +1,5 @@
+using Microsoft.CodeAnalysis;
+
 #if !NET6_0_OR_GREATER
 
 // ReSharper disable once CheckNamespace
@@ -5,7 +7,7 @@ namespace System.Runtime.CompilerServices;
 
 [AttributeUsage( AttributeTargets.Parameter )]
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+[Embedded]
 #endif
 internal sealed class InterpolatedStringHandlerArgumentAttribute : Attribute
 {

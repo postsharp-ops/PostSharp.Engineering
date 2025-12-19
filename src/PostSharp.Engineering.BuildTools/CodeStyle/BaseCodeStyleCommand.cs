@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
     {
         protected static string? GetCodeStyleRepo( BuildContext context, CodeStyleSettings settings )
         {
-            var sharedRepo = Path.GetFullPath( Path.Combine( context.RepoDirectory, settings.Path ?? "../PostSharp.Engineering.CodeStyle" ) );
+            var sharedRepo = Path.GetFullPath( Path.Combine( context.RepoDirectory, settings.Path ) );
             var console = context.Console;
 
             // Check if the repo exists.

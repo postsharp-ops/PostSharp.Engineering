@@ -1,6 +1,7 @@
 #if !NET5_0_OR_GREATER
 using System.ComponentModel;
 using System.Reflection;
+using Microsoft.CodeAnalysis;
 
 // ReSharper disable All
 
@@ -11,7 +12,7 @@ namespace System.Runtime.CompilerServices
     /// This class should not be used by developers in source code.
     /// </summary>
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     [EditorBrowsable( EditorBrowsableState.Never )]
     [Obfuscation( Exclude = true )]

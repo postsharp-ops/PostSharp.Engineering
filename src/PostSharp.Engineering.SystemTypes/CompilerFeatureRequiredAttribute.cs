@@ -1,4 +1,6 @@
-﻿#if !NET7_0_OR_GREATER
+﻿using Microsoft.CodeAnalysis;
+
+#if !NET7_0_OR_GREATER
 
 namespace System.Runtime.CompilerServices
 {
@@ -6,7 +8,7 @@ namespace System.Runtime.CompilerServices
     /// Indicates that compiler support for a particular feature is required for the location where this attribute is applied.
     /// </summary>
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+    [Embedded]
 #endif
     [AttributeUsage( AttributeTargets.All, AllowMultiple = true, Inherited = false )]
     internal sealed class CompilerFeatureRequiredAttribute : Attribute

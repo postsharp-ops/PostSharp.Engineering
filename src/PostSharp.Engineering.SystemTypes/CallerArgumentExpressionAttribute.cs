@@ -1,10 +1,12 @@
+using Microsoft.CodeAnalysis;
+
 #if !NETCOREAPP
 
 // ReSharper disable once CheckNamespace
 namespace System.Runtime.CompilerServices;
 
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+[Embedded]
 #endif
 [AttributeUsage( AttributeTargets.Parameter )]
 internal sealed class CallerArgumentExpressionAttribute : Attribute

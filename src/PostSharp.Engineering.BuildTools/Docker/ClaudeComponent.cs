@@ -91,8 +91,7 @@ public class ClaudeComponent : ContainerComponent
         }
         else if ( Version.Parse( existingNodeJs.Version ) < Version.Parse( _minNodeVersion ) )
         {
-            throw new InvalidOperationException(
-                $"Claude CLI requires Node.js >= {_minNodeVersion}, but {existingNodeJs.Version} is configured." );
+            throw new InvalidOperationException( $"Claude CLI requires Node.js >= {_minNodeVersion}, but {existingNodeJs.Version} is configured." );
         }
 
         // Auto-add GitHubCliComponent if not already present

@@ -79,7 +79,7 @@ internal static class DependenciesHelper
             }
 
             // Download build server dependencies.
-            if ( tc != null && !DownloadArtifacts( context, tc, iterationDependencies, configuration ) )
+            if ( tc != null && !DownloadArtifacts( context, tc, iterationDependencies ) )
             {
                 return false;
             }
@@ -383,8 +383,7 @@ internal static class DependenciesHelper
     private static bool DownloadArtifacts(
         BuildContext context,
         TeamCityClient teamCity,
-        ImmutableDictionary<string, ResolvedDependency> dependencies,
-        BuildConfiguration configuration )
+        ImmutableDictionary<string, ResolvedDependency> dependencies )
     {
         foreach ( var dependency in dependencies.Values )
         {

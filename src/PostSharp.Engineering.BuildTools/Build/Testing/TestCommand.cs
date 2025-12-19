@@ -74,7 +74,7 @@ internal class TestCommand : BaseCommand<BuildSettings>
             }
 
             context.Console.WriteHeading( $"Testing {solution.Name}" );
-            
+
             if ( !settings.NoRestore )
             {
                 if ( !solution.Restore( context, settings ) )

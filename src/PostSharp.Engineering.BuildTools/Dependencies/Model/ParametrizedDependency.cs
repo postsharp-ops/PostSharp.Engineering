@@ -32,9 +32,4 @@ public record ParametrizedDependency
     public DependencyDefinition Definition { get; init; }
 
     public static implicit operator ParametrizedDependency( DependencyDefinition definition ) => new( definition );
-
-    public void Deconstruct( out DependencyDefinition Definition )
-    {
-        Definition = this.Definition;
-    }
 }

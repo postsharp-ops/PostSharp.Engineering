@@ -52,8 +52,6 @@ internal static class ArtifactManifestFile
         }
         else
         {
-            var packageSuffix = string.IsNullOrEmpty( version.VersionSuffix ) ? "" : "-" + version.VersionSuffix;
-
             manifestFileContent += $@"
         <{product.ProductNameWithoutDot}Version>{version.PackageVersion}</{product.ProductNameWithoutDot}Version>
         <{product.ProductNameWithoutDot}PreviewVersion>{version.PackagePreviewVersion}</{product.ProductNameWithoutDot}PreviewVersion>

@@ -44,12 +44,7 @@ public sealed class RiskAssessment
 
     public static RiskAssessment Default( string reason )
     {
-        return new RiskAssessment
-        {
-            Level = RiskLevel.Medium,
-            Recommendation = Recommendation.Approve,
-            Reason = reason
-        };
+        return new RiskAssessment { Level = RiskLevel.Medium, Recommendation = Recommendation.Approve, Reason = reason };
     }
 
     public static RiskAssessment Parse( string output )
@@ -94,11 +89,6 @@ public sealed class RiskAssessment
             }
         }
 
-        return new RiskAssessment
-        {
-            Level = level,
-            Recommendation = recommendation,
-            Reason = reason
-        };
+        return new RiskAssessment { Level = level, Recommendation = recommendation, Reason = reason };
     }
 }

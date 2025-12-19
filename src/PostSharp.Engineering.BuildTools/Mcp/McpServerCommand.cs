@@ -2,13 +2,12 @@
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ModelContextProtocol.AspNetCore;
 using PostSharp.Engineering.BuildTools.Mcp.Services;
 using PostSharp.Engineering.BuildTools.Mcp.Tools;
+using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
@@ -43,7 +42,7 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
             builder.Services.AddSingleton<CommandExecutor>();
 
             // Register ConsoleHelper for GitHelper usage
-            builder.Services.AddSingleton( _ => new PostSharp.Engineering.BuildTools.Utilities.ConsoleHelper() );
+            builder.Services.AddSingleton( _ => new ConsoleHelper() );
 
             // Register the tool itself
             builder.Services.AddScoped<ExecuteCommandTool>();
@@ -52,7 +51,7 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
             builder.Services
                 .AddMcpServer()
                 .WithHttpTransport()
-                .WithToolsFromAssembly( typeof( McpServerCommand ).Assembly );
+                .WithToolsFromAssembly( typeof(McpServerCommand).Assembly );
 
             // Configure port (0 = dynamic)
             // Bind to 0.0.0.0 so Docker containers can connect via host.docker.internal

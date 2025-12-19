@@ -23,7 +23,7 @@ public static partial class PostSharpDependencies
 
         private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildDistribution";
 
-        public static DependencyDefinition PostSharp { get; } = new DependencyDefinition(
+        public static DependencyDefinition PostSharp { get; } = new(
             Family,
             "PostSharpPackage",
             $"refs/heads/release/{Family.Version}",

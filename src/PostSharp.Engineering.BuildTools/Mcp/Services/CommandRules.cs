@@ -31,7 +31,6 @@ public static class CommandRules
             Reason = "Direct push to protected branch (main/master/develop/*/release/*) not allowed",
             Condition = ctx => IsProtectedBranch( ctx.CurrentBranch )
         },
-
         new CommandRule
         {
             Name = "git-force-push",
@@ -40,7 +39,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Force push can destroy commit history"
         },
-
         new CommandRule
         {
             Name = "git-reset-hard",
@@ -49,7 +47,6 @@ public static class CommandRules
             Recommendation = Recommendation.Approve,
             Reason = "Hard reset will discard uncommitted changes"
         },
-
         new CommandRule
         {
             Name = "git-clean-force",
@@ -58,7 +55,6 @@ public static class CommandRules
             Recommendation = Recommendation.Approve,
             Reason = "Git clean will permanently delete untracked files"
         },
-
         new CommandRule
         {
             Name = "git-push-tags",
@@ -67,7 +63,6 @@ public static class CommandRules
             Recommendation = Recommendation.Approve,
             Reason = "Pushing tags to remote repository"
         },
-
         new CommandRule
         {
             Name = "git-delete-branch-remote",
@@ -76,7 +71,6 @@ public static class CommandRules
             Recommendation = Recommendation.Approve,
             Reason = "Deleting remote branch"
         },
-
         new CommandRule
         {
             Name = "git-push-to-feature",
@@ -98,7 +92,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Repository deletion is irreversible and must not be done via MCP"
         },
-
         new CommandRule
         {
             Name = "gh-release-delete",
@@ -107,7 +100,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Release deletion should be done through web interface with careful review"
         },
-
         new CommandRule
         {
             Name = "gh-secret-set",
@@ -116,7 +108,6 @@ public static class CommandRules
             Recommendation = Recommendation.Approve,
             Reason = "Setting repository secrets - ensure credentials are properly secured"
         },
-
         new CommandRule
         {
             Name = "gh-release-create",
@@ -125,7 +116,6 @@ public static class CommandRules
             Recommendation = Recommendation.Approve,
             Reason = "Creating GitHub release"
         },
-
         new CommandRule
         {
             Name = "gh-pr-merge",
@@ -134,7 +124,6 @@ public static class CommandRules
             Recommendation = Recommendation.Approve,
             Reason = "Merging pull request"
         },
-
         new CommandRule
         {
             Name = "gh-pr-create",
@@ -156,7 +145,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Deleting .git directory would destroy repository history"
         },
-
         new CommandRule
         {
             Name = "format-drive",
@@ -165,7 +153,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Drive formatting is catastrophically destructive"
         },
-
         new CommandRule
         {
             Name = "remove-item-recurse",
@@ -174,7 +161,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Recursive file deletion must be performed in the container, not on host"
         },
-
         new CommandRule
         {
             Name = "file-deletion",
@@ -183,7 +169,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "File operations must be performed in the container, not on host"
         },
-
         new CommandRule
         {
             Name = "file-write-operations",
@@ -192,7 +177,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "File modifications must be performed in the container"
         },
-
         new CommandRule
         {
             Name = "directory-operations",
@@ -214,7 +198,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Package publishing must be done through CI/CD pipeline, not manually"
         },
-
         new CommandRule
         {
             Name = "npm-publish",
@@ -223,7 +206,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Package publishing must be done through CI/CD pipeline"
         },
-
         new CommandRule
         {
             Name = "docker-push",
@@ -245,7 +227,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Download-and-execute pattern is a common malware delivery method"
         },
-
         new CommandRule
         {
             Name = "wget-execute",
@@ -254,7 +235,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Download-and-execute pattern is a common malware delivery method"
         },
-
         new CommandRule
         {
             Name = "invoke-webrequest-execute",
@@ -276,7 +256,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Reading credential files may indicate data exfiltration attempt"
         },
-
         new CommandRule
         {
             Name = "read-env-file",
@@ -285,7 +264,6 @@ public static class CommandRules
             Recommendation = Recommendation.Reject,
             Reason = "Reading .env files may indicate secrets exfiltration attempt"
         },
-
         new CommandRule
         {
             Name = "export-env-variables",
@@ -294,7 +272,6 @@ public static class CommandRules
             Recommendation = Recommendation.None,
             Reason = "Setting environment variables - deferring to AI to determine if secrets are exposed"
         },
-
         new CommandRule
         {
             Name = "env-var-reference-powershell",
@@ -303,7 +280,6 @@ public static class CommandRules
             Recommendation = Recommendation.None,
             Reason = "Environment variable reference detected - deferring to AI to determine if leaked"
         },
-
         new CommandRule
         {
             Name = "env-var-reference-bash",

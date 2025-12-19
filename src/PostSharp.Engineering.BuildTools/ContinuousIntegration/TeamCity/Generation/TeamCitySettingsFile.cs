@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -497,6 +496,6 @@ internal static class TeamCitySettingsFile
 
         var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
 
-        TextFileHelper.WriteIfDifferent( filePath, content.ToString()!, context );
+        TextFileHelper.WriteIfDifferent( filePath, content.ToString(), context );
     }
 }

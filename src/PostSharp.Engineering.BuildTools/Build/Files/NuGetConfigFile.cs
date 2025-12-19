@@ -4,7 +4,6 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.IO;
-using System.Linq;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Files;

@@ -5,10 +5,6 @@ using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Helpers;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Bumping;
 
@@ -96,9 +92,29 @@ internal class BumpCommand : BaseCommand<BumpSettings>
 
         // Doing a dry run of AutoUpdatedVersionsFile both gets the versions of all dependencies and gets the current version.
         // Do not write the AutoUpdatedVersions.props file yet - we will do it after we set our own version.
-        if ( !AutoUpdatedVersionsFile.TryWrite( context, true, out var hasChangesInDependencies, out var hasChangesInAutoUpdatedVersionsFile, out _, out var currentVersion ) )
+        if ( !AutoUpdatedVersionsFile.TryWrite(
+                context,
+                true,
+                out var hasChangesInDependencies,
+                out var hasChangesInAutoUpdatedVersionsFile,
+                out _,
+                out var currentVersion ) )
         {
             return false;
+        }
+
+        // If the currentVersion differs from MainVersion, update it now, irrespective of bumping.
+        if ( currentVersion != currentMainVersionFile.MainVersion )
+        {
+            if ( !currentMainVersionFile.TryWrite( context, currentVersion, null, out currentMainVersionFile ) )
+            {
+                return false;
+            }
+
+            if ( !GitIntegrationHelper.TryCommitMainVersion( context ) )
+            {
+                return false;
+            }
         }
 
         if ( hasBumpSinceLastDeployment && !settings.OverridePreviousBump )
@@ -130,59 +146,56 @@ internal class BumpCommand : BaseCommand<BumpSettings>
                     }
                 }
             }
-
-            return true;
         }
-
-        if ( !hasChangesInDependencies && !hasChangesSinceLastDeployment )
+        else if ( !hasChangesInDependencies && !hasChangesSinceLastDeployment )
         {
             console.WriteWarning( $"There are no changes since the last deployment." );
-
-            return true;
-        }
-
-        Version? oldVersion;
-
-        if ( product.MainVersionDependency == null )
-        {
-            // This updates MainVersion.props.
-            if ( !product.BumpStrategy.TryBumpVersion( product, context, out oldVersion, out _ ) )
-            {
-                return false;
-            }
         }
         else
         {
-            if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
+            Version? oldVersion;
+
+            if ( product.MainVersionDependency == null )
             {
-                const string message =
-                    "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning.";
-
-                if ( settings.Force )
+                // This updates MainVersion.props.
+                if ( !product.BumpStrategy.TryBumpVersion( product, context, out oldVersion, out _ ) )
                 {
-                    console.WriteImportantMessage( $"{message} This is being ignored using --force." );
+                    return false;
+                }
+            }
+            else
+            {
+                if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
+                {
+                    const string message =
+                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning.";
 
-                    return true;
+                    if ( settings.Force )
+                    {
+                        console.WriteImportantMessage( $"{message} This is being ignored using --force." );
+
+                        return true;
+                    }
+
+                    console.WriteError( $"{message} Do a fake change in a parent repo or use --force." );
+
+                    return false;
                 }
 
-                console.WriteError( $"{message} Do a fake change in a parent repo or use --force." );
+                oldVersion = new Version( currentVersion );
+            }
 
+            // Now save AutoUpdatedVersions.props.
+            if ( !AutoUpdatedVersionsFile.TryWrite( context, false, out _, out _, out _, out var newVersion ) )
+            {
                 return false;
             }
 
-            oldVersion = new Version( currentVersion );
-        }
-
-        // Now save AutoUpdatedVersions.props.
-        if ( !AutoUpdatedVersionsFile.TryWrite( context, false, out _, out _, out _, out var newVersion ) )
-        {
-            return false;
-        }
-
-        // Commit the version bump.
-        if ( !GitIntegrationHelper.TryCommitVersionBump( context, oldVersion, new Version( newVersion ) ) )
-        {
-            return false;
+            // Commit the version bump.
+            if ( !GitIntegrationHelper.TryCommitVersionFilesWithBumpMessage( context, oldVersion, new Version( newVersion ) ) )
+            {
+                return false;
+            }
         }
 
         // If we are running in TeamCity, push.

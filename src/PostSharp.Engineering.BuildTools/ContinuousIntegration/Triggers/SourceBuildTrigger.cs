@@ -18,7 +18,7 @@ public class SourceBuildTrigger : IBuildTrigger
     public string? BranchFilter { get; init; }
 
     public BuildConfigurationParameter[]? Parameters { get; init; }
-    
+
     public TimeSpan? QuietPeriod { get; init; } = TimeSpan.FromHours( 2 );
 
     public void GenerateTeamcityCode( TextWriter writer, string? branchFilter = null )

@@ -40,10 +40,10 @@ public sealed class ExecuteCommandTool
     }
 
     [McpServerTool]
-    [Description( "Execute a PowerShell command on the host machine. Requires human approval. Use this for git push, GitHub operations, and other actions that affect external systems or require privileges or tokens that the container does not have." )]
+    [Description(
+        "Execute a PowerShell command on the host machine. Requires human approval. Use this for git push, GitHub operations, and other actions that affect external systems or require privileges or tokens that the container does not have." )]
     public async Task<CommandResult> ExecuteCommand(
-        [Description( "The command to execute (e.g., 'git push origin main'). Must be valid PowerShell script." )]
-        string command,
+        [Description( "The command to execute (e.g., 'git push origin main'). Must be valid PowerShell script." )] string command,
         [Description( "The working directory for command execution" )]
         string workingDirectory,
         [Description( "A clear explanation of why this command is needed" )]
@@ -76,100 +76,100 @@ public sealed class ExecuteCommandTool
 
             try
             {
-            // 1. Check if this exact command was previously approved
-            if ( this._history.WasPreviouslyApproved( sessionId, command, workingDirectory ) )
-            {
-                AnsiConsole.MarkupLine( "[green]Auto-approved (previously approved)[/]" );
-                AnsiConsole.WriteLine();
-                AnsiConsole.Write( new Rule( "[blue]Executing Request[/]" ) );
-                AnsiConsole.WriteLine();
-
-                // Pleasant single beep for auto-approve (same as LOW risk)
-                try
+                // 1. Check if this exact command was previously approved
+                if ( this._history.WasPreviouslyApproved( sessionId, command, workingDirectory ) )
                 {
+                    AnsiConsole.MarkupLine( "[green]Auto-approved (previously approved)[/]" );
+                    AnsiConsole.WriteLine();
+                    AnsiConsole.Write( new Rule( "[blue]Executing Request[/]" ) );
+                    AnsiConsole.WriteLine();
+
+                    // Pleasant single beep for auto-approve (same as LOW risk)
+                    try
+                    {
 #pragma warning disable CA1416 // Platform compatibility - we handle non-Windows in catch
-                    Console.Beep( 1200, 150 );
+                        Console.Beep( 1200, 150 );
 #pragma warning restore CA1416
+                    }
+                    catch
+                    {
+                        // Beep may not be supported on all systems
+                    }
+
+                    var autoApprovedResult = await this._executor.ExecuteAsync( command, workingDirectory, cancellationToken );
+
+                    AnsiConsole.WriteLine();
+                    AnsiConsole.Write( new Rule( "[blue]Request Completed[/]" ) );
+                    AnsiConsole.WriteLine();
+
+                    // Record in history
+                    this._history.Record( sessionId, command, workingDirectory, claimedPurpose, approved: true, autoApprovedResult );
+
+                    return autoApprovedResult;
                 }
-                catch
+
+                // 2. Get session history
+                var sessionHistory = this._history.GetHistory( sessionId );
+
+                // 3. Risk analysis - run both AI and Regex analyzers in parallel
+                var aiTask = this._analyzer.AnalyzeAsync(
+                    command,
+                    claimedPurpose,
+                    workingDirectory,
+                    sessionHistory,
+                    cancellationToken );
+
+                var regexTask = this._regexEngine.EvaluateAsync(
+                    command,
+                    claimedPurpose,
+                    workingDirectory,
+                    sessionHistory,
+                    cancellationToken );
+
+                var assessments = await Task.WhenAll( aiTask, regexTask );
+                var aiAssessment = assessments[0];
+                var regexAssessment = assessments[1];
+
+                // 4. Combine assessments (take maximum risk)
+                var assessment = RiskCombiner.Combine( aiAssessment, regexAssessment );
+
+                // 5. Prompt user for approval (pass both assessments for display)
+                var approved = await this._prompter.RequestApprovalAsync(
+                    command,
+                    claimedPurpose,
+                    workingDirectory,
+                    assessment,
+                    aiAssessment,
+                    regexAssessment );
+
+                // 6. Execute if approved
+                CommandResult result;
+
+                if ( approved )
                 {
-                    // Beep may not be supported on all systems
+                    AnsiConsole.Write( new Rule( "[green]Request Approved[/]" ) );
+                    AnsiConsole.WriteLine();
+                    AnsiConsole.Write( new Rule( "[blue]Executing Request[/]" ) );
+                    AnsiConsole.WriteLine();
+
+                    result = await this._executor.ExecuteAsync( command, workingDirectory, cancellationToken );
+
+                    AnsiConsole.WriteLine();
+                    AnsiConsole.Write( new Rule( "[blue]Request Completed[/]" ) );
+                    AnsiConsole.WriteLine();
+                }
+                else
+                {
+                    AnsiConsole.Write( new Rule( "[red]Request Rejected[/]" ) );
+                    AnsiConsole.WriteLine();
+
+                    result = CommandResult.Rejected();
                 }
 
-                var autoApprovedResult = await this._executor.ExecuteAsync( command, workingDirectory, cancellationToken );
+                // 7. Record in history
+                this._history.Record( sessionId, command, workingDirectory, claimedPurpose, approved, result );
 
-                AnsiConsole.WriteLine();
-                AnsiConsole.Write( new Rule( "[blue]Request Completed[/]" ) );
-                AnsiConsole.WriteLine();
-
-                // Record in history
-                this._history.Record( sessionId, command, workingDirectory, claimedPurpose, approved: true, autoApprovedResult );
-
-                return autoApprovedResult;
-            }
-
-            // 2. Get session history
-            var sessionHistory = this._history.GetHistory( sessionId );
-
-            // 3. Risk analysis - run both AI and Regex analyzers in parallel
-            var aiTask = this._analyzer.AnalyzeAsync(
-                command,
-                claimedPurpose,
-                workingDirectory,
-                sessionHistory,
-                cancellationToken );
-
-            var regexTask = this._regexEngine.EvaluateAsync(
-                command,
-                claimedPurpose,
-                workingDirectory,
-                sessionHistory,
-                cancellationToken );
-
-            var assessments = await Task.WhenAll( aiTask, regexTask );
-            var aiAssessment = assessments[0];
-            var regexAssessment = assessments[1];
-
-            // 4. Combine assessments (take maximum risk)
-            var assessment = RiskCombiner.Combine( aiAssessment, regexAssessment );
-
-            // 5. Prompt user for approval (pass both assessments for display)
-            var approved = await this._prompter.RequestApprovalAsync(
-                command,
-                claimedPurpose,
-                workingDirectory,
-                assessment,
-                aiAssessment,
-                regexAssessment );
-
-            // 6. Execute if approved
-            CommandResult result;
-
-            if ( approved )
-            {
-                AnsiConsole.Write( new Rule( "[green]Request Approved[/]" ) );
-                AnsiConsole.WriteLine();
-                AnsiConsole.Write( new Rule( "[blue]Executing Request[/]" ) );
-                AnsiConsole.WriteLine();
-
-                result = await this._executor.ExecuteAsync( command, workingDirectory, cancellationToken );
-
-                AnsiConsole.WriteLine();
-                AnsiConsole.Write( new Rule( "[blue]Request Completed[/]" ) );
-                AnsiConsole.WriteLine();
-            }
-            else
-            {
-                AnsiConsole.Write( new Rule( "[red]Request Rejected[/]" ) );
-                AnsiConsole.WriteLine();
-
-                result = CommandResult.Rejected();
-            }
-
-            // 7. Record in history
-            this._history.Record( sessionId, command, workingDirectory, claimedPurpose, approved, result );
-
-            return result;
+                return result;
             }
             catch ( Exception ex )
             {

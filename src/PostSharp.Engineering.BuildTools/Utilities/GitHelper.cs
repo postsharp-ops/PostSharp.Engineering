@@ -37,7 +37,7 @@ public static class GitHelper
         {
             return false;
         }
-        
+
         return TryFetch( context.Console, context.RepoDirectory, branch );
     }
 

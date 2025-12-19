@@ -21,31 +21,16 @@ public sealed class CommandResult
     {
         // Note: Reason is intentionally NOT included in the response to prevent
         // adaptive attacks where a compromised agent learns from rejection reasons.
-        return new CommandResult
-        {
-            Status = "rejected",
-            ExitCode = -1
-        };
+        return new CommandResult { Status = "rejected", ExitCode = -1 };
     }
 
     public static CommandResult Error( string message, int exitCode = -1 )
     {
-        return new CommandResult
-        {
-            Status = "error",
-            ExitCode = exitCode,
-            Stderr = message
-        };
+        return new CommandResult { Status = "error", ExitCode = exitCode, Stderr = message };
     }
 
     public static CommandResult Success( string output, string? stderr, int exitCode )
     {
-        return new CommandResult
-        {
-            Status = exitCode == 0 ? "approved" : "error",
-            Output = output,
-            Stderr = stderr,
-            ExitCode = exitCode
-        };
+        return new CommandResult { Status = exitCode == 0 ? "approved" : "error", Output = output, Stderr = stderr, ExitCode = exitCode };
     }
 }

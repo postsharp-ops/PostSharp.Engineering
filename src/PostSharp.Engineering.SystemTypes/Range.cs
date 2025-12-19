@@ -1,5 +1,6 @@
 #if !NETCOREAPP && !NETSTANDARD2_1
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 
 namespace System;
 
@@ -13,7 +14,7 @@ namespace System;
 /// </code>
 /// </remarks>
 #if EMBED_SYSTEM_TYPES
-[Microsoft.CodeAnalysis.Embedded]
+[Embedded]
 #endif
 internal readonly struct Range : IEquatable<Range>
 {

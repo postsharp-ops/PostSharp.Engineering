@@ -74,9 +74,9 @@ public sealed class CommandHistoryService
         lock ( this._lock )
         {
             return history.Any( r =>
-                r.Approved &&
-                r.Command.Equals( command, StringComparison.Ordinal ) &&
-                r.WorkingDirectory.Equals( workingDirectory, StringComparison.OrdinalIgnoreCase ) );
+                                    r.Approved &&
+                                    r.Command.Equals( command, StringComparison.Ordinal ) &&
+                                    r.WorkingDirectory.Equals( workingDirectory, StringComparison.OrdinalIgnoreCase ) );
         }
     }
 

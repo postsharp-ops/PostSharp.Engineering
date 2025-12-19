@@ -78,7 +78,7 @@ internal static class GitIntegrationHelper
         return true;
     }
 
-    public static bool TryCommitVersionBump( BuildContext context, Version? currentVersion, Version newVersion )
+    public static bool TryCommitVersionFilesWithBumpMessage( BuildContext context, Version? currentVersion, Version newVersion )
     {
         var product = context.Product;
 
@@ -137,8 +137,32 @@ internal static class GitIntegrationHelper
             return false;
         }
 
-        // Gets the remote origin.
-        if ( !GitHelper.TryGetRemoteUrl( context, out var gitOrigin ) )
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "commit -m \"<<AUTO_UPDATED_VERSIONS>>\"",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+    
+    /// <summary>
+    /// Commits only the MainVersion.props file without bumping the main version.
+    /// Used when the main version is broken and must be fixed.
+    /// </summary>
+    public static bool TryCommitMainVersion( BuildContext context )
+    {
+        var product = context.Product;
+
+        // Adds updated AutoUpdatedVersions.props to Git staging area.
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"add {product.MainVersionFilePath}",
+                context.RepoDirectory ) )
         {
             return false;
         }
@@ -146,7 +170,7 @@ internal static class GitIntegrationHelper
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                "commit -m \"<<AUTO_UPDATED_VERSIONS>>\"",
+                "commit -m \"Fixing MainVersion.props.\"",
                 context.RepoDirectory ) )
         {
             return false;

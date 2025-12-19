@@ -16,7 +16,7 @@ public static class XDocumentHelper
             IndentChars = "  ", // two spaces
             NewLineChars = "\n",
             NewLineHandling = NewLineHandling.Replace,
-            OmitXmlDeclaration = true,
+            OmitXmlDeclaration = true
         };
 
         using var sw = new StringWriter();

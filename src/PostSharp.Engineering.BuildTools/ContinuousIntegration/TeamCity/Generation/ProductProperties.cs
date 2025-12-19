@@ -3,7 +3,6 @@
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;

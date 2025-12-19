@@ -66,7 +66,8 @@ internal class PublishCommand : BaseCommand<PublishSettings>
 
             if ( context.Branch != publishingBranch )
             {
-                context.Console.WriteError( $"Publishing can only be executed on the '{publishingBranch}' branch. The current branch is '{context.Branch}'. Use --force to override." );
+                context.Console.WriteError(
+                    $"Publishing can only be executed on the '{publishingBranch}' branch. The current branch is '{context.Branch}'. Use --force to override." );
 
                 return false;
             }

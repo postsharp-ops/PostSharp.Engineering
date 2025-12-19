@@ -56,7 +56,7 @@ public class BaseBuildSettings : CommonCommandSettings
         if ( this._specifiedConfiguration != null )
         {
             this._resolvedConfiguration = this._specifiedConfiguration;
-            
+
             return;
         }
 
