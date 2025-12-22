@@ -16,6 +16,8 @@ param(
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
     [switch]$StartVsmon, # Enable the remote debugger.
     [string]$Script = 'Build.ps1', # The build script to be executed inside Docker.
+    [string]$Isolation = 'process', # Docker isolation mode (process or hyperv).
+    [string]$Memory = '8g', # Docker memory limit.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container (or Claude prompt if -Claude is specified).
 )
@@ -732,8 +734,8 @@ if (-not $BuildImage)
                 # Generate 128-bit (16 byte) random secret for authentication
                 $randomBytes = New-Object byte[] 16
                 [Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
-                # Use URL-safe Base64 encoding (replace / with _, + with -, remove =)
-                $mcpSecret = [Convert]::ToBase64String($randomBytes).Replace('/', '_').Replace('+', '-').TrimEnd('=')
+                # Use hex encoding (alphanumeric only, URL-safe and command-line safe)
+                $mcpSecret = [BitConverter]::ToString($randomBytes).Replace('-', '').ToLower()
                 Write-Host "Generated MCP authentication secret" -ForegroundColor Cyan
 
                 # Use the MCP server snapshot saved before cleanup
@@ -914,8 +916,8 @@ if (-not $BuildImage)
         try
         {
             # Start new container with docker run
-            Write-Host "Executing: docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
-            docker run --rm --memory=12g $dockerArgs @volumeArgs @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
+            Write-Host "Executing: docker run --rm --memory=$Memory --isolation=$Isolation $dockerArgsAsString $VolumeMappingsAsString -e HOME=$containerUserProfile -e USERPROFILE=$containerUserProfile -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
+            docker run --rm --memory=$Memory --isolation=$Isolation $dockerArgs @volumeArgs @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
             $dockerExitCode = $LASTEXITCODE
         }
         finally
@@ -1037,8 +1039,8 @@ if (-not $BuildImage)
         else
         {
             # Start new container with docker run
-            Write-Host "Executing: ``docker run --rm --memory=12g $dockerArgsAsString $VolumeMappingsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
-            docker run --rm --memory=12g $dockerArgs @volumeArgs -w $ContainerSourceDir $ImageTag $pwshPath $pwshArgs -Command $inlineScript
+            Write-Host "Executing: ``docker run --rm --memory=$Memory --isolation=$Isolation $dockerArgsAsString $VolumeMappingsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
+            docker run --rm --memory=$Memory --isolation=$Isolation $dockerArgs @volumeArgs -w $ContainerSourceDir $ImageTag $pwshPath $pwshArgs -Command $inlineScript
         }
 
         if ($LASTEXITCODE -ne 0)
