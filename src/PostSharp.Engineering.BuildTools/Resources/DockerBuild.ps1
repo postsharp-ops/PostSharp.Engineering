@@ -622,6 +622,9 @@ if (`$gitUserEmail) {
     git config --global user.email `$gitUserEmail
 }
 
+# Disable autocrlf to prevent EOL conversion issues with Claude Code's Edit tool
+git config --global core.autocrlf false
+
 # Configure git safe.directory for all mounted directories
 `$gitDirectories = @(
 $( ($GitDirectories | ForEach-Object { "    '$_'" }) -join ",`n" )
