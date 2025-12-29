@@ -97,7 +97,7 @@ internal static class AutoUpdatedVersionsFile
 
         if ( File.Exists( thisAutoUpdatedVersionsFilePath ) )
         {
-            thisAutoUpdatedVersionsDocument = XDocument.Load( thisAutoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
+            thisAutoUpdatedVersionsDocument = XDocument.Load( thisAutoUpdatedVersionsFilePath );
             thisAutoUpdatedVersionsPropertyGroupElement = thisAutoUpdatedVersionsDocument.Root!.Element( "PropertyGroup" )!;
         }
         else
@@ -176,6 +176,7 @@ internal static class AutoUpdatedVersionsFile
                 thisAutoUpdatedVersionsPropertyGroupElement.Add( versionElement );
             }
 
+            versionElement.SetAttributeValue( "Condition", $"'$({versionElementName})' == ''" );
             versionElement.Value = dependencyReleasedVersion;
             hasChanges = true;
             hasDependenciesChanges = true;
@@ -244,18 +245,15 @@ internal static class AutoUpdatedVersionsFile
             thisMainVersionElement.Value = versionComponents.MainVersion;
         }
 
-        // Write changes.
-        if ( hasChanges )
+        // Write changes (always try to write to handle formatting and condition changes).
+        if ( !dry )
         {
-            if ( !dry )
-            {
-                hasChanges = TextFileHelper.WriteIfDifferent( thisAutoUpdatedVersionsFilePath, thisAutoUpdatedVersionsDocument, context );
-            }
-            else
-            {
-                context.Console.WriteMessage( $"New content for '{thisAutoUpdatedVersionsFilePath}':" );
-                context.Console.WriteMessage( thisAutoUpdatedVersionsDocument.ToNiceString() );
-            }
+            hasChanges = TextFileHelper.WriteIfDifferent( thisAutoUpdatedVersionsFilePath, thisAutoUpdatedVersionsDocument, context );
+        }
+        else if ( hasChanges )
+        {
+            context.Console.WriteMessage( $"New content for '{thisAutoUpdatedVersionsFilePath}':" );
+            context.Console.WriteMessage( thisAutoUpdatedVersionsDocument.ToNiceString() );
         }
 
         packageVersion = versionComponents.PackageVersion;

@@ -413,7 +413,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                             if ( versionFile == null )
                             {
-                                throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
+                                throw new InvalidOperationException( $"'{this.FilePath}': The VersionFile property of dependency '{dependency.Key}' is not set." );
                             }
 
                             WriteBuildServerSource();
@@ -458,8 +458,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                             // We must also save a property with the version, and set it before the imports, otherwise
                             // the imports will override the setting in case of shared transitive dependency.
+                            // Only add the version property if we have an actual version. An empty version property
+                            // would incorrectly override a version set elsewhere.
 
-                            propertyGroup.Add( new XElement( $"{dependencyDefinition.NameWithoutDot}Version", dependencySource.Version ) );
+                            if ( !string.IsNullOrEmpty( dependencySource.Version ) )
+                            {
+                                propertyGroup.Add( new XElement( $"{dependencyDefinition.NameWithoutDot}Version", dependencySource.Version ) );
+                            }
                         }
 
                         break;
