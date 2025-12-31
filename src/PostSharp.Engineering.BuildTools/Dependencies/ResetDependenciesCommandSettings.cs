@@ -14,11 +14,11 @@ public class ResetDependenciesCommandSettings : ConfigureDependenciesCommandSett
 {
     [Description( "The list of dependencies (given by name by or position in the dependency list) to configure" )]
     [CommandArgument( 1, "[dependencies]" )]
-    public string[] Dependencies { get; protected set; } = [];
+    public string[] Dependencies { get; init; } = [];
 
     [Description( "Specifies that all dependencies must be configured" )]
     [CommandOption( "--all" )]
-    public bool All { get; protected set; }
+    public bool All { get; init; }
 
     public override string[] GetDependencies() => this.Dependencies;
 

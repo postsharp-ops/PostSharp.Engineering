@@ -3,9 +3,11 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
@@ -55,6 +57,15 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
             if ( !DependenciesConfigurationFile.TryLoad( context, buildSettings, buildSettings.BuildConfiguration, out var dependenciesOverrideFile ) )
             {
                 return false;
+            }
+
+            if ( !File.Exists( dependenciesOverrideFile.FilePath ) )
+            {
+                // The dependencies must be initialized for the first time.
+                if ( new ResetDependenciesCommand().Execute( context.CommandContext, new ResetDependenciesCommandSettings { All = true } ) != 0 )
+                {
+                    return false;
+                }
             }
 
             if ( !dependenciesOverrideFile.TryWrite( context ) )
