@@ -59,15 +59,6 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 return false;
             }
 
-            if ( !File.Exists( dependenciesOverrideFile.FilePath ) )
-            {
-                // The dependencies must be initialized for the first time.
-                if ( new ResetDependenciesCommand().Execute( context.CommandContext, new ResetDependenciesCommandSettings { All = true } ) != 0 )
-                {
-                    return false;
-                }
-            }
-
             if ( !dependenciesOverrideFile.TryWrite( context ) )
             {
                 return false;
