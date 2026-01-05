@@ -53,6 +53,11 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
                 ReportHttpErrorIfAny( response, console );
             }
 
+            if ( !response.IsSuccessStatusCode )
+            {
+                console?.WriteWarning( $"HTTP GET {path}  failed with code {response.StatusCode}." );
+            }
+
             return response.IsSuccessStatusCode;
         }
 
@@ -106,13 +111,47 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
             return true;
         }
 
-        public CiBuildId? GetLatestBuildId( ConsoleHelper console, string buildTypeId, string branchName )
+        public bool TryGetLatestBuildId( ConsoleHelper console, string buildTypeId, string branchName, out CiBuildId? buildId )
+        {
+            var prefix = "ref/heads/";
+
+            string nakedBranchName;
+
+            if ( branchName.StartsWith( prefix, StringComparison.Ordinal ) )
+            {
+                nakedBranchName = branchName.Substring( prefix.Length );
+            }
+            else
+            {
+                nakedBranchName = branchName;
+            }
+
+            if ( this.TryGetLatestBuildIdCore( console, buildTypeId, nakedBranchName, out buildId ) )
+            {
+                return true;
+            }
+
+            if ( this.TryGetLatestBuildIdCore( console, buildTypeId, prefix + nakedBranchName, out buildId ) )
+            {
+                return true;
+            }
+
+            console.WriteError( $"Cannot get the last build for build type '{buildTypeId}', branch '{branchName}': No build available." );
+            
+            return false;
+        }
+
+        private bool TryGetLatestBuildIdCore( ConsoleHelper console, string buildTypeId, string branchName, out CiBuildId? buildId )
         {
             var path = $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchName}";
 
             if ( !this.TryGet( path, console, out var response ) )
             {
-                return null;
+                console.WriteError( $"Cannot get the last build for build type '{buildTypeId}', branch '{branchName}': HTTP GET failed." );
+
+                buildId = null;
+
+                return false;
             }
 
             var document = response.Content.ReadAsXDocument();
@@ -120,11 +159,15 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
 
             if ( build == null )
             {
-                return null;
+                buildId = null;
+
+                return false;
             }
             else
             {
-                return new CiBuildId( int.Parse( build.Attribute( "number" )!.Value, CultureInfo.InvariantCulture ), buildTypeId );
+                buildId = new CiBuildId( int.Parse( build.Attribute( "number" )!.Value, CultureInfo.InvariantCulture ), buildTypeId );
+
+                return true;
             }
         }
 

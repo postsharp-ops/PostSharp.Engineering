@@ -269,21 +269,7 @@ internal static class DependenciesHelper
         string ciBuildType,
         string branch,
         [NotNullWhen( true )] out CiBuildId? latestBuildId )
-    {
-        latestBuildId = teamCity.GetLatestBuildId(
-            console,
-            ciBuildType,
-            branch );
-
-        if ( latestBuildId == null )
-        {
-            console.WriteError( $"No successful build for '{dependencyName}' dependency on '{branch}' branch, BuildTypeId='{ciBuildType}'." );
-
-            return false;
-        }
-
-        return true;
-    }
+        => teamCity.TryGetLatestBuildId( console, ciBuildType, branch, out latestBuildId );
 
     private static bool ResolveBuildNumbersFromBranches(
         BuildContext context,
