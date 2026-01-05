@@ -262,7 +262,7 @@ internal static class DependenciesHelper
         return true;
     }
 
-    private static bool GetLatestBuildId(
+    private static bool TryGetLatestBuildId(
         ConsoleHelper console,
         TeamCityClient teamCity,
         string dependencyName,
@@ -346,7 +346,7 @@ internal static class DependenciesHelper
                     branchName = dependency.Dependency.Branch;
                 }
 
-                if ( !GetLatestBuildId(
+                if ( !TryGetLatestBuildId(
                         context.Console,
                         teamCity,
                         dependency.Dependency.Name,

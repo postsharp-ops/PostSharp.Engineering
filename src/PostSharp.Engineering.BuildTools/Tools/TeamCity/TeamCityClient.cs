@@ -113,7 +113,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
 
         public bool TryGetLatestBuildId( ConsoleHelper console, string buildTypeId, string branchName, out CiBuildId? buildId )
         {
-            var prefix = "ref/heads/";
+            var prefix = "refs/heads/";
 
             string nakedBranchName;
 
