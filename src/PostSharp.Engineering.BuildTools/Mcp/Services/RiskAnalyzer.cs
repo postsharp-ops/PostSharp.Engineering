@@ -153,10 +153,13 @@ public sealed class RiskAnalyzer
             AnsiConsole.MarkupLine( "[dim]Starting Claude CLI for risk analysis...[/]" );
             AnsiConsole.MarkupLine( $"[dim]Prompt length: {prompt.Length} chars[/]" );
 
+            // On Windows, npm installs create .cmd wrapper scripts, not .exe files.
+            // Process.Start with UseShellExecute=false doesn't resolve .cmd files via PATH.
+            // We use cmd /c to properly resolve and execute the claude command.
             var startInfo = new ProcessStartInfo
             {
-                FileName = "claude",
-                Arguments = $"-p \"{escapedPrompt}\"",
+                FileName = "cmd",
+                Arguments = $"/c claude -p \"{escapedPrompt}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
