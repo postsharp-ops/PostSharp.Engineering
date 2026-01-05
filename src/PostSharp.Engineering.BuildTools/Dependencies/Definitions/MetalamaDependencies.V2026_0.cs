@@ -144,7 +144,7 @@ public static partial class MetalamaDependencies
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering, Metalama,
-                    PostSharpDependencies.V2025_1.PostSharp.ToDependency(
+                    PostSharpDependencies.V2026_0.PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
                             BuildConfiguration.Release,
                             BuildConfiguration.Release,
