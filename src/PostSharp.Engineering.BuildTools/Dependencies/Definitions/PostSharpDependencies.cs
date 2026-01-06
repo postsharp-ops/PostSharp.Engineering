@@ -6,7 +6,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
-using PostSharpPackageDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies.V2025_1;
+using PostSharpPackageDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies.V2026_0;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
@@ -45,7 +45,7 @@ public static partial class PostSharpDependencies
         Dependencies =
         [
             DevelopmentDependencies.PostSharpEngineering.ToDependency(),
-            V2025_1.PostSharp.ToDependency(
+            V2026_0.PostSharp.ToDependency(
                 new ConfigurationSpecific<BuildConfiguration>( BuildConfiguration.Release, BuildConfiguration.Release, BuildConfiguration.Release ) )
         ]
     };
