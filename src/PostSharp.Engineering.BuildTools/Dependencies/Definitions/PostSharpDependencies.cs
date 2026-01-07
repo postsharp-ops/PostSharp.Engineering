@@ -4,9 +4,10 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
-using PostSharpPackageDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies.V2025_1;
+using PostSharpPackageDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies.V2026_0;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
@@ -23,12 +24,19 @@ public static partial class PostSharpDependencies
             : base(
                 DocumentationFamily,
                 dependencyName,
-                "dev",
                 "master",
-                new GitHubRepository( dependencyName, "postsharp" ),
-                TeamCityHelper.CreateConfiguration(
-                    TeamCityHelper.GetProjectId( dependencyName, _projectName ),
-                    false ),
+                "master",
+                new GitHubRepository( "PostSharp.Documentation", _projectName ),
+                new CiProjectConfiguration(
+                    new TeamCityProjectId( "PostSharpGitHub_PostSharpDocumentation", "PostSharpGitHub" ),
+                    new ConfigurationSpecific<string>(
+                        $"PostSharpGitHub_PostSharpDocumentation_DebugBuild",
+                        $"PostSharpGitHub_PostSharpDocumentation_ReleaseBuild",
+                        $"PostSharpGitHub_PostSharpDocumentation_PublicBuild" ),
+                    null,
+                    null,
+                    EnvironmentVariableNames.TeamCityToken,
+                    TeamCityHelper.TeamCityCloudUrl ),
                 false ) { }
     }
 
@@ -45,7 +53,7 @@ public static partial class PostSharpDependencies
         Dependencies =
         [
             DevelopmentDependencies.PostSharpEngineering.ToDependency(),
-            V2025_1.PostSharp.ToDependency(
+            PostSharpPackageDependencies.PostSharp.ToDependency(
                 new ConfigurationSpecific<BuildConfiguration>( BuildConfiguration.Release, BuildConfiguration.Release, BuildConfiguration.Release ) )
         ]
     };
