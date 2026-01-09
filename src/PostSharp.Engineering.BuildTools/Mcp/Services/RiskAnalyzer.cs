@@ -149,17 +149,18 @@ public sealed class RiskAnalyzer
             using var timeoutCts = new CancellationTokenSource( TimeSpan.FromSeconds( 120 ) );
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource( cancellationToken, timeoutCts.Token );
 
-            var escapedPrompt = EscapeForShell( prompt );
             AnsiConsole.MarkupLine( "[dim]Starting Claude CLI for risk analysis...[/]" );
             AnsiConsole.MarkupLine( $"[dim]Prompt length: {prompt.Length} chars[/]" );
 
             // On Windows, npm installs create .cmd wrapper scripts, not .exe files.
             // Process.Start with UseShellExecute=false doesn't resolve .cmd files via PATH.
             // We use cmd /c to properly resolve and execute the claude command.
+            // Pass the prompt via stdin to avoid Windows command-line length limits (~8191 chars).
             var startInfo = new ProcessStartInfo
             {
                 FileName = "cmd",
-                Arguments = $"/c claude -p \"{escapedPrompt}\"",
+                Arguments = "/c claude",
+                RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -176,6 +177,10 @@ public sealed class RiskAnalyzer
             }
 
             AnsiConsole.MarkupLine( $"[dim]Claude CLI started (PID: {process.Id})[/]" );
+
+            // Write the prompt to stdin and close the stream
+            await process.StandardInput.WriteAsync( prompt.AsMemory(), linkedCts.Token );
+            process.StandardInput.Close();
 
             var output = await process.StandardOutput.ReadToEndAsync( linkedCts.Token );
             var stderr = await process.StandardError.ReadToEndAsync( linkedCts.Token );
@@ -306,16 +311,6 @@ public sealed class RiskAnalyzer
         sb.AppendLine( "```" );
 
         return sb.ToString();
-    }
-
-    private static string EscapeForShell( string input )
-    {
-        // Escape double quotes and backslashes for shell
-        return input
-            .Replace( "\\", "\\\\", StringComparison.Ordinal )
-            .Replace( "\"", "\\\"", StringComparison.Ordinal )
-            .Replace( "\n", "\\n", StringComparison.Ordinal )
-            .Replace( "\r", "", StringComparison.Ordinal );
     }
 
     private static bool IsGitPushCommand( string command )

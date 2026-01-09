@@ -44,32 +44,35 @@ public class ClaudeComponent : ContainerComponent
             ENV NPM_CONFIG_PREFIX=C:\\npm
             ENV PATH="C:\\npm;${PATH}"
 
-            # Install Claude CLI using cmd shell to avoid HCS issues with PowerShell
-            SHELL ["cmd", "/S", "/C"]
-            RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code
-
             # Set HOME/USERPROFILE so Claude CLI finds credentials during build
             ENV HOME=C:\\Users\\ContainerUser
             ENV USERPROFILE=C:\\Users\\ContainerUser
             ENV CLAUDE_CODE_SHELL=pwsh
 
-            # Create Claude config directory (credentials are mounted at runtime)
-            RUN mkdir C:\Users\ContainerUser\.claude
+            # Install Claude CLI and configure plugins using cmd shell to avoid HCS issues with PowerShell
+            SHELL ["cmd", "/S", "/C"]
             """ );
 
-/*
+        // Build a single multi-line RUN command for all operations
+        writer.Write( "RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code" );
+        writer.Write( " && mkdir C:\\Users\\ContainerUser\\.claude" );
+        writer.Write( " && echo {\"hasCompletedOnboarding\": true} > C:\\Users\\ContainerUser\\.claude.json" );
+        writer.Write( " && echo {\"alwaysThinkingEnabled\": true} > C:\\Users\\ContainerUser\\.claude\\settings.json" );
+
         // Add marketplaces if any are specified
         foreach ( var marketplace in this.Marketplaces )
         {
-            writer.WriteLine( $"RUN C:\\npm\\claude.cmd plugin marketplace add {marketplace}" );
+            writer.Write( $" && C:\\npm\\claude plugin marketplace add {marketplace}" );
         }
 
         // Install plugins from the added marketplaces
         foreach ( var plugin in this.Plugins )
         {
-            writer.WriteLine( $"RUN C:\\npm\\claude.cmd plugin install {plugin}" );
+            writer.Write( $" && C:\\npm\\claude plugin install {plugin}" );
         }
-*/
+
+        writer.WriteLine();
+
         writer.WriteLine(
             """
 

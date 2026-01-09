@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +15,10 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 
 namespace PostSharp.Engineering.BuildTools.Mcp;
 
@@ -29,7 +33,7 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
     {
         try
         {
-            AnsiConsole.Write( new Rule( "[cyan]MCP Approval Server[/]" ) );
+            AnsiConsole.Write( new Rule( $"[cyan]MCP Approval Server[/] - {Environment.CurrentDirectory}" ) );
             AnsiConsole.WriteLine();
 
             var builder = WebApplication.CreateBuilder();
@@ -46,6 +50,18 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
 
             // Register the tool itself
             builder.Services.AddScoped<ExecuteCommandTool>();
+
+            // Configure authentication with Bearer token (simple secret-based auth)
+            if ( !string.IsNullOrEmpty( settings.Secret ) )
+            {
+                builder.Services.AddAuthentication( "Bearer" )
+                    .AddScheme<AuthenticationSchemeOptions, McpBearerAuthenticationHandler>(
+                        "Bearer",
+                        options => { } );
+
+                builder.Services.AddSingleton( settings ); // Make settings available to auth handler
+                builder.Services.AddAuthorization();
+            }
 
             // Configure MCP server
             builder.Services
@@ -66,6 +82,13 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
 
             var app = builder.Build();
 
+            // Add authentication and authorization middleware (if configured)
+            if ( !string.IsNullOrEmpty( settings.Secret ) )
+            {
+                app.UseAuthentication();
+                app.UseAuthorization();
+            }
+
             // Add request logging middleware (only if verbose mode is enabled)
             if ( settings.Verbose )
             {
@@ -77,14 +100,12 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
                 } );
             }
 
-            // Map MCP endpoints with token as base path (if configured)
+            // Map MCP endpoints (protected by authentication if secret is configured)
+            var mcpRouteBuilder = app.MapMcp();
+
             if ( !string.IsNullOrEmpty( settings.Secret ) )
             {
-                app.MapMcp( $"/{settings.Secret}" );
-            }
-            else
-            {
-                app.MapMcp();
+                mcpRouteBuilder.RequireAuthorization();
             }
 
             // Start the server
@@ -118,5 +139,57 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
 
             return 1;
         }
+    }
+}
+
+/// <summary>
+/// Simple Bearer token authentication handler that validates the MCP secret token.
+/// </summary>
+internal sealed class McpBearerAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+{
+    private readonly McpServerCommandSettings _settings;
+
+    public McpBearerAuthenticationHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder,
+        McpServerCommandSettings settings )
+        : base( options, logger, encoder )
+    {
+        this._settings = settings;
+    }
+
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        // Check for Authorization header
+        if ( !this.Request.Headers.TryGetValue( "Authorization", out var authHeaderValues ) )
+        {
+            return Task.FromResult( AuthenticateResult.Fail( "Missing Authorization header" ) );
+        }
+
+        var authHeader = authHeaderValues.ToString();
+
+        // Check for Bearer scheme
+        if ( !authHeader.StartsWith( "Bearer ", StringComparison.OrdinalIgnoreCase ) )
+        {
+            return Task.FromResult( AuthenticateResult.Fail( "Invalid Authorization header format" ) );
+        }
+
+        // Extract token
+        var token = authHeader.Substring( "Bearer ".Length ).Trim();
+
+        // Validate token against configured secret
+        if ( token != this._settings.Secret )
+        {
+            return Task.FromResult( AuthenticateResult.Fail( "Invalid token" ) );
+        }
+
+        // Create claims identity for successful authentication
+        var claims = new[] { new Claim( ClaimTypes.Name, "MCP Client" ) };
+        var identity = new ClaimsIdentity( claims, this.Scheme.Name );
+        var principal = new ClaimsPrincipal( identity );
+        var ticket = new AuthenticationTicket( principal, this.Scheme.Name );
+
+        return Task.FromResult( AuthenticateResult.Success( ticket ) );
     }
 }
