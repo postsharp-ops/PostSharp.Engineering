@@ -15,7 +15,7 @@ public static partial class MetalamaDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2026_0
+    public static class V2026_1
     {
         private class MetalamaDependencyDefinition : DependencyDefinition
         {
@@ -53,11 +53,11 @@ public static partial class MetalamaDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2026.0", DevelopmentDependencies.Family, PostSharpDependencies.V2026_0.Family )
+        public static ProductFamily Family { get; } = new( _projectName, "2026.1", DevelopmentDependencies.Family, PostSharpDependencies.V2026_0.Family )
         {
-            UpstreamProductFamily = V2025_1.Family,
-            DownstreamProductFamily = V2026_1.Family,
-            ConsolidatedProjectName = "Metalama.Consolidated"
+            UpstreamProductFamily = V2026_0.Family, ConsolidatedProjectName = "Metalama.Consolidated"
+
+            // DownstreamProductFamily = V2026_2.Family
         };
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release

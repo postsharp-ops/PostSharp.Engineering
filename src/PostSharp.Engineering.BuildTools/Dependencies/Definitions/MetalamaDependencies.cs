@@ -12,7 +12,7 @@ public partial class MetalamaDependencies
 {
     private const string _projectName = "Metalama";
 
-    private static VcsRepository CreateMetalamaVcsRepository(
+    internal static VcsRepository CreateMetalamaVcsRepository(
         string name,
         VcsProvider provider,
         MetalamaGitHubOrganization? organization,
