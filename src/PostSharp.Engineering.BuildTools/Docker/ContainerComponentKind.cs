@@ -18,6 +18,7 @@ public enum ContainerComponentKind
     Python,
     Gulp,
     GitHubCli,
+    Timestamp,
     Claude,
     Epilogue
 }

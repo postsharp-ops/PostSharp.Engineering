@@ -21,7 +21,7 @@ public static class PathHelper
 
     private static string GetApplicationDataParentDirectory()
     {
-        var applicationDataParentDirectory = Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData );
+        var applicationDataParentDirectory = Environment.GetFolderPath( Environment.SpecialFolder.LocalApplicationData );
 
         if ( string.IsNullOrEmpty( applicationDataParentDirectory ) )
         {

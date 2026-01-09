@@ -45,8 +45,8 @@ public class ClaudeComponent : ContainerComponent
             ENV PATH="C:\\npm;${PATH}"
 
             # Set HOME/USERPROFILE so Claude CLI finds credentials during build
-            ENV HOME=C:\\Users\\ContainerUser
-            ENV USERPROFILE=C:\\Users\\ContainerUser
+            ENV HOME=C:\\Users\\ContainerAdministrator
+            ENV USERPROFILE=C:\\Users\\ContainerAdministrator
             ENV CLAUDE_CODE_SHELL=pwsh
 
             # Install Claude CLI and configure plugins using cmd shell to avoid HCS issues with PowerShell
@@ -55,9 +55,9 @@ public class ClaudeComponent : ContainerComponent
 
         // Build a single multi-line RUN command for all operations
         writer.Write( "RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code" );
-        writer.Write( " && mkdir C:\\Users\\ContainerUser\\.claude" );
-        writer.Write( " && echo {\"hasCompletedOnboarding\": true} > C:\\Users\\ContainerUser\\.claude.json" );
-        writer.Write( " && echo {\"alwaysThinkingEnabled\": true} > C:\\Users\\ContainerUser\\.claude\\settings.json" );
+        writer.Write( " && mkdir C:\\Users\\ContainerAdministrator\\.claude" );
+        writer.Write( " && echo {\"hasCompletedOnboarding\": true} > C:\\Users\\ContainerAdministrator\\.claude.json" );
+        writer.Write( " && echo {\"alwaysThinkingEnabled\": true} > C:\\Users\\ContainerAdministrator\\.claude\\settings.json" );
 
         // Add marketplaces if any are specified
         foreach ( var marketplace in this.Marketplaces )
@@ -101,6 +101,12 @@ public class ClaudeComponent : ContainerComponent
         if ( !components.OfType<GitHubCliComponent>().Any() )
         {
             add( new GitHubCliComponent() );
+        }
+
+        // Auto-add TimestampComponent for cache invalidation
+        if ( !components.OfType<TimestampComponent>().Any() )
+        {
+            add( new TimestampComponent() );
         }
     }
 }
