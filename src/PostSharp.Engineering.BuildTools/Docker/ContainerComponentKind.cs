@@ -18,7 +18,9 @@ public enum ContainerComponentKind
     Python,
     Gulp,
     GitHubCli,
+    AzureArtifactsCredentialProvider,
     Timestamp,
     Claude,
-    Epilogue
+    Epilogue,
+
 }
