@@ -17,6 +17,8 @@ param(
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
     [switch]$StartVsmon, # Enable the remote debugger.
     [string]$Script = 'Build.ps1', # The build script to be executed inside Docker.
+    [string]$Dockerfile, # Path to custom Dockerfile (defaults to Dockerfile or Dockerfile.claude based on -Claude).
+    [switch]$NoInit, # Do not generate or call Init.g.ps1 (skips git config, safe.directory, etc).
     [string]$Isolation = 'process', # Docker isolation mode (process or hyperv).
     [string]$Memory = '16g', # Docker memory limit.
     [int]$Cpus = [Environment]::ProcessorCount, # Docker CPU limit (defaults to host's CPU count).
@@ -360,26 +362,42 @@ if ($env:RUNNING_IN_DOCKER)
     exit 1
 }
 
-# Generate ImageName from script directory if not provided
-if ( [string]::IsNullOrEmpty($ImageName))
+# Determine which Dockerfile will be used (needed for ImageName generation)
+if (-not $Dockerfile)
 {
-    # Get full path without drive name (e.g., "C:\src\Metalama.Compiler" becomes "src\Metalama.Compiler")
-    $fullPath = $PSScriptRoot -replace '^[A-Za-z]:\\', ''
-    # Sanitize path to valid Docker image name (lowercase alphanumeric and hyphens only)
-    $ImageTag = $fullPath.ToLower() -replace '[^a-z0-9\-]', '-' -replace '-+', '-' -replace '^-|-$', ''
-    # Ensure it doesn't start with a hyphen and has at least one character
-    if ([string]::IsNullOrEmpty($ImageTag) -or $ImageTag -match '^-')
+    if ($Claude)
     {
-        $ImageTag = "docker-build-image"
+        $Dockerfile = "Dockerfile.claude"
     }
-    Write-Host "Generated image name from directory: $ImageTag" -ForegroundColor Cyan
+    else
+    {
+        $Dockerfile = "Dockerfile"
+    }
+}
+
+# Get the full path of the Dockerfile
+if ([System.IO.Path]::IsPathRooted($Dockerfile))
+{
+    $dockerfileFullPath = $Dockerfile
 }
 else
 {
-    # Generate a hash of the repo directory tagging (4 bytes, 8 hex chars)
-    $hashBytes = (New-Object -TypeName System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($PSScriptRoot))
-    $directoryHash = [System.BitConverter]::ToString($hashBytes, 0, 4).Replace("-", "").ToLower()
-    $ImageTag = "$ImageName`:$directoryHash"
+    $dockerfileFullPath = Join-Path $PSScriptRoot $Dockerfile
+}
+
+# Generate a hash of the Dockerfile full path (4 bytes, 8 hex chars)
+$hashBytes = (New-Object -TypeName System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($dockerfileFullPath))
+$dockerfileHash = [System.BitConverter]::ToString($hashBytes, 0, 4).Replace("-", "").ToLower()
+
+# Generate ImageTag using the hash
+if ( [string]::IsNullOrEmpty($ImageName))
+{
+    $ImageTag = "dockerfile-$dockerfileHash"
+    Write-Host "Generated image tag from Dockerfile path hash: $ImageTag" -ForegroundColor Cyan
+}
+else
+{
+    $ImageTag = "$ImageName`:$dockerfileHash"
     Write-Host "Image will be tagged as: $ImageTag" -ForegroundColor Cyan
 }
 
@@ -709,13 +727,15 @@ if ($driveLetters.Count -gt 0)
 }
 
 # Create Init.g.ps1 with git configuration (safe.directory and user identity)
-$gDirectory = Join-Path $dockerContextDirectory ".g"
-if (-not (Test-Path $gDirectory))
+if (-not $NoInit)
 {
-    New-Item -ItemType Directory -Path $gDirectory -Force | Out-Null
-}
-$initScript = Join-Path $gDirectory "Init.g.ps1"
-$initScriptContent = @"
+    $gDirectory = Join-Path $dockerContextDirectory ".g"
+    if (-not (Test-Path $gDirectory))
+    {
+        New-Item -ItemType Directory -Path $gDirectory -Force | Out-Null
+    }
+    $initScript = Join-Path $gDirectory "Init.g.ps1"
+    $initScriptContent = @"
 # Auto-generated initialization script for container startup
 
 # Configure git user identity from Machine environment variables
@@ -744,7 +764,8 @@ foreach (`$dir in `$gitDirectories) {
 }
 
 "@
-$initScriptContent | Set-Content -Path $initScript -Encoding UTF8
+    $initScriptContent | Set-Content -Path $initScript -Encoding UTF8
+}
 
 # Copy timestamp file to docker context (for Claude mode cache invalidation)
 if ($Claude -and $timestampFile)
@@ -798,18 +819,37 @@ if (-not $existingContainerId)
 if (-not $NoBuildImage -and -not $existingContainerId)
 {
 
-    if ($Claude)
-    {
-        $Dockerfile = "Dockerfile.claude"
-    }
-    else
-    {
-        $Dockerfile = "Dockerfile"
-    }
+    Write-Host "Using Dockerfile: $Dockerfile" -ForegroundColor Cyan
 
+    # Read the dockerfile content
+    $dockerfileContent = Get-Content -Raw $Dockerfile
+
+    # Check if the dockerfile has mountpoints creation code
+    if ($dockerfileContent -notmatch 'ARG MOUNTPOINTS')
+    {
+        Write-Host "Dockerfile does not have mountpoints creation code. Appending mountpoints setup." -ForegroundColor Yellow
+
+        # Append hardcoded mountpoints creation code
+        $mountpointsCode = @"
+
+# Create directories for mountpoints
+ARG MOUNTPOINTS
+RUN if (`$env:MOUNTPOINTS) { ``
+        `$mounts = `$env:MOUNTPOINTS -split ';'; ``
+        foreach (`$dir in `$mounts) { ``
+            if (`$dir) { ``
+                Write-Host "Creating directory `$dir``."; ``
+                New-Item -ItemType Directory -Path `$dir -Force | Out-Null; ``
+            } ``
+        } ``
+    }
+"@
+        $dockerfileContent += $mountpointsCode
+        Write-Host "Appended mountpoints creation code" -ForegroundColor Cyan
+    }
 
     Write-Host "Building the image with tag: $ImageTag" -ForegroundColor Green
-    Get-Content -Raw $Dockerfile | docker build -t $ImageTag --build-arg MOUNTPOINTS="$mountPointsAsString" -f - $dockerContextDirectory
+    $dockerfileContent | docker build -t $ImageTag --build-arg MOUNTPOINTS="$mountPointsAsString" -f - $dockerContextDirectory
     if ($LASTEXITCODE -ne 0)
     {
         Write-Host "Docker build failed with exit code $LASTEXITCODE" -ForegroundColor Red
@@ -984,6 +1024,9 @@ if (-not $BuildImage)
         }
 
         # Build inline script: subst drives, copy claude.json, cd to source, run Claude
+        # Conditionally include Init.g.ps1 call
+        $initCall = if (-not $NoInit) { "& c:\docker-context\Init.g.ps1; " } else { "" }
+
         if ($ClaudePrompt)
         {
             # Non-interactive mode with prompt - no -it flags
@@ -996,7 +1039,7 @@ if (-not $BuildImage)
             {
                 ""
             }
-            $inlineScript = "${substCommandsInline}& c:\docker-context\Init.g.ps1; cd '$SourceDirName'; & .\eng\RunClaude.ps1 -Prompt `"$ClaudePrompt`"$mcpArg"
+            $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; & .\eng\RunClaude.ps1 -Prompt `"$ClaudePrompt`"$mcpArg"
         }
         else
         {
@@ -1010,7 +1053,7 @@ if (-not $BuildImage)
             {
                 ""
             }
-            $inlineScript = "${substCommandsInline}& c:\docker-context\Init.g.ps1; cd '$SourceDirName'; & .\eng\RunClaude.ps1$mcpArg"
+            $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; & .\eng\RunClaude.ps1$mcpArg"
         }
 
         $dockerArgsAsString = $dockerArgs -join " "
@@ -1137,7 +1180,20 @@ if (-not $BuildImage)
         $dockerArgsAsString = $dockerArgs -join " "
 
         # Build inline script: subst drives, run init, cd to source, run build
-        $inlineScript = "${substCommandsInline}& c:\docker-context\Init.g.ps1; cd '$SourceDirName'; & .\$Script $buildArgsString; $pwshExitCommand"
+        # Conditionally include Init.g.ps1 call
+        $initCall = if (-not $NoInit) { "& c:\docker-context\Init.g.ps1; " } else { "" }
+
+        # Get full script path (combine with container source dir if relative)
+        if ([System.IO.Path]::IsPathRooted($Script))
+        {
+            $scriptFullPath = $Script
+        }
+        else
+        {
+            $scriptFullPath = Join-Path $ContainerSourceDir $Script
+        }
+        $scriptInvocation = "& `"$scriptFullPath`""
+        $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; $scriptInvocation $buildArgsString; $pwshExitCommand"
 
         $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
 
