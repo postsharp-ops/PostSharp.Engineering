@@ -13,7 +13,7 @@ param(
     [switch]$NoMcp, # Do not start the MCP approval server (for -Claude mode).
     [switch]$Update, # Update timestamp to invalidate Docker cache and force Claude/plugin updates (Claude mode only).
     [string]$ImageName, # Image name (defaults to a name based on the directory).
-    [string]$BuildAgentPath = $(if ($env:TEAMCITY_JRE) { Split-Path $env:TEAMCITY_JRE -Parent } else { 'C:\BuildAgent' }),
+    [string]$BuildAgentPath, # Path to build agent directory (defaults based on platform).
     [switch]$LoadEnvFromKeyVault, # Forces loading environment variables form the key vault.
     [switch]$StartVsmon, # Enable the remote debugger.
     [string]$Script = 'Build.ps1', # The build script to be executed inside Docker.
@@ -34,6 +34,33 @@ $EnvironmentVariables = '<ENVIRONMENT_VARIABLES>'
 
 $ErrorActionPreference = "Stop"
 $dockerContextDirectory = "$EngPath/docker-context"
+
+# Detect platform (use built-in variables if available, fallback for older PowerShell)
+if ($null -eq $IsWindows)
+{
+    $IsWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+}
+$IsUnix = -not $IsWindows  # Covers both Linux and macOS
+
+# Docker isolation is Windows-only
+$isolationArg = if ($IsWindows) { "$isolationArg" } else { "" }
+
+# Set BuildAgentPath default based on platform
+if ([string]::IsNullOrEmpty($BuildAgentPath))
+{
+    if ($env:TEAMCITY_JRE)
+    {
+        $BuildAgentPath = Split-Path $env:TEAMCITY_JRE -Parent
+    }
+    elseif ($IsUnix)
+    {
+        $BuildAgentPath = '/build-agent'
+    }
+    else
+    {
+        $BuildAgentPath = 'C:\BuildAgent'
+    }
+}
 
 Set-Location $PSScriptRoot
 
@@ -336,7 +363,14 @@ function Get-TimestampFile
         [switch]$Update
     )
 
-    $timestampDir = Join-Path $env:LOCALAPPDATA "PostSharp.Engineering"
+    $timestampDir = if ($IsUnix)
+    {
+        Join-Path $env:HOME ".local/share/PostSharp.Engineering"
+    }
+    else
+    {
+        Join-Path $env:LOCALAPPDATA "PostSharp.Engineering"
+    }
     $timestampFile = Join-Path $timestampDir "update.timestamp"
 
     # Ensure directory exists
@@ -497,8 +531,8 @@ if (-not (Test-Path $dockerContextDirectory))
 }
 
 
-# Container user profile (matches actual Windows user in container)
-$containerUserProfile = "C:\Users\ContainerAdministrator"
+# Container user profile (matches actual user in container)
+$containerUserProfile = if ($IsUnix) { "/root" } else { "C:\Users\ContainerAdministrator" }
 
 # Prepare volume mappings (stored as mapping strings, "-v" flags added later)
 $VolumeMappings = @("${SourceDirName}:${SourceDirName}")
@@ -521,7 +555,14 @@ if (-not $NoNuGetCache)
     $nugetCacheDir = $env:NUGET_PACKAGES
     if ( [string]::IsNullOrEmpty($nugetCacheDir))
     {
-        $nugetCacheDir = Join-Path $env:USERPROFILE ".nuget\packages"
+        if ($IsUnix)
+        {
+            $nugetCacheDir = Join-Path $env:HOME ".nuget/packages"
+        }
+        else
+        {
+            $nugetCacheDir = Join-Path $env:USERPROFILE ".nuget\packages"
+        }
     }
 
     Write-Host "NuGet cache directory: $nugetCacheDir" -ForegroundColor Cyan
@@ -537,13 +578,28 @@ if (-not $NoNuGetCache)
 }
 
 # Mount PostSharp.Engineering data directory (for version counters)
-$hostEngineeringDataDir = Join-Path $env:LOCALAPPDATA "PostSharp.Engineering"
+$hostEngineeringDataDir = if ($IsUnix)
+{
+    Join-Path $env:HOME ".local/share/PostSharp.Engineering"
+}
+else
+{
+    Join-Path $env:LOCALAPPDATA "PostSharp.Engineering"
+}
+
 if (-not (Test-Path $hostEngineeringDataDir))
 {
     New-Item -ItemType Directory -Force -Path $hostEngineeringDataDir | Out-Null
 }
 
-$containerEngineeringDataDir = Join-Path $containerUserProfile "AppData\Local\PostSharp.Engineering"
+$containerEngineeringDataDir = if ($IsUnix)
+{
+    Join-Path $containerUserProfile ".local/share/PostSharp.Engineering"
+}
+else
+{
+    Join-Path $containerUserProfile "AppData\Local\PostSharp.Engineering"
+}
 $VolumeMappings += "${hostEngineeringDataDir}:${containerEngineeringDataDir}"
 $MountPoints += $containerEngineeringDataDir
 
@@ -650,80 +706,95 @@ elseif (-not $env:IS_TEAMCITY_AGENT)
     exit 1
 }
 
-# Handle non-C: drive letters for Docker (Windows containers only have C: by default)
-# We mount X:\foo to C:\X\foo in the container, then use subst to create the X: drive
-$driveLetters = @{ }
+# Handle path transformations (platform-specific)
+$substCommandsInline = ""
 
-function Get-ContainerPath($hostPath)
+if ($IsWindows)
 {
-    if ($hostPath -match '^([A-Za-z]):(.*)$')
+    # Handle non-C: drive letters for Docker (Windows containers only have C: by default)
+    # We mount X:\foo to C:\X\foo in the container, then use subst to create the X: drive
+    $driveLetters = @{ }
+
+    function Get-ContainerPath($hostPath)
     {
-        $driveLetter = $Matches[1].ToUpper()
-        $pathWithoutDrive = $Matches[2]
-        if ($driveLetter -ne 'C')
+        if ($hostPath -match '^([A-Za-z]):(.*)$')
         {
-            $driveLetters[$driveLetter] = $true
-            return "C:\$driveLetter$pathWithoutDrive"
+            $driveLetter = $Matches[1].ToUpper()
+            $pathWithoutDrive = $Matches[2]
+            if ($driveLetter -ne 'C')
+            {
+                $driveLetters[$driveLetter] = $true
+                return "C:\$driveLetter$pathWithoutDrive"
+            }
+        }
+        return $hostPath
+    }
+
+    # Transform all volume mappings to use container paths
+    $transformedVolumeMappings = @()
+    foreach ($mapping in $VolumeMappings)
+    {
+        # Parse volume mapping: hostPath:containerPath[:options]
+        if ($mapping -match '^([A-Za-z]:\\[^:]*):([A-Za-z]:\\[^:]*)(:.+)?$')
+        {
+            $hostPath = $Matches[1]
+            $containerPath = $Matches[2]
+            $options = $Matches[3]
+            $newContainerPath = Get-ContainerPath $containerPath
+            $transformedVolumeMappings += "${hostPath}:${newContainerPath}${options}"
+        }
+        else
+        {
+            $transformedVolumeMappings += $mapping
         }
     }
-    return $hostPath
-}
+    $VolumeMappings = $transformedVolumeMappings
 
-# Transform all volume mappings to use container paths
-$transformedVolumeMappings = @()
-foreach ($mapping in $VolumeMappings)
-{
-    # Parse volume mapping: hostPath:containerPath[:options]
-    if ($mapping -match '^([A-Za-z]:\\[^:]*):([A-Za-z]:\\[^:]*)(:.+)?$')
+    # Transform MountPoints, GitDirectories, and SourceDirName for the container
+    $MountPoints = $MountPoints | ForEach-Object { Get-ContainerPath $_ }
+    $GitDirectories = $GitDirectories | ForEach-Object { Get-ContainerPath $_ }
+    $ContainerSourceDir = Get-ContainerPath $SourceDirName
+
+    # Add both the unmapped (C:\X\...) and mapped (X:\...) paths to GitDirectories for safe.directory
+    # Git may resolve paths differently depending on how it's invoked
+    $expandedGitDirectories = @()
+    foreach ($dir in $GitDirectories)
     {
-        $hostPath = $Matches[1]
-        $containerPath = $Matches[2]
-        $options = $Matches[3]
-        $newContainerPath = Get-ContainerPath $containerPath
-        $transformedVolumeMappings += "${hostPath}:${newContainerPath}${options}"
+        $expandedGitDirectories += $dir
+        # If path is C:\<letter>\... (unmapped subst path), also add <letter>:\... (mapped path)
+        if ($dir -match '^C:\\([A-Za-z])\\(.*)$')
+        {
+            $letter = $Matches[1].ToUpper()
+            $rest = $Matches[2]
+            $expandedGitDirectories += "${letter}:\$rest"
+        }
     }
-    else
+    $GitDirectories = $expandedGitDirectories
+
+    # Deduplicate again after transformations and expansions (case-insensitive for Windows paths)
+    $VolumeMappings = $VolumeMappings | Group-Object { $_.ToLower() } | ForEach-Object { $_.Group[0] }
+    $MountPoints = $MountPoints | Group-Object { $_.ToLower() } | ForEach-Object { $_.Group[0] }
+    $GitDirectories = $GitDirectories | Group-Object { "$_".ToLower() } | ForEach-Object { $_.Group[0] }
+
+    # Build subst commands string for inline execution in docker run
+    foreach ($letter in $driveLetters.Keys | Sort-Object)
     {
-        $transformedVolumeMappings += $mapping
+        $substCommandsInline += "C:\Windows\System32\subst.exe ${letter}: C:\$letter; "
     }
-}
-$VolumeMappings = $transformedVolumeMappings
-
-# Transform MountPoints, GitDirectories, and SourceDirName for the container
-$MountPoints = $MountPoints | ForEach-Object { Get-ContainerPath $_ }
-$GitDirectories = $GitDirectories | ForEach-Object { Get-ContainerPath $_ }
-$ContainerSourceDir = Get-ContainerPath $SourceDirName
-
-# Add both the unmapped (C:\X\...) and mapped (X:\...) paths to GitDirectories for safe.directory
-# Git may resolve paths differently depending on how it's invoked
-$expandedGitDirectories = @()
-foreach ($dir in $GitDirectories)
-{
-    $expandedGitDirectories += $dir
-    # If path is C:\<letter>\... (unmapped subst path), also add <letter>:\... (mapped path)
-    if ($dir -match '^C:\\([A-Za-z])\\(.*)$')
+    if ($driveLetters.Keys.Count -gt 0)
     {
-        $letter = $Matches[1].ToUpper()
-        $rest = $Matches[2]
-        $expandedGitDirectories += "${letter}:\$rest"
+        Write-Host "Drive letter mappings for container: $( $driveLetters.Keys -join ', ' )" -ForegroundColor Cyan
     }
 }
-$GitDirectories = $expandedGitDirectories
-
-# Deduplicate again after transformations and expansions (case-insensitive for Windows paths)
-$VolumeMappings = $VolumeMappings | Group-Object { $_.ToLower() } | ForEach-Object { $_.Group[0] }
-$MountPoints = $MountPoints | Group-Object { $_.ToLower() } | ForEach-Object { $_.Group[0] }
-$GitDirectories = $GitDirectories | Group-Object { "$_".ToLower() } | ForEach-Object { $_.Group[0] }
-
-# Build subst commands string for inline execution in docker run
-$substCommandsInline = ""
-foreach ($letter in $driveLetters.Keys | Sort-Object)
+else
 {
-    $substCommandsInline += "C:\Windows\System32\subst.exe ${letter}: C:\$letter; "
-}
-if ($driveLetters.Count -gt 0)
-{
-    Write-Host "Drive letter mappings for container: $( $driveLetters.Keys -join ', ' )" -ForegroundColor Cyan
+    # Unix (Linux/macOS): No drive letter mapping needed, paths remain as-is
+    $ContainerSourceDir = $SourceDirName
+
+    # Deduplicate (case-sensitive for Unix paths)
+    $VolumeMappings = $VolumeMappings | Sort-Object -Unique
+    $MountPoints = $MountPoints | Sort-Object -Unique
+    $GitDirectories = $GitDirectories | Sort-Object -Unique
 }
 
 # Create Init.g.ps1 with git configuration (safe.directory and user identity)
@@ -758,6 +829,7 @@ $( ($GitDirectories | ForEach-Object { "    '$_'" }) -join ",`n" )
 
 foreach (`$dir in `$gitDirectories) {
     if (`$dir) {
+        # Normalize path: convert backslashes to forward slashes, add trailing slash
         `$normalizedDir = (`$dir -replace '\\\\', '/').TrimEnd('/') + '/'
         git config --global --add safe.directory `$normalizedDir
     }
@@ -780,8 +852,10 @@ if ($Claude -and $timestampFile)
     Write-Host "Copied timestamp file to docker context" -ForegroundColor Cyan
 }
 
-$mountPointsAsString = $MountPoints -Join ";"
-$gitDirectoriesAsString = $GitDirectories -Join ";"
+# Path separator depends on platform (and container OS)
+$pathSeparator = if ($IsUnix) { ":" } else { ";" }
+$mountPointsAsString = $MountPoints -Join $pathSeparator
+$gitDirectoriesAsString = $GitDirectories -Join $pathSeparator
 
 Write-Host "Volume mappings: " @VolumeMappings -ForegroundColor Gray
 Write-Host "Mount points: " $mountPointsAsString -ForegroundColor Gray
@@ -829,8 +903,11 @@ if (-not $NoBuildImage -and -not $existingContainerId)
     {
         Write-Host "Dockerfile does not have mountpoints creation code. Appending mountpoints setup." -ForegroundColor Yellow
 
-        # Append hardcoded mountpoints creation code
-        $mountpointsCode = @"
+        # Append hardcoded mountpoints creation code (platform-specific)
+        if ($IsWindows)
+        {
+            # Windows container (PowerShell)
+            $mountpointsCode = @"
 
 # Create directories for mountpoints
 ARG MOUNTPOINTS
@@ -844,6 +921,25 @@ RUN if (`$env:MOUNTPOINTS) { ``
         } ``
     }
 "@
+        }
+        else
+        {
+            # Unix container (bash/sh)
+            $mountpointsCode = @"
+
+# Create directories for mountpoints
+ARG MOUNTPOINTS
+RUN if [ -n "`$MOUNTPOINTS" ]; then \
+        IFS=':' read -ra mounts <<< "`$MOUNTPOINTS"; \
+        for dir in "`${mounts[@]}"; do \
+            if [ -n "`$dir" ]; then \
+                echo "Creating directory `$dir."; \
+                mkdir -p "`$dir"; \
+            fi; \
+        done; \
+    fi
+"@
+        }
         $dockerfileContent += $mountpointsCode
         Write-Host "Appended mountpoints creation code" -ForegroundColor Cyan
     }
@@ -1057,7 +1153,7 @@ if (-not $BuildImage)
         }
 
         $dockerArgsAsString = $dockerArgs -join " "
-        $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
+        $pwshPath = if ($IsUnix) { '/usr/bin/pwsh' } else { 'C:\Program Files\PowerShell\7\pwsh.exe' }
 
         # Environment variables to pass to container
         $envArgs = @()
@@ -1072,8 +1168,8 @@ if (-not $BuildImage)
         {
             # Start new container with docker run
             $envArgsAsString = ($envArgs -join " ")
-            Write-Host "Executing: docker run --rm --memory=$Memory --cpus=$Cpus --isolation=$Isolation $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
-            docker run --rm --memory=$Memory --cpus=$Cpus --isolation=$Isolation $dockerArgs @volumeArgs @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
+            Write-Host "Executing: docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
+            docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgs @volumeArgs @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
             $dockerExitCode = $LASTEXITCODE
         }
         finally
@@ -1195,7 +1291,7 @@ if (-not $BuildImage)
         $scriptInvocation = "& `"$scriptFullPath`""
         $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; $scriptInvocation $buildArgsString; $pwshExitCommand"
 
-        $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
+        $pwshPath = if ($IsUnix) { '/usr/bin/pwsh' } else { 'C:\Program Files\PowerShell\7\pwsh.exe' }
 
         # Build docker command arguments
         if ($existingContainerId)
@@ -1208,8 +1304,8 @@ if (-not $BuildImage)
         else
         {
             # Start new container with docker run
-            Write-Host "Executing: ``docker run --rm --memory=$Memory --cpus=$Cpus --isolation=$Isolation $dockerArgsAsString $VolumeMappingsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
-            docker run --rm --memory=$Memory --cpus=$Cpus --isolation=$Isolation $dockerArgs @volumeArgs -w $ContainerSourceDir $ImageTag $pwshPath $pwshArgs -Command $inlineScript
+            Write-Host "Executing: ``docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
+            docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgs @volumeArgs -w $ContainerSourceDir $ImageTag $pwshPath $pwshArgs -Command $inlineScript
         }
 
         if ($LASTEXITCODE -ne 0)
