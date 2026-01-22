@@ -96,7 +96,14 @@ function New-EnvJson
         $nugetPackages = $env:NUGET_PACKAGES
         if ( [string]::IsNullOrEmpty($nugetPackages))
         {
-            $nugetPackages = Join-Path $env:USERPROFILE ".nuget\packages"
+            if ($IsUnix)
+            {
+                $nugetPackages = Join-Path $env:HOME ".nuget/packages"
+            }
+            else
+            {
+                $nugetPackages = Join-Path $env:USERPROFILE ".nuget\packages"
+            }
         }
         $envVariables["NUGET_PACKAGES"] = $nugetPackages
     }
@@ -204,7 +211,14 @@ function New-ClaudeEnvJson
     $nugetPackages = $env:NUGET_PACKAGES
     if ( [string]::IsNullOrEmpty($nugetPackages))
     {
-        $nugetPackages = Join-Path $env:USERPROFILE ".nuget\packages"
+        if ($IsUnix)
+        {
+            $nugetPackages = Join-Path $env:HOME ".nuget/packages"
+        }
+        else
+        {
+            $nugetPackages = Join-Path $env:USERPROFILE ".nuget\packages"
+        }
     }
     $claudeEnv["NUGET_PACKAGES"] = $nugetPackages
 
@@ -1080,7 +1094,7 @@ if (-not $BuildImage)
         Write-Host "Running Claude in the container." -ForegroundColor Green
 
         # Container will have its own Claude profile (no mount, no copy from host)
-        $hostUserProfile = $env:USERPROFILE
+        $hostUserProfile = if ($IsUnix) { $env:HOME } else { $env:USERPROFILE }
 
         # Convert volume mappings to docker args format (interleave "-v" flags)
         $volumeArgs = @()
