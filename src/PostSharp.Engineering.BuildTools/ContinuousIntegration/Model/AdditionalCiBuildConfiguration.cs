@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using PostSharp.Engineering.BuildTools.Docker;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
@@ -27,4 +28,6 @@ public abstract class AdditionalCiBuildConfiguration
     }
 
     internal abstract TeamCityBuildConfiguration TeamCityBuildConfiguration( ProductProperties productProperties );
+    
+    public BuildAgentRequirements? BuildAgentRequirements { get; init; }
 }

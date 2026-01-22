@@ -18,6 +18,8 @@ public record ContainerRequirements : BuildAgentRequirements
     public ContainerRequirements( ContainerHostKind hostKind ) : base( new BuildAgentRequirement( "env.BuildAgentType", GetBuildAgentType( hostKind ) ) ) { }
 
     public ContainerComponent[] Components { get; init; } = [];
+    
+    public string? ImageName { get; init; }
 
     private static string GetBuildAgentType( ContainerHostKind hostKind )
         => hostKind switch

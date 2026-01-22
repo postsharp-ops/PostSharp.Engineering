@@ -30,7 +30,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             this.Name,
             this.Branch,
             productProperties.VcsId,
-            product.ResolvedBuildAgentRequirements )
+            this.BuildAgentRequirements ?? product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
             [
