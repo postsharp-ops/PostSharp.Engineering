@@ -23,7 +23,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         // TeamCity
         if ( product.GenerateTeamCitySettings )
         {
-            if ( !TeamCitySettingsFile.TryWrite( context, settings ) )
+            if ( !TeamCitySettingsFile.TryWrite( context ) )
             {
                 return false;
             }

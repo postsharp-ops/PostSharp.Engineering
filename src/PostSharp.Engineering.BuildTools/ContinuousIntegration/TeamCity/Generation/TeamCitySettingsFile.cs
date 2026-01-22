@@ -12,14 +12,15 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Genera
 
 internal static class TeamCitySettingsFile
 {
-    internal static bool TryWrite( BuildContext context, CommonCommandSettings settings )
+    internal static bool TryWrite( BuildContext context )
     {
         var product = context.Product;
         context.Console.WriteHeading( "Generating build integration scripts" );
 
         var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
         var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
-
+        var teamCityBuildBuildConfigurations = new Dictionary<BuildConfiguration, TeamCityBuildConfiguration>();
+        
         // Create product-level properties once
         var productProperties = new ProductProperties( product );
 
@@ -59,6 +60,7 @@ internal static class TeamCitySettingsFile
                 additionalArtifactRules );
 
             teamCityBuildConfigurations.Add( teamCityBuildConfiguration );
+            teamCityBuildBuildConfigurations.Add( configuration,  teamCityBuildConfiguration );
 
             TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
 
@@ -128,7 +130,7 @@ internal static class TeamCitySettingsFile
         // Add product-defined.
         foreach ( var additional in product.AdditionalCiBuildConfigurations )
         {
-            var configuration = additional.TeamCityBuildConfiguration( productProperties );
+            var configuration = additional.TeamCityBuildConfiguration( productProperties, teamCityBuildBuildConfigurations );
             teamCityBuildConfigurations.Add( configuration );
         }
 
