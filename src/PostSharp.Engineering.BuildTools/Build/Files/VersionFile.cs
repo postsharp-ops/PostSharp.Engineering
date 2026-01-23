@@ -15,7 +15,7 @@ using System.Xml.XPath;
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
 /// <summary>
-/// Represents then information of <c>Versions.props</c>.
+/// Represents then information of <c>Versions.Debug.g.props</c>.
 /// </summary>
 public class VersionFile
 {

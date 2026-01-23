@@ -1087,6 +1087,18 @@ else
 # Run the build within the container
 if (-not $BuildImage)
 {
+    # Common setup for both Claude and normal build modes
+    $pwshPath = if ($IsUnix) { '/usr/bin/pwsh' } else { 'C:\Program Files\PowerShell\7\pwsh.exe' }
+    $initCall = if (-not $NoInit) { "& c:\docker-context\Init.g.ps1; " } else { "" }
+
+    # Convert volume mappings to docker args format (interleave "-v" flags)
+    $volumeArgs = @()
+    foreach ($mapping in $VolumeMappings)
+    {
+        $volumeArgs += @("-v", $mapping)
+    }
+    $VolumeMappingsAsString = ($VolumeMappings | ForEach-Object { "-v $_" }) -join " "
+
     if ($Claude)
     {
         # Start MCP approval server on host with dynamic port in new terminal tab
@@ -1199,13 +1211,6 @@ if (-not $BuildImage)
         # Container will have its own Claude profile (no mount, no copy from host)
         $hostUserProfile = if ($IsUnix) { $env:HOME } else { $env:USERPROFILE }
 
-        # Convert volume mappings to docker args format (interleave "-v" flags)
-        $volumeArgs = @()
-        foreach ($mapping in $VolumeMappings)
-        {
-            $volumeArgs += @("-v", $mapping)
-        }
-
         # Mount Claude sessions directory to preserve history (but not plugins)
         $hostClaudeSessions = Join-Path $hostUserProfile ".claude\.sessions"
         $containerClaudeSessions = Join-Path $containerUserProfile ".claude\.sessions"
@@ -1226,8 +1231,6 @@ if (-not $BuildImage)
         $volumeArgs += @("-v", "${hostClaudeProjects}:${containerClaudeProjects}")
         Write-Host "Mounting Claude projects directory: $hostClaudeProjects" -ForegroundColor Cyan
 
-        $VolumeMappingsAsString = ($VolumeMappings | ForEach-Object { "-v $_" }) -join " "
-
         # Extract Claude prompt from remaining arguments if present
         # Usage: -Claude for interactive, -Claude "prompt" for non-interactive
         $ClaudePrompt = $null
@@ -1237,9 +1240,6 @@ if (-not $BuildImage)
         }
 
         # Build inline script: subst drives, copy claude.json, cd to source, run Claude
-        # Conditionally include Init.g.ps1 call
-        $initCall = if (-not $NoInit) { "& c:\docker-context\Init.g.ps1; " } else { "" }
-
         if ($ClaudePrompt)
         {
             # Non-interactive mode with prompt - no -it flags
@@ -1269,9 +1269,6 @@ if (-not $BuildImage)
             $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; & .\eng\RunClaude.ps1$mcpArg"
         }
 
-        $dockerArgsAsString = $dockerArgs -join " "
-        $pwshPath = if ($IsUnix) { '/usr/bin/pwsh' } else { 'C:\Program Files\PowerShell\7\pwsh.exe' }
-
         # Environment variables to pass to container
         $envArgs = @()
 
@@ -1281,21 +1278,91 @@ if (-not $BuildImage)
             $envArgs += @("-e", "MCP_APPROVAL_SERVER_TOKEN=$mcpSecret")
         }
 
+        # No pwshArgs for Claude mode
+        $pwshArgs = $null
+        $needsMcpCleanup = $true
+    }
+    else
+    {
+        # Run standard build mode
+        # Delete now and not in the container because it's much faster and lock error messages are more relevant.
+        Write-Host "Building the product in the container." -ForegroundColor Green
+
+        # Prepare Build.ps1 arguments
+        if ($StartVsmon)
+        {
+            $BuildArgs = @("-StartVsmon") + $BuildArgs
+        }
+
+        if ($Interactive)
+        {
+            $pwshArgs = "-NoExit"
+            $BuildArgs = @("-Interactive") + $BuildArgs
+            $dockerArgs = @("-it")
+            $pwshExitCommand = ""
+        }
+        else
+        {
+            $pwshArgs = "-NonInteractive"
+            $dockerArgs = @()
+            $pwshExitCommand = "exit `$LASTEXITCODE`;"
+        }
+
+        $buildArgsString = $BuildArgs -join " "
+
+        # Build inline script: subst drives, run init, cd to source, run build
+        # Get full script path (combine with container source dir if relative)
+        if ([System.IO.Path]::IsPathRooted($Script))
+        {
+            $scriptFullPath = $Script
+        }
+        else
+        {
+            $scriptFullPath = Join-Path $ContainerSourceDir $Script
+        }
+        $scriptInvocation = "& '$scriptFullPath'"
+        $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; $scriptInvocation $buildArgsString; $pwshExitCommand"
+
+        # No environment args for normal build
+        $envArgs = @()
+        $needsMcpCleanup = $false
+    }
+
+    # Common docker execution for both modes
+    $dockerArgsAsString = $dockerArgs -join " "
+    $envArgsAsString = ($envArgs -join " ")
+
+    # Wrap in try/finally only if MCP cleanup is needed
+    if ($needsMcpCleanup)
+    {
         try
         {
-            # Start new container with docker run
-            $envArgsAsString = ($envArgs -join " ")
-            Write-Host "Executing: docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
+            # Execute docker command
+            if ($existingContainerId)
+            {
+                # Reuse existing container with docker exec
+                Write-Host "Executing: ``docker exec $existingContainerId $dockerArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
+                docker exec $dockerArgs  -w $ContainerSourceDir $existingContainerId $pwshPath $pwshArgs -Command $inlineScript
+            }
+            else
+            {
+                # Start new container with docker run
+                Write-Host "Executing: docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
 
-            # Build docker command with proper argument handling (avoid empty strings)
-            $dockerCmd = @('run', '--rm', "--memory=$Memory", "--cpus=$Cpus")
-            if ($isolationArg) { $dockerCmd += $isolationArg }
-            $dockerCmd += $dockerArgs
-            $dockerCmd += $volumeArgs
-            $dockerCmd += $envArgs
-            $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, '-Command', $inlineScript)
+                # Build docker command with proper argument handling (avoid empty strings)
+                $dockerCmd = @('run', '--rm', "--memory=$Memory", "--cpus=$Cpus")
+                if ($isolationArg) { $dockerCmd += $isolationArg }
+                $dockerCmd += $dockerArgs
+                $dockerCmd += $volumeArgs
+                $dockerCmd += $envArgs
+                if ($pwshArgs) {
+                    $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
+                } else {
+                    $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, '-Command', $inlineScript)
+                }
 
-            & docker @dockerCmd
+                & docker @dockerCmd
+            }
             $dockerExitCode = $LASTEXITCODE
         }
         finally
@@ -1357,96 +1424,43 @@ if (-not $BuildImage)
                 Remove-Item $mcpTempDir -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
-
-        if ($dockerExitCode -ne 0)
-        {
-            Write-Host "Docker run (Claude) failed with exit code $dockerExitCode" -ForegroundColor Red
-            exit $dockerExitCode
-        }
     }
     else
     {
-        # Run standard build mode
-        # Delete now and not in the container because it's much faster and lock error messages are more relevant.
-        Write-Host "Building the product in the container." -ForegroundColor Green
-
-        # Prepare Build.ps1 arguments
-        if ($StartVsmon)
-        {
-            $BuildArgs = @("-StartVsmon") + $BuildArgs
-        }
-
-        if ($Interactive)
-        {
-            $pwshArgs = "-NoExit"
-            $BuildArgs = @("-Interactive") + $BuildArgs
-            $dockerArgs = @("-it")
-            $pwshExitCommand = ""
-        }
-        else
-        {
-            $pwshArgs = "-NonInteractive"
-            $dockerArgs = @()
-            $pwshExitCommand = "exit `$LASTEXITCODE`;"
-        }
-
-        $buildArgsString = $BuildArgs -join " "
-
-        # Convert volume mappings to docker args format (interleave "-v" flags)
-        $volumeArgs = @()
-        foreach ($mapping in $VolumeMappings)
-        {
-            $volumeArgs += @("-v", $mapping)
-        }
-        $VolumeMappingsAsString = ($VolumeMappings | ForEach-Object { "-v $_" }) -join " "
-        $dockerArgsAsString = $dockerArgs -join " "
-
-        # Build inline script: subst drives, run init, cd to source, run build
-        # Conditionally include Init.g.ps1 call
-        $initCall = if (-not $NoInit) { "& c:\docker-context\Init.g.ps1; " } else { "" }
-
-        # Get full script path (combine with container source dir if relative)
-        if ([System.IO.Path]::IsPathRooted($Script))
-        {
-            $scriptFullPath = $Script
-        }
-        else
-        {
-            $scriptFullPath = Join-Path $ContainerSourceDir $Script
-        }
-        $scriptInvocation = "& '$scriptFullPath'"
-        $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; $scriptInvocation $buildArgsString; $pwshExitCommand"
-
-        $pwshPath = if ($IsUnix) { '/usr/bin/pwsh' } else { 'C:\Program Files\PowerShell\7\pwsh.exe' }
-
-        # Build docker command arguments
+        # Execute docker command (no MCP cleanup needed)
         if ($existingContainerId)
         {
             # Reuse existing container with docker exec
             Write-Host "Executing: ``docker exec $existingContainerId $dockerArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
             docker exec $dockerArgs  -w $ContainerSourceDir $existingContainerId $pwshPath $pwshArgs -Command $inlineScript
-
         }
         else
         {
             # Start new container with docker run
-            Write-Host "Executing: ``docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
+            Write-Host "Executing: ``docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
 
             # Build docker command with proper argument handling (avoid empty strings)
             $dockerCmd = @('run', '--rm', "--memory=$Memory", "--cpus=$Cpus")
             if ($isolationArg) { $dockerCmd += $isolationArg }
             $dockerCmd += $dockerArgs
             $dockerCmd += $volumeArgs
-            $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
+            $dockerCmd += $envArgs
+            if ($pwshArgs) {
+                $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
+            } else {
+                $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, '-Command', $inlineScript)
+            }
 
             & docker @dockerCmd
         }
+        $dockerExitCode = $LASTEXITCODE
+    }
 
-        if ($LASTEXITCODE -ne 0)
-        {
-            Write-Host "Container failed with exit code $LASTEXITCODE" -ForegroundColor Red
-            exit $LASTEXITCODE
-        }
+    # Check exit code
+    if ($dockerExitCode -ne 0)
+    {
+        Write-Host "Container failed with exit code $dockerExitCode" -ForegroundColor Red
+        exit $dockerExitCode
     }
 }
 else
