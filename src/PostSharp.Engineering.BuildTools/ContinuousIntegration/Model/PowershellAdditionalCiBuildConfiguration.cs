@@ -8,6 +8,8 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation
 using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
@@ -24,6 +26,8 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
 
     public string Arguments { get; }
 
+    public bool UseWsl { get; init; }
+
     internal override TeamCityBuildConfiguration TeamCityBuildConfiguration(
         ProductProperties productProperties,
         IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations )
@@ -31,28 +35,70 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
         var product = productProperties.Product;
 
         var buildSteps = new List<BuildStep>();
-        TeamCityBuildConfiguration? buildConfiguration = null;
-        string? buildArtifactsDirectory = null; 
+        List<TeamCitySnapshotDependency>? snapshotDependencies = null;
 
         // Handle snapshot dependencies.
         if ( this.BuildSnapshotDependency != null )
         {
-            if ( !teamCityBuildBuildConfigurations.TryGetValue( this.BuildSnapshotDependency.Value, out buildConfiguration ) )
+            if ( !teamCityBuildBuildConfigurations.TryGetValue( this.BuildSnapshotDependency.Value, out var buildConfiguration ) )
             {
                 throw new KeyNotFoundException( $"Cannot find the TeamCity build configuration for '{this.BuildSnapshotDependency.Value}'." );
             }
 
-            buildArtifactsDirectory = productProperties.Product.GetPrivateArtifactsRelativeDirectory( this.BuildSnapshotDependency.Value ).Replace( "\\", "/", StringComparison.Ordinal );
-            
+            var buildArtifactsDirectory = productProperties.Product.GetPrivateArtifactsRelativeDirectory( this.BuildSnapshotDependency.Value )
+                .Replace( "\\", "/", StringComparison.Ordinal );
+
+            // Get all transitive dependencies for the build configuration
+            var dependencies = product.DependencyDefinition.GetAllDependencies( this.BuildSnapshotDependency.Value )
+                .Where( d => d.Definition.GenerateSnapshotDependency )
+                .ToList();
+
+            // Create snapshot dependencies for all transitive dependencies
+            snapshotDependencies =
+                [new TeamCitySnapshotDependency( buildConfiguration.ObjectName, false, $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}" )];
+
+            snapshotDependencies.AddRange(
+                dependencies.Select( d => new TeamCitySnapshotDependency(
+                                         d.Definition.CiConfiguration.BuildTypes[d.Configuration],
+                                         true,
+                                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Definition.Name}" ) ) );
+
             // If we have a build snapshot dependency, copy nuget.restored.config to nuget.config
+            var copyNuGetConfigCommand = $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.config"" -Force;";
+
+            if ( product.AddWslSupport )
+            {
+                copyNuGetConfigCommand += $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.wsl.config"" -Force;";
+            }
+
             buildSteps.Add(
                 new PowerShellCommandBuildStep(
                     "CopyNuGetConfig",
                     "Copy nuget.restored.config to nuget.config",
-                    $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.config"" -Force",
+                    copyNuGetConfigCommand,
+                    null ) );
+
+            // Create an MSBuild project that imports the restored version props file and all dependency version props
+            // Paths are relative to eng/Versions.g.props, so need ../ prefix
+            var versionImports = $"<Import Project=`\"../{buildArtifactsDirectory}/{product.ProductName}.version.props`\" />";
+
+            foreach ( var dependency in dependencies )
+            {
+                versionImports +=
+                    $"<Import Project=`\"../dependencies/{dependency.Definition.Name}/{dependency.Definition.Name}.version.props`\" />";
+            }
+
+            var createVersionsFileCommand =
+                $@"New-Item -Path ""{product.EngineeringDirectory}/Versions.g.props"" -ItemType File -Force -Value ""<Project>{versionImports}</Project>"" | Out-Null;";
+
+            buildSteps.Add(
+                new PowerShellCommandBuildStep(
+                    "CreateVersionsFile",
+                    "Create eng/Versions.g.props",
+                    createVersionsFileCommand,
                     null ) );
         }
-        
+
         // Add the main execution step
         buildSteps.Add(
             new PowerShellScriptBuildStep(
@@ -60,8 +106,16 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 $"Execute {this.Script}",
                 this.Script,
                 this.Arguments,
-                this.BuildAgentRequirements == null ? product.DockerSpec : this.BuildAgentRequirements.IsDockerized ? new DockerSpec( $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant() ) : null,
-                true ) );
+                this.BuildAgentRequirements == null ? product.DockerSpec :
+                this.BuildAgentRequirements.IsDockerized ? new DockerSpec(
+                    $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant() ) :
+                null,
+                true )
+            {
+#pragma warning disable CS0612 // Type or member is obsolete
+                UseWsl = this.UseWsl || this.BuildAgentRequirements is ContainerHostRequirements { HostKind: ContainerHostKind.Wsl }
+#pragma warning restore CS0612 // Type or member is obsolete
+            } );
 
         // Build the configuration.
         var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
@@ -82,9 +136,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 SourceDependenciesRequirements.Full => productProperties.SourceDependencies,
                 _ => throw new ArgumentOutOfRangeException()
             },
-            SnapshotDependencies = buildConfiguration == null
-                ? null
-                : [new TeamCitySnapshotDependency( buildConfiguration.ObjectName, false, $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}" )]
+            SnapshotDependencies = snapshotDependencies?.ToArray()
         };
 
         return downstreamMergeConfiguration;

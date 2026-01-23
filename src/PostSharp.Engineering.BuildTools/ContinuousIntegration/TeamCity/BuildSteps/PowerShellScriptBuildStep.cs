@@ -18,6 +18,8 @@ internal class PowerShellScriptBuildStep : BuildStep
 
     public string? WorkingDirectory { get; init; }
 
+    public bool UseWsl { get; init; }
+
     public PowerShellScriptBuildStep(
         string id,
         string name,
@@ -57,7 +59,21 @@ internal class PowerShellScriptBuildStep : BuildStep
 
     public override string GenerateTeamCityCode()
     {
-        return $@"        powerShell {{
+        if ( this.UseWsl )
+        {
+            return $@"        powerShell {{
+            name = ""{KotlinHelper.EscapeString( this.Name )}""
+            id = ""{this.Id}""{(this.WorkingDirectory == null ? "" : $@"
+            workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
+            scriptMode = script {{
+                content = ""wsl pwsh {KotlinHelper.EscapeString( this.ScriptPath )} {KotlinHelper.EscapeString( this.ScriptArguments )}""
+            }}
+            noProfile = false
+        }}";
+        }
+        else
+        {
+            return $@"        powerShell {{
             name = ""{KotlinHelper.EscapeString( this.Name )}""
             id = ""{this.Id}""{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
@@ -67,5 +83,6 @@ internal class PowerShellScriptBuildStep : BuildStep
             noProfile = false
             scriptArgs = ""{KotlinHelper.EscapeString( this.ScriptArguments )}""
         }}";
+        }
     }
 }

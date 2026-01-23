@@ -36,13 +36,12 @@ internal sealed class RestoredArtifactsNuGetConfigGenerator : NuGetConfigGenerat
         DependencyDefinition dependencyDefinition,
         BuildConfiguration configuration )
     {
-        // For restored artifacts, dependencies are always under dependencies/<name>/{PrivateArtifactsDirectory}
-        // regardless of the source kind (this is the TeamCity artifact restoration structure)
+        // For restored artifacts, dependencies are always under dependencies/<name>
+        // TeamCity artifact rule +:{PrivateArtifactsDir}/**/* => dependencies/{name} copies the contents directly
         return Path.Combine(
             context.RepoDirectory,
             "dependencies",
-            dependencyKey,
-            dependencyDefinition.GetPrivateArtifactsDirectory( configuration ) );
+            dependencyKey );
     }
 
     protected override bool ShouldIncludeDependency( DependencyDefinition dependencyDefinition )
