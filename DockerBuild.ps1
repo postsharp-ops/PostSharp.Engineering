@@ -43,7 +43,7 @@ if ($null -eq $IsWindows)
 $IsUnix = -not $IsWindows  # Covers both Linux and macOS
 
 # Docker isolation is Windows-only
-$isolationArg = if ($IsWindows) { "$isolationArg" } else { "" }
+$isolationArg = if ($IsWindows) { "--isolation=$Isolation" } else { "" }
 
 # Set BuildAgentPath default based on platform
 if ([string]::IsNullOrEmpty($BuildAgentPath))
@@ -1302,7 +1302,7 @@ if (-not $BuildImage)
         {
             $scriptFullPath = Join-Path $ContainerSourceDir $Script
         }
-        $scriptInvocation = "& `"$scriptFullPath`""
+        $scriptInvocation = "& '$scriptFullPath'"
         $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; $scriptInvocation $buildArgsString; $pwshExitCommand"
 
         $pwshPath = if ($IsUnix) { '/usr/bin/pwsh' } else { 'C:\Program Files\PowerShell\7\pwsh.exe' }
