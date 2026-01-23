@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -6,78 +6,42 @@ using System;
 using System.IO;
 using System.Xml.Linq;
 
-namespace PostSharp.Engineering.BuildTools.Build.Files;
+namespace PostSharp.Engineering.BuildTools.Build.Files.NuGet;
 
 /// <summary>
-/// Writes <c>nuget.config</c>.
+/// Abstract base class for generating nuget.config files with different path strategies.
 /// </summary>
-internal static class NuGetConfigFile
+internal abstract class NuGetConfigGenerator
 {
-    private static string ConvertToWslPath( string path )
-    {
-        // Convert Windows path to WSL: C:\path -> /mnt/c/path
-        if ( path is [_, ':', _, ..] && (path[2] == '\\' || path[2] == '/') )
-        {
-            var drive = char.ToLower( path[0], System.Globalization.CultureInfo.InvariantCulture );
-            var remainder = path.Substring( 2 ).Replace( "\\", "/", StringComparison.Ordinal );
-
-            return $"/mnt/{drive}{remainder}";
-        }
-
-        return path;
-    }
-
-    internal static bool TryWrite( BuildContext context, DependenciesConfigurationFile dependenciesConfigurationFile, BuildConfiguration configuration )
-    {
-        var product = context.Product;
-
-        if ( !product.GenerateNuGetConfig )
-        {
-            return true;
-        }
-
-        // Fetch to resolve the VersionFile properties.
-        if ( !dependenciesConfigurationFile.Fetch( context ) )
-        {
-            return false;
-        }
-
-        // Generate regular nuget.config
-        if ( !GenerateNuGetConfig( context, dependenciesConfigurationFile, configuration, "nuget.config", path => path ) )
-        {
-            return false;
-        }
-
-        // Generate WSL version if AddWslSupport is enabled
-        if ( product.AddWslSupport )
-        {
-            if ( !GenerateNuGetConfig( context, dependenciesConfigurationFile, configuration, "nuget.wsl.config", ConvertToWslPath ) )
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool GenerateNuGetConfig(
+    /// <summary>
+    /// Generates a nuget.config file.
+    /// </summary>
+    public bool TryGenerate(
         BuildContext context,
         DependenciesConfigurationFile dependenciesConfigurationFile,
-        BuildConfiguration configuration,
-        string targetFileName,
-        Func<string, string> pathTransform )
+        BuildConfiguration configuration )
     {
         var product = context.Product;
-        var baseFilePath = Path.Combine( context.RepoDirectory, "nuget.base.config" );
-        var targetFilePath = Path.Combine( context.RepoDirectory, targetFileName );
+        var targetFilePath = this.GetTargetFilePath( context, configuration );
 
         XDocument document;
         XElement rootElement;
 
-        if ( File.Exists( baseFilePath ) )
+        if ( this.ShouldLoadBaseConfig() )
         {
-            document = XDocument.Load( baseFilePath );
-            rootElement = document.Root!;
+            var baseFilePath = Path.Combine( context.RepoDirectory, "nuget.base.config" );
+
+            if ( File.Exists( baseFilePath ) )
+            {
+                document = XDocument.Load( baseFilePath );
+                rootElement = document.Root!;
+            }
+            else
+            {
+                document = new XDocument();
+                rootElement = new XElement( "configuration" );
+                document.Add( rootElement );
+            }
         }
         else
         {
@@ -116,8 +80,7 @@ internal static class NuGetConfigFile
         }
 
         // Add the current artifact directory.
-        var artifactDirectory =
-            product.GetPrivateArtifactsAbsoluteDirectory( context, configuration );
+        var artifactDirectory = this.GetCurrentProductDirectory( context, configuration );
 
         AddDirectory( product.ProductName, artifactDirectory, product.DependencyDefinition.PackagePatterns );
 
@@ -139,14 +102,21 @@ internal static class NuGetConfigFile
             }
 
             var dependencyDefinition = product.GetDependencyDefinition( dependencySource.Key );
-            var dependencyDirectory = Path.GetDirectoryName( dependencySource.Value.VersionFile )!;
 
-            if ( dependencySource.Value.SourceKind == DependencySourceKind.Local )
+            if ( !this.ShouldIncludeDependency( dependencyDefinition ) )
             {
-                dependencyDirectory = Path.Combine(
-                    dependencyDirectory,
-                    dependencyDefinition.GetPrivateArtifactsDirectory( configuration ) );
+                // Skip this dependency based on generator-specific logic
+                packageSourcesElement.Add( new XComment( $" {dependencySource.Key} excluded by generator. " ) );
+
+                continue;
             }
+
+            var dependencyDirectory = this.GetDependencyDirectory(
+                context,
+                dependencySource.Key,
+                dependencySource.Value,
+                dependencyDefinition,
+                configuration );
 
             if ( !AddDirectory( dependencySource.Key, dependencyDirectory, dependencyDefinition.PackagePatterns ) )
             {
@@ -165,8 +135,8 @@ internal static class NuGetConfigFile
                 throw new ArgumentNullException( nameof(directory), $"Null directory for source '{name}'." );
             }
 
-            // Apply path transformation (e.g., Windows to WSL)
-            var transformedDirectory = pathTransform( directory );
+            // Apply path transformation
+            var transformedDirectory = this.TransformPath( directory, context );
 
             var addElement = new XElement( "add" );
             addElement.Add( new XAttribute( "key", name ) );
@@ -192,4 +162,41 @@ internal static class NuGetConfigFile
             }
         }
     }
+
+    /// <summary>
+    /// Gets the target file path where the nuget.config will be written.
+    /// </summary>
+    protected abstract string GetTargetFilePath( BuildContext context, BuildConfiguration configuration );
+
+    /// <summary>
+    /// Transforms a path (e.g., to WSL format or relative path).
+    /// </summary>
+    protected abstract string TransformPath( string path, BuildContext context );
+
+    /// <summary>
+    /// Gets the directory for the current product's packages.
+    /// </summary>
+    protected abstract string GetCurrentProductDirectory( BuildContext context, BuildConfiguration configuration );
+
+    /// <summary>
+    /// Gets the directory for a dependency's packages.
+    /// </summary>
+    protected abstract string GetDependencyDirectory(
+        BuildContext context,
+        string dependencyKey,
+        DependencySource dependencySource,
+        DependencyDefinition dependencyDefinition,
+        BuildConfiguration configuration );
+
+    /// <summary>
+    /// Determines whether a dependency should be included in the nuget.config.
+    /// </summary>
+    /// <param name="dependencyDefinition">The dependency definition to check.</param>
+    /// <returns>True if the dependency should be included; otherwise, false.</returns>
+    protected virtual bool ShouldIncludeDependency( DependencyDefinition dependencyDefinition ) => true;
+
+    /// <summary>
+    /// Determines whether to load the base config file (nuget.base.config).
+    /// </summary>
+    protected virtual bool ShouldLoadBaseConfig() => true;
 }

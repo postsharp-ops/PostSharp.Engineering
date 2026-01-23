@@ -30,9 +30,11 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
     {
         var product = productProperties.Product;
 
+        var buildSteps = new List<BuildStep>();
         TeamCityBuildConfiguration? buildConfiguration = null;
         string? buildArtifactsDirectory = null; 
 
+        // Handle snapshot dependencies.
         if ( this.BuildSnapshotDependency != null )
         {
             if ( !teamCityBuildBuildConfigurations.TryGetValue( this.BuildSnapshotDependency.Value, out buildConfiguration ) )
@@ -41,8 +43,27 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             }
 
             buildArtifactsDirectory = productProperties.Product.GetPrivateArtifactsRelativeDirectory( this.BuildSnapshotDependency.Value ).Replace( "\\", "/", StringComparison.Ordinal );
+            
+            // If we have a build snapshot dependency, copy nuget.restored.config to nuget.config
+            buildSteps.Add(
+                new PowerShellCommandBuildStep(
+                    "CopyNuGetConfig",
+                    "Copy nuget.restored.config to nuget.config",
+                    $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.config"" -Force",
+                    null ) );
         }
+        
+        // Add the main execution step
+        buildSteps.Add(
+            new PowerShellScriptBuildStep(
+                "Exec",
+                $"Execute {this.Script}",
+                this.Script,
+                this.Arguments,
+                this.BuildAgentRequirements == null ? product.DockerSpec : this.BuildAgentRequirements.IsDockerized ? new DockerSpec( $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant() ) : null,
+                true ) );
 
+        // Build the configuration.
         var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
             this.Id,
             this.Name,
@@ -50,16 +71,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             productProperties.VcsId,
             this.BuildAgentRequirements ?? product.ResolvedBuildAgentRequirements )
         {
-            BuildSteps =
-            [
-                new PowerShellBuildStep(
-                    "Exec",
-                    $"Execute {this.Script}",
-                    this.Script,
-                    this.Arguments,
-                    this.BuildAgentRequirements == null ? product.DockerSpec : this.BuildAgentRequirements.IsDockerized ? new DockerSpec( $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant() ) : null,
-                    true )
-            ],
+            BuildSteps = buildSteps.ToArray(),
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh,
             SourceDependencies = this.SourceDependenciesRequirements switch
             {

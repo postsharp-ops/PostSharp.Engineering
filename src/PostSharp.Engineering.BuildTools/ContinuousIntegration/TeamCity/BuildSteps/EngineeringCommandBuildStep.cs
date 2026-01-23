@@ -7,7 +7,7 @@ using System.Globalization;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 
-internal class EngineeringCommandBuildStep : PowerShellBuildStep
+internal class EngineeringCommandBuildStep : PowerShellScriptBuildStep
 {
     private static string GetTimeoutParameterName( string id ) => $"{id}.Timeout";
 

@@ -5,7 +5,7 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 
-internal class EngineeringPrepareImageBuildStep : PowerShellBuildStep
+internal class EngineeringPrepareImageBuildStep : PowerShellScriptBuildStep
 {
     public DockerSpec DockerSpec { get; }
 
