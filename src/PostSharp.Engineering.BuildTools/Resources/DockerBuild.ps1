@@ -62,6 +62,13 @@ if ([string]::IsNullOrEmpty($BuildAgentPath))
     }
 }
 
+# Resolve Dockerfile path relative to original current directory (before changing location)
+# This must be done before Set-Location to preserve the user's intended relative path
+if ($Dockerfile -and -not [System.IO.Path]::IsPathRooted($Dockerfile))
+{
+    $Dockerfile = Join-Path (Get-Location).Path $Dockerfile
+}
+
 # Save current location and restore on exit
 Push-Location
 try
