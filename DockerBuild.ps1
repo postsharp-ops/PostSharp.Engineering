@@ -942,14 +942,17 @@ RUN if (`$env:MOUNTPOINTS) { ``
         }
         else
         {
-            # Unix container (bash/sh)
+            # Unix container (POSIX sh-compatible)
             $mountpointsCode = @"
 
 # Create directories for mountpoints
 ARG MOUNTPOINTS
 RUN if [ -n "`$MOUNTPOINTS" ]; then \
-        IFS=':' read -ra mounts <<< "`$MOUNTPOINTS"; \
-        for dir in "`${mounts[@]}"; do \
+        OLD_IFS="`$IFS"; \
+        IFS=':'; \
+        set -- `$MOUNTPOINTS; \
+        IFS="`$OLD_IFS"; \
+        for dir in "`$@"; do \
             if [ -n "`$dir" ]; then \
                 echo "Creating directory `$dir."; \
                 mkdir -p "`$dir"; \
