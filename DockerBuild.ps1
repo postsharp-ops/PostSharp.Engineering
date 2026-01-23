@@ -62,9 +62,13 @@ if ([string]::IsNullOrEmpty($BuildAgentPath))
     }
 }
 
-Set-Location $PSScriptRoot
+# Save current location and restore on exit
+Push-Location
+try
+{
+    Set-Location $PSScriptRoot
 
-if ($env:IS_TEAMCITY_AGENT)
+    if ($env:IS_TEAMCITY_AGENT)
 {
     Write-Host "Running on TeamCity agent at '$BuildAgentPath'" -ForegroundColor Cyan
 }
@@ -1339,3 +1343,9 @@ $elapsed = $stopwatch.Elapsed
 Write-Host ""
 Write-Host "Total build time: $($elapsed.ToString('hh\:mm\:ss\.fff') )" -ForegroundColor Cyan
 Write-Host "Build completed at: $( Get-Date -Format 'yyyy-MM-dd HH:mm:ss' )" -ForegroundColor Cyan
+}
+finally
+{
+    # Restore original location
+    Pop-Location
+}
