@@ -717,6 +717,102 @@ if (Test-Path $dockerMountsScript)
 {
     Write-Host "Importing Docker mount points from $dockerMountsScript" -ForegroundColor Cyan
     . $dockerMountsScript
+
+    # Check if we need to convert Windows paths to WSL paths
+    # This happens when DockerMounts.g.ps1 was generated on Windows but we're running on WSL
+    if ($IsUnix)
+    {
+        # Check if any volume mapping contains Windows-style paths (e.g., C:\)
+        $hasWindowsPaths = $VolumeMappings | Where-Object { $_ -match '^[A-Za-z]:\\' }
+
+        if ($hasWindowsPaths)
+        {
+            Write-Host "Detected Windows paths in DockerMounts.g.ps1 while running on Unix. Converting paths to WSL format." -ForegroundColor Yellow
+
+            # Function to convert Windows path to WSL path
+            function ConvertTo-WslPath {
+                param([string]$WindowsPath)
+
+                if ($WindowsPath -match '^([A-Za-z]):\\(.*)$')
+                {
+                    $drive = $Matches[1].ToLower()
+                    $path = $Matches[2] -replace '\\', '/'
+                    return "/mnt/$drive/$path"
+                }
+                return $WindowsPath
+            }
+
+            # Convert VolumeMappings
+            # Note: When running Docker Desktop for Windows from WSL, BOTH host and container paths
+            # need to be in WSL format (/mnt/c/...) because Docker is invoked from WSL context.
+            $convertedVolumeMappings = @()
+            foreach ($mapping in $VolumeMappings)
+            {
+                # Parse mapping: hostPath:containerPath[:options]
+                # Challenge: colons appear in Windows paths (C:\) and as delimiters
+                # Strategy: Split on : and reconstruct Windows paths (single letter followed by \ path)
+                $parts = $mapping -split ':'
+
+                $i = 0
+
+                # Extract host path
+                if ($parts[$i].Length -eq 1 -and $i+1 -lt $parts.Length -and $parts[$i+1] -match '^[\\/]')
+                {
+                    # Windows path: C:\path - convert to WSL format
+                    $hostPath = "$($parts[$i]):$($parts[$i+1])"
+                    $hostPath = ConvertTo-WslPath $hostPath
+                    $i += 2
+                }
+                else
+                {
+                    # Unix path: /path - keep as-is
+                    $hostPath = $parts[$i]
+                    $i += 1
+                }
+
+                # Extract container path
+                if ($i -lt $parts.Length)
+                {
+                    if ($parts[$i].Length -eq 1 -and $i+1 -lt $parts.Length -and $parts[$i+1] -match '^[\\/]')
+                    {
+                        # Windows path - convert to WSL format
+                        $containerPath = "$($parts[$i]):$($parts[$i+1])"
+                        $containerPath = ConvertTo-WslPath $containerPath
+                        $i += 2
+                    }
+                    else
+                    {
+                        # Unix path - keep as-is
+                        $containerPath = $parts[$i]
+                        $i += 1
+                    }
+                }
+                else
+                {
+                    $containerPath = $hostPath  # Fallback
+                }
+
+                # Rest is options (:ro or :rw)
+                if ($i -lt $parts.Length)
+                {
+                    $options = ':' + ($parts[$i..($parts.Length-1)] -join ':')
+                }
+                else
+                {
+                    $options = ''
+                }
+
+                $convertedVolumeMappings += "${hostPath}:${containerPath}${options}"
+            }
+            $VolumeMappings = $convertedVolumeMappings
+
+            # Convert MountPoints
+            $MountPoints = $MountPoints | ForEach-Object { ConvertTo-WslPath $_ }
+
+            # Convert GitDirectories
+            $GitDirectories = $GitDirectories | ForEach-Object { ConvertTo-WslPath $_ }
+        }
+    }
 }
 elseif (-not $env:IS_TEAMCITY_AGENT)
 {
@@ -1190,7 +1286,16 @@ if (-not $BuildImage)
             # Start new container with docker run
             $envArgsAsString = ($envArgs -join " ")
             Write-Host "Executing: docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" -Command `"$inlineScript`"" -ForegroundColor Cyan
-            docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgs @volumeArgs @envArgs -w $ContainerSourceDir $ImageTag $pwshPath -Command $inlineScript
+
+            # Build docker command with proper argument handling (avoid empty strings)
+            $dockerCmd = @('run', '--rm', "--memory=$Memory", "--cpus=$Cpus")
+            if ($isolationArg) { $dockerCmd += $isolationArg }
+            $dockerCmd += $dockerArgs
+            $dockerCmd += $volumeArgs
+            $dockerCmd += $envArgs
+            $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, '-Command', $inlineScript)
+
+            & docker @dockerCmd
             $dockerExitCode = $LASTEXITCODE
         }
         finally
@@ -1326,7 +1431,15 @@ if (-not $BuildImage)
         {
             # Start new container with docker run
             Write-Host "Executing: ``docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
-            docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgs @volumeArgs -w $ContainerSourceDir $ImageTag $pwshPath $pwshArgs -Command $inlineScript
+
+            # Build docker command with proper argument handling (avoid empty strings)
+            $dockerCmd = @('run', '--rm', "--memory=$Memory", "--cpus=$Cpus")
+            if ($isolationArg) { $dockerCmd += $isolationArg }
+            $dockerCmd += $dockerArgs
+            $dockerCmd += $volumeArgs
+            $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
+
+            & docker @dockerCmd
         }
 
         if ($LASTEXITCODE -ne 0)

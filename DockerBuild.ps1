@@ -717,6 +717,102 @@ if (Test-Path $dockerMountsScript)
 {
     Write-Host "Importing Docker mount points from $dockerMountsScript" -ForegroundColor Cyan
     . $dockerMountsScript
+
+    # Check if we need to convert Windows paths to WSL paths
+    # This happens when DockerMounts.g.ps1 was generated on Windows but we're running on WSL
+    if ($IsUnix)
+    {
+        # Check if any volume mapping contains Windows-style paths (e.g., C:\)
+        $hasWindowsPaths = $VolumeMappings | Where-Object { $_ -match '^[A-Za-z]:\\' }
+
+        if ($hasWindowsPaths)
+        {
+            Write-Host "Detected Windows paths in DockerMounts.g.ps1 while running on Unix. Converting paths to WSL format." -ForegroundColor Yellow
+
+            # Function to convert Windows path to WSL path
+            function ConvertTo-WslPath {
+                param([string]$WindowsPath)
+
+                if ($WindowsPath -match '^([A-Za-z]):\\(.*)$')
+                {
+                    $drive = $Matches[1].ToLower()
+                    $path = $Matches[2] -replace '\\', '/'
+                    return "/mnt/$drive/$path"
+                }
+                return $WindowsPath
+            }
+
+            # Convert VolumeMappings
+            # Note: When running Docker Desktop for Windows from WSL, the host paths should remain
+            # as Windows paths (C:\...) because Docker Desktop accesses the Windows filesystem.
+            # Only container paths need to be converted to Unix format for Linux containers.
+            $convertedVolumeMappings = @()
+            foreach ($mapping in $VolumeMappings)
+            {
+                # Parse mapping: hostPath:containerPath[:options]
+                # Challenge: colons appear in Windows paths (C:\) and as delimiters
+                # Strategy: Split on : and reconstruct Windows paths (single letter followed by \ path)
+                $parts = $mapping -split ':'
+
+                $i = 0
+
+                # Extract host path
+                if ($parts[$i].Length -eq 1 -and $i+1 -lt $parts.Length -and $parts[$i+1] -match '^[\\/]')
+                {
+                    # Windows path: C:\path - keep as-is for Docker Desktop
+                    $hostPath = "$($parts[$i]):$($parts[$i+1])"
+                    $i += 2
+                }
+                else
+                {
+                    # Unix path: /path
+                    $hostPath = $parts[$i]
+                    $i += 1
+                }
+
+                # Extract container path
+                if ($i -lt $parts.Length)
+                {
+                    if ($parts[$i].Length -eq 1 -and $i+1 -lt $parts.Length -and $parts[$i+1] -match '^[\\/]')
+                    {
+                        # Windows path - convert for Linux containers
+                        $containerPath = "$($parts[$i]):$($parts[$i+1])"
+                        $containerPath = ConvertTo-WslPath $containerPath
+                        $i += 2
+                    }
+                    else
+                    {
+                        # Unix path
+                        $containerPath = $parts[$i]
+                        $i += 1
+                    }
+                }
+                else
+                {
+                    $containerPath = $hostPath  # Fallback
+                }
+
+                # Rest is options (:ro or :rw)
+                if ($i -lt $parts.Length)
+                {
+                    $options = ':' + ($parts[$i..($parts.Length-1)] -join ':')
+                }
+                else
+                {
+                    $options = ''
+                }
+
+                $convertedVolumeMappings += "${hostPath}:${containerPath}${options}"
+            }
+            $VolumeMappings = $convertedVolumeMappings
+
+            # Convert MountPoints
+            $MountPoints = $MountPoints | ForEach-Object { ConvertTo-WslPath $_ }
+
+            # Convert GitDirectories
+            $GitDirectories = $GitDirectories | ForEach-Object { ConvertTo-WslPath $_ }
+        }
+    }
 }
 elseif (-not $env:IS_TEAMCITY_AGENT)
 {
