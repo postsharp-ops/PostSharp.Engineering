@@ -21,5 +21,13 @@ public class TextBuildConfigurationParameter : BuildConfigurationParameter
     }
 
     public override string GenerateTeamCityCode()
-        => @$"        text(""{this.Name}"", ""{this.Value}"", label = ""{this.Label}"", description = ""{this.Description}""{(!this.AllowEmpty ? "" : ", allowEmpty = true")}{(!this.Validation.HasValue ? "" : @$", regex = """"""{this.Validation.Value.Regex}"""""", validationMessage = ""{this.Validation.Value.ValidationMessage}""")})";
+        => $"""
+                    text(
+                        "{KotlinHelper.EscapeString( this.Name )}", 
+                        "{KotlinHelper.EscapeString( this.Value )}", 
+                        label ="{KotlinHelper.EscapeString( this.Label )}",
+                        description = "{KotlinHelper.EscapeString( this.Description )}"{(!this.AllowEmpty ? "" : ", allowEmpty = true")}{(!this.Validation.HasValue ? "" : @$", 
+                        regex = """"""{KotlinHelper.EscapeString( this.Validation.Value.Regex )}"""""",  
+                        validationMessage = ""{KotlinHelper.EscapeString( this.Validation.Value.ValidationMessage )}""")})
+            """;
 }

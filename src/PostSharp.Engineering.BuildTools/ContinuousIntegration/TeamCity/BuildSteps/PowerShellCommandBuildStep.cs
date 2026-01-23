@@ -33,11 +33,11 @@ internal class PowerShellCommandBuildStep : BuildStep
     public override string GenerateTeamCityCode()
     {
         return $@"        powerShell {{
-            name = ""{this.Name}""
+            name = ""{KotlinHelper.EscapeString( this.Name )}""
             id = ""{this.Id}""{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
             scriptMode = script {{
-                content = ""{this.Command.Replace( "\"", "\"\"", StringComparison.Ordinal )}""
+                content = ""{KotlinHelper.EscapeString( this.Command )}""
             }}
             noProfile = false
         }}";

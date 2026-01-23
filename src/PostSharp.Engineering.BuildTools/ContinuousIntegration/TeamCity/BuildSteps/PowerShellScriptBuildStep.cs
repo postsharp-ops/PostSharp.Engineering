@@ -58,14 +58,14 @@ internal class PowerShellScriptBuildStep : BuildStep
     public override string GenerateTeamCityCode()
     {
         return $@"        powerShell {{
-            name = ""{this.Name}""
+            name = ""{KotlinHelper.EscapeString( this.Name )}""
             id = ""{this.Id}""{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
             scriptMode = file {{
-                path = ""{this.ScriptPath}""
+                path = ""{this.ScriptPath.Replace( Path.DirectorySeparatorChar, '/' )}""
             }}
             noProfile = false
-            scriptArgs = ""{this.ScriptArguments}""
+            scriptArgs = ""{KotlinHelper.EscapeString( this.ScriptArguments )}""
         }}";
     }
 }

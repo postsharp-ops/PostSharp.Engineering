@@ -14,5 +14,6 @@ public class BuildConfigurationParameter
         this.Value = value;
     }
 
-    public virtual string GenerateTeamCityCode() => @$"        param(""{this.Name}"", ""{this.Value}"")";
+    public virtual string GenerateTeamCityCode()
+        => @$"        param(""{KotlinHelper.EscapeString( this.Name )}"", ""{KotlinHelper.EscapeString( this.Value )}"")";
 }
