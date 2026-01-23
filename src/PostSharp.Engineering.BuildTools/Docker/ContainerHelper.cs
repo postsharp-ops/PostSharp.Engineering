@@ -8,7 +8,7 @@ internal static class ContainerHelper
         => hostKind switch
         {
             ContainerHostKind.Windows => "docker-win-x64-md",
+            ContainerHostKind.Wsl => "docker-wsl-x64-md",
             _ => throw new ArgumentOutOfRangeException( nameof(hostKind) )
         };
-
 }

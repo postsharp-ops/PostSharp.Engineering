@@ -13,6 +13,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Files;
 /// </summary>
 internal static class NuGetConfigFile
 {
+    private static string ConvertToWslPath( string path )
+    {
+        // Convert Windows path to WSL: C:\path -> /mnt/c/path
+        if ( path is [_, ':', _, ..] && (path[2] == '\\' || path[2] == '/') )
+        {
+            var drive = char.ToLower( path[0], System.Globalization.CultureInfo.InvariantCulture );
+            var remainder = path.Substring( 2 ).Replace( "\\", "/", StringComparison.Ordinal );
+
+            return $"/mnt/{drive}{remainder}";
+        }
+
+        return path;
+    }
+
     internal static bool TryWrite( BuildContext context, DependenciesConfigurationFile dependenciesConfigurationFile, BuildConfiguration configuration )
     {
         var product = context.Product;
@@ -28,8 +42,34 @@ internal static class NuGetConfigFile
             return false;
         }
 
+        // Generate regular nuget.config
+        if ( !GenerateNuGetConfig( context, dependenciesConfigurationFile, configuration, "nuget.config", path => path ) )
+        {
+            return false;
+        }
+
+        // Generate WSL version if AddWslSupport is enabled
+        if ( product.AddWslSupport )
+        {
+            if ( !GenerateNuGetConfig( context, dependenciesConfigurationFile, configuration, "nuget.wsl.config", ConvertToWslPath ) )
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool GenerateNuGetConfig(
+        BuildContext context,
+        DependenciesConfigurationFile dependenciesConfigurationFile,
+        BuildConfiguration configuration,
+        string targetFileName,
+        Func<string, string> pathTransform )
+    {
+        var product = context.Product;
         var baseFilePath = Path.Combine( context.RepoDirectory, "nuget.base.config" );
-        var targetFilePath = Path.Combine( context.RepoDirectory, "nuget.config" );
+        var targetFilePath = Path.Combine( context.RepoDirectory, targetFileName );
 
         XDocument document;
         XElement rootElement;
@@ -125,9 +165,12 @@ internal static class NuGetConfigFile
                 throw new ArgumentNullException( nameof(directory), $"Null directory for source '{name}'." );
             }
 
+            // Apply path transformation (e.g., Windows to WSL)
+            var transformedDirectory = pathTransform( directory );
+
             var addElement = new XElement( "add" );
             addElement.Add( new XAttribute( "key", name ) );
-            addElement.Add( new XAttribute( "value", directory ) );
+            addElement.Add( new XAttribute( "value", transformedDirectory ) );
             packageSourcesElement.Add( addElement );
 
             var packageSourceElement = new XElement( "packageSource" );

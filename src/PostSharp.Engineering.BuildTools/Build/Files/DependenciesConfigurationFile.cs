@@ -30,6 +30,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
         public string FilePath { get; }
 
+        public string WslFilePath => this.FilePath.Replace( ".g.props", ".wsl.g.props", StringComparison.Ordinal );
+
         private DependenciesConfigurationFile( string path, BuildConfiguration configuration )
         {
             this.FilePath = path;
@@ -293,16 +295,39 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
             return true;
         }
 
-        public bool TryWrite( BuildContext context )
+        public bool TryWrite( BuildContext context, bool wsl = false )
         {
             var console = context.Console;
             var product = context.Product;
 
-            console.WriteMessage( $"Writing '{this.FilePath}'." );
+            // Local function to convert Windows paths to WSL format when needed
+            string TransformPath( string path )
+            {
+                if ( !wsl )
+                {
+                    return path;
+                }
+
+                // Convert Windows path to WSL: C:\path -> /mnt/c/path
+                if ( path is [_, ':', _, ..] && (path[2] == '\\' || path[2] == '/') )
+                {
+                    var drive = char.ToLower( path[0], CultureInfo.InvariantCulture );
+                    var remainder = path.Substring( 2 ).Replace( "\\", "/", StringComparison.Ordinal );
+
+                    return $"/mnt/{drive}{remainder}";
+                }
+
+                return path;
+            }
+
+            // Use WslFilePath property when wsl=true
+            var filePath = wsl ? this.WslFilePath : this.FilePath;
+
+            console.WriteMessage( $"Writing '{filePath}'." );
 
             StreamWriter? dockerMountsWriter;
 
-            if ( context.Product.UseDocker )
+            if ( context.Product.UseDocker && !wsl )
             {
                 var dockersMountsPath = Path.Combine( Path.GetDirectoryName( this.FilePath )!, "DockerMounts.g.ps1" );
                 console.WriteMessage( $"Writing '{dockersMountsPath}'." );
@@ -333,7 +358,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
                 // machine. Now, we are using absolute path because we want to support junctions in source dependencies. It seems that both
                 // requirements cannot be reconciled.
 
-                var element = new XElement( "Import", new XAttribute( "Project", file ), new XAttribute( "Condition", $"Exists( '{file}' )" ) );
+                // Transform file path for WSL if needed (for XML content)
+                var transformedFile = TransformPath( file );
+
+                var element = new XElement( "Import", new XAttribute( "Project", transformedFile ), new XAttribute( "Condition", $"Exists( '{transformedFile}' )" ) );
 
                 if ( label != null )
                 {
@@ -344,13 +372,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                 if ( required )
                 {
-                    requiredFiles.Add( file );
+                    requiredFiles.Add( transformedFile );
                 }
 
-                if ( context.Product.UseDocker && addDockerMountPoint )
+                if ( dockerMountsWriter != null && addDockerMountPoint )
                 {
+                    // Docker mount points use the original Windows path (not transformed)
                     var mountPoint = Path.GetDirectoryName( file )!;
-                    dockerMountsWriter!.WriteLine( $"# {file}" );
+                    dockerMountsWriter.WriteLine( $"# {file}" );
                     dockerMountsWriter.WriteLine( $"$VolumeMappings += \"{mountPoint}:{mountPoint}:ro\"" );
                     dockerMountsWriter.WriteLine( $"$MountPoints += \"{mountPoint}\"" );
                     dockerMountsWriter.WriteLine();
@@ -419,7 +448,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                             WriteBuildServerSource();
 
-                            AddMetadataToItemIfNotNull( "VersionFile", versionFile );
+                            AddMetadataToItemIfNotNull( "VersionFile", TransformPath( versionFile ) );
                             AddImport( versionFile );
                         }
 
@@ -427,7 +456,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                     case DependencySourceKind.Local:
                         {
-                            AddMetadataToItemIfNotNull( "Path", dependencySource.LocalPath );
+                            if ( dependencySource.LocalPath != null )
+                            {
+                                AddMetadataToItemIfNotNull( "Path", TransformPath( dependencySource.LocalPath ) );
+                            }
 
                             var importProjectFile = Path.GetFullPath(
                                 Path.Combine( dependencySource.GetResolvedLocalPath( context, dependency.Key ), dependency.Key + ".Import.props" ) );
@@ -487,8 +519,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
             propertyGroup.Add( new XElement( "BuildDate", $"$({context.Product.ProductNameWithoutDot}BuildDate)" ) );
 
             // The following properties are NOT related to dependencies. They are put here (instead of in a separate file) for convenience.
-            propertyGroup.Add( new XElement( "PostSharpEngineeringExePath", context.Product.BuildExePath ) );
-            propertyGroup.Add( new XElement( "PostSharpEngineeringDataDirectory", PathHelper.GetEngineeringDataDirectory() ) );
+            propertyGroup.Add( new XElement( "PostSharpEngineeringExePath", TransformPath( context.Product.BuildExePath ) ) );
+            propertyGroup.Add( new XElement( "PostSharpEngineeringDataDirectory", TransformPath( PathHelper.GetEngineeringDataDirectory() ) ) );
 
             if ( product.MSBuildVersion != null )
             {
@@ -496,7 +528,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                 if ( msbuild != null )
                 {
-                    propertyGroup.Add( new XElement( "MSBuildExePath", "\"" + msbuild + "\"" ) );
+                    propertyGroup.Add( new XElement( "MSBuildExePath", "\"" + TransformPath( msbuild ) + "\"" ) );
                 }
             }
 
@@ -516,7 +548,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
                         new XAttribute( "Condition", $"!Exists( '{requiredFile}' )" ) ) );
             }
 
-            document.Save( this.FilePath );
+            document.Save( filePath );
             dockerMountsWriter?.Dispose();
 
             return true;
@@ -583,5 +615,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
                 context.RepoDirectory,
                 context.Product.EngineeringDirectory,
                 $"Versions.{configuration}.{(context.IsContinuousIntegrationBuild ? "ci." : "")}g.props" );
+
+        internal static string GetWslPath( BuildContext context, CommonCommandSettings settings, BuildConfiguration configuration )
+            => GetPath( context, settings, configuration ).Replace( ".g.props", ".wsl.g.props", StringComparison.Ordinal );
     }
 }

@@ -4,5 +4,6 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 
 public enum ContainerHostKind
 {
-    Windows
+    Windows,
+    Wsl
 }

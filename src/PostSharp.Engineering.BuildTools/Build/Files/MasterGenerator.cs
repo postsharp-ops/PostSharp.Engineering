@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace PostSharp.Engineering.BuildTools.Build.Files;
 
@@ -47,6 +48,11 @@ internal static class MasterGenerator
         dependenciesOverrideFile.LocalBuildFile = propsFilePath;
 
         if ( !dependenciesOverrideFile.TryWrite( context ) )
+        {
+            return false;
+        }
+
+        if ( context.Product.AddWslSupport && !dependenciesOverrideFile.TryWrite( context, true ) )
         {
             return false;
         }
