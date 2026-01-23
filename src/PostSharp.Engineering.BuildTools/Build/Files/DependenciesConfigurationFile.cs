@@ -1,8 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
+using PostSharp.Engineering.BuildTools.Dependencies;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
@@ -13,10 +13,10 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace PostSharp.Engineering.BuildTools.Dependencies.Model
+namespace PostSharp.Engineering.BuildTools.Build.Files
 {
     /// <summary>
-    /// Represents the <c>MyProduct.Debug.g.props</c> file that contains the dependencies as configured by the <c>dependencies set</c> command.
+    /// Represents the <c>Versions.Debug.g.props</c> file that contains the dependencies as configured by the <c>dependencies set</c> command.
     /// </summary>
     internal sealed class DependenciesConfigurationFile
     {
