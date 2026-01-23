@@ -62,11 +62,15 @@ if ([string]::IsNullOrEmpty($BuildAgentPath))
     }
 }
 
+# Capture the calling directory (where the user invoked the script from)
+# This will be used as the working directory in the container
+$CallingDirectory = (Get-Location).Path
+
 # Resolve Dockerfile path relative to original current directory (before changing location)
 # This must be done before Set-Location to preserve the user's intended relative path
 if ($Dockerfile -and -not [System.IO.Path]::IsPathRooted($Dockerfile))
 {
-    $Dockerfile = Join-Path (Get-Location).Path $Dockerfile
+    $Dockerfile = Join-Path $CallingDirectory $Dockerfile
 }
 
 # Save current location and restore on exit
@@ -542,7 +546,7 @@ if (-not $KeepEnv)
     }
 }
 
-# Get the source directory name from $PSScriptRoot
+# Get the source directory name from $PSScriptRoot (script location)
 $SourceDirName = $PSScriptRoot
 
 # Start timing the entire process except cleaning
@@ -871,10 +875,11 @@ if ($IsWindows)
     }
     $VolumeMappings = $transformedVolumeMappings
 
-    # Transform MountPoints, GitDirectories, and SourceDirName for the container
+    # Transform MountPoints, GitDirectories, SourceDirName, and CallingDirectory for the container
     $MountPoints = $MountPoints | ForEach-Object { Get-ContainerPath $_ }
     $GitDirectories = $GitDirectories | ForEach-Object { Get-ContainerPath $_ }
     $ContainerSourceDir = Get-ContainerPath $SourceDirName
+    $ContainerCallingDir = Get-ContainerPath $CallingDirectory
 
     # Add both the unmapped (C:\X\...) and mapped (X:\...) paths to GitDirectories for safe.directory
     # Git may resolve paths differently depending on how it's invoked
@@ -911,6 +916,7 @@ else
 {
     # Unix (Linux/macOS): No drive letter mapping needed, paths remain as-is
     $ContainerSourceDir = $SourceDirName
+    $ContainerCallingDir = $CallingDirectory
 
     # Deduplicate (case-sensitive for Unix paths)
     $VolumeMappings = $VolumeMappings | Sort-Object -Unique
@@ -1348,13 +1354,13 @@ if (-not $BuildImage)
             if ($existingContainerId)
             {
                 # Reuse existing container with docker exec
-                Write-Host "Executing: ``docker exec $existingContainerId $dockerArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
-                docker exec $dockerArgs  -w $ContainerSourceDir $existingContainerId $pwshPath $pwshArgs -Command $inlineScript
+                Write-Host "Executing: ``docker exec $existingContainerId $dockerArgsAsString -w $ContainerCallingDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
+                docker exec $dockerArgs  -w $ContainerCallingDir $existingContainerId $pwshPath $pwshArgs -Command $inlineScript
             }
             else
             {
                 # Start new container with docker run
-                Write-Host "Executing: docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
+                Write-Host "Executing: docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerCallingDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
 
                 # Build docker command with proper argument handling (avoid empty strings)
                 $dockerCmd = @('run', '--rm', "--memory=$Memory", "--cpus=$Cpus")
@@ -1363,9 +1369,9 @@ if (-not $BuildImage)
                 $dockerCmd += $volumeArgs
                 $dockerCmd += $envArgs
                 if ($pwshArgs) {
-                    $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
+                    $dockerCmd += @('-w', $ContainerCallingDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
                 } else {
-                    $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, '-Command', $inlineScript)
+                    $dockerCmd += @('-w', $ContainerCallingDir, $ImageTag, $pwshPath, '-Command', $inlineScript)
                 }
 
                 & docker @dockerCmd
@@ -1438,13 +1444,13 @@ if (-not $BuildImage)
         if ($existingContainerId)
         {
             # Reuse existing container with docker exec
-            Write-Host "Executing: ``docker exec $existingContainerId $dockerArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
-            docker exec $dockerArgs  -w $ContainerSourceDir $existingContainerId $pwshPath $pwshArgs -Command $inlineScript
+            Write-Host "Executing: ``docker exec $existingContainerId $dockerArgsAsString -w $ContainerCallingDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
+            docker exec $dockerArgs  -w $ContainerCallingDir $existingContainerId $pwshPath $pwshArgs -Command $inlineScript
         }
         else
         {
             # Start new container with docker run
-            Write-Host "Executing: ``docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerSourceDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
+            Write-Host "Executing: ``docker run --rm --memory=$Memory --cpus=$Cpus $isolationArg $dockerArgsAsString $VolumeMappingsAsString $envArgsAsString -w $ContainerCallingDir $ImageTag `"$pwshPath`" $pwshArgs -Command `"$inlineScript`"" -ForegroundColor Cyan
 
             # Build docker command with proper argument handling (avoid empty strings)
             $dockerCmd = @('run', '--rm', "--memory=$Memory", "--cpus=$Cpus")
@@ -1453,9 +1459,9 @@ if (-not $BuildImage)
             $dockerCmd += $volumeArgs
             $dockerCmd += $envArgs
             if ($pwshArgs) {
-                $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
+                $dockerCmd += @('-w', $ContainerCallingDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
             } else {
-                $dockerCmd += @('-w', $ContainerSourceDir, $ImageTag, $pwshPath, '-Command', $inlineScript)
+                $dockerCmd += @('-w', $ContainerCallingDir, $ImageTag, $pwshPath, '-Command', $inlineScript)
             }
 
             & docker @dockerCmd
