@@ -9,8 +9,6 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 
 public class ClaudeComponent : ContainerComponent
 {
-    private const string _minNodeVersion = "22.0.0";
-
     public override string Name => "Install Claude CLI";
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Claude;
@@ -40,62 +38,45 @@ public class ClaudeComponent : ContainerComponent
     {
         writer.WriteLine(
             """
-            # Configure npm global directory to avoid Windows container path issues
-            ENV NPM_CONFIG_PREFIX=C:\\npm
-            ENV PATH="C:\\npm;${PATH}"
-
-            # Set HOME/USERPROFILE so Claude CLI finds credentials during build
-            ENV HOME=C:\\Users\\ContainerAdministrator
-            ENV USERPROFILE=C:\\Users\\ContainerAdministrator
+            ENV HOME=C:\Users\ContainerAdministrator
+            ENV USERPROFILE=C:\Users\ContainerAdministrator
             ENV CLAUDE_CODE_SHELL=pwsh
+            ENV PATH=$PATH;C:\Users\ContainerAdministrator\.local\bin
 
-            # Install Claude CLI and configure plugins using cmd shell to avoid HCS issues with PowerShell
-            SHELL ["cmd", "/S", "/C"]
             """ );
 
         // Build a single multi-line RUN command for all operations
-        writer.Write( "RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code" );
-        writer.Write( " && mkdir C:\\Users\\ContainerAdministrator\\.claude" );
-        writer.Write( " && echo {\"hasCompletedOnboarding\": true} > C:\\Users\\ContainerAdministrator\\.claude.json" );
-        writer.Write( " && echo {\"alwaysThinkingEnabled\": true} > C:\\Users\\ContainerAdministrator\\.claude\\settings.json" );
-
+        writer.WriteLine(
+                """
+                RUN irm https://claude.ai/install.ps1 | iex; `
+                    $claudeJsonPath = 'C:\Users\ContainerAdministrator\.claude.json'; `
+                    if (Test-Path $claudeJsonPath) { `
+                        $claudeConfig = Get-Content $claudeJsonPath -Raw | ConvertFrom-Json; `
+                        $claudeConfig | Add-Member -NotePropertyName 'hasCompletedOnboarding' -NotePropertyValue $true -Force; `
+                        $claudeConfig | ConvertTo-Json -Depth 10 | Set-Content $claudeJsonPath; `
+                    } else { `
+                        '{"hasCompletedOnboarding": true}' | Set-Content $claudeJsonPath; `
+                    }; `
+                """ );
         // Add marketplaces if any are specified
         foreach ( var marketplace in this.Marketplaces )
         {
-            writer.Write( $" && C:\\npm\\claude plugin marketplace add {marketplace}" );
+            writer.WriteLine( $"    claude plugin marketplace add {marketplace}; `" );
         }
 
         // Install plugins from the added marketplaces
         foreach ( var plugin in this.Plugins )
         {
-            writer.Write( $" && C:\\npm\\claude plugin install {plugin}" );
+            writer.WriteLine( $"    claude plugin install {plugin}; `" );
         }
 
+        writer.WriteLine("  echo 'Claude CLI installation completed.'");
         writer.WriteLine();
-
-        writer.WriteLine(
-            """
-
-            # Restore PowerShell shell using full path
-            SHELL ["C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "-Command"]
-            """ );
     }
 
     public override void AddRequirements( IReadOnlyList<ContainerComponent> components, Action<ContainerComponent> add )
     {
         base.AddRequirements( components, add );
-
-        var existingNodeJs = components.OfType<NodeJsComponent>().FirstOrDefault();
-
-        if ( existingNodeJs == null )
-        {
-            // Auto-add NodeJsComponent with minimum required version
-            add( new NodeJsComponent( _minNodeVersion ) );
-        }
-        else if ( Version.Parse( existingNodeJs.Version ) < Version.Parse( _minNodeVersion ) )
-        {
-            throw new InvalidOperationException( $"Claude CLI requires Node.js >= {_minNodeVersion}, but {existingNodeJs.Version} is configured." );
-        }
 
         // Auto-add GitHubCliComponent if not already present
         if ( !components.OfType<GitHubCliComponent>().Any() )
