@@ -36,7 +36,7 @@ internal static class EnvironmentVariableNames
     // VS Marketplace
     public const string VsMarketplaceAccessToken = "VS_MARKETPLACE_ACCESS_TOKEN";
 
-    // Azure DevOps Feeds
+    // Azure DevOps Feeds. Used by AzureArtifactsCredentialProviderComponent.
     public const string AzEndpoints = "VSS_NUGET_EXTERNAL_FEED_ENDPOINTS";
 
     // TypeSense

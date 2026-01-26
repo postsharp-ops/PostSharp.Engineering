@@ -213,6 +213,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         internal bool UseDocker => this.ResolvedBuildAgentRequirements.IsDockerized;
 
+        /// <summary>
+        /// Gets or sets a value indicating whether WSL support should be enabled.
+        /// When true, generates WSL-compatible version files (.wsl.g.props) and nuget.wsl.config.
+        /// </summary>
+        [PublicAPI]
+        public bool AddWslSupport { get; init; }
+
         public DockerSpec? DockerSpec
             => this.ResolvedBuildAgentRequirements.IsDockerized
                 ? new DockerSpec( $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() )

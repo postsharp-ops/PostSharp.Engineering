@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Files;
+using PostSharp.Engineering.BuildTools.Build.Files.NuGet;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -353,6 +354,12 @@ namespace PostSharp.Engineering.BuildTools.Build
                         File.Copy( file, Path.Combine( consolidatedDirectory, Path.GetFileName( file ) ), true );
                     }
                 }
+            }
+
+            // Generate nuget.restored.config for TeamCity artifact restoration scenario.
+            if ( !NuGetConfigFile.TryWriteRestoredArtifacts( context, dependenciesOverrideFile, configuration ) )
+            {
+                return false;
             }
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.

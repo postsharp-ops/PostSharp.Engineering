@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
+using PostSharp.Engineering.BuildTools.Build.Files.NuGet;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System.Linq;
 

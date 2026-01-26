@@ -133,6 +133,10 @@ namespace PostSharp.Engineering.BuildTools
                             dependencies.AddCommand<UpdateEngineeringCommand>( "update-eng" )
                                 .WithData( data )
                                 .WithDescription( "Updates PostSharp.Engineering in global.json and Versions.props." );
+                            
+                            dependencies.AddCommand<PrepareDependenciesCommand>( "prepare" )
+                                .WithData( data )
+                                .WithDescription( "Generates the dependency files with the current settings." );
                         } );
 
                     root.AddBranch(

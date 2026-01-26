@@ -2,7 +2,7 @@
 
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
-using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -12,10 +12,10 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using System.Xml.XPath;
 
-namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
+namespace PostSharp.Engineering.BuildTools.Build.Files;
 
 /// <summary>
-/// Represents then information of <c>Versions.props</c>.
+/// Represents the information of <c>Versions.props</c> and <c>Directory.Packages.props</c>.
 /// </summary>
 public class VersionFile
 {

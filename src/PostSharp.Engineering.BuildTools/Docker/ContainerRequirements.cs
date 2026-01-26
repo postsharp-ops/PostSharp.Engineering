@@ -2,9 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -12,20 +10,18 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
+/// <summary>
+/// Indicates that the build script must run within a Docker container.
+/// </summary>
 [PublicAPI]
-public record ContainerRequirements : BuildAgentRequirements
+public record ContainerRequirements : ContainerHostRequirements
 {
-    public ContainerRequirements( ContainerHostKind hostKind ) : base( new BuildAgentRequirement( "env.BuildAgentType", GetBuildAgentType( hostKind ) ) ) { }
+    public ContainerRequirements( ContainerHostKind hostKind ) : base( hostKind ) { }
 
     public ContainerComponent[] Components { get; init; } = [];
-
-    private static string GetBuildAgentType( ContainerHostKind hostKind )
-        => hostKind switch
-        {
-            ContainerHostKind.Windows => "docker-win-x64-md",
-            _ => throw new ArgumentOutOfRangeException( nameof(hostKind) )
-        };
-
+    
+    public string? ImageName { get; init; }
+  
     public override bool IsDockerized => true;
 
     public bool WriteDockerfile( BuildContext context ) => this.WriteDockerfileCore( context, "Dockerfile", null, true );

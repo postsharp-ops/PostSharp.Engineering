@@ -1,8 +1,11 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using PostSharp.Engineering.BuildTools.Docker;
+using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
@@ -13,18 +16,26 @@ public abstract class AdditionalCiBuildConfiguration
 
     public string Id { get; }
 
-    public string Branch { get; }
+    public string? Branch { get; init; }
 
     public SourceDependenciesRequirements SourceDependenciesRequirements { get; init; }
+    
+    /// <summary>
+    /// Gets or sets the build configuration on which the current <see cref="AdditionalCiBuildConfiguration"/> depends.
+    /// </summary>
+    public BuildConfiguration? BuildSnapshotDependency { get; init; }
 
     public bool OnlyCheckoutEngineering { get; init; }
 
-    protected AdditionalCiBuildConfiguration( string id, string name, string branch )
+    protected AdditionalCiBuildConfiguration( string id, string name )
     {
         this.Id = id;
         this.Name = name;
-        this.Branch = branch;
     }
 
-    internal abstract TeamCityBuildConfiguration TeamCityBuildConfiguration( ProductProperties productProperties );
+    internal abstract TeamCityBuildConfiguration TeamCityBuildConfiguration(
+        ProductProperties productProperties,
+        IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations );
+    
+    public BuildAgentRequirements? BuildAgentRequirements { get; init; }
 }

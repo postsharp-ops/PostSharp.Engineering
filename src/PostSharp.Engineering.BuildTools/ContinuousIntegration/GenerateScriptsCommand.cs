@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -23,7 +24,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         // TeamCity
         if ( product.GenerateTeamCitySettings )
         {
-            if ( !TeamCitySettingsFile.TryWrite( context, settings ) )
+            if ( !TeamCitySettingsFile.TryWrite( context ) )
             {
                 return false;
             }
