@@ -30,6 +30,10 @@ internal class PrologComponent : ContainerComponent
             ENV TMP=C:\Temp
             ENV RUNNING_IN_DOCKER=TRUE
 
+            # Set locale for consistent behavior regardless of host locale
+            ENV LANG=C.UTF-8
+            ENV LC_ALL=C.UTF-8
+
             # Add Windows PowerShell to PATH (pwsh added later by PowershellComponent)
             ENV PATH="C:\Windows\System32\WindowsPowerShell\v1.0;${PATH}"
 
