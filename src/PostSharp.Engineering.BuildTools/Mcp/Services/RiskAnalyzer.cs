@@ -60,6 +60,33 @@ public sealed class RiskAnalyzer
                                               - `dotnet build` / `dotnet test` / `dotnet pack` : LOW risk - local operations (but should normally be done in the container)
                                               - `dotnet nuget push`: HIGH risk - publishes packages publicly, hard to undo
 
+                                              ### TeamCity Operations (REST API)
+                                              TeamCity is accessed via REST API at https://postsharp.teamcity.com/app/rest/
+
+                                              **Reading operations (LOW risk):**
+                                              - GET `/app/rest/builds` - viewing build history and status
+                                              - GET `/app/rest/builds/{id}` - viewing specific build details
+                                              - GET `/app/rest/builds/{id}/log` - reading build logs
+                                              - GET `/app/rest/buildTypes` - listing build configurations
+                                              - GET `/app/rest/projects` - listing projects
+                                              - Any GET request to TeamCity API is LOW risk
+
+                                              **Scheduling builds:**
+                                              - POST `/app/rest/buildQueue` - scheduling a build
+                                              - LOW risk if the build configuration name does NOT contain: Deploy, Publish, Production, Prod, Stage, Staging, Swap
+                                              - HIGH risk if the build configuration name CONTAINS any of: Deploy, Publish, Production, Prod, Stage, Staging, Swap
+                                              - Look at the `buildType.id` or `buildType.name` in the request body to determine the type
+                                              - Example LOW risk: `PostSharpEngineering_Build`, `Metalama_UnitTests`, `*_VersionBump`
+                                              - Example HIGH risk: `PostSharpEngineering_Deploy`, `Metalama_PublishNuGet`, `*_Release`, `*_Production`
+
+                                              **Modifying configurations (HIGH risk):**
+                                              - PUT to `/app/rest/buildTypes/*` - modifying build configuration
+                                              - POST to `/app/rest/buildTypes` - creating build configuration
+                                              - DELETE to `/app/rest/buildTypes/*` - deleting build configuration
+                                              - PUT/POST/DELETE to `/app/rest/projects/*` - modifying projects
+                                              - PUT/POST/DELETE to `/app/rest/vcs-roots/*` - modifying VCS roots
+                                              - Any PUT, POST (except buildQueue for non-deploy builds), or DELETE that modifies TeamCity configuration = HIGH risk
+
                                               ### File Operations
                                               - Commands that delete files outside the working directory: HIGH risk
                                               - Commands that modify system files: CRITICAL risk
