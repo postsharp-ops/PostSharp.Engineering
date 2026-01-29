@@ -2,7 +2,7 @@
 
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Mcp.Models;
+namespace PostSharp.Engineering.McpApprovalServer.Mcp.Models;
 
 /// <summary>
 /// Represents a record of a command that was requested through the MCP approval service.

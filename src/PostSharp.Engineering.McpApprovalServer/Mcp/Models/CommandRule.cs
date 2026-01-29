@@ -3,7 +3,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace PostSharp.Engineering.BuildTools.Mcp.Models;
+namespace PostSharp.Engineering.McpApprovalServer.Mcp.Models;
 
 /// <summary>
 /// Defines a regex-based rule for evaluating command risk.

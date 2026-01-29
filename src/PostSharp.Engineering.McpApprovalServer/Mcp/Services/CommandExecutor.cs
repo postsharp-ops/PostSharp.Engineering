@@ -1,7 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Mcp.Models;
-using Spectre.Console;
+using PostSharp.Engineering.McpApprovalServer.Mcp.Models;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -9,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace PostSharp.Engineering.BuildTools.Mcp.Services;
+namespace PostSharp.Engineering.McpApprovalServer.Mcp.Services;
 
 /// <summary>
 /// Executes commands via PowerShell on the host machine.
@@ -88,8 +87,6 @@ public sealed class CommandExecutor
         string streamName,
         CancellationToken cancellationToken )
     {
-        var isStderr = streamName == "stderr";
-
         while ( !cancellationToken.IsCancellationRequested )
         {
             var line = await reader.ReadLineAsync( cancellationToken );
@@ -100,16 +97,6 @@ public sealed class CommandExecutor
             }
 
             output.AppendLine( line );
-
-            // Display to console with appropriate formatting
-            if ( isStderr )
-            {
-                AnsiConsole.MarkupLine( $"[red]{line.EscapeMarkup()}[/]" );
-            }
-            else
-            {
-                AnsiConsole.WriteLine( line );
-            }
         }
     }
 }

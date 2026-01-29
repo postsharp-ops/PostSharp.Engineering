@@ -1,9 +1,9 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Mcp.Models;
+using PostSharp.Engineering.McpApprovalServer.Mcp.Models;
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Mcp.Services;
+namespace PostSharp.Engineering.McpApprovalServer.Mcp.Services;
 
 /// <summary>
 /// Combines two risk assessments into a single assessment by taking the maximum (most restrictive) risk.

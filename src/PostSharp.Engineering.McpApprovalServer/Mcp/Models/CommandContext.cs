@@ -1,6 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-namespace PostSharp.Engineering.BuildTools.Mcp.Models;
+namespace PostSharp.Engineering.McpApprovalServer.Mcp.Models;
 
 /// <summary>
 /// Contextual information about a command execution environment, used for risk assessment.

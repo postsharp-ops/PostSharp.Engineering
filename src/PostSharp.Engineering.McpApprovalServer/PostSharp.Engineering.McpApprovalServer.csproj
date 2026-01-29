@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <UseWPF>true</UseWPF>
+        <LangVersion>preview</LangVersion>
+        <AssemblyName>PostSharp.Engineering.McpApprovalServer</AssemblyName>
+        <!-- SA0001: XML comment analysis is disabled due to project configuration -->
+        <NoWarn>$(NoWarn);SA0001</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Hardcodet.NotifyIcon.Wpf" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
+        <PackageReference Include="ModelContextProtocol.AspNetCore" />
+        <PackageReference Include="AvalonEdit" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" />
+    </ItemGroup>
+
+
+    <!-- Icon resources are created programmatically if these files don't exist -->
+    <ItemGroup Condition="Exists('Resources\Icons\tray-normal.ico')">
+        <Resource Include="Resources\Icons\tray-normal.ico" />
+    </ItemGroup>
+
+    <ItemGroup Condition="Exists('Resources\Icons\tray-pending.ico')">
+        <Resource Include="Resources\Icons\tray-pending.ico" />
+    </ItemGroup>
+
+    <ItemGroup Condition="Exists('Resources\Icons\tray-processing.ico')">
+        <Resource Include="Resources\Icons\tray-processing.ico" />
+    </ItemGroup>
+
+</Project>

@@ -45,5 +45,10 @@
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="0.5.0-preview.1" />
     <PackageVersion Include="Octokit" Version="13.0.1" />
     <PackageVersion Include="Octokit.GraphQL" Version="0.2.0-beta" />
+    <!-- MCP Approval Server GUI dependencies -->
+    <PackageVersion Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageVersion Include="AvalonEdit" Version="6.3.0.90" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
   </ItemGroup>
 </Project>

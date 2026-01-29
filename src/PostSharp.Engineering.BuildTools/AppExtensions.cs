@@ -13,7 +13,6 @@ using PostSharp.Engineering.BuildTools.CodeStyle;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.DotNetTools;
-using PostSharp.Engineering.BuildTools.Mcp;
 using PostSharp.Engineering.BuildTools.Tools;
 using PostSharp.Engineering.BuildTools.Tools.Csproj;
 using PostSharp.Engineering.BuildTools.Tools.Git;
@@ -285,9 +284,6 @@ namespace PostSharp.Engineering.BuildTools
                         tools.AddBranch(
                             "xmldoc",
                             xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( data ) );
-
-                        tools.AddCommand<McpServerCommand>( "mcp-server" )
-                            .WithDescription( "Starts the MCP approval server for Docker containers" );
 
                         foreach ( var tool in product.DotNetTools )
                         {

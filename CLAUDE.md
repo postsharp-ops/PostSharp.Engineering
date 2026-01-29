@@ -18,13 +18,22 @@ Before any work in this repo, read these skills:
 
 When running inside a Docker container, you have access to the `host-approval` MCP server for executing privileged commands on the host machine. These commands require human approval before execution.
 
+### Starting the MCP Approval Server
+
+The MCP Approval Server is now a standalone GUI application with system tray integration. Before running Claude in Docker mode, start the server:
+
+1. Build the solution: `dotnet build`
+2. Run the GUI application: `.\src\PostSharp.Engineering.McpApprovalServer\bin\Debug\net8.0-windows\PostSharp.Engineering.McpApprovalServer.exe`
+3. The server will appear as a tray icon (green = ready, orange = pending requests)
+4. Now run `DockerBuild.ps1 -Claude` - it will detect the running server automatically
+
 ### Security Model
 
-The MCP server uses token-based authentication:
-- DockerBuild.ps1 generates a random 128-bit secret when starting the MCP server
-- The secret is passed to the container via the `MCP_APPROVAL_SERVER_TOKEN` environment variable
-- All MCP requests include this secret as a URL parameter for authentication
-- The MCP server validates the token before processing any commands
+The MCP server uses localhost-only binding for security:
+- Server binds exclusively to `localhost:9847` (not exposed to the network)
+- Docker containers access via the host gateway IP
+- No authentication tokens needed since only local processes can connect
+- Human approval required for all non-low-risk commands via the GUI
 
 ### When to Use the MCP Server
 

@@ -2,7 +2,7 @@
 
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Mcp.Models;
+namespace PostSharp.Engineering.McpApprovalServer.Mcp.Models;
 
 /// <summary>
 /// Represents the risk level of a command.

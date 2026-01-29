@@ -1,0 +1,38 @@
+<Application x:Class="PostSharp.Engineering.McpApprovalServer.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- Risk level colors -->
+            <SolidColorBrush x:Key="LowRiskBrush" Color="#4CAF50" />
+            <SolidColorBrush x:Key="MediumRiskBrush" Color="#FF9800" />
+            <SolidColorBrush x:Key="HighRiskBrush" Color="#F44336" />
+            <SolidColorBrush x:Key="CriticalRiskBrush" Color="#9C27B0" />
+
+            <!-- Recommendation colors -->
+            <SolidColorBrush x:Key="ApproveBrush" Color="#4CAF50" />
+            <SolidColorBrush x:Key="RejectBrush" Color="#F44336" />
+            <SolidColorBrush x:Key="NoneBrush" Color="#9E9E9E" />
+
+            <!-- Button styles -->
+            <Style x:Key="ApproveButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="#4CAF50" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="Padding" Value="20,10" />
+                <Setter Property="Margin" Value="5" />
+                <Setter Property="Cursor" Value="Hand" />
+            </Style>
+
+            <Style x:Key="RejectButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="#F44336" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="Padding" Value="20,10" />
+                <Setter Property="Margin" Value="5" />
+                <Setter Property="Cursor" Value="Hand" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
