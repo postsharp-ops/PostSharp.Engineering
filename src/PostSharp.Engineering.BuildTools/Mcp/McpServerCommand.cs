@@ -3,6 +3,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -74,6 +75,16 @@ public sealed class McpServerCommand : AsyncCommand<McpServerCommandSettings>
             // Note: Must use explicit IP (not localhost) for dynamic port binding
             var port = settings.Port;
             builder.WebHost.UseUrls( $"http://0.0.0.0:{port}" );
+
+            // Configure Kestrel to never timeout long-lived SSE connections
+            // MCP uses Server-Sent Events which require persistent connections
+            builder.WebHost.ConfigureKestrel( options =>
+            {
+                options.Limits.KeepAliveTimeout = TimeSpan.MaxValue;
+                options.Limits.RequestHeadersTimeout = TimeSpan.MaxValue;
+                options.Limits.MinRequestBodyDataRate = null;
+                options.Limits.MinResponseDataRate = null;
+            } );
 
             // Enable logging to console for debugging
             builder.Logging.ClearProviders();
