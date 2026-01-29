@@ -17,7 +17,7 @@ public sealed class RegexRuleEngine
     /// <summary>
     /// Evaluates a command against regex-based rules, considering git context.
     /// </summary>
-    public Task<RiskAssessment> EvaluateAsync(
+    public static Task<RiskAssessment> EvaluateAsync(
         string command,
         string claimedPurpose,
         string workingDirectory,
@@ -25,7 +25,7 @@ public sealed class RegexRuleEngine
         CancellationToken cancellationToken = default )
     {
         // Build command context with git information
-        var context = this.BuildContext( command, workingDirectory );
+        var context = BuildContext( command, workingDirectory );
 
         // Evaluate all rules in order
         foreach ( var rule in CommandRules.DefaultRules )
@@ -55,7 +55,7 @@ public sealed class RegexRuleEngine
             } );
     }
 
-    private CommandContext BuildContext( string command, string workingDirectory )
+    private static CommandContext BuildContext( string command, string workingDirectory )
     {
         var context = new CommandContext { Command = command, WorkingDirectory = workingDirectory };
 
@@ -73,19 +73,19 @@ public sealed class RegexRuleEngine
         }
 
         // Try to get current branch
-        if ( this.TryRunGitCommand( workingDirectory, "rev-parse --abbrev-ref HEAD", out var currentBranch ) )
+        if ( TryRunGitCommand( workingDirectory, "rev-parse --abbrev-ref HEAD", out var currentBranch ) )
         {
             context = context with { CurrentBranch = currentBranch.Trim() };
         }
 
         // Try to get remote URL
-        if ( this.TryRunGitCommand( workingDirectory, "config --get remote.origin.url", out var remoteUrl ) )
+        if ( TryRunGitCommand( workingDirectory, "config --get remote.origin.url", out var remoteUrl ) )
         {
             context = context with { RemoteUrl = remoteUrl.Trim() };
         }
 
         // Try to check if merge is in progress
-        if ( this.TryRunGitCommand( workingDirectory, "rev-parse -q --verify MERGE_HEAD", out _ ) )
+        if ( TryRunGitCommand( workingDirectory, "rev-parse -q --verify MERGE_HEAD", out _ ) )
         {
             context = context with { IsMergeInProgress = true };
         }
@@ -93,7 +93,7 @@ public sealed class RegexRuleEngine
         return context;
     }
 
-    private bool TryRunGitCommand( string workingDirectory, string arguments, out string output )
+    private static bool TryRunGitCommand( string workingDirectory, string arguments, out string output )
     {
         try
         {

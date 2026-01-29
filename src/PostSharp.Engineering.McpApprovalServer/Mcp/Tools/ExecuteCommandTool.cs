@@ -90,7 +90,7 @@ public sealed class ExecuteCommandTool
                 sessionHistory,
                 cancellationToken );
 
-            var regexTask = this._regexEngine.EvaluateAsync(
+            var regexTask = RegexRuleEngine.EvaluateAsync(
                 command,
                 claimedPurpose,
                 workingDirectory,

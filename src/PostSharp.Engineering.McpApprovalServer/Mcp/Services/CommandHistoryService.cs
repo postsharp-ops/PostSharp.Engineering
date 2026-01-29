@@ -99,7 +99,7 @@ public sealed class CommandHistoryService
         }
 
         // Append to daily audit trail (outside lock - separate concern)
-        this.AppendToAuditTrail( record );
+        AppendToAuditTrail( record );
 
         // Notify listeners
         this.HistoryUpdated?.Invoke( this, EventArgs.Empty );
@@ -117,14 +117,6 @@ public sealed class CommandHistoryService
                 r.Command.Equals( command, StringComparison.Ordinal ) &&
                 r.WorkingDirectory.Equals( workingDirectory, StringComparison.OrdinalIgnoreCase ) );
         }
-    }
-
-    /// <summary>
-    /// Clears a session. For compatibility - no-op since we use global history.
-    /// </summary>
-    public void ClearSession( string sessionId )
-    {
-        // No-op - we maintain global history now
     }
 
     private void LoadHistory()
@@ -191,7 +183,7 @@ public sealed class CommandHistoryService
         return output[..maxOutputLength] + "... (truncated)";
     }
 
-    private void AppendToAuditTrail( CommandRecord record )
+    private static void AppendToAuditTrail( CommandRecord record )
     {
         try
         {
@@ -211,9 +203,9 @@ public sealed class CommandHistoryService
             var exitCode = record.ExitCode?.ToString( CultureInfo.InvariantCulture ) ?? "N/A";
 
             // Escape pipe characters in fields
-            var command = record.Command.Replace( "|", "\\|" );
-            var purpose = record.ClaimedPurpose.Replace( "|", "\\|" );
-            var workingDir = record.WorkingDirectory.Replace( "|", "\\|" );
+            var command = record.Command.Replace( "|", "\\|", StringComparison.Ordinal );
+            var purpose = record.ClaimedPurpose.Replace( "|", "\\|", StringComparison.Ordinal );
+            var workingDir = record.WorkingDirectory.Replace( "|", "\\|", StringComparison.Ordinal );
 
             var logLine = $"{timestamp} | {status} | {command} | {purpose} | {workingDir} | {gitBranch} | {exitCode}";
 
