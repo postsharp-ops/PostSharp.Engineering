@@ -221,8 +221,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool AddWslSupport { get; init; }
 
         public DockerSpec? DockerSpec
-            => this.ResolvedBuildAgentRequirements.IsDockerized
-                ? new DockerSpec( $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() )
+            => this.ResolvedBuildAgentRequirements is ContainerHostRequirements containerHostRequirements
+                ? new DockerSpec(
+                    $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant(),
+                    containerHostRequirements.Memory )
                 : null;
 
         public bool IsPublishingNonReleaseBranchesAllowed { get; init; }

@@ -107,8 +107,9 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 this.Script,
                 this.Arguments,
                 this.BuildAgentRequirements == null ? product.DockerSpec :
-                this.BuildAgentRequirements.IsDockerized ? new DockerSpec(
-                    $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant() ) :
+                this.BuildAgentRequirements is ContainerHostRequirements containerHostRequirements ? new DockerSpec(
+                    $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant(),
+                    containerHostRequirements.Memory ) :
                 null,
                 true )
             {
