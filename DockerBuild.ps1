@@ -22,6 +22,7 @@ param(
     [string]$Isolation = 'process', # Docker isolation mode (process or hyperv).
     [string]$Memory = '16g', # Docker memory limit.
     [int]$Cpus = [Environment]::ProcessorCount, # Docker CPU limit (defaults to host's CPU count).
+    [string[]]$Mount, # Additional directories to mount from host (readonly by default, append :w for writable). Supports * and ** glob patterns.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container (or Claude prompt if -Claude is specified).
 )
@@ -610,6 +611,117 @@ if ($grandparentDir -and (Test-Path $grandparentDir))
     }
 }
 
+# Process -Mount parameter for additional directory mounts
+if ($Mount -and $Mount.Count -gt 0)
+{
+    foreach ($mountSpec in $Mount)
+    {
+        # Check if writable (ends with :w)
+        $isWritable = $false
+        $pattern = $mountSpec
+        if ($mountSpec -match ':w$')
+        {
+            $isWritable = $true
+            $pattern = $mountSpec -replace ':w$', ''
+        }
+
+        # Trim trailing slashes
+        $pattern = $pattern.TrimEnd('\', '/')
+
+        $mountOption = if ($isWritable) { "" } else { ":ro" }
+
+        # Check if pattern contains glob characters
+        if ($pattern -match '\*')
+        {
+            # Expand glob pattern to match directories only
+            # Get the base directory (everything before the first glob)
+            $patternParts = $pattern -split '[\\/]'
+            $basePathParts = @()
+            $globStartIndex = -1
+
+            for ($i = 0; $i -lt $patternParts.Count; $i++)
+            {
+                if ($patternParts[$i] -match '\*')
+                {
+                    $globStartIndex = $i
+                    break
+                }
+                $basePathParts += $patternParts[$i]
+            }
+
+            if ($basePathParts.Count -gt 0)
+            {
+                $basePath = $basePathParts -join [System.IO.Path]::DirectorySeparatorChar
+            }
+            else
+            {
+                $basePath = "."
+            }
+
+            if (Test-Path $basePath)
+            {
+                # Determine if recursive search is needed (pattern contains **)
+                $isRecursive = $pattern -match '\*\*'
+
+                # Build the glob pattern for the part after the base path
+                $globPart = ($patternParts[$globStartIndex..($patternParts.Count - 1)]) -join [System.IO.Path]::DirectorySeparatorChar
+
+                # Get matching directories
+                $matchingDirs = @()
+                if ($isRecursive)
+                {
+                    # For ** patterns, recurse and convert ** to * for -like matching
+                    # Replace ** with a regex-friendly pattern for matching
+                    $likePattern = $pattern -replace '\*\*', '*'
+                    $matchingDirs = Get-ChildItem -Path $basePath -Directory -Recurse -ErrorAction SilentlyContinue |
+                        Where-Object { $_.FullName -like $likePattern }
+                }
+                else
+                {
+                    # For single * patterns, use direct matching without recursion
+                    $matchingDirs = Get-ChildItem -Path $basePath -Directory -ErrorAction SilentlyContinue |
+                        Where-Object { $_.FullName -like $pattern }
+                }
+
+                if ($matchingDirs.Count -eq 0)
+                {
+                    Write-Host "Warning: No directories matched pattern '$pattern'" -ForegroundColor Yellow
+                }
+                else
+                {
+                    foreach ($dir in $matchingDirs)
+                    {
+                        $dirPath = $dir.FullName
+                        $rwStatus = if ($isWritable) { "writable" } else { "readonly" }
+                        Write-Host "Mounting from -Mount pattern '$pattern': $dirPath ($rwStatus)" -ForegroundColor Cyan
+                        $VolumeMappings += "${dirPath}:${dirPath}${mountOption}"
+                        $MountPoints += $dirPath
+                    }
+                }
+            }
+            else
+            {
+                Write-Host "Warning: Base path '$basePath' for pattern '$pattern' does not exist" -ForegroundColor Yellow
+            }
+        }
+        else
+        {
+            # No glob - mount directly if it's a directory
+            if (Test-Path $pattern -PathType Container)
+            {
+                $rwStatus = if ($isWritable) { "writable" } else { "readonly" }
+                Write-Host "Mounting from -Mount: $pattern ($rwStatus)" -ForegroundColor Cyan
+                $VolumeMappings += "${pattern}:${pattern}${mountOption}"
+                $MountPoints += $pattern
+            }
+            else
+            {
+                Write-Host "Warning: Mount path '$pattern' does not exist or is not a directory" -ForegroundColor Yellow
+            }
+        }
+    }
+}
+
 # Execute auto-generated DockerMounts.g.ps1 script to add more directory mounts.
 $dockerMountsScript = Join-Path $EngPath 'DockerMounts.g.ps1'
 if (Test-Path $dockerMountsScript)
@@ -1094,7 +1206,7 @@ if (-not $BuildImage)
     {
         # Run standard build mode
         # Delete now and not in the container because it's much faster and lock error messages are more relevant.
-        Write-Host "Building the product in the container." -ForegroundColor Green
+        Write-Host "Running the script in the container." -ForegroundColor Green
 
         # Prepare Build.ps1 arguments
         if ($StartVsmon)
