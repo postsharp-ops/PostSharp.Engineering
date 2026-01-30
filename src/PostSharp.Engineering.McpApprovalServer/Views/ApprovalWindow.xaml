@@ -62,13 +62,18 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Command:" FontWeight="Bold" Margin="0,5" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Command:" FontWeight="Bold" Margin="0,5" VerticalAlignment="Top" />
             <TextBox Grid.Row="0" Grid.Column="1"
                      Text="{Binding Command, Mode=OneWay}"
                      IsReadOnly="True"
                      FontFamily="Consolas"
                      Background="#F5F5F5"
-                     Margin="0,5" />
+                     Margin="0,5"
+                     TextWrapping="Wrap"
+                     AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto"
+                     MaxHeight="180"
+                     MinHeight="24" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Working Dir:" FontWeight="Bold" Margin="0,5" />
             <TextBox Grid.Row="1" Grid.Column="1"
