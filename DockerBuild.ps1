@@ -319,6 +319,33 @@ function Get-TimestampFile
     return $timestampFile
 }
 
+# Dictionary to track volume mounts with "writable wins" logic
+$script:VolumeMountDict = @{}
+
+function Add-VolumeMount {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+        [switch]$Writable
+    )
+
+    $normalizedPath = $Path.TrimEnd('\', '/')
+    $normalizedKey = $normalizedPath.ToLower()
+    $isGitDirectory = Test-Path (Join-Path $normalizedPath ".git")
+
+    if ($script:VolumeMountDict.ContainsKey($normalizedKey)) {
+        if ($Writable) {
+            $script:VolumeMountDict[$normalizedKey].Writable = $true
+        }
+    } else {
+        $script:VolumeMountDict[$normalizedKey] = @{
+            HostPath = $normalizedPath
+            Writable = [bool]$Writable
+            IsGitDirectory = $isGitDirectory
+        }
+    }
+}
+
 if ($env:RUNNING_IN_DOCKER)
 {
     Write-Error "Already running in Docker."
@@ -452,18 +479,20 @@ if (-not (Test-Path $dockerContextDirectory))
 # Container user profile (matches actual user in container)
 $containerUserProfile = if ($IsUnix) { "/root" } else { "C:\Users\ContainerAdministrator" }
 
-# Prepare volume mappings (stored as mapping strings, "-v" flags added later)
-$VolumeMappings = @("${SourceDirName}:${SourceDirName}")
-$MountPoints = @($SourceDirName)
-$GitDirectories = @($SourceDirName)
+# Initialize arrays for special mounts (those with different host/container paths)
+$VolumeMappings = @()
+$MountPoints = @()
+$GitDirectories = @()
+
+# Prepare volume mappings using the dictionary
+Add-VolumeMount -Path $SourceDirName -Writable
 
 # Define static Git system directory for mapping. This used by Teamcity as an LFS parent repo.
 $gitSystemDir = "$BuildAgentPath\system\git"
 
 if (Test-Path $gitSystemDir)
 {
-    $VolumeMappings += "${gitSystemDir}:${gitSystemDir}:ro"
-    $MountPoints += $gitSystemDir
+    Add-VolumeMount -Path $gitSystemDir
 }
 
 # Mount the host NuGet cache in the container.
@@ -491,8 +520,7 @@ if (-not $NoNuGetCache)
     }
 
     # Mount to the same path in the container (will be transformed by Get-ContainerPath later)
-    $VolumeMappings += "${nugetCacheDir}:${nugetCacheDir}"
-    $MountPoints += $nugetCacheDir
+    Add-VolumeMount -Path $nugetCacheDir -Writable
 }
 
 # Mount PostSharp.Engineering data directory (for version counters)
@@ -555,9 +583,7 @@ if (Test-Path $sourceDependenciesDir)
         if (-not [string]::IsNullOrEmpty($targetPath) -and (Test-Path $targetPath))
         {
             Write-Host "Found symbolic link '$( $link.Name )' -> '$targetPath'" -ForegroundColor Cyan
-            $VolumeMappings += "${targetPath}:${targetPath}:ro"
-            $MountPoints += $targetPath
-            $GitDirectories += $targetPath
+            Add-VolumeMount -Path $targetPath
         }
         else
         {
@@ -587,9 +613,7 @@ if ($parentDir -and (Test-Path $parentDir) -and ($parentDirName -like "PostSharp
     {
         $siblingPath = $sibling.FullName
         Write-Host "Mounting product family sibling: $siblingPath" -ForegroundColor Cyan
-        $VolumeMappings += "${siblingPath}:${siblingPath}:ro"
-        $MountPoints += $siblingPath
-        $GitDirectories += $siblingPath
+        Add-VolumeMount -Path $siblingPath
     }
 }
 
@@ -605,9 +629,7 @@ if ($grandparentDir -and (Test-Path $grandparentDir))
     {
         $engDirPath = $engDir.FullName
         Write-Host "Mounting engineering repo: $engDirPath" -ForegroundColor Cyan
-        $VolumeMappings += "${engDirPath}:${engDirPath}:ro"
-        $MountPoints += $engDirPath
-        $GitDirectories += $engDirPath
+        Add-VolumeMount -Path $engDirPath
     }
 }
 
@@ -627,8 +649,6 @@ if ($Mount -and $Mount.Count -gt 0)
 
         # Trim trailing slashes
         $pattern = $pattern.TrimEnd('\', '/')
-
-        $mountOption = if ($isWritable) { "" } else { ":ro" }
 
         # Check if pattern contains glob characters
         if ($pattern -match '\*')
@@ -694,8 +714,7 @@ if ($Mount -and $Mount.Count -gt 0)
                         $dirPath = $dir.FullName
                         $rwStatus = if ($isWritable) { "writable" } else { "readonly" }
                         Write-Host "Mounting from -Mount pattern '$pattern': $dirPath ($rwStatus)" -ForegroundColor Cyan
-                        $VolumeMappings += "${dirPath}:${dirPath}${mountOption}"
-                        $MountPoints += $dirPath
+                        Add-VolumeMount -Path $dirPath -Writable:$isWritable
                     }
                 }
             }
@@ -711,14 +730,25 @@ if ($Mount -and $Mount.Count -gt 0)
             {
                 $rwStatus = if ($isWritable) { "writable" } else { "readonly" }
                 Write-Host "Mounting from -Mount: $pattern ($rwStatus)" -ForegroundColor Cyan
-                $VolumeMappings += "${pattern}:${pattern}${mountOption}"
-                $MountPoints += $pattern
+                Add-VolumeMount -Path $pattern -Writable:$isWritable
             }
             else
             {
                 Write-Host "Warning: Mount path '$pattern' does not exist or is not a directory" -ForegroundColor Yellow
             }
         }
+    }
+}
+
+# Convert dictionary entries to arrays (with "writable wins" deduplication already applied)
+# Sort by key for deterministic ordering to optimize Docker image layer reuse
+foreach ($key in $script:VolumeMountDict.Keys | Sort-Object) {
+    $entry = $script:VolumeMountDict[$key]
+    $mountOption = if ($entry.Writable) { "" } else { ":ro" }
+    $VolumeMappings += "$($entry.HostPath):$($entry.HostPath)$mountOption"
+    $MountPoints += $entry.HostPath
+    if ($entry.IsGitDirectory) {
+        $GitDirectories += $entry.HostPath
     }
 }
 
