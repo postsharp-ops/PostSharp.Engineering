@@ -90,6 +90,8 @@ public static partial class MetalamaDependencies
                     "Metalama.Extensions.DependencyInjection.ServiceLocator",
                     "Metalama.Extensions.Metrics",
                     "Metalama.Extensions.Multicast",
+                    "Metalama.Extensions.DiffEngine",
+                    "Metalama.Extensions.HtmlWriter",
                     "Metalama.Patterns.Caching",
                     "Metalama.Patterns.Caching.Aspects",
                     "Metalama.Patterns.Caching.Backend",
