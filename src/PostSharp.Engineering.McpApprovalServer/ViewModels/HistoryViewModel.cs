@@ -7,7 +7,6 @@ using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Windows;
 
@@ -125,14 +124,14 @@ public sealed class HistoryItemViewModel
     {
         this._record = record;
         this._pendingRequest = null;
-        this.GitBranch = GetGitBranch( record.WorkingDirectory );
+        this.GitBranch = GitHelper.GetBranch( record.WorkingDirectory );
     }
 
     public HistoryItemViewModel( ApprovalRequest pendingRequest )
     {
         this._record = null;
         this._pendingRequest = pendingRequest;
-        this.GitBranch = GetGitBranch( pendingRequest.WorkingDirectory );
+        this.GitBranch = GitHelper.GetBranch( pendingRequest.WorkingDirectory );
     }
 
     public bool IsPending => this._pendingRequest != null;
@@ -183,44 +182,6 @@ public sealed class HistoryItemViewModel
             }
 
             return this._record!.ExitCode?.ToString( CultureInfo.InvariantCulture ) ?? "-";
-        }
-    }
-
-    private static string GetGitBranch( string workingDirectory )
-    {
-        try
-        {
-            if ( !Directory.Exists( workingDirectory ) )
-            {
-                return "N/A";
-            }
-
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "git",
-                Arguments = "rev-parse --abbrev-ref HEAD",
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var process = Process.Start( startInfo );
-
-            if ( process == null )
-            {
-                return "N/A";
-            }
-
-            var output = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit();
-
-            return process.ExitCode == 0 ? output : "N/A";
-        }
-        catch
-        {
-            return "N/A";
         }
     }
 }

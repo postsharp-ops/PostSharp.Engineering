@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.McpApprovalServer.Mcp.Models;
+using PostSharp.Engineering.McpApprovalServer.Services;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -195,7 +196,7 @@ public sealed class CommandHistoryService
             var auditFilePath = Path.Combine( _auditDirectory, $"audit-{dateStr}.log" );
 
             // Get git branch for the working directory
-            var gitBranch = GetGitBranch( record.WorkingDirectory ) ?? "N/A";
+            var gitBranch = GitHelper.GetBranch( record.WorkingDirectory );
 
             // Format: timestamp | approved/rejected | command | purpose | working_dir | branch | exit_code
             var status = record.Approved ? "APPROVED" : "REJECTED";
@@ -215,44 +216,6 @@ public sealed class CommandHistoryService
         {
             // Log but don't fail - audit is not critical for operation
             System.Diagnostics.Debug.WriteLine( $"Failed to append to audit trail: {ex.Message}" );
-        }
-    }
-
-    private static string? GetGitBranch( string workingDirectory )
-    {
-        try
-        {
-            if ( !Directory.Exists( workingDirectory ) )
-            {
-                return null;
-            }
-
-            var startInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "git",
-                Arguments = "rev-parse --abbrev-ref HEAD",
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var process = System.Diagnostics.Process.Start( startInfo );
-
-            if ( process == null )
-            {
-                return null;
-            }
-
-            var output = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit();
-
-            return process.ExitCode == 0 ? output : null;
-        }
-        catch
-        {
-            return null;
         }
     }
 }

@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.McpApprovalServer.Mcp.Models;
+using PostSharp.Engineering.McpApprovalServer.Services;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -272,6 +273,14 @@ public sealed class RiskAnalyzer
         sb.Append( CultureInfo.InvariantCulture, $"**Command:** `{command}`" ).AppendLine();
         sb.Append( CultureInfo.InvariantCulture, $"**Claimed purpose:** {claimedPurpose}" ).AppendLine();
         sb.Append( CultureInfo.InvariantCulture, $"**Working directory:** {workingDirectory}" ).AppendLine();
+
+        var gitBranch = await GitHelper.GetBranchAsync( workingDirectory, cancellationToken );
+
+        if ( !string.IsNullOrEmpty( gitBranch ) )
+        {
+            sb.Append( CultureInfo.InvariantCulture, $"**Git branch:** {gitBranch}" ).AppendLine();
+        }
+
         sb.AppendLine();
 
         // For git push commands, include the commit diff for analysis
@@ -348,7 +357,7 @@ public sealed class RiskAnalyzer
         try
         {
             // Get the list of commits that would be pushed
-            var logOutput = await RunGitCommandAsync(
+            var logOutput = await GitHelper.RunCommandAsync(
                 workingDirectory,
                 "log --oneline @{upstream}..HEAD",
                 cancellationToken );
@@ -359,7 +368,7 @@ public sealed class RiskAnalyzer
             }
 
             // Get the diff of commits to be pushed (limit to reasonable size)
-            var diffOutput = await RunGitCommandAsync(
+            var diffOutput = await GitHelper.RunCommandAsync(
                 workingDirectory,
                 "diff @{upstream}..HEAD",
                 cancellationToken );
@@ -394,32 +403,4 @@ public sealed class RiskAnalyzer
         }
     }
 
-    private static async Task<string> RunGitCommandAsync(
-        string workingDirectory,
-        string arguments,
-        CancellationToken cancellationToken )
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "git",
-            Arguments = arguments,
-            WorkingDirectory = workingDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        using var process = Process.Start( startInfo );
-
-        if ( process == null )
-        {
-            return string.Empty;
-        }
-
-        var output = await process.StandardOutput.ReadToEndAsync( cancellationToken );
-        await process.WaitForExitAsync( cancellationToken );
-
-        return output;
-    }
 }

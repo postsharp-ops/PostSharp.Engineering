@@ -56,6 +56,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="120" />
@@ -83,16 +84,24 @@
                      Background="#F5F5F5"
                      Margin="0,5" />
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Purpose:" FontWeight="Bold" Margin="0,5" />
-            <TextBox Grid.Row="2" Grid.Column="1"
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Git Branch:" FontWeight="Bold" Margin="0,5" />
+            <TextBlock Grid.Row="2" Grid.Column="1"
+                       Text="{Binding GitBranch}"
+                       FontFamily="Consolas"
+                       FontWeight="SemiBold"
+                       Foreground="#1976D2"
+                       Margin="0,5" />
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Purpose:" FontWeight="Bold" Margin="0,5" />
+            <TextBox Grid.Row="3" Grid.Column="1"
                      Text="{Binding ClaimedPurpose, Mode=OneWay}"
                      IsReadOnly="True"
                      TextWrapping="Wrap"
                      Background="#F5F5F5"
                      Margin="0,5" />
 
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="Received:" FontWeight="Bold" Margin="0,5" />
-            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ReceivedAt}" Margin="0,5" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Received:" FontWeight="Bold" Margin="0,5" />
+            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ReceivedAt}" Margin="0,5" />
         </Grid>
 
         <!-- Risk assessments in tabs -->

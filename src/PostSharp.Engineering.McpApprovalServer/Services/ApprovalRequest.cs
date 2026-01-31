@@ -19,6 +19,8 @@ public sealed class ApprovalRequest
 
     public required string WorkingDirectory { get; init; }
 
+    public required string GitBranch { get; init; }
+
     public required RiskAssessment CombinedAssessment { get; init; }
 
     public required RiskAssessment AiAssessment { get; init; }

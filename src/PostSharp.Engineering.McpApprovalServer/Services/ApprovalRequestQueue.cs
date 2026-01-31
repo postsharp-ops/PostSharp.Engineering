@@ -60,6 +60,7 @@ public sealed class ApprovalRequestQueue
             Command = command,
             ClaimedPurpose = claimedPurpose,
             WorkingDirectory = workingDirectory,
+            GitBranch = GitHelper.GetBranch( workingDirectory ),
             CombinedAssessment = combinedAssessment,
             AiAssessment = aiAssessment,
             RegexAssessment = regexAssessment,
