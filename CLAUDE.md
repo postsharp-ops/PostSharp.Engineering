@@ -127,3 +127,8 @@ Invoke-RestMethod -Uri "https://postsharp.teamcity.com/app/rest/buildQueue" -Met
 4. Bump version (see above)
 5. Monitor version bumping
 6. When completed, schedule deploy public
+
+
+## Warnings
+
+NEVER COMMIT WITHOUT USER APPROVAL. Even if the user has given approval for a prior commit.
