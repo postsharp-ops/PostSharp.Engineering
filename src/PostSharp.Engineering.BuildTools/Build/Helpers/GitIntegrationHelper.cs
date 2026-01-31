@@ -184,7 +184,7 @@ internal static class GitIntegrationHelper
         MainVersionFile mainVersionFile,
         out bool hasBumpSinceLastDeployment,
         out bool hasChangesSinceLastDeployment,
-        [NotNullWhen( true )] out string? lastTagVersion )
+        out string? lastTagVersion )
     {
         lastTagVersion = null;
 
@@ -210,15 +210,13 @@ internal static class GitIntegrationHelper
 
         if ( exitCode != 0 )
         {
-            hasBumpSinceLastDeployment = false;
-            hasChangesSinceLastDeployment = false;
+            // No prior release tags exist for this version - this is the first release.
+            context.Console.WriteMessage( $"No prior release tags found matching pattern '{globMatch}'. This appears to be the first release of version {mainVersionFile.Release}." );
 
-            context.Console.WriteError( gitTagOutput );
+            hasBumpSinceLastDeployment = true;
+            hasChangesSinceLastDeployment = true;
 
-            context.Console.WriteError(
-                $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/{mainVersionFile.Release}.0{mainVersionFile.PackageVersionSuffix}' tag to initial commit." );
-
-            return false;
+            return true;
         }
 
         var lastTag = gitTagOutput.Trim();
