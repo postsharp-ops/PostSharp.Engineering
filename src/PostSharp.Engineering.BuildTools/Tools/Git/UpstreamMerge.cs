@@ -761,6 +761,23 @@ internal static class UpstreamMerge
                             out prBodyText ) )
                     {
                         context.Console.WriteSuccess( "Claude successfully resolved all merge conflicts!" );
+
+                        // Regenerate scripts after conflict resolution to ensure generated files are up-to-date
+                        context.Console.WriteMessage( "" );
+                        context.Console.WriteMessage( "Regenerating scripts after conflict resolution..." );
+
+                        if ( !ToolInvocationHelper.InvokePowershell(
+                                context.Console,
+                                "Build.ps1",
+                                "generate-scripts",
+                                context.RepoDirectory ) )
+                        {
+                            context.Console.WriteError( "Failed to regenerate scripts." );
+
+                            return false;
+                        }
+
+                        context.Console.WriteMessage( "Scripts regenerated successfully." );
                     }
                     else
                     {
@@ -782,6 +799,20 @@ internal static class UpstreamMerge
                     context.Console.WriteMessage( "" );
                     context.Console.WriteMessage( "No conflicts detected - all files auto-merged or resolved." );
                 }
+
+                // Stage the regenerated files
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "add -A",
+                        context.RepoDirectory ) )
+                {
+                    context.Console.WriteError( "Failed to stage regenerated scripts." );
+
+                    return false;
+                }
+
+                context.Console.WriteMessage( "Regenerated scripts staged." );
             }
             else
             {
@@ -871,13 +902,12 @@ internal static class UpstreamMerge
                 context.Console.WriteMessage( $"VCS Provider: {repository.Provider}" );
                 context.Console.WriteMessage( "Creating pull request via API..." );
 
-                // Note: The prBodyText from Claude is not currently used because the API
-                // doesn't support setting the body. This could be extended in the future.
                 var newPullRequest = repository.TryCreatePullRequestAsync(
                         context.Console,
                         targetBranch,
                         currentBranch,
-                        pullRequestTitle )
+                        pullRequestTitle,
+                        prBodyText )
                     .ConfigureAwait( false )
                     .GetAwaiter()
                     .GetResult();

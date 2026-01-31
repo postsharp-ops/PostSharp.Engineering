@@ -110,12 +110,12 @@ public static class GitHubHelper
         GitHubRepository repository,
         string sourceBranch,
         string targetBranch,
-        string title )
+        string title,
+        string? body = null )
     {
-        bool TryConnectRestApis( [NotNullWhen( true )] out GitHubClient? creatorClient, out GitHubClient? reviewerClient )
+        bool TryConnectRestApis( [NotNullWhen( true )] out GitHubClient? creatorClient )
         {
             creatorClient = null;
-            reviewerClient = null;
 
             if ( !TryGetToken( console, out var creatorToken ) )
             {
@@ -129,15 +129,12 @@ public static class GitHubHelper
                 console.WriteWarning(
                     $"The {EnvironmentVariableNames.GitHubReviewerToken} environment variable is not defined. The PR won't be auto-approved." );
             }
-            else
-            {
-                reviewerClient = creatorToken == reviewerToken ? creatorClient : ConnectRestApi( reviewerToken );
-            }
+            else { }
 
             return true;
         }
 
-        if ( !TryConnectRestApis( out var creatorGitHub, out var reviewerGitHub ) )
+        if ( !TryConnectRestApis( out var creatorGitHub ) )
         {
             return default;
         }
@@ -157,24 +154,17 @@ public static class GitHubHelper
         else
         {
             console.WriteMessage( "Creating pull request." );
-            var newPullRequest = new NewPullRequest( title, sourceBranch, targetBranch );
+            var newPullRequest = new NewPullRequest( title, sourceBranch, targetBranch ) { Body = body };
             pullRequest = await creatorGitHub.PullRequest.Create( repository.Owner, repository.Name, newPullRequest );
             console.WriteMessage( $"Pull request created: {pullRequest.Url}" );
         }
 
-        // A pull request cannot be self-reviewed on GitHub.
-        // https://github.com/orgs/community/discussions/6292
-        if ( reviewerGitHub != null )
-        {
+        /*
             var reviewerLogin = reviewerGitHub.User.Current().Result.Login;
             console.WriteMessage( $"Requesting a review of the pull request from '{reviewerLogin}' user." );
             var reviewRequest = new PullRequestReviewRequest( new List<string> { reviewerLogin }, new List<string>() );
             pullRequest = await reviewerGitHub.PullRequest.ReviewRequest.Create( repository.Owner, repository.Name, pullRequest.Number, reviewRequest );
-
-            console.WriteMessage( "Approving the pull request." );
-            var pullRequestApproval = new PullRequestReviewCreate { Event = PullRequestReviewEvent.Approve };
-            _ = await reviewerGitHub.PullRequest.Review.Create( repository.Owner, repository.Name, pullRequest.Number, pullRequestApproval );
-        }
+        */
 
         // Check if the PR is in a clean state before enabling auto-merge.
         // Connect to REST API to get latest PR details.

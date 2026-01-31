@@ -42,7 +42,8 @@ public abstract class VcsRepository
         ConsoleHelper console,
         string sourceBranch,
         string targetBranch,
-        string title );
+        string title,
+        string? body = null );
 
     /// <summary>
     /// Returns the URL that identifies the repository and allows user to access the repository using a web browser.

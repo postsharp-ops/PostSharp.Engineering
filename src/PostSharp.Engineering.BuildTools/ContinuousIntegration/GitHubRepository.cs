@@ -68,6 +68,7 @@ public class GitHubRepository : VcsRepository
         ConsoleHelper console,
         string sourceBranch,
         string targetBranch,
-        string title )
-        => GitHubHelper.TryCreatePullRequestAsync( console, this, sourceBranch, targetBranch, title );
+        string title,
+        string? body = null )
+        => GitHubHelper.TryCreatePullRequestAsync( console, this, sourceBranch, targetBranch, title, body );
 }

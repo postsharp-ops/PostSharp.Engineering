@@ -103,6 +103,7 @@ public class AzureDevOpsRepository : VcsRepository
         ConsoleHelper console,
         string sourceBranch,
         string targetBranch,
-        string title )
-        => AzureDevOpsHelper.TryCreatePullRequestAsync( console, this, sourceBranch, targetBranch, title );
+        string title,
+        string? body = null )
+        => AzureDevOpsHelper.TryCreatePullRequestAsync( console, this, sourceBranch, targetBranch, title, body );
 }
