@@ -67,7 +67,7 @@ Use the `ExecuteCommand` tool from the `host-approval` MCP server for:
 
 Call the `ExecuteCommand` tool with:
 - `command`: The command to execute
-- `workingDirectory`: The working directory (use forward slashes: `X:/src/RepoName`)
+- `workingDirectory`: The working directory (use forward slashes: `c:/src/RepoName`)
 - `claimedPurpose`: A clear explanation of why this command is needed
 
 ### Example
@@ -76,7 +76,7 @@ To push a feature branch:
 ```
 ExecuteCommand(
   command: "git push origin feature/my-feature",
-  workingDirectory: "X:/src/PostSharp.Engineering",
+  workingDirectory: "c:/src/PostSharp.Engineering",
   claimedPurpose: "Push the feature branch with MCP implementation to remote for PR creation"
 )
 ```
@@ -117,3 +117,13 @@ Invoke-RestMethod -Uri "https://postsharp.teamcity.com/app/rest/buildQueue" -Met
 1. Check `.teamcity/settings.kts` for the VCS root: `AbsoluteId("...")`
 2. The build type ID is: `<VcsRootId>_VersionBump`
 3. For this repo: `Engineering_PostSharpEngineering_VersionBump`
+
+
+## How to deploy
+
+1. Commit
+2. Push
+3. Wait 1 seconds
+4. Bump version (see above)
+5. Monitor version bumping
+6. When completed, schedule deploy public
