@@ -205,19 +205,14 @@ internal static class TeamCitySettingsFile
     {
         var product = productProperties.Product;
 
-        IEnumerable<TeamCitySnapshotDependency> snapshotDependencies = product.Configurations[BuildConfiguration.Debug].ExportsToTeamCityBuild
-            ? new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) }
-            : [];
-
-        snapshotDependencies =
-            snapshotDependencies.Concat(
-                product.ParametrizedDependencies
-                    .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.DownstreamProductFamily != null )
-                    .Select( d => d.Definition )
-                    .Select( d => new TeamCitySnapshotDependency(
-                                 d.CiConfiguration.DownstreamMergeBuildType,
-                                 true,
-                                 FailureAction: FailureAction.AddProblem ) ) );
+        var snapshotDependencies =
+            product.ParametrizedDependencies
+                .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.DownstreamProductFamily != null )
+                .Select( d => d.Definition )
+                .Select( d => new TeamCitySnapshotDependency(
+                    d.CiConfiguration.DownstreamMergeBuildType,
+                    true,
+                    FailureAction: FailureAction.AddProblem ) );
 
         var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
             "DownstreamMerge",
