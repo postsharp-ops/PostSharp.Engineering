@@ -147,6 +147,7 @@ internal static class DownstreamMerge
         if ( statuses.Length > 0 )
         {
             context.Console.WriteError( "The repository needs to be clean before running the downstream merge." );
+            context.Console.WriteImportantMessage( string.Join( Environment.NewLine, statuses ) );
 
             return false;
         }
