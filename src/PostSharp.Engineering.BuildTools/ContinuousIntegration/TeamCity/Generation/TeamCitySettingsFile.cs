@@ -208,24 +208,18 @@ internal static class TeamCitySettingsFile
         // Use Claude Dockerfile for upstream merge to enable AI-assisted conflict resolution
         var claudeDockerSpec = product.DockerSpec?.WithClaudeDockerfile();
 
-        // Get the same build dependencies as DebugBuild (artifact dependencies from upstream repos)
-        var debugConfigurationProperties = new ConfigurationProperties( product, BuildConfiguration.Debug );
-
-        // Also add dependencies on UpstreamMerge of dependent repos (for cascading merge)
-        var upstreamMergeDependencies =
+        // Dependencies on UpstreamMerge of dependent repos (for cascading merge order)
+        // No DebugBuild dependencies - Claude only does git merge and conflict resolution,
+        // it doesn't compile. The PR build will handle compilation with appropriate artifacts.
+        var snapshotDependencies =
             product.ParametrizedDependencies
                 .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.UpstreamProductFamily != null )
                 .Select( d => d.Definition )
                 .Select( d => new TeamCitySnapshotDependency(
                     d.CiConfiguration.UpstreamMergeBuildType,
                     true,
-                    FailureAction: FailureAction.AddProblem ) );
-
-        // Combine: DebugBuild dependencies (for artifacts) + UpstreamMerge dependencies (for cascading)
-        var snapshotDependencies = debugConfigurationProperties.SnapshotDependenciesForBuildConfiguration
-            .Concat( upstreamMergeDependencies )
-            .DistinctBy( d => d.ObjectId )
-            .OrderBy( d => d.ObjectId );
+                    FailureAction: FailureAction.AddProblem ) )
+                .OrderBy( d => d.ObjectId );
 
         var upstreamMergeConfiguration = new TeamCityBuildConfiguration(
             "UpstreamMerge",
