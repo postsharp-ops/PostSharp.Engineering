@@ -484,6 +484,11 @@ public static class GitHelper
 
     public static bool TryDeleteRemoteBranch( BuildContext context, string branchName )
     {
+        if ( !TryConfigureCredentials( context ) )
+        {
+            return false;
+        }
+
         if ( !TryGetOriginUrl( context, out var originUrl ) )
         {
             return false;
