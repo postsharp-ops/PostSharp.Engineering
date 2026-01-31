@@ -119,12 +119,12 @@ internal static class TeamCitySettingsFile
             }
         }
 
-        // Create a TeamCity configuration for downstream merge.
-        if ( product.ProductFamily.DownstreamProductFamily != null )
+        // Create a TeamCity configuration for upstream merge.
+        if ( product.ProductFamily.UpstreamProductFamily != null )
         {
-            var downstreamMergeConfiguration = CreateDownstreamMergeConfiguration( productProperties );
+            var upstreamMergeConfiguration = CreateUpstreamMergeConfiguration( productProperties );
 
-            teamCityBuildConfigurations.Add( downstreamMergeConfiguration );
+            teamCityBuildConfigurations.Add( upstreamMergeConfiguration );
         }
 
         // Add product-defined.
@@ -201,22 +201,35 @@ internal static class TeamCitySettingsFile
         return teamCityDeploymentConfiguration;
     }
 
-    private static TeamCityBuildConfiguration CreateDownstreamMergeConfiguration( ProductProperties productProperties )
+    private static TeamCityBuildConfiguration CreateUpstreamMergeConfiguration( ProductProperties productProperties )
     {
         var product = productProperties.Product;
 
-        var snapshotDependencies =
+        // Use Claude Dockerfile for upstream merge to enable AI-assisted conflict resolution
+        var claudeDockerSpec = product.DockerSpec?.WithClaudeDockerfile();
+
+        // Get the same build dependencies as DebugBuild (artifact dependencies from upstream repos)
+        var debugConfigurationProperties = new ConfigurationProperties( product, BuildConfiguration.Debug );
+
+        // Also add dependencies on UpstreamMerge of dependent repos (for cascading merge)
+        var upstreamMergeDependencies =
             product.ParametrizedDependencies
-                .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.DownstreamProductFamily != null )
+                .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.UpstreamProductFamily != null )
                 .Select( d => d.Definition )
                 .Select( d => new TeamCitySnapshotDependency(
-                    d.CiConfiguration.DownstreamMergeBuildType,
+                    d.CiConfiguration.UpstreamMergeBuildType,
                     true,
                     FailureAction: FailureAction.AddProblem ) );
 
-        var downstreamMergeConfiguration = new TeamCityBuildConfiguration(
-            "DownstreamMerge",
-            "Downstream Merge",
+        // Combine: DebugBuild dependencies (for artifacts) + UpstreamMerge dependencies (for cascading)
+        var snapshotDependencies = debugConfigurationProperties.SnapshotDependenciesForBuildConfiguration
+            .Concat( upstreamMergeDependencies )
+            .DistinctBy( d => d.ObjectId )
+            .OrderBy( d => d.ObjectId );
+
+        var upstreamMergeConfiguration = new TeamCityBuildConfiguration(
+            "UpstreamMerge",
+            "Upstream Merge",
             productProperties.DefaultBranch,
             productProperties.VcsId,
             product.ResolvedBuildAgentRequirements )
@@ -224,18 +237,19 @@ internal static class TeamCitySettingsFile
             BuildSteps =
             [
                 new EngineeringCommandBuildStep(
-                    "DownstreamMerge",
-                    "Merge downstream",
-                    "tools git merge-downstream",
+                    "UpstreamMerge",
+                    "Merge upstream",
+                    "upstream-merge",
                     areCustomArgumentsAllowed: true,
-                    dockerSpec: product.DockerSpec,
-                    timeout: product.DownstreamMergeTimeout )
+                    dockerSpec: claudeDockerSpec,
+                    timeout: product.UpstreamMergeTimeout,
+                    useSnapshot: true )
             ],
             SnapshotDependencies = snapshotDependencies.ToArray(),
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh
         };
 
-        return downstreamMergeConfiguration;
+        return upstreamMergeConfiguration;
     }
 
     private static TeamCityBuildConfiguration CreateBumpConfiguration( ProductProperties productProperties )

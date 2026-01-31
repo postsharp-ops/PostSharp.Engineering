@@ -101,6 +101,14 @@ namespace PostSharp.Engineering.BuildTools
                         .WithData( data )
                         .WithDescription( "Generates THIRD-PARTY-NOTICES.md" );
 
+                    // Only add upstream-merge command if the product family has an upstream sibling
+                    if ( product.ProductFamily.UpstreamProductFamily != null )
+                    {
+                        root.AddCommand<UpstreamMergeCommand>( "upstream-merge" )
+                            .WithData( data )
+                            .WithDescription( "Merges code from the upstream development branch using Claude to resolve conflicts." );
+                    }
+
                     root.AddBranch(
                         "dependencies",
                         dependencies =>
@@ -259,10 +267,6 @@ namespace PostSharp.Engineering.BuildTools
                                 git.AddCommand<GitBulkRenameCommand>( "rename" )
                                     .WithDescription( "Renames all files and directories recursively preserving GIT history." )
                                     .WithExample( @"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama""" );
-
-                                git.AddCommand<DownstreamMergeCommand>( "merge-downstream" )
-                                    .WithData( data )
-                                    .WithDescription( "Merges the code to the subsequent development branch." );
 
                                 git.AddCommand<UpstreamCheckCommand>( "check-upstream" )
                                     .WithData( data )

@@ -482,6 +482,26 @@ public static class GitHelper
         return true;
     }
 
+    public static bool TryDeleteRemoteBranch( BuildContext context, string branchName )
+    {
+        if ( !TryGetOriginUrl( context, out var originUrl ) )
+        {
+            return false;
+        }
+
+        // Delete the branch from remote using git push :branchName
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"push {originUrl} --delete {branchName}",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     public static bool TryGetStatus( BuildContext context, string repoDirectory, [NotNullWhen( true )] out string[]? status )
     {
         if ( !ToolInvocationHelper.InvokeTool(

@@ -30,28 +30,8 @@ internal class SetDefaultBranchCommand : BaseCommand<SetDefaultBranchSettings>
 
             if ( AzureDevOpsRepository.TryParse( remoteUrl, out var azureDevOpsRepository ) )
             {
-                var defaultBranch = settings.DefaultBranch;
-
-                // Implicitly, we set the default branch to the downstream version, as this should be the development one,
-                // because on Azure DevOps, most pull requests usually go to the development version.
-                if ( defaultBranch == null )
-                {
-                    var defaultProductFamily = product.ProductFamily.DownstreamProductFamily;
-
-                    if ( defaultProductFamily == null )
-                    {
-                        console.WriteError( "Default branch was not given and cannot be determined." );
-
-                        return false;
-                    }
-
-                    if ( !defaultProductFamily.TryGetDependencyDefinition( product.DependencyDefinition.Name, out var defaultDependencyDefinition ) )
-                    {
-                        return false;
-                    }
-
-                    defaultBranch = defaultDependencyDefinition.Branch;
-                }
+                // For Azure DevOps, the default branch must be specified explicitly or defaults to the current branch.
+                var defaultBranch = settings.DefaultBranch ?? product.DependencyDefinition.Branch;
 
                 setBranchPoliciesTask = AzureDevOpsHelper.TrySetDefaultBranchAsync(
                     context,

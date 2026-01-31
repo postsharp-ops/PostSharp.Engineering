@@ -141,7 +141,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public TimeSpan VersionBumpTimeout { get; init; } = TimeSpan.FromMinutes( 15 );
 
-        public TimeSpan DownstreamMergeTimeout { get; init; } = TimeSpan.FromMinutes( 15 );
+        public TimeSpan UpstreamMergeTimeout { get; init; } = TimeSpan.FromMinutes( 15 );
 
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
             =

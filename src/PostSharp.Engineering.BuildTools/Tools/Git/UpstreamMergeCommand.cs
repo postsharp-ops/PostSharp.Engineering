@@ -6,7 +6,7 @@ using PostSharp.Engineering.BuildTools.Build;
 namespace PostSharp.Engineering.BuildTools.Tools.Git;
 
 [UsedImplicitly]
-internal class UpstreamCheckCommand : BaseCommand<UpstreamCheckSettings>
+internal class UpstreamMergeCommand : BaseCommand<UpstreamMergeSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, UpstreamCheckSettings settings ) => UpstreamMerge.CheckUpstreamChanges( context, settings );
+    protected override bool ExecuteCore( BuildContext context, UpstreamMergeSettings settings ) => UpstreamMerge.MergeUpstream( context, settings );
 }

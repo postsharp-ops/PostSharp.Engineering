@@ -18,11 +18,12 @@ internal class EngineeringCommandBuildStep : PowerShellScriptBuildStep
         string? arguments = null,
         bool areCustomArgumentsAllowed = false,
         DockerSpec? dockerSpec = null,
-        TimeSpan? timeout = null ) : base(
+        TimeSpan? timeout = null,
+        bool useSnapshot = false ) : base(
         id,
         name,
         "Build.ps1",
-        GetScriptArguments( id, command, arguments, timeout ),
+        GetScriptArguments( id, command, arguments, timeout, useSnapshot ),
         dockerSpec,
         areCustomArgumentsAllowed )
     {
@@ -39,9 +40,15 @@ internal class EngineeringCommandBuildStep : PowerShellScriptBuildStep
         string id,
         string command,
         string? arguments,
-        TimeSpan? timeout )
+        TimeSpan? timeout,
+        bool useSnapshot )
     {
-        var args = $"{command}{(arguments == null ? "" : $" {arguments}")}";
+        var args = useSnapshot ? $"-Snapshot {command}" : command;
+
+        if ( arguments != null )
+        {
+            args += $" {arguments}";
+        }
 
         if ( timeout != null )
         {

@@ -95,7 +95,12 @@ namespace PostSharp.Engineering.BuildTools.Build
             [NotNullWhen( true )] out BuildContext? buildContext )
         {
             buildContext = null;
-            var repoDirectory = FindRepoDirectory( Environment.CurrentDirectory );
+
+            // Use the repo directory from environment variable if provided, otherwise search from current directory
+            var searchDirectory = Environment.GetEnvironmentVariable( EnvironmentVariableNames.RepoDirectory )
+                                  ?? Environment.CurrentDirectory;
+
+            var repoDirectory = FindRepoDirectory( searchDirectory );
             var console = new ConsoleHelper();
 
             if ( repoDirectory == null )

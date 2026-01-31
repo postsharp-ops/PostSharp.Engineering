@@ -4,50 +4,56 @@ namespace PostSharp.Engineering.BuildTools;
 
 internal static class EnvironmentVariableNames
 {
-    // Our infrastructure
+    // Our infrastructure (non-secret configuration)
     public const string IsPostSharpOwned = "IS_POSTSHARP_OWNED";
     public const string IsTeamCityAgent = "IS_TEAMCITY_AGENT";
     public const string EngUserName = "ENG_USERNAME";
-    public const string SignServerSecret = "SIGNSERVER_SECRET";
-    public const string DocInvalidationKey = "DOC_API_KEY";
-    public const string DownloadsInvalidationKey = "DOWNLOADS_API_KEY";
-    private const string _metalamaLicense = "MetalamaLicense";
-    private const string _postSharpLicense = "PostSharpLicense";
+    public const string RepoDirectory = "ENG_REPO_DIRECTORY";
+
+    // Our infrastructure (secrets)
+    [Secret] public const string SignServerSecret = "SIGNSERVER_SECRET";
+    [Secret] public const string DocInvalidationKey = "DOC_API_KEY";
+    [Secret] public const string DownloadsInvalidationKey = "DOWNLOADS_API_KEY";
+    [Secret] private const string _metalamaLicense = "MetalamaLicense";
+    [Secret] private const string _postSharpLicense = "PostSharpLicense";
 
     // AWS
-    public const string AwsAccessKeyId = "AWS_ACCESS_KEY_ID";
-    public const string AwsAccessKeySecret = "AWS_SECRET_ACCESS_KEY";
+    [Secret] public const string AwsAccessKeyId = "AWS_ACCESS_KEY_ID";
+    [Secret] public const string AwsAccessKeySecret = "AWS_SECRET_ACCESS_KEY";
 
     // TeamCity
-    public const string TeamCityToken = "TEAMCITY_CLOUD_TOKEN";
+    [Secret] public const string TeamCityToken = "TEAMCITY_CLOUD_TOKEN";
 
     // NuGet.org
-    public const string NuGetOrgApiKey = "NUGET_ORG_API_KEY";
+    [Secret] public const string NuGetOrgApiKey = "NUGET_ORG_API_KEY";
 
     // Git - set by DockerBuild.ps1 from current git config.
     private const string _gitUserName = "GIT_USER_NAME";
     private const string _gitUserEmail = "GIT_USER_EMAIL";
 
     // GitHub
-    public const string GitHubToken = "GITHUB_TOKEN";
-    public const string GitHubReviewerToken = "GITHUB_REVIEWER_TOKEN";
+    [Secret] public const string GitHubToken = "GITHUB_TOKEN";
+    [Secret] public const string GitHubReviewerToken = "GITHUB_REVIEWER_TOKEN";
     public const string GitHubAuthorEmail = "GITHUB_AUTHOR_EMAIL";
 
     // VS Marketplace
-    public const string VsMarketplaceAccessToken = "VS_MARKETPLACE_ACCESS_TOKEN";
+    [Secret] public const string VsMarketplaceAccessToken = "VS_MARKETPLACE_ACCESS_TOKEN";
 
     // Azure DevOps Feeds. Used by AzureArtifactsCredentialProviderComponent.
-    public const string AzEndpoints = "VSS_NUGET_EXTERNAL_FEED_ENDPOINTS";
+    [Secret] public const string AzEndpoints = "VSS_NUGET_EXTERNAL_FEED_ENDPOINTS";
 
     // TypeSense
-    public const string TypeSenseApiKey = "TYPESENSE_API_KEY";
+    [Secret] public const string TypeSenseApiKey = "TYPESENSE_API_KEY";
+
+    // Claude Code (not marked [Secret] because Claude CLI needs this to authenticate)
+    public const string ClaudeCodeOAuthToken = "CLAUDE_CODE_OAUTH_TOKEN";
 
     // Azure
     public const string AzIdentityUserName = "AZ_IDENTITY_USERNAME";
     public const string AzureDevOpsUser = "AZURE_DEVOPS_USER";
-    public const string AzureDevOpsToken = "AZURE_DEVOPS_TOKEN";
-    public const string AzureClientId = "AZURE_CLIENT_ID";
-    public const string AzureClientSecret = "AZURE_CLIENT_SECRET";
+    [Secret] public const string AzureDevOpsToken = "AZURE_DEVOPS_TOKEN";
+    [Secret] public const string AzureClientId = "AZURE_CLIENT_ID";
+    [Secret] public const string AzureClientSecret = "AZURE_CLIENT_SECRET";
     public const string AzureTenantId = "AZURE_TENANT_ID";
 
     // List of all environment variables, injected into DockerBuild.ps1 and passed to the container.
@@ -71,6 +77,7 @@ internal static class EnvironmentVariableNames
         AwsAccessKeyId,
         AwsAccessKeySecret,
         TypeSenseApiKey,
+        ClaudeCodeOAuthToken,
         AzIdentityUserName,
         AzureClientId,
         AzureClientSecret,

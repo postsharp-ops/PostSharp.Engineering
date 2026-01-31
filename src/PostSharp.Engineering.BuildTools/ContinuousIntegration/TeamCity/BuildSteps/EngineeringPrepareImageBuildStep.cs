@@ -15,7 +15,7 @@ internal class EngineeringPrepareImageBuildStep : PowerShellScriptBuildStep
         id,
         $"Prepare Docker image {dockerSpec.ImageName}",
         $"DockerBuild.ps1",
-        $"-BuildImage -ImageName {dockerSpec.ImageName}",
+        $"-BuildImage -ImageName {dockerSpec.ImageName}{(dockerSpec.Dockerfile != null ? $" -Dockerfile {dockerSpec.Dockerfile}" : "")}",
         null )
     {
         this.DockerSpec = dockerSpec;

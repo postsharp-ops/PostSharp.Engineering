@@ -56,7 +56,6 @@ public static partial class MetalamaDependencies
         public static ProductFamily Family { get; } = new( _projectName, "2026.0", DevelopmentDependencies.Family, PostSharpDependencies.V2026_0.Family )
         {
             UpstreamProductFamily = V2025_1.Family,
-            DownstreamProductFamily = V2026_1.Family,
             ConsolidatedProjectName = "Metalama.Consolidated"
         };
 

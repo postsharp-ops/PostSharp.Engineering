@@ -32,6 +32,16 @@ public record ToolInvocationOptions(
 
     public bool FilterOutput { get; init; } = true;
 
+    /// <summary>
+    /// When true and output is being captured, also echo the output to the console in real-time.
+    /// </summary>
+    public bool EchoOutputToConsole { get; init; }
+
+    /// <summary>
+    /// Content to send to the process via standard input. If set, stdin will be redirected and this content written to it.
+    /// </summary>
+    public string? StandardInput { get; init; }
+
     public TimeSpan OutputReadingTimeout { get; init; } = TimeSpan.FromSeconds( 10 );
 
     public static TimeSpan LongOutputReadingTimeout => TimeSpan.FromSeconds( 60 );

@@ -25,7 +25,7 @@ public class CiProjectConfiguration
 
     public string BaseUrl { get; }
 
-    public string DownstreamMergeBuildType => $"{this.ProjectId.Id}_DownstreamMerge";
+    public string UpstreamMergeBuildType => $"{this.ProjectId.Id}_UpstreamMerge";
 
     public CiProjectConfiguration(
         TeamCityProjectId projectId,

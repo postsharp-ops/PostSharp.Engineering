@@ -31,7 +31,7 @@ internal class PrePublishCommand : BaseCommand<PublishSettings>
             return false;
         }
 
-        if ( product.ProductFamily.UpstreamProductFamily != null && !DownstreamMerge.CheckUpstreamChanges( context, settings ) )
+        if ( product.ProductFamily.UpstreamProductFamily != null && !UpstreamMerge.CheckUpstreamChanges( context, settings ) )
         {
             return false;
         }

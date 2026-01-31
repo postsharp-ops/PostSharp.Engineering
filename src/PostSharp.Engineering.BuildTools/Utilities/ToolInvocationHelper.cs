@@ -168,6 +168,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 options = options with { OutputReadingTimeout = ToolInvocationOptions.LongOutputReadingTimeout };
             }
 
+            var echoToConsole = options.EchoOutputToConsole;
+
             var success =
                 InvokeTool(
                     console,
@@ -181,6 +183,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         {
                             outputBuilder.Append( s );
                             outputBuilder.Append( '\n' );
+
+                            if ( echoToConsole )
+                            {
+                                console.WriteMessage( s );
+                            }
                         }
                     },
                     s =>
@@ -189,6 +196,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         {
                             outputBuilder.Append( s );
                             outputBuilder.Append( '\n' );
+
+                            if ( echoToConsole )
+                            {
+                                console.WriteMessage( s );
+                            }
                         }
                     },
                     options,
@@ -242,7 +254,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         RedirectStandardError = true,
-                        RedirectStandardOutput = true
+                        RedirectStandardOutput = true,
+                        RedirectStandardInput = options.StandardInput != null
                     };
 
                 if ( options.EnvironmentVariables != null )
@@ -362,6 +375,13 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             }
 
                             throw;
+                        }
+
+                        // Write to stdin if provided, then close it
+                        if ( options.StandardInput != null )
+                        {
+                            process.StandardInput.Write( options.StandardInput );
+                            process.StandardInput.Close();
                         }
 
                         if ( !cancellationToken.CanBeCanceled )
