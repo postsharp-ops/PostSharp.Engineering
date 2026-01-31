@@ -46,6 +46,11 @@ public partial class ApprovalViewModel : ObservableObject
 
     public RiskAssessment RegexAssessment => this._request.RegexAssessment;
 
+    /// <summary>
+    /// Gets the AI-generated description of what the command does.
+    /// </summary>
+    public string CommandDescription => this._request.AiAssessment.Description ?? "No description available";
+
     // UI helpers
     public bool HasRuleName => !string.IsNullOrEmpty( this._request.RegexAssessment.RuleName );
 

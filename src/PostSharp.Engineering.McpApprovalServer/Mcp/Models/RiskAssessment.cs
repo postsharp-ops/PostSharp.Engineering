@@ -37,6 +37,12 @@ public sealed class RiskAssessment
     public required string Reason { get; init; }
 
     /// <summary>
+    /// Gets a description of what the command does (for AI-driven assessments).
+    /// Null for regex-based assessments.
+    /// </summary>
+    public string? Description { get; init; }
+
+    /// <summary>
     /// Gets the name of the rule that triggered this assessment (for regex-based rules).
     /// Null for AI-driven assessments.
     /// </summary>
@@ -52,6 +58,7 @@ public sealed class RiskAssessment
         var level = RiskLevel.Medium;
         var recommendation = Recommendation.Approve;
         var reason = "Unable to parse risk assessment";
+        string? description = null;
 
         var lines = output.Split( '\n', StringSplitOptions.RemoveEmptyEntries );
 
@@ -87,8 +94,12 @@ public sealed class RiskAssessment
             {
                 reason = trimmedLine.Substring( 7 ).Trim();
             }
+            else if ( trimmedLine.StartsWith( "DESCRIPTION:", StringComparison.OrdinalIgnoreCase ) )
+            {
+                description = trimmedLine.Substring( 12 ).Trim();
+            }
         }
 
-        return new RiskAssessment { Level = level, Recommendation = recommendation, Reason = reason };
+        return new RiskAssessment { Level = level, Recommendation = recommendation, Reason = reason, Description = description };
     }
 }

@@ -336,11 +336,12 @@ public sealed class RiskAnalyzer
         // Response format
         sb.AppendLine( "## Response Format" );
         sb.AppendLine();
-        sb.AppendLine( "Respond with EXACTLY these three lines (no additional text):" );
+        sb.AppendLine( "Respond with EXACTLY these four lines (no additional text):" );
         sb.AppendLine( "```" );
+        sb.AppendLine( "DESCRIPTION: <one concise sentence describing what the command does>" );
         sb.AppendLine( "RISK: LOW|MEDIUM|HIGH|CRITICAL" );
         sb.AppendLine( "RECOMMEND: APPROVE|REJECT" );
-        sb.AppendLine( "REASON: <one concise sentence explaining your assessment>" );
+        sb.AppendLine( "REASON: <one concise sentence explaining your risk assessment>" );
         sb.AppendLine( "```" );
 
         return sb.ToString();
