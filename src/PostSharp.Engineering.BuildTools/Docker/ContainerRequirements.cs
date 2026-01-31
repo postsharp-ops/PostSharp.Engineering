@@ -19,16 +19,17 @@ public record ContainerRequirements : ContainerHostRequirements
     public ContainerRequirements( ContainerHostKind hostKind ) : base( hostKind ) { }
 
     public ContainerComponent[] Components { get; init; } = [];
-    
+
     public string? ImageName { get; init; }
-  
+
     public override bool IsDockerized => true;
 
-    public bool WriteDockerfile( BuildContext context ) => this.WriteDockerfileCore( context, "Dockerfile", null, true );
+    public bool WriteDockerfile( BuildContext context ) => this.WriteDockerfileCore( context, "Dockerfile", [], true );
 
-    public bool WriteClaudeDockerfile( BuildContext context ) => this.WriteDockerfileCore( context, "Dockerfile.claude", new ClaudeComponent(), false );
+    public bool WriteClaudeDockerfile( BuildContext context )
+        => this.WriteDockerfileCore( context, "Dockerfile.claude", [new ClaudeComponent(), new ClaudeAddInsComponent()], false );
 
-    private bool WriteDockerfileCore( BuildContext context, string dockerfileName, ContainerComponent? additionalComponent, bool validateBuildComponents )
+    private bool WriteDockerfileCore( BuildContext context, string dockerfileName, ContainerComponent[] additionalComponents, bool validateBuildComponents )
     {
         var contextDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "docker-context" );
 
@@ -40,7 +41,7 @@ public record ContainerRequirements : ContainerHostRequirements
         allComponents.AddRange( this.Components );
 
         // Add additional component if specified (e.g., Claude)
-        if ( additionalComponent != null )
+        foreach ( var additionalComponent in additionalComponents )
         {
             allComponents.Add( additionalComponent );
         }
@@ -88,11 +89,9 @@ public record ContainerRequirements : ContainerHostRequirements
         var dockerfilePath = Path.Combine( context.RepoDirectory, dockerfileName );
         using var dockerfileContent = new StringWriter();
 
-        var componentLabel = additionalComponent != null ? "Claude container" : "container";
-
         foreach ( var component in orderedComponents )
         {
-            context.Console.WriteMessage( $"Processing {componentLabel} component '{component.Name}'." );
+            context.Console.WriteMessage( $"Processing component '{component.Name}'." );
 
             if ( component.Kind != ContainerComponentKind.Prolog )
             {

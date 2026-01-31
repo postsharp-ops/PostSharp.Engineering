@@ -7,88 +7,64 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
+/// <summary>
+/// Installs the Claude CLI. This component is placed before the timestamp for caching.
+/// Plugin installation is handled by <see cref="ClaudeAddInsComponent"/> which runs after the timestamp.
+/// </summary>
 public class ClaudeComponent : ContainerComponent
 {
+    private const string _minNodeVersion = "22.0.0";
+
     public override string Name => "Install Claude CLI";
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Claude;
 
-    /// <summary>
-    /// Gets the list of marketplace URLs to add in the container.
-    /// These should be GitHub repository URLs (e.g., https://github.com/org/repo).
-    /// Marketplaces are added first, then plugins can be installed from them.
-    /// </summary>
-    public string[] Marketplaces { get; init; } =
-    [
-        "https://github.com/metalama/Metalama.AI.Skills",
-        "https://github.com/postsharp/PostSharp.Engineering.AISkills"
-    ];
-
-    /// <summary>
-    /// Gets the list of plugin names to install from the added marketplaces.
-    /// </summary>
-    public string[] Plugins { get; init; } =
-    [
-        "metalama",
-        "metalama-dev",
-        "eng"
-    ];
-
     public override void WriteDockerfile( TextWriter writer )
     {
-        writer.WriteLine(
-            """
-            ENV HOME=C:\Users\ContainerAdministrator
-            ENV USERPROFILE=C:\Users\ContainerAdministrator
-            ENV CLAUDE_CODE_SHELL=pwsh
-            ENV PATH=$PATH;C:\Users\ContainerAdministrator\.local\bin
-
-            """ );
+        // We don't use the native installer because it's very slow to download.
+        // At least the NPM version is stored on fast CDNs.
 
         writer.WriteLine(
             """
-            RUN $ErrorActionPreference = 'Stop'; `
-                $version = '2.1.27'; `
-                $url = \"https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/2.1.27/win32-x64/claude.exe\"; `
-                New-Item -ItemType Directory -Path \"$env:USERPROFILE\.local\bin\" -Force | Out-Null; `
-                echo \"Downloading Claude CLI from $url...\"; `
-                Invoke-WebRequest -Uri $url -OutFile \"$env:USERPROFILE\.local\bin\claude.exe\"; `
-                echo 'Claude CLI $version installed.'; `
-                echo \"Configuring Claude CLI...\"; `
-                if (Test-Path $claudeJsonPath) { `
-                    $claudeConfig = Get-Content $claudeJsonPath -Raw | ConvertFrom-Json; `
-                    $claudeConfig | Add-Member -NotePropertyName 'hasCompletedOnboarding' -NotePropertyValue $true -Force; `
-                    $claudeConfig | ConvertTo-Json -Depth 10 | Set-Content $claudeJsonPath; `
-                } else { `
-                    '{"hasCompletedOnboarding": true}' | Set-Content $claudeJsonPath; `
-                }; `
-                echo 'Configuring Claude CLI plugins.';`
-            
+            # Set HOME/USERPROFILE so Claude CLI finds credentials during build
+            ENV HOME=C:\\Users\\ContainerAdministrator
+            ENV USERPROFILE=C:\\Users\\ContainerAdministrator
+
+            # Install Claude CLI and configure using cmd shell to avoid HCS issues with PowerShell
+            SHELL ["cmd", "/S", "/C"]
             """ );
 
-        foreach ( var marketplace in this.Marketplaces )
-        {
-            writer.WriteLine( $"    claude plugin marketplace add {marketplace}; `" );
-        }
-
-        // Install plugins from the added marketplaces
-        foreach ( var plugin in this.Plugins )
-        {
-            writer.WriteLine( $"    claude plugin install {plugin}; `" );
-        }
-
-        writer.WriteLine( $"    echo \"Claude $version installed\"" );
+        // Build a single multi-line RUN command for all operations
+        writer.WriteLine( "RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code@2.1.27" );
+        writer.Write( "RUN mkdir C:\\Users\\ContainerAdministrator\\.claude" );
+        writer.Write( " && echo {\"hasCompletedOnboarding\": true} > C:\\Users\\ContainerAdministrator\\.claude.json" );
+        writer.Write( " && echo {\"alwaysThinkingEnabled\": true} > C:\\Users\\ContainerAdministrator\\.claude\\settings.json" );
         writer.WriteLine();
+
+        writer.WriteLine(
+            """
+
+            # Restore PowerShell shell using full path
+            SHELL ["C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "-Command"]
+            """ );
     }
 
     public override void AddRequirements( IReadOnlyList<ContainerComponent> components, Action<ContainerComponent> add )
     {
         base.AddRequirements( components, add );
 
-        // Auto-add GitHubCliComponent if not already present
-        if ( !components.OfType<GitHubCliComponent>().Any() )
+        var existingNodeJs = components.OfType<NodeJsComponent>().FirstOrDefault();
+
+        if ( existingNodeJs == null )
         {
-            add( new GitHubCliComponent() );
+            // Auto-add NodeJsComponent with minimum required version
+            add( new NodeJsComponent( _minNodeVersion ) );
         }
+        else if ( Version.Parse( existingNodeJs.Version ) < Version.Parse( _minNodeVersion ) )
+        {
+            throw new InvalidOperationException( $"Claude CLI requires Node.js >= {_minNodeVersion}, but {existingNodeJs.Version} is configured." );
+        }
+
+        // We don't add GitHub CLI because we don't have pass the token anyway.
     }
 }

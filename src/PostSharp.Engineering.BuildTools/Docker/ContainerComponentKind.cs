@@ -19,8 +19,9 @@ public enum ContainerComponentKind
     Gulp,
     GitHubCli,
     AzureArtifactsCredentialProvider,
-    Timestamp,
     Claude,
+    Timestamp,
+    ClaudeAddIns,
     Epilogue,
 
 }
