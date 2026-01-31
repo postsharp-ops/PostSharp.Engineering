@@ -30,8 +30,8 @@ public class NodeJsComponent : ContainerComponent
                   Rename-Item "C:\node-v{{version}}-win-x64" "C:\nodejs"; `
                   Remove-Item node.zip
 
-              ENV NPM_CONFIG_PREFIX=C:\\npm
-              ENV PATH="C:\nodejs;C:\\npm;${PATH}"
+              ENV NPM_CONFIG_PREFIX=C:\npm
+              ENV PATH="C:\nodejs;C:\npm;${PATH}"
               """ );
     }
 }

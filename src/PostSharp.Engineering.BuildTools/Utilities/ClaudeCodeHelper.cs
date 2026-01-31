@@ -78,7 +78,6 @@ internal static class ClaudeCodeHelper
         var maskedEnvVars = MaskSecretEnvironmentVariables();
         console.WriteMessage( $"Masked {maskedEnvVars.Count( kv => kv.Value == "<redacted>" )} secret variable(s)." );
 
-
         // Build the command arguments
         // -p: Print mode - required for piped input, outputs to stdout
         // --output-format stream-json: Stream JSON events in real-time
@@ -143,7 +142,7 @@ internal static class ClaudeCodeHelper
         // Invoke claude with custom output handler
         var success = ToolInvocationHelper.InvokeTool(
             console,
-            "claude",
+            "claude.cmd",
             claudeArgs,
             workingDirectory,
             out var exitCode,
@@ -424,7 +423,7 @@ internal static class ClaudeCodeHelper
     /// </summary>
     private static HashSet<string> GetSecretEnvironmentVariableNames()
     {
-        return typeof( EnvironmentVariableNames )
+        return typeof(EnvironmentVariableNames)
             .GetFields( BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static )
             .Where( f => f.GetCustomAttribute<SecretAttribute>() != null )
             .Select( f => (string) f.GetValue( null )! )
@@ -434,80 +433,80 @@ internal static class ClaudeCodeHelper
     private static string BuildMergeConflictPrompt( string sourceBranch, string targetBranch )
     {
         return $"""
-            # Merge Conflict Resolution Task
+                # Merge Conflict Resolution Task
 
-            You are resolving merge conflicts from branch '{sourceBranch}' (upstream) into '{targetBranch}' (current).
-            This is a NON-INTERACTIVE session - you must complete the task without asking questions.
+                You are resolving merge conflicts from branch '{sourceBranch}' (upstream) into '{targetBranch}' (current).
+                This is a NON-INTERACTIVE session - you must complete the task without asking questions.
 
-            ## Your Goal
-            Resolve all merge conflicts so the merge can proceed. You do NOT need to build - the PR build will verify compilation.
+                ## Your Goal
+                Resolve all merge conflicts so the merge can proceed. You do NOT need to build - the PR build will verify compilation.
 
-            ## Generated Files (can be ignored)
-            The following files are auto-generated. If they have conflicts, you can resolve them by keeping EITHER version
-            (preferably the current/HEAD version). They will be regenerated when the PR build runs.
-            - Build.ps1
-            - DockerBuild.ps1
-            - Dockerfile
-            - Dockerfile.claude
-            - .teamcity/settings.kts
-            - .teamcity/pom.xml
-            - eng/Versions.*.g.props
-            - eng/DockerMounts.g.ps1
+                ## Generated Files (can be ignored)
+                The following files are auto-generated. If they have conflicts, you can resolve them by keeping EITHER version
+                (preferably the current/HEAD version). They will be regenerated when the PR build runs.
+                - Build.ps1
+                - DockerBuild.ps1
+                - Dockerfile
+                - Dockerfile.claude
+                - .teamcity/settings.kts
+                - .teamcity/pom.xml
+                - eng/Versions.*.g.props
+                - eng/DockerMounts.g.ps1
 
-            ## Step-by-Step Process
+                ## Step-by-Step Process
 
-            ### 1. Assess the situation
-            Run `git status` to see which files have conflicts (marked as "both modified" or "unmerged").
+                ### 1. Assess the situation
+                Run `git status` to see which files have conflicts (marked as "both modified" or "unmerged").
 
-            ### 2. For EACH conflicting file:
-            a) Read the file to see the conflict markers (<<<<<<<, =======, >>>>>>>)
-            b) Understand what each side of the conflict is trying to do:
-               - The section after <<<<<<< HEAD is the current branch ({targetBranch})
-               - The section after ======= is from the incoming branch ({sourceBranch})
-            c) Decide the correct resolution:
-               - If both changes are needed, combine them logically
-               - If one supersedes the other, keep the appropriate one
-               - Consider the semantic meaning, not just the text
-               - For generated files (see list above), just keep HEAD version
-            d) Edit the file to remove ALL conflict markers and leave only the resolved code
-            e) Run `git add <file>` to mark it as resolved
+                ### 2. For EACH conflicting file:
+                a) Read the file to see the conflict markers (<<<<<<<, =======, >>>>>>>)
+                b) Understand what each side of the conflict is trying to do:
+                   - The section after <<<<<<< HEAD is the current branch ({targetBranch})
+                   - The section after ======= is from the incoming branch ({sourceBranch})
+                c) Decide the correct resolution:
+                   - If both changes are needed, combine them logically
+                   - If one supersedes the other, keep the appropriate one
+                   - Consider the semantic meaning, not just the text
+                   - For generated files (see list above), just keep HEAD version
+                d) Edit the file to remove ALL conflict markers and leave only the resolved code
+                e) Run `git add <file>` to mark it as resolved
 
-            ### 3. Final check
-            Run `git status` to confirm all conflicts are resolved and files are staged.
+                ### 3. Final check
+                Run `git status` to confirm all conflicts are resolved and files are staged.
 
-            ## Conflict Resolution Rules
-            - **Package versions**: When there's a conflict in package/dependency versions (in Directory.Packages.props, .csproj, etc.), always choose the HIGHER version number
-            - **Code conflicts**: Analyze the intent of both changes and merge them logically
-            - **Generated files**: Keep HEAD version, they will be regenerated by the PR build
+                ## Conflict Resolution Rules
+                - **Package versions**: When there's a conflict in package/dependency versions (in Directory.Packages.props, .csproj, etc.), always choose the HIGHER version number
+                - **Code conflicts**: Analyze the intent of both changes and merge them logically
+                - **Generated files**: Keep HEAD version, they will be regenerated by the PR build
 
-            ## Important Constraints
-            - Do NOT run `git commit` - leave that to the calling process
-            - Do NOT run `git push`
-            - Do NOT build the code - the PR build will handle compilation
-            - Do NOT modify files that don't have conflicts
-            - If you encounter a conflict you cannot resolve confidently, resolve it to the best of your ability and note it in your output
+                ## Important Constraints
+                - Do NOT run `git commit` - leave that to the calling process
+                - Do NOT run `git push`
+                - Do NOT build the code - the PR build will handle compilation
+                - Do NOT modify files that don't have conflicts
+                - If you encounter a conflict you cannot resolve confidently, resolve it to the best of your ability and note it in your output
 
-            ## Success Criteria
-            - All conflict markers removed from all files
-            - All previously conflicting files staged with `git add`
-            - `git status` shows no unmerged files
+                ## Success Criteria
+                - All conflict markers removed from all files
+                - All previously conflicting files staged with `git add`
+                - `git status` shows no unmerged files
 
-            ## Output Format
-            At the very end of your work, write a conclusion block in this exact format:
+                ## Output Format
+                At the very end of your work, write a conclusion block in this exact format:
 
-            ```
-            ===CONCLUSION===
-            [One-paragraph summary of what was merged and any notable decisions made]
+                ```
+                ===CONCLUSION===
+                [One-paragraph summary of what was merged and any notable decisions made]
 
-            Files resolved:
-            - file1.cs: [brief description of resolution]
-            - file2.csproj: [brief description of resolution]
-            ===END_CONCLUSION===
-            ```
+                Files resolved:
+                - file1.cs: [brief description of resolution]
+                - file2.csproj: [brief description of resolution]
+                ===END_CONCLUSION===
+                ```
 
-            This conclusion will be extracted and placed at the TOP of the PR description.
+                This conclusion will be extracted and placed at the TOP of the PR description.
 
-            Begin now.
-            """;
+                Begin now.
+                """;
     }
 }

@@ -83,7 +83,8 @@ internal static class UpstreamMerge
 
         context.Console.WriteMessage( "Step 2 complete: No unmerged upstream commits found." );
 
-        context.Console.WriteSuccess( settings.Force ? "Pending upstream changes check completed (some issues ignored due to --force)." : "No pending upstream changes found." );
+        context.Console.WriteSuccess(
+            settings.Force ? "Pending upstream changes check completed (some issues ignored due to --force)." : "No pending upstream changes found." );
 
         return true;
     }
@@ -318,8 +319,11 @@ internal static class UpstreamMerge
         if ( upstreamBranch == currentBranch )
         {
             context.Console.WriteError( $"BUG: Upstream branch '{upstreamBranch}' is the same as current branch '{currentBranch}'!" );
-            context.Console.WriteError( $"This indicates a configuration issue. The upstream product family ({upstreamProductFamily.Version}) " +
-                                        $"returned a DependencyDefinition from family version {upstreamDependencyDefinition.ProductFamily.Version}." );
+
+            context.Console.WriteError(
+                $"This indicates a configuration issue. The upstream product family ({upstreamProductFamily.Version}) " +
+                $"returned a DependencyDefinition from family version {upstreamDependencyDefinition.ProductFamily.Version}." );
+
             context.Console.WriteError( "Check that the product is properly defined in each ProductFamily version." );
 
             return false;
@@ -333,8 +337,7 @@ internal static class UpstreamMerge
 
         if ( context.Branch != currentBranch )
         {
-            context.Console.WriteError(
-                $"Upstream merge must be executed on the downstream development branch ('{currentBranch}')." );
+            context.Console.WriteError( $"Upstream merge must be executed on the downstream development branch ('{currentBranch}')." );
             context.Console.WriteError( $"Currently on branch '{context.Branch}'." );
             context.Console.WriteError( $"Please checkout '{currentBranch}' and try again." );
 
@@ -462,8 +465,8 @@ internal static class UpstreamMerge
             // These are obsolete and should be deleted to avoid confusion
             var formerMergeBranches = references.Where( r => r.Reference != targetBranchReference )
                 .Where( r => r.Reference.StartsWith(
-                    $"refs/heads/merge/{currentProductFamily.Version}/{upstreamProductFamily.Version}-",
-                    StringComparison.OrdinalIgnoreCase ) )
+                            $"refs/heads/merge/{currentProductFamily.Version}/{upstreamProductFamily.Version}-",
+                            StringComparison.OrdinalIgnoreCase ) )
                 .ToArray();
 
             if ( formerMergeBranches.Length == 0 )
@@ -546,23 +549,11 @@ internal static class UpstreamMerge
 
             context.Console.WriteMessage( "Successfully created merge branch." );
 
-            // ==================== STEP 14: Push Merge Branch ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 14: Pushing merge branch to remote..." );
-            context.Console.WriteMessage( "This ensures the branch exists on remote before we start merging." );
-
-            if ( !GitHelper.TryPush( context ) )
-            {
-                context.Console.WriteError( "Failed to push merge branch." );
-
-                return false;
-            }
-
             context.Console.WriteMessage( "Merge branch pushed successfully." );
 
-            // ==================== STEP 15: Perform the Merge ====================
+            // ==================== STEP 14: Perform the Merge ====================
             context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 15: Performing the merge..." );
+            context.Console.WriteMessage( "Step 14: Performing the merge..." );
 
             if ( !TryMerge( context, upstreamBranch, targetBranch, currentBranch, out var areChangesPending, out var prBodyText ) )
             {
@@ -579,12 +570,11 @@ internal static class UpstreamMerge
                 return true;
             }
 
-            context.Console.WriteSuccess(
-                $"Merge completed! Changes from '{upstreamBranch}' have been merged into '{targetBranch}'." );
+            context.Console.WriteSuccess( $"Merge completed! Changes from '{upstreamBranch}' have been merged into '{targetBranch}'." );
 
-            // ==================== STEP 16: Create Pull Request ====================
+            // ==================== STEP 17: Create Pull Request ====================
             context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 16: Creating pull request..." );
+            context.Console.WriteMessage( "Step 17: Creating pull request..." );
 
             if ( !TryCreatePullRequest( context, targetBranch, currentBranch, upstreamBranch, prBodyText, out var pullRequestUrl ) )
             {
@@ -593,9 +583,9 @@ internal static class UpstreamMerge
                 return false;
             }
 
-            // ==================== STEP 17: Schedule Build ====================
+            // ==================== STEP 18: Schedule Build ====================
             context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 17: Scheduling build on merge branch..." );
+            context.Console.WriteMessage( "Step 18: Scheduling build on merge branch..." );
 
             if ( !TryScheduleBuild(
                     product.DependencyDefinition.CiConfiguration,
