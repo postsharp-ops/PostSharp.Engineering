@@ -97,15 +97,16 @@ namespace PostSharp.Engineering.BuildTools.Build
             buildContext = null;
 
             // Use the repo directory from environment variable if provided, otherwise search from current directory
-            var searchDirectory = Environment.GetEnvironmentVariable( EnvironmentVariableNames.RepoDirectory )
-                                  ?? Environment.CurrentDirectory;
+            var repoDirectory = FindRepoDirectory( Environment.GetEnvironmentVariable( EnvironmentVariableNames.RepoDirectory ) )
+                                ?? FindRepoDirectory( Environment.CurrentDirectory )
+                                ?? FindRepoDirectory( AppContext.BaseDirectory );
 
-            var repoDirectory = FindRepoDirectory( searchDirectory );
             var console = new ConsoleHelper();
 
             if ( repoDirectory == null )
             {
-                console.WriteError( "This tool must be called from a git repository." );
+                console.WriteError(
+                    "This tool must be called from a git repository, or the environment variable REPO_DIRECTORY must be set to the root directory of the repository." );
 
                 return false;
             }
@@ -128,8 +129,13 @@ namespace PostSharp.Engineering.BuildTools.Build
             return true;
         }
 
-        private static string? FindRepoDirectory( string directory )
+        private static string? FindRepoDirectory( string? directory )
         {
+            if ( string.IsNullOrEmpty( directory ) )
+            {
+                return null;
+            }
+
             if ( Directory.Exists( Path.Combine( directory, ".git" ) ) )
             {
                 var gitIgnorePath = Path.Combine( directory, ".gitignore" );
