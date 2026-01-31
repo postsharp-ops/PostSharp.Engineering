@@ -77,12 +77,10 @@
                      MinHeight="24" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Working Dir:" FontWeight="Bold" Margin="0,5" />
-            <TextBox Grid.Row="1" Grid.Column="1"
-                     Text="{Binding WorkingDirectory, Mode=OneWay}"
-                     IsReadOnly="True"
-                     FontFamily="Consolas"
-                     Background="#F5F5F5"
-                     Margin="0,5" />
+            <TextBlock Grid.Row="1" Grid.Column="1"
+                       Text="{Binding WorkingDirectory}"
+                       FontFamily="Consolas"
+                       Margin="0,5" />
 
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Git Branch:" FontWeight="Bold" Margin="0,5" />
             <TextBlock Grid.Row="2" Grid.Column="1"
