@@ -41,7 +41,7 @@ internal class PowerShellScriptBuildStep : BuildStep
         else
         {
             this.ScriptPath = "DockerBuild.ps1";
-            this.ScriptArguments = $"-Script {scriptPath} -ImageName {dockerSpec.ImageName} -Memory {dockerSpec.Memory}G -NoBuildImage {scriptArguments} {buildParameterValue}";
+            this.ScriptArguments = $"-Script {scriptPath} -ImageName {dockerSpec.ImageName} -NoBuildImage {scriptArguments} {buildParameterValue}";
         }
 
         if ( areCustomArgumentsAllowed )

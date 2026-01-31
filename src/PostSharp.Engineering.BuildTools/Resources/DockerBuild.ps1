@@ -20,7 +20,7 @@ param(
     [string]$Dockerfile, # Path to custom Dockerfile (defaults to Dockerfile or Dockerfile.claude based on -Claude).
     [switch]$NoInit, # Do not generate or call Init.g.ps1 (skips git config, safe.directory, etc).
     [string]$Isolation = 'process', # Docker isolation mode (process or hyperv).
-    [string]$Memory = '16g', # Docker memory limit.
+    [string]$Memory, # Docker memory limit. Default calculated from $DefaultMemoryGb.
     [int]$Cpus = [Environment]::ProcessorCount, # Docker CPU limit (defaults to host's CPU count).
     [string[]]$Mount, # Additional directories to mount from host (readonly by default, append :w for writable). Supports * and ** glob patterns.
     [Parameter(ValueFromRemainingArguments)]
@@ -31,7 +31,14 @@ param(
 # These settings are replaced by the generate-scripts command.
 $EngPath = '<ENG_PATH>'
 $EnvironmentVariables = '<ENVIRONMENT_VARIABLES>'
+$DefaultMemoryGb = <DEFAULT_MEMORY_GB>
 ####
+
+# Calculate default memory: add 4GB for Claude mode
+if (-not $Memory) {
+    $memoryGb = if ($Claude) { $DefaultMemoryGb + 4 } else { $DefaultMemoryGb }
+    $Memory = "${memoryGb}g"
+}
 
 $ErrorActionPreference = "Stop"
 $dockerContextDirectory = "$EngPath/docker-context"

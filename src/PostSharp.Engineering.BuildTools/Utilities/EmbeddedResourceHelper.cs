@@ -17,6 +17,7 @@ internal static class EmbeddedResourceHelper
         replacements.Add( "<ENG_PATH>", product.EngineeringDirectory );
         replacements.Add( "<ENVIRONMENT_VARIABLES>", string.Join( ",", EnvironmentVariableNames.All.OrderBy( x => x ) ) );
         replacements.Add( "<PRODUCT_NAME>", product.ProductNameWithoutDot );
+        replacements.Add( "<DEFAULT_MEMORY_GB>", (product.DockerSpec?.Memory ?? 8).ToString( System.Globalization.CultureInfo.InvariantCulture ) );
 
         ExtractResource( context, fileName, targetDirectory, replacements );
     }

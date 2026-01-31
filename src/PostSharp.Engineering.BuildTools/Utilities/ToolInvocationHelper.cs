@@ -26,7 +26,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ToolInvocationOptions? options = null )
             => InvokeTool(
                 console,
-                "powershell",
+                "pwsh",
                 $"-NonInteractive -File {fileName} {commandLine}",
                 workingDirectory,
                 options );
