@@ -59,20 +59,8 @@ internal static class UpstreamMerge
         context.Console.WriteHeading( "Checking for pending upstream changes" );
         context.Console.WriteMessage( "This check ensures all changes from upstream versions have been merged before publishing." );
 
-        // Step 1: Check for any existing merge branches that haven't been completed
-        context.Console.WriteMessage( "Step 1: Checking for incomplete merge branches..." );
-
-        if ( !TryCheckPendingMerges( context, settings ) )
-        {
-            context.Console.WriteError( "Failed: Found incomplete merge branches that need attention." );
-
-            return false;
-        }
-
-        context.Console.WriteMessage( "Step 1 complete: No blocking merge branches found." );
-
-        // Step 2: Check for unmerged commits from upstream versions
-        context.Console.WriteMessage( "Step 2: Checking for unmerged commits from upstream versions..." );
+        // Check for unmerged commits from upstream versions
+        context.Console.WriteMessage( "Checking for unmerged commits from upstream versions..." );
 
         if ( !TryCheckUnmergedCommits( context, settings ) )
         {
@@ -81,7 +69,7 @@ internal static class UpstreamMerge
             return false;
         }
 
-        context.Console.WriteMessage( "Step 2 complete: No unmerged upstream commits found." );
+        context.Console.WriteMessage( "No unmerged upstream commits found." );
 
         context.Console.WriteSuccess(
             settings.Force ? "Pending upstream changes check completed (some issues ignored due to --force)." : "No pending upstream changes found." );
