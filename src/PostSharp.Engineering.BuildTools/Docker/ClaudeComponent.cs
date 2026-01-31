@@ -45,20 +45,27 @@ public class ClaudeComponent : ContainerComponent
 
             """ );
 
-        // Build a single multi-line RUN command for all operations
         writer.WriteLine(
-                """
-                RUN irm https://claude.ai/install.ps1 | iex; `
-                    $claudeJsonPath = 'C:\Users\ContainerAdministrator\.claude.json'; `
-                    if (Test-Path $claudeJsonPath) { `
-                        $claudeConfig = Get-Content $claudeJsonPath -Raw | ConvertFrom-Json; `
-                        $claudeConfig | Add-Member -NotePropertyName 'hasCompletedOnboarding' -NotePropertyValue $true -Force; `
-                        $claudeConfig | ConvertTo-Json -Depth 10 | Set-Content $claudeJsonPath; `
-                    } else { `
-                        '{"hasCompletedOnboarding": true}' | Set-Content $claudeJsonPath; `
-                    }; `
-                """ );
-        // Add marketplaces if any are specified
+            """
+            RUN $ErrorActionPreference = 'Stop'; `
+                $version = '2.1.27'; `
+                $url = \"https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/2.1.27/win32-x64/claude.exe\"; `
+                New-Item -ItemType Directory -Path \"$env:USERPROFILE\.local\bin\" -Force | Out-Null; `
+                echo \"Downloading Claude CLI from $url...\"; `
+                Invoke-WebRequest -Uri $url -OutFile \"$env:USERPROFILE\.local\bin\claude.exe\"; `
+                echo 'Claude CLI $version installed.'; `
+                echo \"Configuring Claude CLI...\"; `
+                if (Test-Path $claudeJsonPath) { `
+                    $claudeConfig = Get-Content $claudeJsonPath -Raw | ConvertFrom-Json; `
+                    $claudeConfig | Add-Member -NotePropertyName 'hasCompletedOnboarding' -NotePropertyValue $true -Force; `
+                    $claudeConfig | ConvertTo-Json -Depth 10 | Set-Content $claudeJsonPath; `
+                } else { `
+                    '{"hasCompletedOnboarding": true}' | Set-Content $claudeJsonPath; `
+                }; `
+                echo 'Configuring Claude CLI plugins.';`
+            
+            """ );
+
         foreach ( var marketplace in this.Marketplaces )
         {
             writer.WriteLine( $"    claude plugin marketplace add {marketplace}; `" );
@@ -70,7 +77,7 @@ public class ClaudeComponent : ContainerComponent
             writer.WriteLine( $"    claude plugin install {plugin}; `" );
         }
 
-        writer.WriteLine("  echo 'Claude CLI installation completed.'");
+        writer.WriteLine( $"    echo \"Claude $version installed\"" );
         writer.WriteLine();
     }
 
@@ -82,12 +89,6 @@ public class ClaudeComponent : ContainerComponent
         if ( !components.OfType<GitHubCliComponent>().Any() )
         {
             add( new GitHubCliComponent() );
-        }
-
-        // Auto-add TimestampComponent for cache invalidation
-        if ( !components.OfType<TimestampComponent>().Any() )
-        {
-            add( new TimestampComponent() );
         }
     }
 }

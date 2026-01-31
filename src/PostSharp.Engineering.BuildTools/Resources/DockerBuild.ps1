@@ -13,7 +13,7 @@ param(
     [switch]$NoMcp, # Do not start the MCP approval server (for -Claude mode).
     [switch]$Update, # Update timestamp to invalidate Docker cache and force Claude/plugin updates (Claude mode only).
     # Timestamp value for Docker cache invalidation. Increase this to force updates of unpinned components like Claude CLI.
-    # If not specified, defaults to the first day of the current week (so cache auto-invalidates weekly).
+    # If not specified, defaults to the first day of the current month (so cache auto-invalidates monthly).
     [string]$Timestamp,
     [string]$ImageName, # Image name (defaults to a name based on the directory).
     [string]$BuildAgentPath, # Path to build agent directory (defaults based on platform).
@@ -334,12 +334,10 @@ function New-TeamCityTimestampFile
 
     if ([string]::IsNullOrEmpty($TimestampValue))
     {
-        # Default to first day of current week (Monday) for weekly cache invalidation
+        # Default to first day of current month for monthly cache invalidation
         $today = [DateTime]::UtcNow.Date
-        $daysFromMonday = [int]$today.DayOfWeek - 1
-        if ($daysFromMonday -lt 0) { $daysFromMonday = 6 }  # Sunday = 6 days from Monday
-        $firstDayOfWeek = $today.AddDays(-$daysFromMonday)
-        $TimestampValue = $firstDayOfWeek.ToString("yyyy-MM-dd")
+        $firstDayOfMonth = [DateTime]::new($today.Year, $today.Month, 1)
+        $TimestampValue = $firstDayOfMonth.ToString("yyyy-MM-dd")
     }
 
     $gDirectory = Join-Path $DockerContextDir ".g"
