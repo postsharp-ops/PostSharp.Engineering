@@ -223,8 +223,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DockerSpec? DockerSpec
             => this.ResolvedBuildAgentRequirements is ContainerHostRequirements containerHostRequirements
                 ? new DockerSpec(
-                    $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant(),
-                    containerHostRequirements.Memory )
+                    $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() )
                 : null;
 
         public bool IsPublishingNonReleaseBranchesAllowed { get; init; }

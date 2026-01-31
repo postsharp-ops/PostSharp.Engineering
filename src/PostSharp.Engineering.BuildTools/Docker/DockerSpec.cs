@@ -2,4 +2,4 @@
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
-public record DockerSpec( string ImageName, int Memory = 8 );
+public record DockerSpec( string ImageName, int? Memory = null );

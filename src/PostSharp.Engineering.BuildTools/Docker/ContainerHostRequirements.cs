@@ -13,11 +13,6 @@ public record ContainerHostRequirements : BuildAgentRequirements
 {
     public ContainerHostKind HostKind { get; }
 
-    /// <summary>
-    /// Gets or sets the memory limit in GB for Docker containers. Default is 8 GB.
-    /// </summary>
-    public int Memory { get; init; } = 8;
-
     public ContainerHostRequirements( ContainerHostKind hostKind ) : base(
         new BuildAgentRequirement( "env.BuildAgentType", ContainerHelper.GetBuildAgentType( hostKind ) ) )
     {
