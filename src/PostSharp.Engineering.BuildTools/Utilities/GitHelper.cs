@@ -502,6 +502,21 @@ public static class GitHelper
         return true;
     }
 
+    public static bool TryDeleteLocalBranch( BuildContext context, string branchName )
+    {
+        // Delete the local branch using git branch -D (force delete)
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"branch -D {branchName}",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     public static bool TryGetStatus( BuildContext context, string repoDirectory, [NotNullWhen( true )] out string[]? status )
     {
         if ( !ToolInvocationHelper.InvokeTool(

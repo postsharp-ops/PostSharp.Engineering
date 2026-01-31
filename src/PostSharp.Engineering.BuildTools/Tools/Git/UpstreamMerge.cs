@@ -491,61 +491,60 @@ internal static class UpstreamMerge
                 }
             }
 
-            // ==================== STEP 13: Create or Checkout Merge Branch ====================
+            // ==================== STEP 13: Create Merge Branch (delete if exists) ====================
             context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 13: Creating or checking out merge branch..." );
+            context.Console.WriteMessage( "Step 13: Creating merge branch..." );
 
-            bool targetBranchExists;
-
+            // If the target branch exists (remotely or locally), delete it first.
+            // This ensures we always start fresh from the current downstream branch,
+            // avoiding stale state where the merge branch conflicts with an updated target.
             if ( targetBranchExistsRemotely )
             {
-                targetBranchExists = true;
-                context.Console.WriteMessage( "Branch exists on remote." );
+                context.Console.WriteImportantMessage( $"Merge branch '{targetBranch}' exists on remote. Deleting to start fresh..." );
+
+                if ( !GitHelper.TryDeleteRemoteBranch( context, targetBranch ) )
+                {
+                    context.Console.WriteWarning( $"Failed to delete remote branch '{targetBranch}'. Continuing anyway..." );
+                }
+                else
+                {
+                    context.Console.WriteMessage( "Remote branch deleted." );
+                }
             }
-            else
+
+            // Check if it exists locally and delete
+            if ( !GitHelper.TryGetCurrentCommitHash( context, targetBranch, out var targetBranchCurrentCommitHash ) )
             {
-                // Check if it exists locally
-                if ( !GitHelper.TryGetCurrentCommitHash( context, targetBranch, out var targetBranchCurrentCommitHash ) )
-                {
-                    context.Console.WriteError( "Failed to check if branch exists locally." );
+                context.Console.WriteError( "Failed to check if branch exists locally." );
 
-                    return false;
-                }
-
-                targetBranchExists = targetBranchCurrentCommitHash != null;
-
-                if ( targetBranchExists )
-                {
-                    context.Console.WriteMessage( "Branch exists locally." );
-                }
+                return false;
             }
 
-            if ( targetBranchExists )
+            if ( targetBranchCurrentCommitHash != null )
             {
-                context.Console.WriteImportantMessage( $"Merge branch '{targetBranch}' already exists. Checking out and pulling latest..." );
+                context.Console.WriteMessage( $"Merge branch '{targetBranch}' exists locally. Deleting..." );
 
-                if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+                if ( !GitHelper.TryDeleteLocalBranch( context, targetBranch ) )
                 {
-                    context.Console.WriteError( "Failed to checkout and pull merge branch." );
-
-                    return false;
+                    context.Console.WriteWarning( $"Failed to delete local branch '{targetBranch}'. Continuing anyway..." );
                 }
-
-                context.Console.WriteMessage( "Successfully checked out merge branch." );
+                else
+                {
+                    context.Console.WriteMessage( "Local branch deleted." );
+                }
             }
-            else
+
+            // Create fresh merge branch from current HEAD (the downstream branch)
+            context.Console.WriteImportantMessage( $"Creating new merge branch: {targetBranch}" );
+
+            if ( !GitHelper.TryCreateBranch( context, targetBranch ) )
             {
-                context.Console.WriteImportantMessage( $"Creating new merge branch: {targetBranch}" );
+                context.Console.WriteError( "Failed to create merge branch." );
 
-                if ( !GitHelper.TryCreateBranch( context, targetBranch ) )
-                {
-                    context.Console.WriteError( "Failed to create merge branch." );
-
-                    return false;
-                }
-
-                context.Console.WriteMessage( "Successfully created merge branch." );
+                return false;
             }
+
+            context.Console.WriteMessage( "Successfully created merge branch." );
 
             // ==================== STEP 14: Push Merge Branch ====================
             context.Console.WriteMessage( "" );
@@ -763,12 +762,6 @@ internal static class UpstreamMerge
 
                     context.Console.WriteMessage( "" );
                     context.Console.WriteMessage( "Invoking Claude Code to resolve conflicts..." );
-                    context.Console.WriteMessage( "Claude will:" );
-                    context.Console.WriteMessage( "  1. Read each conflicting file" );
-                    context.Console.WriteMessage( "  2. Understand both sides of the conflict" );
-                    context.Console.WriteMessage( "  3. Resolve the conflict intelligently" );
-                    context.Console.WriteMessage( "  4. Run ./build.sh build to verify the resolution" );
-                    context.Console.WriteMessage( "" );
 
                     if ( ClaudeCodeHelper.TryResolveMergeConflicts(
                             context.Console,
