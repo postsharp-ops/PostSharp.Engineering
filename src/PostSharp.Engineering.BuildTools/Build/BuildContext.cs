@@ -96,10 +96,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         {
             buildContext = null;
 
-            // Use the repo directory from environment variable if provided, otherwise search from current directory
-            var repoDirectory = FindRepoDirectory( Environment.GetEnvironmentVariable( EnvironmentVariableNames.RepoDirectory ) )
-                                ?? FindRepoDirectory( Environment.CurrentDirectory )
-                                ?? FindRepoDirectory( AppContext.BaseDirectory );
+            // Use the repo directory from an environment variable if provided, otherwise search from the current directory.
+            var repoDirectory =
+                FindRepoDirectory( Environment.GetEnvironmentVariable( EnvironmentVariableNames.RepoDirectory ) ) ??
+                FindRepoDirectory( AppContext.BaseDirectory );
 
             var console = new ConsoleHelper();
 
@@ -147,7 +147,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
                 // Resolve links and junctions.
                 var realPath = FileSystemHelper.GetFinalPath( gitIgnorePath );
-
+                
                 return Path.GetDirectoryName( realPath );
             }
             else
