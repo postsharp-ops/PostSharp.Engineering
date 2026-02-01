@@ -7,7 +7,8 @@ using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Docker;
 
-const string sdkVersion = "9.0.305";
+const string sdkVersion = PreferredVersions.DotNetSdk.V_9_0;
+
 var product = new Product( DevelopmentDependencies.PostSharpEngineering )
 {
     GenerateNuGetConfig = true,
