@@ -33,7 +33,7 @@ public sealed class GuiApprovalPrompter : IApprovalPrompter
         CancellationToken cancellationToken = default )
     {
         // Auto-approve LOW risk commands when combined assessment recommends approval
-        if ( combinedAssessment.Level == RiskLevel.Low && combinedAssessment.Recommendation == Recommendation.Approve )
+        if ( combinedAssessment is { Level: RiskLevel.Low, Recommendation: Recommendation.Approve } )
         {
             // Notify tray icon that we're processing (briefly show blue icon)
             this._trayIconService.NotifyProcessingStarted();

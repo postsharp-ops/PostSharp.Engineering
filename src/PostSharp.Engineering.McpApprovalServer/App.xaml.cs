@@ -7,7 +7,6 @@ using PostSharp.Engineering.McpApprovalServer.Services;
 using PostSharp.Engineering.McpApprovalServer.ViewModels;
 using PostSharp.Engineering.McpApprovalServer.Views;
 using System;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace PostSharp.Engineering.McpApprovalServer;
@@ -26,7 +25,7 @@ public partial class App : Application
 
         // Build and configure the host
         this._host = Host.CreateDefaultBuilder()
-            .ConfigureServices( ( context, services ) =>
+            .ConfigureServices( ( _, services ) =>
             {
                 // Register services
                 services.AddSingleton<ApprovalRequestQueue>();

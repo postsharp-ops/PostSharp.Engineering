@@ -45,7 +45,7 @@ public sealed class ApprovalRequestQueue
     /// <summary>
     /// Enqueues a new approval request and returns a task that completes when the user responds.
     /// </summary>
-    public Task<bool> EnqueueAsync(
+    public async Task<bool> EnqueueAsync(
         string command,
         string claimedPurpose,
         string workingDirectory,
@@ -60,7 +60,7 @@ public sealed class ApprovalRequestQueue
             Command = command,
             ClaimedPurpose = claimedPurpose,
             WorkingDirectory = workingDirectory,
-            GitBranch = GitHelper.GetBranch( workingDirectory ),
+            GitBranch = await GitHelper.GetBranchAsync( workingDirectory, cancellationToken ),
             CombinedAssessment = combinedAssessment,
             AiAssessment = aiAssessment,
             RegexAssessment = regexAssessment,
@@ -70,8 +70,8 @@ public sealed class ApprovalRequestQueue
         this._pendingRequests.TryAdd( request.Id, request );
         this._requestOrder.Enqueue( request.Id );
 
-        System.Diagnostics.Debug.WriteLine( $"[ApprovalRequestQueue] EnqueueAsync: Added request {request.Id}, Command: {request.Command}" );
-        System.Diagnostics.Debug.WriteLine( $"[ApprovalRequestQueue] EnqueueAsync: Queue now has {this._pendingRequests.Count} pending requests" );
+        TraceLogger.Logger.Trace( "ApprovalRequestQueue", $"EnqueueAsync: Added request {request.Id}, Command: {request.Command}" );
+        TraceLogger.Logger.Trace( "ApprovalRequestQueue", $"EnqueueAsync: Queue now has {this._pendingRequests.Count} pending requests" );
 
         // Handle cancellation
         cancellationToken.Register( () =>
@@ -83,12 +83,13 @@ public sealed class ApprovalRequestQueue
             }
         } );
 
-        System.Diagnostics.Debug.WriteLine( "[ApprovalRequestQueue] EnqueueAsync: Firing RequestAdded event" );
-        this.RequestAdded?.Invoke( this, request );
-        System.Diagnostics.Debug.WriteLine( "[ApprovalRequestQueue] EnqueueAsync: Firing QueueChanged event" );
-        this.QueueChanged?.Invoke( this, EventArgs.Empty );
+        // Fire events asynchronously to avoid blocking the HTTP thread
+        TraceLogger.Logger.Trace( "ApprovalRequestQueue", "EnqueueAsync: Firing RequestAdded event (async)" );
+        await Task.Run( () => this.RequestAdded?.Invoke( this, request ), cancellationToken );
+        TraceLogger.Logger.Trace( "ApprovalRequestQueue", "EnqueueAsync: Firing QueueChanged event (async)" );
+        await Task.Run( () => this.QueueChanged?.Invoke( this, EventArgs.Empty ), cancellationToken );
 
-        return request.CompletionSource.Task;
+        return await request.CompletionSource.Task;
     }
 
     /// <summary>
@@ -133,9 +134,12 @@ public sealed class ApprovalRequestQueue
     {
         if ( this._pendingRequests.TryRemove( requestId, out var request ) )
         {
+            // Set the result first - this unblocks the waiting HTTP thread
             request.CompletionSource.TrySetResult( approved );
-            this.RequestCompleted?.Invoke( this, requestId );
-            this.QueueChanged?.Invoke( this, EventArgs.Empty );
+
+            // Fire events asynchronously to avoid blocking the UI thread
+            Task.Run( () => this.RequestCompleted?.Invoke( this, requestId ) );
+            Task.Run( () => this.QueueChanged?.Invoke( this, EventArgs.Empty ) );
         }
     }
 }

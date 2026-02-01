@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using static PostSharp.Engineering.McpApprovalServer.Services.TraceLogger;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -171,13 +172,46 @@ public sealed class RiskAnalyzer
     {
         var prompt = await BuildAnalysisPromptAsync( command, claimedPurpose, workingDirectory, history, cancellationToken );
 
+        // First try with Haiku (fast and cheap)
+        Logger.Trace( "RiskAnalyzer", "Starting risk analysis with Haiku..." );
+        var assessment = await InvokeClaudeAsync( prompt, "haiku", cancellationToken );
+
+        // If Haiku is uncertain, escalate to Opus
+        if ( assessment.Level == RiskLevel.Uncertain )
+        {
+            Logger.Trace( "RiskAnalyzer", "Haiku returned UNCERTAIN, escalating to Opus..." );
+            assessment = await InvokeClaudeAsync( prompt, "opus", cancellationToken );
+
+            // If Opus is still uncertain, treat as medium risk requiring human review
+            if ( assessment.Level == RiskLevel.Uncertain )
+            {
+                Logger.Trace( "RiskAnalyzer", "Opus also returned UNCERTAIN, defaulting to medium risk" );
+
+                return new RiskAssessment
+                {
+                    Level = RiskLevel.Medium,
+                    Recommendation = Recommendation.Approve,
+                    Reason = assessment.Reason + " (escalated analysis was also uncertain)",
+                    Description = assessment.Description
+                };
+            }
+        }
+
+        return assessment;
+    }
+
+    private static async Task<RiskAssessment> InvokeClaudeAsync(
+        string prompt,
+        string model,
+        CancellationToken cancellationToken )
+    {
         try
         {
             using var timeoutCts = new CancellationTokenSource( TimeSpan.FromSeconds( 120 ) );
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource( cancellationToken, timeoutCts.Token );
 
-            Debug.WriteLine( "Starting Claude CLI for risk analysis..." );
-            Debug.WriteLine( $"Prompt length: {prompt.Length} chars" );
+            Logger.Trace( "RiskAnalyzer", $"Starting Claude CLI with model {model}..." );
+            Logger.Trace( "RiskAnalyzer", $"Prompt length: {prompt.Length} chars" );
 
             // On Windows, npm installs create .cmd wrapper scripts, not .exe files.
             // Process.Start with UseShellExecute=false doesn't resolve .cmd files via PATH.
@@ -186,7 +220,7 @@ public sealed class RiskAnalyzer
             var startInfo = new ProcessStartInfo
             {
                 FileName = "cmd",
-                Arguments = "/c claude",
+                Arguments = $"/c claude --model {model}",
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -198,12 +232,12 @@ public sealed class RiskAnalyzer
 
             if ( process == null )
             {
-                Debug.WriteLine( "Failed to start Claude CLI process" );
+                Logger.Trace( "RiskAnalyzer", "Failed to start Claude CLI process" );
 
                 return RiskAssessment.Default( "Failed to start Claude CLI for analysis" );
             }
 
-            Debug.WriteLine( $"Claude CLI started (PID: {process.Id})" );
+            Logger.Trace( "RiskAnalyzer", $"Claude CLI started (PID: {process.Id}, model: {model})" );
 
             // Write the prompt to stdin and close the stream
             await process.StandardInput.WriteAsync( prompt.AsMemory(), linkedCts.Token );
@@ -213,21 +247,21 @@ public sealed class RiskAnalyzer
             var stderr = await process.StandardError.ReadToEndAsync( linkedCts.Token );
             await process.WaitForExitAsync( linkedCts.Token );
 
-            Debug.WriteLine( $"Claude CLI exited with code: {process.ExitCode}" );
+            Logger.Trace( "RiskAnalyzer", $"Claude CLI exited with code: {process.ExitCode} (model: {model})" );
 
             if ( !string.IsNullOrWhiteSpace( stderr ) )
             {
-                Debug.WriteLine( $"Claude CLI stderr: {stderr}" );
+                Logger.Trace( "RiskAnalyzer", $"Claude CLI stderr: {stderr}" );
             }
 
             if ( !string.IsNullOrWhiteSpace( output ) )
             {
-                Debug.WriteLine( $"Claude CLI output: {( output.Length > 500 ? output[..500] + "..." : output )}" );
+                Logger.Trace( "RiskAnalyzer", $"Claude CLI output: {(output.Length > 500 ? output[..500] + "..." : output)}" );
             }
 
             if ( process.ExitCode != 0 )
             {
-                Debug.WriteLine( $"Claude CLI failed with exit code {process.ExitCode}" );
+                Logger.Trace( "RiskAnalyzer", $"Claude CLI failed with exit code {process.ExitCode}" );
 
                 return RiskAssessment.Default( "Claude CLI analysis failed" );
             }
@@ -236,13 +270,13 @@ public sealed class RiskAnalyzer
         }
         catch ( OperationCanceledException )
         {
-            Debug.WriteLine( "Claude CLI analysis timed out" );
+            Logger.Trace( "RiskAnalyzer", $"Claude CLI analysis timed out (model: {model})" );
 
             return RiskAssessment.Default( "Analysis timed out - human review required" );
         }
         catch ( Exception ex )
         {
-            Debug.WriteLine( $"Claude CLI error: {ex.Message}" );
+            Logger.Error( $"Claude CLI error (model: {model}): {ex.Message}" );
 
             return RiskAssessment.Default( $"Analysis error: {ex.Message}" );
         }
@@ -339,10 +373,16 @@ public sealed class RiskAnalyzer
         sb.AppendLine( "Respond with EXACTLY these four lines (no additional text):" );
         sb.AppendLine( "```" );
         sb.AppendLine( "DESCRIPTION: <one concise sentence describing what the command does>" );
-        sb.AppendLine( "RISK: LOW|MEDIUM|HIGH|CRITICAL" );
+        sb.AppendLine( "RISK: LOW|MEDIUM|HIGH|CRITICAL|UNCERTAIN" );
         sb.AppendLine( "RECOMMEND: APPROVE|REJECT" );
         sb.AppendLine( "REASON: <one concise sentence explaining your risk assessment>" );
         sb.AppendLine( "```" );
+        sb.AppendLine();
+        sb.AppendLine( "Use RISK: UNCERTAIN only if you genuinely cannot determine the risk level due to:" );
+        sb.AppendLine( "- Complex multi-step attack patterns you're unsure about" );
+        sb.AppendLine( "- Obfuscated or encoded content you cannot fully analyze" );
+        sb.AppendLine( "- Unusual commands outside your training knowledge" );
+        sb.AppendLine( "Do NOT use UNCERTAIN for normal ambiguous cases - make your best judgment." );
 
         return sb.ToString();
     }
@@ -398,10 +438,11 @@ public sealed class RiskAnalyzer
 
             return sb.ToString();
         }
-        catch
+        catch ( Exception ex )
         {
+            Logger.Error( $"Failed to get commit diff: {ex.Message}" );
+
             return null; // If we can't get diff, proceed without it
         }
     }
-
 }

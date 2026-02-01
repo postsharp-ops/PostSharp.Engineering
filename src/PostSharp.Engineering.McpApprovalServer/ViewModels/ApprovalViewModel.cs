@@ -35,7 +35,7 @@ public partial class ApprovalViewModel : ObservableObject
 
     public string WorkingDirectory => this._request.WorkingDirectory;
 
-    public string GitBranch => this._request.GitBranch;
+    public string? GitBranch => this._request.GitBranch;
 
     public string ReceivedAt => this._request.ReceivedAt.ToString( "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture );
 

@@ -1,16 +1,21 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using Hardcodet.Wpf.TaskbarNotification;
+using PostSharp.Engineering.McpApprovalServer.Mcp.Services;
 using PostSharp.Engineering.McpApprovalServer.ViewModels;
 using PostSharp.Engineering.McpApprovalServer.Views;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Color = System.Drawing.Color;
+using Pen = System.Drawing.Pen;
 
 namespace PostSharp.Engineering.McpApprovalServer.Services;
 
@@ -21,7 +26,7 @@ public sealed class TrayIconService : IDisposable
 {
     private readonly ApprovalRequestQueue _queue;
     private readonly IServiceProvider _serviceProvider;
-    private readonly Mcp.Services.CommandHistoryService _historyService;
+    private readonly CommandHistoryService _historyService;
     private TaskbarIcon? _taskbarIcon;
     private ImageSource? _normalIcon;
     private ImageSource? _pendingIcon;
@@ -31,7 +36,7 @@ public sealed class TrayIconService : IDisposable
     private bool _disposed;
     private int _processingCount;
 
-    public TrayIconService( ApprovalRequestQueue queue, IServiceProvider serviceProvider, Mcp.Services.CommandHistoryService historyService )
+    public TrayIconService( ApprovalRequestQueue queue, IServiceProvider serviceProvider, CommandHistoryService historyService )
     {
         this._queue = queue;
         this._serviceProvider = serviceProvider;
@@ -43,12 +48,12 @@ public sealed class TrayIconService : IDisposable
     /// </summary>
     public void NotifyProcessingStarted()
     {
-        System.Diagnostics.Debug.WriteLine( "[TrayIcon] NotifyProcessingStarted called" );
+        TraceLogger.Logger.Trace( "TrayIcon", "NotifyProcessingStarted called" );
 
         Application.Current.Dispatcher.Invoke( () =>
         {
             this._processingCount++;
-            System.Diagnostics.Debug.WriteLine( $"[TrayIcon] ProcessingCount is now {this._processingCount}" );
+            TraceLogger.Logger.Trace( "TrayIcon", $"ProcessingCount is now {this._processingCount}" );
             this.UpdateIcon();
         } );
     }
@@ -58,12 +63,12 @@ public sealed class TrayIconService : IDisposable
     /// </summary>
     public void NotifyProcessingCompleted()
     {
-        System.Diagnostics.Debug.WriteLine( "[TrayIcon] NotifyProcessingCompleted called" );
+        TraceLogger.Logger.Trace( "TrayIcon", "NotifyProcessingCompleted called" );
 
         Application.Current.Dispatcher.Invoke( () =>
         {
             this._processingCount = Math.Max( 0, this._processingCount - 1 );
-            System.Diagnostics.Debug.WriteLine( $"[TrayIcon] ProcessingCount is now {this._processingCount}" );
+            TraceLogger.Logger.Trace( "TrayIcon", $"ProcessingCount is now {this._processingCount}" );
             this.UpdateIcon();
         } );
     }
@@ -75,13 +80,13 @@ public sealed class TrayIconService : IDisposable
     {
         // Load icons (or create default ones)
         this._normalIcon = LoadIcon( "pack://application:,,,/Resources/Icons/tray-normal.ico" )
-                           ?? CreateDefaultIcon( System.Drawing.Color.Green );
+                           ?? CreateDefaultIcon( Color.Green );
 
         this._pendingIcon = LoadIcon( "pack://application:,,,/Resources/Icons/tray-pending.ico" )
-                            ?? CreateDefaultIcon( System.Drawing.Color.Orange );
+                            ?? CreateDefaultIcon( Color.Orange );
 
         this._processingIcon = LoadIcon( "pack://application:,,,/Resources/Icons/tray-processing.ico" )
-                               ?? CreateDefaultIcon( System.Drawing.Color.DodgerBlue );
+                               ?? CreateDefaultIcon( Color.DodgerBlue );
 
         // Create context menu
         var contextMenu = new ContextMenu();
@@ -97,12 +102,7 @@ public sealed class TrayIconService : IDisposable
         contextMenu.Items.Add( exitMenuItem );
 
         // Create taskbar icon
-        this._taskbarIcon = new TaskbarIcon
-        {
-            IconSource = this._normalIcon,
-            ToolTipText = "MCP Approval Server - Ready",
-            ContextMenu = contextMenu
-        };
+        this._taskbarIcon = new TaskbarIcon { IconSource = this._normalIcon, ToolTipText = "MCP Approval Server - Ready", ContextMenu = contextMenu };
 
         // Handle left-click to show oldest request
         this._taskbarIcon.TrayLeftMouseDown += this.OnTrayLeftClick;
@@ -125,29 +125,30 @@ public sealed class TrayIconService : IDisposable
 
             return bitmap;
         }
-        catch
+        catch ( Exception ex )
         {
-            // Icon not found - return null so fallback is used
+            TraceLogger.Logger.Error( $"Failed to load icon from {uri}: {ex.Message}" );
+
             return null;
         }
     }
 
-    private static ImageSource CreateDefaultIcon( System.Drawing.Color color )
+    private static ImageSource CreateDefaultIcon( Color color )
     {
         // Create a colored filled square icon (32x32 for better visibility)
         const int size = 32;
         using var bitmap = new Bitmap( size, size );
         using var graphics = Graphics.FromImage( bitmap );
 
-        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        graphics.Clear( System.Drawing.Color.Transparent );
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        graphics.Clear( Color.Transparent );
 
         // Fill the entire icon with the color (more visible than a small circle)
         using var brush = new SolidBrush( color );
         graphics.FillRectangle( brush, 2, 2, size - 4, size - 4 );
 
         // Add a white border for contrast
-        using var pen = new System.Drawing.Pen( System.Drawing.Color.White, 2 );
+        using var pen = new Pen( Color.White, 2 );
         graphics.DrawRectangle( pen, 2, 2, size - 5, size - 5 );
 
         // Convert to WPF ImageSource
@@ -171,7 +172,7 @@ public sealed class TrayIconService : IDisposable
         }
     }
 
-    [System.Runtime.InteropServices.DllImport( "gdi32.dll" )]
+    [DllImport( "gdi32.dll" )]
     private static extern bool DeleteObject( IntPtr hObject );
 
     private void OnRequestAdded( object? sender, ApprovalRequest request )
@@ -225,10 +226,10 @@ public sealed class TrayIconService : IDisposable
 
         // Force refresh by setting to null first (Hardcodet library quirk)
         var iconName = newIcon == this._normalIcon ? "Normal (Green)" :
-                       newIcon == this._pendingIcon ? "Pending (Orange)" :
-                       newIcon == this._processingIcon ? "Processing (Blue)" : "Unknown";
+            newIcon == this._pendingIcon ? "Pending (Orange)" :
+            newIcon == this._processingIcon ? "Processing (Blue)" : "Unknown";
 
-        System.Diagnostics.Debug.WriteLine( $"[TrayIcon] UpdateIcon: {iconName}, HasPending={hasPending}, IsProcessing={isProcessing}" );
+        TraceLogger.Logger.Trace( "TrayIcon", $"UpdateIcon: {iconName}, HasPending={hasPending}, IsProcessing={isProcessing}" );
 
         this._taskbarIcon.IconSource = null;
         this._taskbarIcon.IconSource = newIcon;
@@ -281,22 +282,93 @@ public sealed class TrayIconService : IDisposable
     private void ShowHistoryWindow()
     {
         // If history window is already open, just activate it
-        if ( this._historyWindow != null && this._historyWindow.IsLoaded )
+        if ( this._historyWindow is { IsLoaded: true } )
         {
-            this._historyWindow.Activate();
-            this._historyWindow.Focus();
+            BringWindowToFront( this._historyWindow );
 
             return;
         }
 
         // Create and show new history window
-        var viewModel = new ViewModels.HistoryViewModel( this._historyService, this._queue );
+        var viewModel = new HistoryViewModel( this._historyService, this._queue );
         this._historyWindow = new HistoryWindow { DataContext = viewModel };
 
-        this._historyWindow.Closed += ( s, e ) => this._historyWindow = null;
+        this._historyWindow.Closed += ( _, _ ) => this._historyWindow = null;
 
         this._historyWindow.Show();
-        this._historyWindow.Activate();
+        BringWindowToFront( this._historyWindow );
+    }
+
+    private static void BringWindowToFront( Window window )
+    {
+        // Ensure the window is not minimized
+        if ( window.WindowState == WindowState.Minimized )
+        {
+            window.WindowState = WindowState.Normal;
+        }
+
+        // Make sure it's visible
+        window.Visibility = Visibility.Visible;
+
+        // Move window to current virtual desktop (Windows 10/11)
+        MoveToCurrentVirtualDesktop( window );
+
+        // Use multiple techniques to bring to front (Windows can be stubborn)
+        window.Topmost = true;
+        window.Activate();
+        window.Focus();
+        window.Topmost = false;
+    }
+
+    [ComImport]
+    [InterfaceType( ComInterfaceType.InterfaceIsIUnknown )]
+    [Guid( "a5cd92ff-29be-454c-8d04-d82879fb3f1b" )]
+    private interface IVirtualDesktopManager
+    {
+        [PreserveSig]
+        int IsWindowOnCurrentVirtualDesktop( IntPtr topLevelWindow, out bool onCurrentDesktop );
+
+        [PreserveSig]
+        int GetWindowDesktopId( IntPtr topLevelWindow, out Guid desktopId );
+
+        [PreserveSig]
+        int MoveWindowToDesktop( IntPtr topLevelWindow, ref Guid desktopId );
+    }
+
+    [ComImport]
+    [Guid( "aa509086-5ca9-4c25-8f95-589d3c07b48a" )]
+    private class VirtualDesktopManager { }
+
+    private static void MoveToCurrentVirtualDesktop( Window window )
+    {
+        try
+        {
+            var hwnd = new WindowInteropHelper( window ).Handle;
+
+            if ( hwnd == IntPtr.Zero )
+            {
+                return;
+            }
+
+            var manager = (IVirtualDesktopManager) new VirtualDesktopManager();
+            var hr = manager.IsWindowOnCurrentVirtualDesktop( hwnd, out var isOnCurrentDesktop );
+
+            if ( hr != 0 || isOnCurrentDesktop )
+            {
+                return;
+            }
+
+            // Window is on a different desktop - we need to move it
+            // The simplest approach is to recreate/show it which puts it on the current desktop
+            // Unfortunately MoveWindowToDesktop requires the current desktop's GUID which is complex to obtain
+            // So we use a workaround: hide and show the window
+            window.Hide();
+            window.Show();
+        }
+        catch ( Exception ex )
+        {
+            TraceLogger.Logger.Error( $"Virtual desktop API error (older Windows?): {ex.Message}" );
+        }
     }
 
     private void OpenApprovalWindow( ApprovalRequest request )
@@ -304,7 +376,7 @@ public sealed class TrayIconService : IDisposable
         // Check if window is already open for this request
         if ( this._openWindows.ContainsKey( request.Id ) )
         {
-            this._openWindows[request.Id].Activate();
+            BringWindowToFront( this._openWindows[request.Id] );
 
             return;
         }
@@ -316,14 +388,14 @@ public sealed class TrayIconService : IDisposable
         // Track the window
         this._openWindows[request.Id] = window;
 
-        window.Closed += ( s, e ) =>
+        window.Closed += ( _, _ ) =>
         {
             this._openWindows.Remove( request.Id );
         };
 
         // Show the window
         window.Show();
-        window.Activate();
+        BringWindowToFront( window );
     }
 
     private void OnExit( object sender, RoutedEventArgs e )

@@ -71,6 +71,7 @@ public sealed class CommandHistoryService
         string sessionId,
         string command,
         string workingDirectory,
+        string? branch,
         string claimedPurpose,
         bool approved,
         CommandResult result )
@@ -83,6 +84,7 @@ public sealed class CommandHistoryService
             ClaimedPurpose = claimedPurpose,
             Approved = approved,
             ExitCode = result.ExitCode,
+            GitBranch = branch,
             Output = TruncateOutput( result.Output )
         };
 
@@ -114,9 +116,9 @@ public sealed class CommandHistoryService
         lock ( this._lock )
         {
             return this._history.Any( r =>
-                r.Approved &&
-                r.Command.Equals( command, StringComparison.Ordinal ) &&
-                r.WorkingDirectory.Equals( workingDirectory, StringComparison.OrdinalIgnoreCase ) );
+                                          r.Approved &&
+                                          r.Command.Equals( command, StringComparison.Ordinal ) &&
+                                          r.WorkingDirectory.Equals( workingDirectory, StringComparison.OrdinalIgnoreCase ) );
         }
     }
 
@@ -144,7 +146,7 @@ public sealed class CommandHistoryService
         catch ( Exception ex )
         {
             // Log but don't fail - history is not critical
-            System.Diagnostics.Debug.WriteLine( $"Failed to load command history: {ex.Message}" );
+            TraceLogger.Logger.Error( "Failed to load command history", ex );
         }
     }
 
@@ -161,15 +163,11 @@ public sealed class CommandHistoryService
         catch ( Exception ex )
         {
             // Log but don't fail - history is not critical
-            System.Diagnostics.Debug.WriteLine( $"Failed to save command history: {ex.Message}" );
+            TraceLogger.Logger.Error( "Failed to save command history", ex );
         }
     }
 
-    private static JsonSerializerOptions GetJsonOptions() => new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private static JsonSerializerOptions GetJsonOptions() => new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     private static string? TruncateOutput( string? output )
     {
@@ -195,8 +193,7 @@ public sealed class CommandHistoryService
             var dateStr = DateTime.UtcNow.ToString( "yyyy-MM-dd", CultureInfo.InvariantCulture );
             var auditFilePath = Path.Combine( _auditDirectory, $"audit-{dateStr}.log" );
 
-            // Get git branch for the working directory
-            var gitBranch = GitHelper.GetBranch( record.WorkingDirectory );
+            var gitBranch = record.GitBranch;
 
             // Format: timestamp | approved/rejected | command | purpose | working_dir | branch | exit_code
             var status = record.Approved ? "APPROVED" : "REJECTED";
@@ -215,7 +212,7 @@ public sealed class CommandHistoryService
         catch ( Exception ex )
         {
             // Log but don't fail - audit is not critical for operation
-            System.Diagnostics.Debug.WriteLine( $"Failed to append to audit trail: {ex.Message}" );
+            TraceLogger.Logger.Error( "Failed to append to audit trail", ex );
         }
     }
 }

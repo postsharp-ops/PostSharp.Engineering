@@ -19,6 +19,8 @@ public sealed class CommandRecord
 
     public required bool Approved { get; init; }
 
+    public string? GitBranch { get; init; }
+
     public int? ExitCode { get; init; }
 
     public string? Output { get; init; }

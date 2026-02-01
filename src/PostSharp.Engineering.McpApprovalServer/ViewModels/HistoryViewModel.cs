@@ -5,7 +5,6 @@ using PostSharp.Engineering.McpApprovalServer.Mcp.Services;
 using PostSharp.Engineering.McpApprovalServer.Services;
 using System;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -42,25 +41,25 @@ public sealed class HistoryViewModel : IDisposable
 
     private void OnHistoryUpdated( object? sender, EventArgs e )
     {
-        Debug.WriteLine( "[HistoryViewModel] OnHistoryUpdated event received" );
+        TraceLogger.Logger.Trace( "HistoryViewModel", "OnHistoryUpdated event received" );
         Application.Current.Dispatcher.Invoke( this.RefreshHistory );
     }
 
     private void OnRequestAdded( object? sender, ApprovalRequest e )
     {
-        Debug.WriteLine( $"[HistoryViewModel] OnRequestAdded event received: {e.Command}" );
+        TraceLogger.Logger.Trace( "HistoryViewModel", $"OnRequestAdded event received: {e.Command}" );
         Application.Current.Dispatcher.Invoke( this.RefreshHistory );
     }
 
     private void OnRequestCompleted( object? sender, string e )
     {
-        Debug.WriteLine( $"[HistoryViewModel] OnRequestCompleted event received: {e}" );
+        TraceLogger.Logger.Trace( "HistoryViewModel", $"OnRequestCompleted event received: {e}" );
         Application.Current.Dispatcher.Invoke( this.RefreshHistory );
     }
 
     private void OnQueueChanged( object? sender, EventArgs e )
     {
-        Debug.WriteLine( "[HistoryViewModel] OnQueueChanged event received" );
+        TraceLogger.Logger.Trace( "HistoryViewModel", "OnQueueChanged event received" );
         Application.Current.Dispatcher.Invoke( this.RefreshHistory );
     }
 
@@ -73,12 +72,12 @@ public sealed class HistoryViewModel : IDisposable
             .OrderBy( r => r.ReceivedAt )
             .ToList();
 
-        Debug.WriteLine( $"[HistoryViewModel] RefreshHistory: Found {pendingRequests.Count} pending requests" );
+        TraceLogger.Logger.Trace( "HistoryViewModel", $"RefreshHistory: Found {pendingRequests.Count} pending requests" );
 
         foreach ( var request in pendingRequests )
         {
-            Debug.WriteLine( $"[HistoryViewModel]   Adding pending: {request.Command}" );
-            this.History.Add( new HistoryItemViewModel( request ) );
+            TraceLogger.Logger.Trace( "HistoryViewModel", $"Adding pending: {request.Command}" );
+            this.History.Add( HistoryItemViewModel.Create( request ) );
         }
 
         // Add completed history items (most recent first)
@@ -86,14 +85,14 @@ public sealed class HistoryViewModel : IDisposable
             .OrderByDescending( r => r.Timestamp )
             .ToList();
 
-        Debug.WriteLine( $"[HistoryViewModel] RefreshHistory: Found {records.Count} completed records" );
+        TraceLogger.Logger.Trace( "HistoryViewModel", $"RefreshHistory: Found {records.Count} completed records" );
 
         foreach ( var record in records )
         {
-            this.History.Add( new HistoryItemViewModel( record ) );
+            this.History.Add( HistoryItemViewModel.Create( record ) );
         }
 
-        Debug.WriteLine( $"[HistoryViewModel] RefreshHistory: Total items in History: {this.History.Count}" );
+        TraceLogger.Logger.Trace( "HistoryViewModel", $"RefreshHistory: Total items in History: {this.History.Count}" );
     }
 
     public void Dispose()
@@ -120,18 +119,21 @@ public sealed class HistoryItemViewModel
     private readonly CommandRecord? _record;
     private readonly ApprovalRequest? _pendingRequest;
 
-    public HistoryItemViewModel( CommandRecord record )
+    public static HistoryItemViewModel Create( CommandRecord record )
     {
-        this._record = record;
-        this._pendingRequest = null;
-        this.GitBranch = GitHelper.GetBranch( record.WorkingDirectory );
+        return new HistoryItemViewModel( record, null, record.GitBranch );
     }
 
-    public HistoryItemViewModel( ApprovalRequest pendingRequest )
+    public static HistoryItemViewModel Create( ApprovalRequest request )
     {
-        this._record = null;
-        this._pendingRequest = pendingRequest;
-        this.GitBranch = GitHelper.GetBranch( pendingRequest.WorkingDirectory );
+        return new HistoryItemViewModel( null, request, request.GitBranch );
+    }
+
+    private HistoryItemViewModel( CommandRecord? record, ApprovalRequest? request, string? gitBranch )
+    {
+        this._record = record;
+        this._pendingRequest = request;
+        this.GitBranch = gitBranch;
     }
 
     public bool IsPending => this._pendingRequest != null;
@@ -170,7 +172,7 @@ public sealed class HistoryItemViewModel
 
     public string WorkingDirectory => this._pendingRequest?.WorkingDirectory ?? this._record!.WorkingDirectory;
 
-    public string GitBranch { get; }
+    public string? GitBranch { get; }
 
     public string ExitCodeDisplay
     {

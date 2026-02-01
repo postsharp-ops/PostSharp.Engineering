@@ -13,16 +13,6 @@ namespace PostSharp.Engineering.McpApprovalServer.Services;
 internal static class GitHelper
 {
     /// <summary>
-    /// Gets the current git branch for a directory synchronously.
-    /// This is a synchronous wrapper around <see cref="GetBranchAsync"/>.
-    /// </summary>
-    public static string GetBranch( string workingDirectory )
-    {
-        return GetBranchAsync( workingDirectory, CancellationToken.None ).GetAwaiter().GetResult()
-            ?? "(not a git repo)";
-    }
-
-    /// <summary>
     /// Gets the current git branch for a directory asynchronously.
     /// </summary>
     public static async Task<string?> GetBranchAsync( string workingDirectory, CancellationToken cancellationToken = default )

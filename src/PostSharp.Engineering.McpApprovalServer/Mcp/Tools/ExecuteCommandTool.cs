@@ -3,6 +3,7 @@
 using ModelContextProtocol.Server;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Models;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Services;
+using PostSharp.Engineering.McpApprovalServer.Services;
 using System;
 using System.ComponentModel;
 using System.Threading;
@@ -53,6 +54,7 @@ public sealed class ExecuteCommandTool
     {
         // Use a constant session ID for single session model
         const string sessionId = "default";
+        var branch = await GitHelper.GetBranchAsync( workingDirectory, cancellationToken );
 
         // Log incoming request
         this._logger?.LogSection( "Incoming Command Request" );
@@ -60,7 +62,8 @@ public sealed class ExecuteCommandTool
         this._logger?.LogInfo( $"Command: {command}" );
         this._logger?.LogInfo( $"Working Directory: {workingDirectory}" );
         this._logger?.LogInfo( $"Purpose: {claimedPurpose}" );
-
+        this._logger?.LogInfo( $"Git Branch: {branch}" );
+        
         try
         {
             // 1. Check if this exact command was previously approved
@@ -74,7 +77,7 @@ public sealed class ExecuteCommandTool
                 this._logger?.LogSection( "Request Completed" );
 
                 // Record in history
-                this._history.Record( sessionId, command, workingDirectory, claimedPurpose, approved: true, autoApprovedResult );
+                this._history.Record( sessionId, command, workingDirectory, branch, claimedPurpose, approved: true, autoApprovedResult );
 
                 return autoApprovedResult;
             }
@@ -134,7 +137,7 @@ public sealed class ExecuteCommandTool
             }
 
             // 7. Record in history
-            this._history.Record( sessionId, command, workingDirectory, claimedPurpose, approved, result );
+            this._history.Record( sessionId, command, workingDirectory,  branch, claimedPurpose, approved, result );
 
             return result;
         }

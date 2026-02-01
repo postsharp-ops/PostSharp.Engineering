@@ -12,7 +12,8 @@ public enum RiskLevel
     Low,
     Medium,
     High,
-    Critical
+    Critical,
+    Uncertain
 }
 
 /// <summary>
@@ -76,6 +77,7 @@ public sealed class RiskAssessment
                     "MEDIUM" => RiskLevel.Medium,
                     "HIGH" => RiskLevel.High,
                     "CRITICAL" => RiskLevel.Critical,
+                    "UNCERTAIN" => RiskLevel.Uncertain,
                     _ => RiskLevel.Medium
                 };
             }

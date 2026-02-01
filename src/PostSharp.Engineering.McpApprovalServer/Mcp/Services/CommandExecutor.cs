@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.McpApprovalServer.Mcp.Models;
+using PostSharp.Engineering.McpApprovalServer.Services;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -62,6 +63,8 @@ public sealed class CommandExecutor
         }
         catch ( Exception ex )
         {
+            TraceLogger.Logger.Error( "Command execution failed", ex );
+
             return CommandResult.Error( $"Execution error: {ex.Message}" );
         }
         finally
@@ -74,9 +77,9 @@ public sealed class CommandExecutor
                     File.Delete( tempFile );
                 }
             }
-            catch
+            catch ( Exception ex )
             {
-                // Ignore cleanup errors
+                TraceLogger.Logger.Error( $"Failed to delete temp file {tempFile}: {ex.Message}" );
             }
         }
     }

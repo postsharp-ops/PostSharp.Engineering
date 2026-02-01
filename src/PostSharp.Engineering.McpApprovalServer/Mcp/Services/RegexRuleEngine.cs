@@ -1,6 +1,8 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.McpApprovalServer.Mcp.Models;
+using PostSharp.Engineering.McpApprovalServer.Services;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -122,8 +124,9 @@ public sealed class RegexRuleEngine
 
             return process.ExitCode == 0;
         }
-        catch
+        catch ( Exception ex )
         {
+            TraceLogger.Logger.Error( $"Git command failed: {ex.Message}" );
             output = string.Empty;
 
             return false;
