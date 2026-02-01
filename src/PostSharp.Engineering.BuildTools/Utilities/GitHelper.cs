@@ -522,6 +522,34 @@ public static class GitHelper
         return true;
     }
 
+    public static bool TryResetHard( BuildContext context )
+    {
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "reset --hard",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static bool TryClean( BuildContext context )
+    {
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "clean -xfd",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     public static bool TryGetStatus( BuildContext context, string repoDirectory, [NotNullWhen( true )] out string[]? status )
     {
         if ( !ToolInvocationHelper.InvokeTool(

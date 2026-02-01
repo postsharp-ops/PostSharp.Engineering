@@ -240,27 +240,29 @@ internal static class UpstreamMerge
 
         context.Console.WriteMessage( "Git credentials configured successfully." );
 
-        // ==================== STEP 2: Verify Clean Repository ====================
+        // ==================== STEP 2: Force Clean Repository ====================
         context.Console.WriteMessage( "" );
-        context.Console.WriteMessage( "Step 2: Verifying repository is clean..." );
+        context.Console.WriteMessage( "Step 2: Force cleaning repository..." );
 
-        if ( !GitHelper.TryGetStatus( context, context.RepoDirectory, out var statuses ) )
+        context.Console.WriteMessage( "Running git reset --hard..." );
+
+        if ( !GitHelper.TryResetHard( context ) )
         {
-            context.Console.WriteError( "Failed to get repository status." );
+            context.Console.WriteError( "Failed to reset repository." );
 
             return false;
         }
 
-        if ( statuses.Length > 0 )
+        context.Console.WriteMessage( "Running git clean -xfd..." );
+
+        if ( !GitHelper.TryClean( context ) )
         {
-            context.Console.WriteError( "The repository must be clean before running upstream merge." );
-            context.Console.WriteError( "The following files have uncommitted changes:" );
-            context.Console.WriteImportantMessage( string.Join( Environment.NewLine, statuses ) );
+            context.Console.WriteError( "Failed to clean repository." );
 
             return false;
         }
 
-        context.Console.WriteMessage( "Repository is clean." );
+        context.Console.WriteMessage( "Repository is now clean." );
 
         // ==================== STEP 3: Identify Product Family Versions ====================
         context.Console.WriteMessage( "" );
