@@ -20,7 +20,7 @@ internal static class TeamCitySettingsFile
         var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
         var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
         var teamCityBuildBuildConfigurations = new Dictionary<BuildConfiguration, TeamCityBuildConfiguration>();
-        
+
         // Create product-level properties once
         var productProperties = new ProductProperties( product );
 
@@ -60,7 +60,7 @@ internal static class TeamCitySettingsFile
                 additionalArtifactRules );
 
             teamCityBuildConfigurations.Add( teamCityBuildConfiguration );
-            teamCityBuildBuildConfigurations.Add( configuration,  teamCityBuildConfiguration );
+            teamCityBuildBuildConfigurations.Add( configuration, teamCityBuildConfiguration );
 
             TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
 
@@ -215,14 +215,18 @@ internal static class TeamCitySettingsFile
         // an upstream repo that haven't been published yet, the build would fail even with correctly
         // resolved conflicts. Claude only does git merge and conflict resolution - the PR build
         // runs AFTER the merge PR is created, when the dependency chain is complete.
+        //
+        // Include both ParametrizedDependencies and SourceDependencies, deduplicated by build type.
         var snapshotDependencies =
             product.ParametrizedDependencies
                 .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.UpstreamProductFamily != null )
                 .Select( d => d.Definition )
+                .Concat( product.SourceDependencies.Where( d => d.GenerateSnapshotDependency && d.ProductFamily.UpstreamProductFamily != null ) )
+                .DistinctBy( d => d.CiConfiguration.UpstreamMergeBuildType )
                 .Select( d => new TeamCitySnapshotDependency(
-                    d.CiConfiguration.UpstreamMergeBuildType,
-                    true,
-                    FailureAction: FailureAction.AddProblem ) )
+                             d.CiConfiguration.UpstreamMergeBuildType,
+                             true,
+                             FailureAction: FailureAction.AddProblem ) )
                 .OrderBy( d => d.ObjectId );
 
         var upstreamMergeConfiguration = new TeamCityBuildConfiguration(

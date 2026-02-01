@@ -212,6 +212,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 {
                     writer.WriteLine(
                         $@"        swabra {{
+            filesCleanup = Swabra.FilesCleanup.BEFORE_BUILD
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
         }}" );
