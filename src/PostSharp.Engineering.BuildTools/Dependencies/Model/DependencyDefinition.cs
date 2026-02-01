@@ -57,6 +57,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public bool GenerateSnapshotDependency { get; init; } = true;
 
+        public bool IsConsolidated { get; init; }
+
         public string EngineeringDirectory { get; init; } = "eng";
 
         /// <summary>

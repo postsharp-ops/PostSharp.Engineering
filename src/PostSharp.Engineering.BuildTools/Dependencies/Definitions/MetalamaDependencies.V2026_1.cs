@@ -202,6 +202,7 @@ public static partial class MetalamaDependencies
                 false,
                 customRepositoryName: "Metalama.Consolidated" )
             {
+                IsConsolidated = true,
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering,

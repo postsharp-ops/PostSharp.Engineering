@@ -209,25 +209,30 @@ internal static class TeamCitySettingsFile
         var claudeDockerSpec = product.DockerSpec?.WithClaudeDockerfile();
 
         // Dependencies on UpstreamMerge of dependent repos (for cascading merge order).
-        //
-        // We intentionally have NO DebugBuild artifact dependencies here. The UpstreamMerge runs
-        // BEFORE dependencies have been merged and deployed. If this repo depends on changes from
-        // an upstream repo that haven't been published yet, the build would fail even with correctly
-        // resolved conflicts. Claude only does git merge and conflict resolution - the PR build
-        // runs AFTER the merge PR is created, when the dependency chain is complete.
-        //
-        // Include both ParametrizedDependencies and SourceDependencies, deduplicated by build type.
-        var snapshotDependencies =
-            product.ParametrizedDependencies
-                .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.UpstreamProductFamily != null )
-                .Select( d => d.Definition )
-                .Concat( product.SourceDependencies.Where( d => d.GenerateSnapshotDependency && d.ProductFamily.UpstreamProductFamily != null ) )
-                .DistinctBy( d => d.CiConfiguration.UpstreamMergeBuildType )
-                .Select( d => new TeamCitySnapshotDependency(
-                             d.CiConfiguration.UpstreamMergeBuildType,
-                             true,
-                             FailureAction: FailureAction.AddProblem ) )
-                .OrderBy( d => d.ObjectId );
+        // Only consolidated products have snapshot dependencies - normal products merge independently.
+        IEnumerable<TeamCitySnapshotDependency> snapshotDependencies;
+
+        if ( product.DependencyDefinition.IsConsolidated )
+        {
+            // For consolidated products, include both ParametrizedDependencies and SourceDependencies,
+            // deduplicated by build type.
+            snapshotDependencies =
+                product.ParametrizedDependencies
+                    .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.UpstreamProductFamily != null )
+                    .Select( d => d.Definition )
+                    .Concat( product.SourceDependencies.Where( d => d.GenerateSnapshotDependency && d.ProductFamily.UpstreamProductFamily != null ) )
+                    .DistinctBy( d => d.CiConfiguration.UpstreamMergeBuildType )
+                    .Select( d => new TeamCitySnapshotDependency(
+                                 d.CiConfiguration.UpstreamMergeBuildType,
+                                 true,
+                                 FailureAction: FailureAction.AddProblem ) )
+                    .OrderBy( d => d.ObjectId );
+        }
+        else
+        {
+            // Normal products have no snapshot dependencies - they merge independently.
+            snapshotDependencies = [];
+        }
 
         var upstreamMergeConfiguration = new TeamCityBuildConfiguration(
             "UpstreamMerge",
