@@ -134,6 +134,43 @@ public static class CommandRules
         },
 
         // ============================================
+        // Local Build Operations - Require Manual Approval
+        // ============================================
+
+        new CommandRule
+        {
+            Name = "local-build-dotnet",
+            Pattern = new Regex( @"dotnet\s+build", RegexOptions.IgnoreCase ),
+            RiskLevel = RiskLevel.Medium,
+            Recommendation = Recommendation.Approve,
+            Reason = "Local build operation - should normally be done in the container"
+        },
+        new CommandRule
+        {
+            Name = "local-build-msbuild",
+            Pattern = new Regex( @"msbuild", RegexOptions.IgnoreCase ),
+            RiskLevel = RiskLevel.Medium,
+            Recommendation = Recommendation.Approve,
+            Reason = "Local build operation - should normally be done in the container"
+        },
+        new CommandRule
+        {
+            Name = "local-build-ps1",
+            Pattern = new Regex( @"[Bb]uild\.ps1", RegexOptions.IgnoreCase ),
+            RiskLevel = RiskLevel.Medium,
+            Recommendation = Recommendation.Approve,
+            Reason = "Local build script - should normally be done in the container"
+        },
+        new CommandRule
+        {
+            Name = "local-build-sh",
+            Pattern = new Regex( @"build\.sh", RegexOptions.IgnoreCase ),
+            RiskLevel = RiskLevel.Medium,
+            Recommendation = Recommendation.Approve,
+            Reason = "Local build script - should normally be done in the container"
+        },
+
+        // ============================================
         // File Operations - ALL FORBIDDEN
         // ============================================
 

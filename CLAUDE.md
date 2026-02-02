@@ -19,9 +19,19 @@ Build orchestration SDK for PostSharp/Metalama repositories.
 
 When running inside a Docker container, you have access to the `host-approval` MCP server for executing privileged commands on the host machine. These commands require human approval before execution.
 
+**Source code**: `src/PostSharp.Engineering.McpApprovalServer/`
+
+The MCP Approval Server is a WPF GUI application that:
+- Receives command execution requests from Claude in Docker via MCP protocol
+- Analyzes risk using both regex rules and AI (Claude CLI with Haiku/Opus)
+- Prompts the human for approval via a GUI dialog
+- Executes approved commands via PowerShell on the host
+
+See `src/PostSharp.Engineering.McpApprovalServer/CLAUDE.md` for architecture details and how to add command rules.
+
 ### Starting the MCP Approval Server
 
-The MCP Approval Server is now a standalone GUI application with system tray integration. Before running Claude in Docker mode, start the server:
+The MCP Approval Server is a standalone GUI application with system tray integration. Before running Claude in Docker mode, start the server:
 
 1. Build the solution: `dotnet build`
 2. Run the GUI application: `.\src\PostSharp.Engineering.McpApprovalServer\bin\Debug\net8.0-windows\PostSharp.Engineering.McpApprovalServer.exe`
