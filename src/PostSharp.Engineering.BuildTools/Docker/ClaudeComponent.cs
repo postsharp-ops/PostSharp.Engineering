@@ -38,7 +38,7 @@ public class ClaudeComponent : ContainerComponent
         writer.WriteLine( "RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code@2.1.27" );
         writer.Write( "RUN mkdir C:\\Users\\ContainerAdministrator\\.claude" );
         writer.Write( " && echo {\"hasCompletedOnboarding\": true} > C:\\Users\\ContainerAdministrator\\.claude.json" );
-        writer.Write( " && echo {\"alwaysThinkingEnabled\": true} > C:\\Users\\ContainerAdministrator\\.claude\\settings.json" );
+        writer.Write( " && echo {\"alwaysThinkingEnabled\": true, \"spinnerTipsEnabled\": false} > C:\\Users\\ContainerAdministrator\\.claude\\settings.json" );
         writer.WriteLine();
 
         writer.WriteLine(
