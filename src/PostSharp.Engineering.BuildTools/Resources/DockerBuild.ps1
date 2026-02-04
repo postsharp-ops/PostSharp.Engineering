@@ -1136,7 +1136,7 @@ $( ($GitDirectories | ForEach-Object { "    '$_'" }) -join ",`n" )
 foreach (`$dir in `$gitDirectories) {
     if (`$dir) {
         # Normalize path: convert backslashes to forward slashes, add trailing slash
-        `$normalizedDir = (`$dir -replace '\\\\', '/').TrimEnd('/') + '/'
+        `$normalizedDir = (`$dir -replace '\\', '/').TrimEnd('/') + '/'
         git config --global --add safe.directory `$normalizedDir
     }
 }
