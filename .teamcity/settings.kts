@@ -69,7 +69,7 @@ object PublicBuild : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", "docker-win-x64-md")
+        matches("teamcity.agent.jvm.os.family", "Windows")
     }
 
     features {
@@ -147,7 +147,7 @@ object PublicDeployment : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", "docker-win-x64-md")
+        matches("teamcity.agent.jvm.os.family", "Windows")
     }
 
     features {
@@ -215,7 +215,7 @@ object VersionBump : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", "docker-win-x64-md")
+        matches("teamcity.agent.jvm.os.family", "Windows")
     }
 
     features {
