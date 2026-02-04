@@ -23,6 +23,8 @@ param(
     [string]$Memory, # Docker memory limit (e.g., "8g"). Only used with hyperv isolation.
     [int]$Cpus = [Environment]::ProcessorCount, # Docker CPU limit. Only used with hyperv isolation.
     [string[]]$Mount, # Additional directories to mount from host (readonly by default, append :w for writable). Supports * and ** glob patterns.
+    [string[]]$Env, # Additional environment variables to pass from host to container.
+    [string[]]$Ports, # Port mappings from host to container (e.g., "8080:80", "3000").
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container (or Claude prompt if -Claude is specified).
 )
@@ -96,13 +98,52 @@ function New-EnvJson
     $envVarNames = $EnvironmentVariableList -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
     # Build hashtable with environment variable values
+    # CONTAINER_FOO takes precedence over FOO (allows overriding for container use)
     $envVariables = @{ }
     foreach ($envVarName in $envVarNames)
     {
-        $value = [Environment]::GetEnvironmentVariable($envVarName)
+        # Check for CONTAINER_ prefixed override first
+        $containerVarName = "CONTAINER_$envVarName"
+        $value = [Environment]::GetEnvironmentVariable($containerVarName)
+        if ([string]::IsNullOrEmpty($value))
+        {
+            # Fall back to regular environment variable
+            $value = [Environment]::GetEnvironmentVariable($envVarName)
+        }
         if (-not [string]::IsNullOrEmpty($value))
         {
             $envVariables[$envVarName] = $value
+        }
+    }
+
+    # Process additional environment variables from -Env parameter
+    # Supports both "NAME" (read from host) and "NAME=VALUE" (literal value) forms
+    if ($Env -and $Env.Count -gt 0)
+    {
+        foreach ($envSpec in $Env)
+        {
+            if ($envSpec -match '^([^=]+)=(.*)$')
+            {
+                # NAME=VALUE form: use literal value
+                $envVarName = $Matches[1]
+                $value = $Matches[2]
+                $envVariables[$envVarName] = $value
+            }
+            else
+            {
+                # NAME form: read from host environment (with CONTAINER_ prefix support)
+                $envVarName = $envSpec
+                $containerVarName = "CONTAINER_$envVarName"
+                $value = [Environment]::GetEnvironmentVariable($containerVarName)
+                if ([string]::IsNullOrEmpty($value))
+                {
+                    $value = [Environment]::GetEnvironmentVariable($envVarName)
+                }
+                if (-not [string]::IsNullOrEmpty($value))
+                {
+                    $envVariables[$envVarName] = $value
+                }
+            }
         }
     }
 
@@ -1336,6 +1377,16 @@ if (-not $BuildImage)
         $dockerCmd += $dockerArgs
         $dockerCmd += $volumeArgs
         $dockerCmd += $envArgs
+
+        # Add port mappings from -Ports parameter
+        if ($Ports -and $Ports.Count -gt 0)
+        {
+            foreach ($portMapping in $Ports)
+            {
+                $dockerCmd += @('-p', $portMapping)
+            }
+        }
+
         if ($pwshArgs) {
             $dockerCmd += @('-w', $ContainerCallingDir, $ImageTag, $pwshPath, $pwshArgs, '-Command', $inlineScript)
         } else {
