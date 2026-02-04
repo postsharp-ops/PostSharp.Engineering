@@ -69,10 +69,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 // 1. Create the dotnet tool manifest.
                 if ( !File.Exists( configFilePath ) )
                 {
+                    // Use --output to explicitly specify where to create the manifest.
+                    // Without this, dotnet will skip creation if a manifest exists in a parent directory.
                     if ( !ToolInvocationHelper.InvokeTool(
                             context.Console,
                             "dotnet",
-                            $"new tool-manifest",
+                            $"new tool-manifest --output \"{baseDirectory}\"",
                             baseDirectory ) )
                     {
                         return false;
