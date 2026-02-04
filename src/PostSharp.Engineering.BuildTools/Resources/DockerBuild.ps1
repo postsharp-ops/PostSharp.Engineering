@@ -98,18 +98,10 @@ function New-EnvJson
     $envVarNames = $EnvironmentVariableList -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
     # Build hashtable with environment variable values
-    # CONTAINER_FOO takes precedence over FOO (allows overriding for container use)
     $envVariables = @{ }
     foreach ($envVarName in $envVarNames)
     {
-        # Check for CONTAINER_ prefixed override first
-        $containerVarName = "CONTAINER_$envVarName"
-        $value = [Environment]::GetEnvironmentVariable($containerVarName)
-        if ([string]::IsNullOrEmpty($value))
-        {
-            # Fall back to regular environment variable
-            $value = [Environment]::GetEnvironmentVariable($envVarName)
-        }
+        $value = [Environment]::GetEnvironmentVariable($envVarName)
         if (-not [string]::IsNullOrEmpty($value))
         {
             $envVariables[$envVarName] = $value
@@ -131,14 +123,9 @@ function New-EnvJson
             }
             else
             {
-                # NAME form: read from host environment (with CONTAINER_ prefix support)
+                # NAME form: read from host environment
                 $envVarName = $envSpec
-                $containerVarName = "CONTAINER_$envVarName"
-                $value = [Environment]::GetEnvironmentVariable($containerVarName)
-                if ([string]::IsNullOrEmpty($value))
-                {
-                    $value = [Environment]::GetEnvironmentVariable($envVarName)
-                }
+                $value = [Environment]::GetEnvironmentVariable($envVarName)
                 if (-not [string]::IsNullOrEmpty($value))
                 {
                     $envVariables[$envVarName] = $value
@@ -220,13 +207,20 @@ function New-ClaudeEnvJson
 {
     $claudeEnv = @{ }
 
-    # CLAUDE_GITHUB_TOKEN -> GITHUB_TOKEN (renamed)
-    if ($env:CLAUDE_GITHUB_TOKEN)
+    # Process $EnvironmentVariables list - only transfer variables that have CLAUDE_ prefix defined
+    # e.g., if CLAUDE_GITHUB_TOKEN is set, transfer it as GITHUB_TOKEN
+    $envVarNames = $EnvironmentVariables -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+    foreach ($envVarName in $envVarNames)
     {
-        $claudeEnv["GITHUB_TOKEN"] = $env:CLAUDE_GITHUB_TOKEN
+        $claudeVarName = "CLAUDE_$envVarName"
+        $value = [Environment]::GetEnvironmentVariable($claudeVarName)
+        if (-not [string]::IsNullOrEmpty($value))
+        {
+            $claudeEnv[$envVarName] = $value
+        }
     }
 
-    # Preserved variables
+    # Preserved variables (transferred as-is, without requiring CLAUDE_ prefix)
     if ($env:ANTHROPIC_API_KEY)
     {
         $claudeEnv["ANTHROPIC_API_KEY"] = $env:ANTHROPIC_API_KEY
@@ -278,6 +272,38 @@ function New-ClaudeEnvJson
         }
     }
     $claudeEnv["NUGET_PACKAGES"] = $nugetPackages
+
+    # Process additional environment variables from -Env parameter
+    # Supports both "NAME" (read from host) and "NAME=VALUE" (literal value) forms
+    # In Claude mode, CLAUDE_FOO takes precedence over FOO
+    if ($Env -and $Env.Count -gt 0)
+    {
+        foreach ($envSpec in $Env)
+        {
+            if ($envSpec -match '^([^=]+)=(.*)$')
+            {
+                # NAME=VALUE form: use literal value
+                $envVarName = $Matches[1]
+                $value = $Matches[2]
+                $claudeEnv[$envVarName] = $value
+            }
+            else
+            {
+                # NAME form: read from host environment (with CLAUDE_ prefix support)
+                $envVarName = $envSpec
+                $claudeVarName = "CLAUDE_$envVarName"
+                $value = [Environment]::GetEnvironmentVariable($claudeVarName)
+                if ([string]::IsNullOrEmpty($value))
+                {
+                    $value = [Environment]::GetEnvironmentVariable($envVarName)
+                }
+                if (-not [string]::IsNullOrEmpty($value))
+                {
+                    $claudeEnv[$envVarName] = $value
+                }
+            }
+        }
+    }
 
     # Convert to JSON and save
     $gDirectory = Join-Path $dockerContextDirectory ".g"
