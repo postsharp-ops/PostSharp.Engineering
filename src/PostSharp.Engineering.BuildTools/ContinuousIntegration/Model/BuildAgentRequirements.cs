@@ -6,7 +6,13 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
-public record BuildAgentRequirement( string Name, string Value );
+public enum RequirementComparisonType
+{
+    Equals,
+    Matches
+}
+
+public record BuildAgentRequirement( string Name, string Value, RequirementComparisonType ComparisonType = RequirementComparisonType.Equals );
 
 [PublicAPI]
 public record BuildAgentRequirements

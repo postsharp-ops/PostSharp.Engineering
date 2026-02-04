@@ -14,8 +14,10 @@ public record ContainerHostRequirements : BuildAgentRequirements
     public ContainerHostKind HostKind { get; }
 
     public ContainerHostRequirements( ContainerHostKind hostKind ) : base(
-        new BuildAgentRequirement( "env.BuildAgentType", ContainerHelper.GetBuildAgentType( hostKind ) ) )
+        ContainerHelper.GetBuildAgentRequirements( hostKind ) )
     {
         this.HostKind = hostKind;
     }
+
+    public override bool IsDockerized => true;
 }

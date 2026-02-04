@@ -189,12 +189,17 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 writer.WriteLine();
                 writer.WriteLine( "    requirements {" );
 
-                // TODO: Restore specific agent requirements when JetBrains cloud agent testing is complete.
-                // foreach ( var environmentVariable in this.BuildAgentRequirements.Items )
-                // {
-                //     writer.WriteLine( $"        equals(\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
-                // }
-                writer.WriteLine( "        matches(\"teamcity.agent.jvm.os.family\", \"Windows\")" );
+                foreach ( var requirement in this.BuildAgentRequirements.Items )
+                {
+                    var comparison = requirement.ComparisonType switch
+                    {
+                        RequirementComparisonType.Equals => "equals",
+                        RequirementComparisonType.Matches => "matches",
+                        _ => "equals"
+                    };
+
+                    writer.WriteLine( $"        {comparison}(\"{requirement.Name}\", \"{requirement.Value}\")" );
+                }
 
                 writer.WriteLine( "    }" );
             }
