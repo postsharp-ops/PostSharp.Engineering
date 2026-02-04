@@ -203,8 +203,10 @@ function New-EnvJson
     }
 
     $envVariables | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonPath -Encoding UTF8
-    Write-Host "Created secrets file: $jsonPath" -ForegroundColor Cyan
 
+    # Print sorted list of environment variables being passed
+    $sortedKeys = $envVariables.Keys | Sort-Object
+    Write-Host "Environment variables: $($sortedKeys -join ', ')" -ForegroundColor Gray
 
     return $jsonPath
 }
@@ -334,7 +336,10 @@ function New-ClaudeEnvJson
     }
 
     $claudeEnv | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonPath -Encoding UTF8
-    Write-Host "Created Claude secrets file: $jsonPath" -ForegroundColor Cyan
+
+    # Print sorted list of environment variables being passed
+    $sortedKeys = $claudeEnv.Keys | Sort-Object
+    Write-Host "Environment variables: $($sortedKeys -join ', ')" -ForegroundColor Gray
 
     return $jsonPath
 }
