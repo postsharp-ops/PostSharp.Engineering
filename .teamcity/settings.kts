@@ -66,7 +66,10 @@ object PublicBuild : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", "docker-win-x64-md")
+        any {
+            equals("env.BuildAgentType", "docker-win-x64-md")
+            equals("teamcity.cloud.image.id", "Windows-Medium")
+        }
     }
 
     features {
@@ -142,7 +145,10 @@ object PublicDeployment : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", "docker-win-x64-md")
+        any {
+            equals("env.BuildAgentType", "docker-win-x64-md")
+            equals("teamcity.cloud.image.id", "Windows-Medium")
+        }
     }
 
     features {
@@ -208,7 +214,10 @@ object VersionBump : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", "docker-win-x64-md")
+        any {
+            equals("env.BuildAgentType", "docker-win-x64-md")
+            equals("teamcity.cloud.image.id", "Windows-Medium")
+        }
     }
 
     features {
