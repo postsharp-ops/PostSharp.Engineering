@@ -7,6 +7,7 @@ using System;
 using System.Collections.Immutable;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
 {
@@ -42,89 +43,127 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             var configFilePath = Path.Combine( baseDirectory, ".config", "dotnet-tools.json" );
             var resourceDirectory = Path.Combine( baseDirectory, ".tools" );
 
-            // 1. Create the dotnet tool manifest.
-            if ( !File.Exists( configFilePath ) )
+            // Use a named mutex to prevent race conditions when multiple parallel builds
+            // try to install the dotnet tool at the same time.
+            var mutexName = "Global\\DotNetToolInstall_" + baseDirectory.Replace( '\\', '_' ).Replace( '/', '_' ).Replace( ':', '_' );
+
+            using var mutex = new Mutex( false, mutexName );
+
+            try
             {
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "dotnet",
-                        $"new tool-manifest",
-                        baseDirectory ) )
+                // Wait up to 5 minutes for the mutex.
+                if ( !mutex.WaitOne( TimeSpan.FromMinutes( 5 ) ) )
                 {
+                    context.Console.WriteError( "Timeout waiting for dotnet tool installation lock." );
+
                     return false;
                 }
             }
-
-            // Open the config file and see if we have to install or update.
-            string? installVerb = null;
-            var configDocument = JsonDocument.Parse( File.ReadAllText( configFilePath ) );
-
-            var installedVersionString = configDocument.RootElement.GetPropertyOrNull( "tools" )
-                .GetPropertyOrNull( this.PackageId.ToLowerInvariant() )
-                .GetPropertyOrNull( "version" )
-                ?.GetString();
-
-            if ( installedVersionString == null )
+            catch ( AbandonedMutexException )
             {
-                installVerb = "install";
+                // Another process crashed while holding the mutex. We now own it.
             }
-            else
-            {
-                var installedVersion = NuGetVersion.Parse( installedVersionString );
 
-                if ( installedVersion < NuGetVersion.Parse( this.Version ) )
+            try
+            {
+                // 1. Create the dotnet tool manifest.
+                if ( !File.Exists( configFilePath ) )
                 {
-                    installVerb = "update";
-                }
-            }
-
-            // 2. Restore the tool.
-            if ( installVerb != null )
-            {
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "dotnet",
-                        $"tool {installVerb} {this.PackageId} --version {this.Version} --local --add-source \"https://api.nuget.org/v3/index.json\"",
-                        baseDirectory ) )
-                {
-                    return false;
-                }
-            }
-
-            // 3. Restore the tools from the manifest
-            // The manifest might contain tools, that have been removed from the machine, or not yet installed.
-            // The tools are stored in NuGet package cache, that can be cleaned.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "dotnet",
-                    $"tool restore --add-source \"https://api.nuget.org/v3/index.json\"",
-                    baseDirectory ) )
-            {
-                return false;
-            }
-
-            // 4. Restore resource tools.
-            Directory.CreateDirectory( resourceDirectory );
-            var assembly = this.GetType().Assembly;
-
-            foreach ( var resourceName in assembly.GetManifestResourceNames() )
-            {
-                const string prefix = "PostSharp.Engineering.BuildTools.Resources.Tools.";
-
-                if ( resourceName.StartsWith( prefix, StringComparison.Ordinal ) )
-                {
-                    using var resource = assembly.GetManifestResourceStream( resourceName );
-
-                    var file = Path.Combine( resourceDirectory, resourceName.Substring( prefix.Length ) );
-
-                    using ( var outputStream = File.Create( file ) )
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "dotnet",
+                            $"new tool-manifest",
+                            baseDirectory ) )
                     {
-                        resource!.CopyTo( outputStream );
+                        return false;
+                    }
+
+                    // Verify the manifest was created where expected.
+                    if ( !File.Exists( configFilePath ) )
+                    {
+                        context.Console.WriteError(
+                            $"The 'dotnet new tool-manifest' command succeeded but the manifest was not created at the expected location: '{configFilePath}'. " +
+                            $"Working directory was: '{baseDirectory}'." );
+
+                        return false;
                     }
                 }
-            }
 
-            return true;
+                // Open the config file and see if we have to install or update.
+                string? installVerb = null;
+                var configDocument = JsonDocument.Parse( File.ReadAllText( configFilePath ) );
+
+                var installedVersionString = configDocument.RootElement.GetPropertyOrNull( "tools" )
+                    .GetPropertyOrNull( this.PackageId.ToLowerInvariant() )
+                    .GetPropertyOrNull( "version" )
+                    ?.GetString();
+
+                if ( installedVersionString == null )
+                {
+                    installVerb = "install";
+                }
+                else
+                {
+                    var installedVersion = NuGetVersion.Parse( installedVersionString );
+
+                    if ( installedVersion < NuGetVersion.Parse( this.Version ) )
+                    {
+                        installVerb = "update";
+                    }
+                }
+
+                // 2. Restore the tool.
+                if ( installVerb != null )
+                {
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            context.Console,
+                            "dotnet",
+                            $"tool {installVerb} {this.PackageId} --version {this.Version} --local --add-source \"https://api.nuget.org/v3/index.json\"",
+                            baseDirectory ) )
+                    {
+                        return false;
+                    }
+                }
+
+                // 3. Restore the tools from the manifest
+                // The manifest might contain tools, that have been removed from the machine, or not yet installed.
+                // The tools are stored in NuGet package cache, that can be cleaned.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "dotnet",
+                        $"tool restore --add-source \"https://api.nuget.org/v3/index.json\"",
+                        baseDirectory ) )
+                {
+                    return false;
+                }
+
+                // 4. Restore resource tools.
+                Directory.CreateDirectory( resourceDirectory );
+                var assembly = this.GetType().Assembly;
+
+                foreach ( var resourceName in assembly.GetManifestResourceNames() )
+                {
+                    const string prefix = "PostSharp.Engineering.BuildTools.Resources.Tools.";
+
+                    if ( resourceName.StartsWith( prefix, StringComparison.Ordinal ) )
+                    {
+                        using var resource = assembly.GetManifestResourceStream( resourceName );
+
+                        var file = Path.Combine( resourceDirectory, resourceName.Substring( prefix.Length ) );
+
+                        using ( var outputStream = File.Create( file ) )
+                        {
+                            resource!.CopyTo( outputStream );
+                        }
+                    }
+                }
+
+                return true;
+            }
+            finally
+            {
+                mutex.ReleaseMutex();
+            }
         }
 
         public virtual bool Invoke( BuildContext context, string command, ToolInvocationOptions? options = null )
