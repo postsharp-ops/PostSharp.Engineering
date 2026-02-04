@@ -3,6 +3,7 @@
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.powerShell
+import jetbrains.buildServer.configs.kotlin.buildSteps.PowerShellStep
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import jetbrains.buildServer.configs.kotlin.projectFeatures.*
@@ -48,6 +49,7 @@ object PublicBuild : BuildType({
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"
             id = "PrepareImage"
+            edition = PowerShellStep.Edition.Core
             scriptMode = file {
                 path = "DockerBuild.ps1"
             }
@@ -57,6 +59,7 @@ object PublicBuild : BuildType({
         powerShell {
             name = "Build"
             id = "Build"
+            edition = PowerShellStep.Edition.Core
             scriptMode = file {
                 path = "DockerBuild.ps1"
             }
@@ -124,6 +127,7 @@ object PublicDeployment : BuildType({
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"
             id = "PrepareImage"
+            edition = PowerShellStep.Edition.Core
             scriptMode = file {
                 path = "DockerBuild.ps1"
             }
@@ -133,6 +137,7 @@ object PublicDeployment : BuildType({
         powerShell {
             name = "Publish"
             id = "Publish"
+            edition = PowerShellStep.Edition.Core
             scriptMode = file {
                 path = "DockerBuild.ps1"
             }
@@ -190,6 +195,7 @@ object VersionBump : BuildType({
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"
             id = "PrepareImage"
+            edition = PowerShellStep.Edition.Core
             scriptMode = file {
                 path = "DockerBuild.ps1"
             }
@@ -199,6 +205,7 @@ object VersionBump : BuildType({
         powerShell {
             name = "Bump"
             id = "Bump"
+            edition = PowerShellStep.Edition.Core
             scriptMode = file {
                 path = "DockerBuild.ps1"
             }

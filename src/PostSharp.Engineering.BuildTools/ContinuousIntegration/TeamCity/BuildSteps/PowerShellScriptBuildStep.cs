@@ -64,7 +64,8 @@ internal class PowerShellScriptBuildStep : BuildStep
         {
             return $@"        powerShell {{
             name = ""{KotlinHelper.EscapeString( this.Name )}""
-            id = ""{this.Id}""{(this.WorkingDirectory == null ? "" : $@"
+            id = ""{this.Id}""
+            edition = PowerShellStep.Edition.Core{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
             scriptMode = script {{
                 content = ""wsl pwsh {KotlinHelper.EscapeString( this.ScriptPath )} {KotlinHelper.EscapeString( this.ScriptArguments )}""
@@ -76,7 +77,8 @@ internal class PowerShellScriptBuildStep : BuildStep
         {
             return $@"        powerShell {{
             name = ""{KotlinHelper.EscapeString( this.Name )}""
-            id = ""{this.Id}""{(this.WorkingDirectory == null ? "" : $@"
+            id = ""{this.Id}""
+            edition = PowerShellStep.Edition.Core{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
             scriptMode = file {{
                 path = ""{this.ScriptPath.Replace( Path.DirectorySeparatorChar, '/' )}""

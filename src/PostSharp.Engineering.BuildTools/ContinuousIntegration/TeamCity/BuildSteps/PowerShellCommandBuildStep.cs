@@ -33,7 +33,8 @@ internal class PowerShellCommandBuildStep : BuildStep
     {
         return $@"        powerShell {{
             name = ""{KotlinHelper.EscapeString( this.Name )}""
-            id = ""{this.Id}""{(this.WorkingDirectory == null ? "" : $@"
+            id = ""{this.Id}""
+            edition = PowerShellStep.Edition.Core{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
             scriptMode = script {{
                 content = ""{KotlinHelper.EscapeString( this.Command )}""
