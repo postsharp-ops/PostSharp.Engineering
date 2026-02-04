@@ -12,7 +12,7 @@ public sealed class AzureArtifactsCredentialProviderComponent : ContainerCompone
 
     public override ContainerComponentKind Kind => ContainerComponentKind.AzureArtifactsCredentialProvider;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         writer.WriteLine(
             """

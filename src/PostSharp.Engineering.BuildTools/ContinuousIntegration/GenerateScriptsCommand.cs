@@ -40,13 +40,18 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
             EmbeddedResourceHelper.ExtractScript( context, "RunClaude.ps1", "eng" );
             var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
-            if ( !image.WriteDockerfile( context ) )
+            if ( !image.WriteDockerfile( context, ContainerOperatingSystem.Windows2025, "Dockerfile" ) )
+            {
+                return false;
+            }
+            
+            if ( !image.WriteDockerfile( context, ContainerOperatingSystem.Windows2022, "Dockerfile.win2022" ) )
             {
                 return false;
             }
 
             // Generate Claude Dockerfile (will auto-add NodeJs if not present)
-            if ( !image.WriteClaudeDockerfile( context ) )
+            if ( !image.WriteClaudeDockerfile( context, ContainerOperatingSystem.Windows2025, "Dockerfile.claude" ) )
             {
                 return false;
             }

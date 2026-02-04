@@ -12,7 +12,7 @@ public sealed class AzureCliComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.AzureCli;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         writer.WriteLine(
             """

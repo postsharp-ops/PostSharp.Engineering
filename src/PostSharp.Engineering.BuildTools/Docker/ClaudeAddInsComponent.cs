@@ -38,7 +38,7 @@ public class ClaudeAddInsComponent : ContainerComponent
         "eng"
     ];
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         // Use cmd shell to avoid HCS issues with PowerShell
         writer.WriteLine(

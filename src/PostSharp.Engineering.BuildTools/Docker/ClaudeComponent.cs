@@ -19,7 +19,7 @@ public class ClaudeComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Claude;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         // We don't use the native installer because it's very slow to download.
         // At least the NPM version is stored on fast CDNs.

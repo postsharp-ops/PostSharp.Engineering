@@ -18,7 +18,7 @@ public sealed class TimestampComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Timestamp;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         writer.WriteLine(
             $$"""

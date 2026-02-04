@@ -7,3 +7,10 @@ public enum ContainerOperatingSystem
     Windows2022,
     Linux
 }
+
+
+public enum OperatingSystemFamily
+{
+    Windows,
+    Linux
+}

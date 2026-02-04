@@ -24,12 +24,12 @@ public record ContainerRequirements : ContainerHostRequirements
 
     public override bool IsDockerized => true;
 
-    public bool WriteDockerfile( BuildContext context ) => this.WriteDockerfileCore( context, "Dockerfile", [], true );
+    public bool WriteDockerfile( BuildContext context, ContainerOperatingSystem operatingSystem, string fileName ) => this.WriteDockerfileCore( context, fileName, operatingSystem,[], true );
 
-    public bool WriteClaudeDockerfile( BuildContext context )
-        => this.WriteDockerfileCore( context, "Dockerfile.claude", [new ClaudeComponent(), new ClaudeAddInsComponent()], false );
+    public bool WriteClaudeDockerfile( BuildContext context, ContainerOperatingSystem operatingSystem, string fileName )
+        => this.WriteDockerfileCore( context, fileName, operatingSystem, [new ClaudeComponent(), new ClaudeAddInsComponent()], false );
 
-    private bool WriteDockerfileCore( BuildContext context, string dockerfileName, ContainerComponent[] additionalComponents, bool validateBuildComponents )
+    private bool WriteDockerfileCore( BuildContext context, string dockerfileName, ContainerOperatingSystem operatingSystem, ContainerComponent[] additionalComponents, bool validateBuildComponents )
     {
         var contextDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "docker-context" );
 
@@ -101,7 +101,7 @@ public record ContainerRequirements : ContainerHostRequirements
             }
 
             component.PopulateContextDirectory( context, contextDirectory );
-            component.WriteDockerfile( dockerfileContent );
+            component.WriteDockerfile( dockerfileContent, operatingSystem );
         }
 
         TextFileHelper.WriteIfDifferent( dockerfilePath, dockerfileContent.ToString(), context );

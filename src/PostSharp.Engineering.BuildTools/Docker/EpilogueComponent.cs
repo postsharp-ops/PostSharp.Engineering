@@ -12,10 +12,13 @@ internal class EpilogueComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Epilogue;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         writer.WriteLine(
             """
+            # Link to private repository for GHCR visibility
+            LABEL org.opencontainers.image.source=https://github.com/postsharp/PostSharp.Engineering.Images
+
             # Create docker-context directory for build scripts
             RUN New-Item -ItemType Directory -Path c:\docker-context -Force | Out-Null
 

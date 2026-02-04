@@ -10,7 +10,7 @@ public class GitComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Git;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         // Use full Git for Windows (not MinGit) to include bash.exe which is required by Claude Code
         writer.WriteLine(

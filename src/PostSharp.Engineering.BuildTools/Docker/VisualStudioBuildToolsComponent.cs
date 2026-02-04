@@ -29,7 +29,7 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
         this.Components = vsComponents;
     }
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         var components = string.Join( ", ", this.Components.Select( x => $"\"--add\", \"{x}\"" ) );
 

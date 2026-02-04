@@ -19,7 +19,7 @@ public class NodeJsComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.NodeJs;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         var version = this._version;
 

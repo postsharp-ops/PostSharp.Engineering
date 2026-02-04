@@ -10,7 +10,7 @@ public class ChocolateyComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Chocolatey;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         writer.WriteLine(
             """

@@ -12,7 +12,7 @@ public sealed class GitHubCliComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.GitHubCli;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         writer.WriteLine(
             """

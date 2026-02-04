@@ -42,7 +42,7 @@ public sealed class DotNetComponent : ContainerComponent
         }
     }
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         // Run script directly since we're already in a PowerShell shell
         if ( this.DotNetComponentKind == DotNetComponentKind.Sdk )

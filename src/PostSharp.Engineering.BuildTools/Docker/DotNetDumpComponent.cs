@@ -12,7 +12,7 @@ public sealed class DotNetDumpComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.DotNetDump;
 
-    public override void WriteDockerfile( TextWriter writer )
+    public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         writer.WriteLine( "RUN dotnet tool install --global dotnet-dump;" );
     }
