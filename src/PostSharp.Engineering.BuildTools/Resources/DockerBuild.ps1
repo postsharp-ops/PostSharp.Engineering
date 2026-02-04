@@ -420,6 +420,35 @@ function Get-TimestampFile
     return $timestampFile
 }
 
+function Get-ContentHash {
+    param(
+        [string]$DockerfilePath,
+        [string]$ContextDirectory
+    )
+
+    $hashInput = Get-Content $DockerfilePath -Raw -ErrorAction SilentlyContinue
+    if (-not $hashInput) { $hashInput = "" }
+
+    # Add context files (excluding generated .g/ directory)
+    $contextFiles = Get-ChildItem $ContextDirectory -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '[/\\]\.g[/\\]' } |
+        Sort-Object FullName
+
+    foreach ($file in $contextFiles) {
+        $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+        if ($content) {
+            $hashInput += "`n--- $($file.Name) ---`n"
+            $hashInput += $content
+        }
+    }
+
+    $hashBytes = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+        [System.Text.Encoding]::UTF8.GetBytes($hashInput)
+    )
+    # Use 8 bytes (16 hex chars) for uniqueness
+    return [System.BitConverter]::ToString($hashBytes, 0, 8).Replace("-", "").ToLower()
+}
+
 # Dictionary to track volume mounts with "writable wins" logic
 $script:VolumeMountDict = @{}
 
@@ -464,6 +493,22 @@ if (-not $Dockerfile)
     {
         $Dockerfile = "Dockerfile"
     }
+
+    # On Windows, detect if we're running on Server 2022 (build < 26100) and use matching Dockerfile
+    # Windows Server 2025 is build 26100+, 2022 is build 20348-26099
+    if ($IsWindows -and -not $Claude)
+    {
+        $osBuild = [System.Environment]::OSVersion.Version.Build
+        if ($osBuild -lt 26100)
+        {
+            $win2022Dockerfile = "Dockerfile.win2022"
+            if (Test-Path (Join-Path $PSScriptRoot $win2022Dockerfile))
+            {
+                Write-Host "Detected Windows Server 2022 (build $osBuild), using $win2022Dockerfile" -ForegroundColor Cyan
+                $Dockerfile = $win2022Dockerfile
+            }
+        }
+    }
 }
 
 # Get the full path of the Dockerfile
@@ -476,19 +521,21 @@ else
     $dockerfileFullPath = Join-Path $PSScriptRoot $Dockerfile
 }
 
-# Generate a hash of the Dockerfile full path (4 bytes, 8 hex chars)
-$hashBytes = (New-Object -TypeName System.Security.Cryptography.SHA256Managed).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($dockerfileFullPath))
-$dockerfileHash = [System.BitConverter]::ToString($hashBytes, 0, 4).Replace("-", "").ToLower()
+# Generate content-based hash for image tag
+$contentHash = Get-ContentHash -DockerfilePath $dockerfileFullPath -ContextDirectory $dockerContextDirectory
+$ghcrRegistry = $env:GHCR_REGISTRY
 
-# Generate ImageTag using the hash
-if ( [string]::IsNullOrEmpty($ImageName))
-{
-    $ImageTag = "dockerfile-$dockerfileHash"
-    Write-Host "Generated image tag from Dockerfile path hash: $ImageTag" -ForegroundColor Cyan
+if ($ghcrRegistry) {
+    # GHCR mode: use registry URL with content hash
+    $ImageTag = "${ghcrRegistry}:${contentHash}"
+    Write-Host "GHCR image tag: $ImageTag" -ForegroundColor Cyan
 }
-else
-{
-    $ImageTag = "$ImageName`:$dockerfileHash"
+elseif ([string]::IsNullOrEmpty($ImageName)) {
+    $ImageTag = "dockerfile-$contentHash"
+    Write-Host "Generated image tag from content hash: $ImageTag" -ForegroundColor Cyan
+}
+else {
+    $ImageTag = "$ImageName`:$contentHash"
     Write-Host "Image will be tagged as: $ImageTag" -ForegroundColor Cyan
 }
 
@@ -1148,6 +1195,47 @@ if (-not $existingContainerId)
     }
 }
 
+# GHCR authentication and pull logic
+$builtNewImage = $false
+$dockerConfigArg = @()
+
+if ($ghcrRegistry -and -not $NoBuildImage -and -not $existingContainerId) {
+    # Extract registry host from full URL (e.g., ghcr.io from ghcr.io/owner/repo)
+    $registryHost = ($ghcrRegistry -split '/')[0]
+
+    # Create a temporary Docker config directory to avoid credential helper issues
+    # (e.g., docker-credential-desktop not found when using Docker Engine without Desktop)
+    $tempDockerConfig = Join-Path $env:TEMP "docker-config-$(New-Guid)"
+    New-Item -ItemType Directory -Path $tempDockerConfig -Force | Out-Null
+    @{ auths = @{} } | ConvertTo-Json | Set-Content (Join-Path $tempDockerConfig "config.json")
+    $dockerConfigArg = @("--config", $tempDockerConfig)
+
+    # Authenticate to GHCR
+    $ghcrToken = $env:GHCR_TOKEN
+    if ($ghcrToken) {
+        Write-Host "Authenticating to GHCR..." -ForegroundColor Gray
+        # GHCR accepts any username when using a PAT, commonly 'github' is used
+        $ghcrToken | docker @dockerConfigArg login $registryHost --username github --password-stdin 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Warning: GHCR authentication failed. Pull/push may fail." -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "Warning: GHCR_TOKEN not set. GHCR pull/push may fail." -ForegroundColor Yellow
+    }
+
+    # Try to pull the image
+    Write-Host "Checking GHCR for existing image: $ImageTag" -ForegroundColor Cyan
+    docker @dockerConfigArg pull $ImageTag 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Using cached image from GHCR." -ForegroundColor Green
+        $NoBuildImage = $true
+    }
+    else {
+        Write-Host "Image not found in GHCR, will build locally." -ForegroundColor Yellow
+    }
+}
+
 # Building the image.
 if (-not $NoBuildImage -and -not $existingContainerId)
 {
@@ -1220,6 +1308,20 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     {
         Write-Host "Docker build failed with exit code $LASTEXITCODE" -ForegroundColor Red
         exit $LASTEXITCODE
+    }
+
+    $builtNewImage = $true
+
+    # Auto-push to GHCR after successful build
+    if ($ghcrRegistry) {
+        Write-Host "Pushing image to GHCR: $ImageTag" -ForegroundColor Cyan
+        docker @dockerConfigArg push $ImageTag
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Warning: Failed to push image to GHCR" -ForegroundColor Yellow
+        }
+        else {
+            Write-Host "Successfully pushed to GHCR" -ForegroundColor Green
+        }
     }
 }
 else
