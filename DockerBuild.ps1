@@ -29,6 +29,13 @@ param(
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container (or Claude prompt if -Claude is specified).
 )
 
+# Require PowerShell 7.5 or higher (run with pwsh, not powershell)
+if ($PSVersionTable.PSVersion -lt [Version]'7.5')
+{
+    Write-Error "This script requires PowerShell 7.5 or higher (run with 'pwsh', not 'powershell'). Current version: $($PSVersionTable.PSVersion)"
+    exit 1
+}
+
 ####
 # These settings are replaced by the generate-scripts command.
 $EngPath = 'eng'
@@ -196,8 +203,10 @@ function New-EnvJson
     }
 
     $envVariables | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonPath -Encoding UTF8
-    Write-Host "Created secrets file: $jsonPath" -ForegroundColor Cyan
 
+    # Print sorted list of environment variables being passed
+    $sortedKeys = $envVariables.Keys | Sort-Object
+    Write-Host "Environment variables: $($sortedKeys -join ', ')" -ForegroundColor Gray
 
     return $jsonPath
 }
@@ -327,7 +336,10 @@ function New-ClaudeEnvJson
     }
 
     $claudeEnv | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonPath -Encoding UTF8
-    Write-Host "Created Claude secrets file: $jsonPath" -ForegroundColor Cyan
+
+    # Print sorted list of environment variables being passed
+    $sortedKeys = $claudeEnv.Keys | Sort-Object
+    Write-Host "Environment variables: $($sortedKeys -join ', ')" -ForegroundColor Gray
 
     return $jsonPath
 }
