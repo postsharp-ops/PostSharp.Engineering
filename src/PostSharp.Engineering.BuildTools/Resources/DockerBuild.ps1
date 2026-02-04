@@ -96,10 +96,18 @@ function New-EnvJson
     $envVarNames = $EnvironmentVariableList -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
 
     # Build hashtable with environment variable values
+    # CONTAINER_FOO takes precedence over FOO (allows overriding for container use)
     $envVariables = @{ }
     foreach ($envVarName in $envVarNames)
     {
-        $value = [Environment]::GetEnvironmentVariable($envVarName)
+        # Check for CONTAINER_ prefixed override first
+        $containerVarName = "CONTAINER_$envVarName"
+        $value = [Environment]::GetEnvironmentVariable($containerVarName)
+        if ([string]::IsNullOrEmpty($value))
+        {
+            # Fall back to regular environment variable
+            $value = [Environment]::GetEnvironmentVariable($envVarName)
+        }
         if (-not [string]::IsNullOrEmpty($value))
         {
             $envVariables[$envVarName] = $value
