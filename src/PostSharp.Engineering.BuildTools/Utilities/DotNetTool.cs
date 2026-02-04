@@ -5,7 +5,9 @@ using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 
@@ -23,7 +25,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public static DotNetTool SignClient { get; } = new SignTool();
 
-        public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2025.3.0-rc01", "jb" );
+        public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2025.3.2", "jb" );
 
         public static ImmutableArray<DotNetTool> DefaultTools { get; } = [SignClient, Resharper];
 
@@ -40,7 +42,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             var baseDirectory = context.RepoDirectory;
 
-            var configFilePath = Path.Combine( baseDirectory, ".config", "dotnet-tools.json" );
+            // Different SDKs might have different locations for the dotnet tool manifest.
+            string[] configFilePaths = [Path.Combine( baseDirectory, ".config", "dotnet-tools.json" ), Path.Combine( baseDirectory, "dotnet-tools.json" )];
             var resourceDirectory = Path.Combine( baseDirectory, ".tools" );
 
             // Use a named mutex to prevent race conditions when multiple parallel builds
@@ -67,7 +70,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             try
             {
                 // 1. Create the dotnet tool manifest.
-                if ( !File.Exists( configFilePath ) )
+                if ( !TryFindConfigFile( out var configFilePath ) )
                 {
                     // Use --output to explicitly specify where to create the manifest.
                     // Without this, dotnet will skip creation if a manifest exists in a parent directory.
@@ -81,10 +84,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     }
 
                     // Verify the manifest was created where expected.
-                    if ( !File.Exists( configFilePath ) )
+                    if ( !TryFindConfigFile( out configFilePath ) )
                     {
                         context.Console.WriteError(
-                            $"The 'dotnet new tool-manifest' command succeeded but the manifest was not created at the expected location: '{configFilePath}'. " +
+                            $"The 'dotnet new tool-manifest' command succeeded but the manifest was not created at the expected locations: '{string.Join( ", ", configFilePaths )}'. "
+                            +
                             $"Working directory was: '{baseDirectory}'." );
 
                         return false;
@@ -165,6 +169,25 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             finally
             {
                 mutex.ReleaseMutex();
+            }
+
+            bool TryFindConfigFile( [NotNullWhen( true )] out string? configFilePath )
+            {
+                foreach ( var configFilePathCandidate in configFilePaths )
+                {
+                    if ( File.Exists( configFilePathCandidate ) )
+                    {
+                        configFilePath = configFilePathCandidate;
+
+                        context.Console.WriteMessage( $"Found dotnet tool manifest at '{configFilePath}'." );
+
+                        return true;
+                    }
+                }
+
+                configFilePath = null;
+
+                return false;
             }
         }
 
