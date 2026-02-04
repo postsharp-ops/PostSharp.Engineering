@@ -70,7 +70,7 @@ object PublicBuild : BuildType({
 
     requirements {
         matches("teamcity.agent.jvm.os.family", "Windows")
-        equals("env.PROCESSOR_ARCHITECTURE", "AMD64")
+        matches("teamcity.agent.jvm.os.arch", "amd64")
     }
 
     features {
@@ -149,7 +149,7 @@ object PublicDeployment : BuildType({
 
     requirements {
         matches("teamcity.agent.jvm.os.family", "Windows")
-        equals("env.PROCESSOR_ARCHITECTURE", "AMD64")
+        matches("teamcity.agent.jvm.os.arch", "amd64")
     }
 
     features {
@@ -218,7 +218,7 @@ object VersionBump : BuildType({
 
     requirements {
         matches("teamcity.agent.jvm.os.family", "Windows")
-        equals("env.PROCESSOR_ARCHITECTURE", "AMD64")
+        matches("teamcity.agent.jvm.os.arch", "amd64")
     }
 
     features {
