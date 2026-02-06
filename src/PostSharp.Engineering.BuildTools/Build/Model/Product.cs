@@ -222,8 +222,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public DockerSpec? DockerSpec
             => this.ResolvedBuildAgentRequirements is ContainerHostRequirements containerHostRequirements
-                ? new DockerSpec(
-                    $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() )
+                ? new DockerSpec( $"{this.ProductNameWithoutDot}-{this.ProductFamily.Version}".ToLowerInvariant() )
                 : null;
 
         public bool IsPublishingNonReleaseBranchesAllowed { get; init; }
@@ -274,6 +273,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Version? MSBuildVersion { get; init; }
 
         public AdditionalCiBuildConfiguration[] AdditionalCiBuildConfigurations { get; init; } = [];
+
+        public AdditionalDockerfile[] AdditionalDockerfiles { get; init; } = [];
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {

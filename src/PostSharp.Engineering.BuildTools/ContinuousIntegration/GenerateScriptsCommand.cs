@@ -4,11 +4,8 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
-using PostSharp.Engineering.BuildTools.Dependencies;
-using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
@@ -40,20 +37,19 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
             EmbeddedResourceHelper.ExtractScript( context, "RunClaude.ps1", "eng" );
             var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
-            if ( !image.WriteDockerfile( context, ContainerOperatingSystem.Windows2025, "Dockerfile" ) )
-            {
-                return false;
-            }
-            
-            if ( !image.WriteDockerfile( context, ContainerOperatingSystem.Windows2022, "Dockerfile.win2022" ) )
+            // Generate main Dockerfile variants (standard + win2022 + claude + claude.win2022)
+            if ( !image.WriteAllVariants( context, "", [] ) )
             {
                 return false;
             }
 
-            // Generate Claude Dockerfile (will auto-add NodeJs if not present)
-            if ( !image.WriteClaudeDockerfile( context, ContainerOperatingSystem.Windows2025, "Dockerfile.claude" ) )
+            // Generate additional Dockerfile variants
+            foreach ( var additionalDockerfile in product.AdditionalDockerfiles )
             {
-                return false;
+                if ( !image.WriteAllVariants( context, additionalDockerfile.Name, additionalDockerfile.Components ) )
+                {
+                    return false;
+                }
             }
 
             // Generate DockerMounts.g.ps1 to define additional mount points for dependencies

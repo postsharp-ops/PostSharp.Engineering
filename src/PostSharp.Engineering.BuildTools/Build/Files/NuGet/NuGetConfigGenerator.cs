@@ -73,6 +73,7 @@ internal abstract class NuGetConfigGenerator
             rootElement.Add( packageSourceMappingElement );
 
             // If the element is not present (typical if no nuget.base.config), add default values.
+            packageSourceMappingElement.Add( new XElement( "clear" ) );
             var defaultSourceMapping = new XElement( "packageSource" );
             defaultSourceMapping.Add( new XAttribute( "key", "nuget.org" ) );
             defaultSourceMapping.Add( new XElement( "package", new XAttribute( "pattern", "*" ) ) );

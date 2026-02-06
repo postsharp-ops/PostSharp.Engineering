@@ -8,7 +8,6 @@ public enum ContainerComponentKind
     Prolog,
     Git,
     Powershell,
-    AzureCli,
     DotNetInstaller,
     DotNet,
     DotNetDump,
@@ -18,10 +17,10 @@ public enum ContainerComponentKind
     Python,
     Gulp,
     GitHubCli,
+    AzureCli,
     AzureArtifactsCredentialProvider,
     Claude,
     Timestamp,
     ClaudeAddIns,
-    Epilogue,
-
+    Epilogue
 }

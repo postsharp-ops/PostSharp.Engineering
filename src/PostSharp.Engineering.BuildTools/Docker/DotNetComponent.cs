@@ -32,6 +32,8 @@ public sealed class DotNetComponent : ContainerComponent
 
     public override string Name => $"Install .NET {this.DotNetComponentKind} {this.Version}";
 
+    public override string Key => $"{nameof(DotNetComponent)}:{this.DotNetComponentKind}:{this.Version}";
+
     public override ContainerComponentKind Kind => ContainerComponentKind.DotNet;
 
     public override void AddRequirements( IReadOnlyList<ContainerComponent> components, Action<ContainerComponent> add )

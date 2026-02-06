@@ -22,7 +22,7 @@ public class GitComponent : ContainerComponent
             # Add git to PATH using ENV directive (persists across shell switches)
             ENV PATH="C:\git\cmd;C:\git\bin;C:\git\usr\bin;${PATH}"
 
-            RUN git config --system core.longpaths true
+            RUN git config --system core.longpaths true; git config --system core.autocrlf false
 
             # Set CLAUDE_CODE_GIT_BASH_PATH for Claude Code
             ENV CLAUDE_CODE_GIT_BASH_PATH=C:\git\bin\bash.exe

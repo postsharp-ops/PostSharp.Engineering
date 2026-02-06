@@ -19,9 +19,6 @@ internal class EpilogueComponent : ContainerComponent
             # Link to private repository for GHCR visibility
             LABEL org.opencontainers.image.source=https://github.com/postsharp/PostSharp.Engineering.Images
 
-            # Create docker-context directory for build scripts
-            RUN New-Item -ItemType Directory -Path c:\docker-context -Force | Out-Null
-
             # Create directories for mountpoints
             ARG MOUNTPOINTS
             RUN if ($env:MOUNTPOINTS) { `
@@ -34,21 +31,8 @@ internal class EpilogueComponent : ContainerComponent
                     } `
                 }
 
-            # Import environment variables
-            COPY ReadEnvironmentVariables.ps1 c:\docker-context\ReadEnvironmentVariables.ps1
-            COPY .g/env.g.json c:\docker-context\env.g.json
-            RUN c:\docker-context\ReadEnvironmentVariables.ps1 c:\docker-context\env.g.json
-
-            # Copy Init.g.ps1 placeholder (drive mappings handled inline in docker run)
-            COPY .g/Init.g.ps1 c:\docker-context\Init.g.ps1
-
             # Configure .NET SDK
             ENV DOTNET_NOLOGO=1
             """ );
-    }
-
-    public override void PopulateContextDirectory( BuildContext context, string directory )
-    {
-        EmbeddedResourceHelper.ExtractScript( context, "ReadEnvironmentVariables.ps1", directory );
     }
 }

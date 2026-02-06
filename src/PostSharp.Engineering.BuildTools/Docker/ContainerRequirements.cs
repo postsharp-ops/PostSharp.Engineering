@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
@@ -24,16 +24,75 @@ public record ContainerRequirements : ContainerHostRequirements
 
     public override bool IsDockerized => true;
 
-    public bool WriteDockerfile( BuildContext context, ContainerOperatingSystem operatingSystem, string fileName ) => this.WriteDockerfileCore( context, fileName, operatingSystem,[], true );
+    public bool WriteAllVariants(
+        BuildContext context,
+        string suffix,
+        ContainerComponent[] extraComponents )
+    {
+        var name = string.IsNullOrEmpty( suffix ) ? "Dockerfile" : $"Dockerfile.{suffix}";
+        var claudeComponents = new ContainerComponent[] { new ClaudeComponent(), new ClaudeAddInsComponent() };
+        var validate = string.IsNullOrEmpty( suffix );
 
-    public bool WriteClaudeDockerfile( BuildContext context, ContainerOperatingSystem operatingSystem, string fileName )
-        => this.WriteDockerfileCore( context, fileName, operatingSystem, [new ClaudeComponent(), new ClaudeAddInsComponent()], false );
+        // Win2025
+        if ( !this.WriteDockerfileCore(
+                context,
+                name,
+                ContainerOperatingSystem.Windows2025,
+                extraComponents,
+                validate ) )
+        {
+            return false;
+        }
 
-    private bool WriteDockerfileCore( BuildContext context, string dockerfileName, ContainerOperatingSystem operatingSystem, ContainerComponent[] additionalComponents, bool validateBuildComponents )
+        // Win2022
+        if ( !this.WriteDockerfileCore(
+                context,
+                $"{name}.win2022",
+                ContainerOperatingSystem.Windows2022,
+                extraComponents,
+                false ) )
+        {
+            return false;
+        }
+
+        // Win2025 + Claude
+        if ( !this.WriteDockerfileCore(
+                context,
+                $"{name}.claude",
+                ContainerOperatingSystem.Windows2025,
+                [..extraComponents, ..claudeComponents],
+                false ) )
+        {
+            return false;
+        }
+
+        // Win2022 + Claude
+        if ( !this.WriteDockerfileCore(
+                context,
+                $"{name}.claude.win2022",
+                ContainerOperatingSystem.Windows2022,
+                [..extraComponents, ..claudeComponents],
+                false ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool WriteDockerfileCore(
+        BuildContext context,
+        string dockerfileName,
+        ContainerOperatingSystem operatingSystem,
+        ContainerComponent[] additionalComponents,
+        bool validateBuildComponents )
     {
         var contextDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "docker-context" );
 
         Directory.CreateDirectory( contextDirectory );
+
+        var dockerfilesDir = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "docker" );
+        Directory.CreateDirectory( dockerfilesDir );
 
         // Add base components
         var allComponents = new List<ContainerComponent> { new PrologComponent(), new PowershellComponent(), new GitComponent(), new EpilogueComponent() };
@@ -57,6 +116,21 @@ public record ContainerRequirements : ContainerHostRequirements
 
             component.AddRequirements( allComponents, Add );
         }
+
+        // Deduplicate components by key (last occurrence wins)
+        var seen = new HashSet<string>();
+        var deduplicatedComponents = new List<ContainerComponent>();
+
+        for ( var i = allComponents.Count - 1; i >= 0; i-- )
+        {
+            if ( seen.Add( allComponents[i].Key ) )
+            {
+                deduplicatedComponents.Add( allComponents[i] );
+            }
+        }
+
+        deduplicatedComponents.Reverse();
+        allComponents = deduplicatedComponents;
 
         // Validate components
         foreach ( var component in allComponents )
@@ -86,7 +160,7 @@ public record ContainerRequirements : ContainerHostRequirements
         // Order components
         var orderedComponents = allComponents.OrderBy( x => x ).ToList();
 
-        var dockerfilePath = Path.Combine( context.RepoDirectory, dockerfileName );
+        var dockerfilePath = Path.Combine( dockerfilesDir, dockerfileName );
         using var dockerfileContent = new StringWriter();
 
         foreach ( var component in orderedComponents )

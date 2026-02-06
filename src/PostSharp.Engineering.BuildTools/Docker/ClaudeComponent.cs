@@ -14,6 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 public class ClaudeComponent : ContainerComponent
 {
     private const string _minNodeVersion = "22.0.0";
+    private const string _claudeVersion = "2.1.34";
 
     public override string Name => "Install Claude CLI";
 
@@ -35,7 +36,7 @@ public class ClaudeComponent : ContainerComponent
             """ );
 
         // Build a single multi-line RUN command for all operations
-        writer.WriteLine( "RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code@2.1.27" );
+        writer.WriteLine( $"RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code@{_claudeVersion}" );
         writer.Write( "RUN mkdir C:\\Users\\ContainerAdministrator\\.claude" );
         writer.Write( " && echo {\"hasCompletedOnboarding\": true} > C:\\Users\\ContainerAdministrator\\.claude.json" );
         writer.Write( " && echo {\"alwaysThinkingEnabled\": true, \"spinnerTipsEnabled\": false} > C:\\Users\\ContainerAdministrator\\.claude\\settings.json" );

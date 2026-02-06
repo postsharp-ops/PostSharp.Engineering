@@ -11,6 +11,12 @@ public abstract class ContainerComponent : IComparable<ContainerComponent>
 {
     public abstract string Name { get; }
 
+    /// <summary>
+    /// Gets a unique key that identifies this component instance, including all parameters.
+    /// Used for deduplication: two components with the same key are considered identical.
+    /// </summary>
+    public virtual string Key => this.GetType().Name;
+
     public abstract ContainerComponentKind Kind { get; }
 
     public abstract void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem );

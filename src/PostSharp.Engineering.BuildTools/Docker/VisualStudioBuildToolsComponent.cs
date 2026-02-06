@@ -18,6 +18,8 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
 
     public override string Name => "Install VS Build Tools";
 
+    public override string Key => $"{nameof(VisualStudioBuildToolsComponent)}:{this._version}:{string.Join( ",", this.Components.OrderBy( x => x ) )}";
+
     public override ContainerComponentKind Kind => ContainerComponentKind.VsBuildTools;
 
     [Obsolete( "Specify the VisualStudioBuildToolsComponentVersion/" )]

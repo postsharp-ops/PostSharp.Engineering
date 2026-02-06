@@ -17,6 +17,8 @@ public class PythonComponent : ContainerComponent
 
     public override string Name => $"Install Python {this._version}";
 
+    public override string Key => $"{nameof(PythonComponent)}:{this._version}";
+
     public override ContainerComponentKind Kind => ContainerComponentKind.Python;
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )

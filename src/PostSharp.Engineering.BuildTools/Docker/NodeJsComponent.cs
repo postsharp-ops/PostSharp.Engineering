@@ -17,6 +17,8 @@ public class NodeJsComponent : ContainerComponent
 
     public override string Name => "Install Node.js";
 
+    public override string Key => $"{nameof(NodeJsComponent)}:{this._version}";
+
     public override ContainerComponentKind Kind => ContainerComponentKind.NodeJs;
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )

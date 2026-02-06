@@ -15,6 +15,8 @@ public class ClaudeAddInsComponent : ContainerComponent
 {
     public override string Name => "Install Claude CLI Add-ins";
 
+    public override string Key => $"{nameof(ClaudeAddInsComponent)}:{string.Join( ",", this.Marketplaces.OrderBy( x => x ) )}:{string.Join( ",", this.Plugins.OrderBy( x => x ) )}";
+
     public override ContainerComponentKind Kind => ContainerComponentKind.ClaudeAddIns;
 
     /// <summary>
