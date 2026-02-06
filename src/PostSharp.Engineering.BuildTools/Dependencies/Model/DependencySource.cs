@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System;
 using System.Globalization;
 using System.IO;
@@ -55,7 +56,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             DependencyDefinition dependencyDefinition,
             DependencyConfigurationOrigin origin )
         {
-            var path = Path.Combine( context.RepoDirectory, "dependencies", dependencyDefinition.Name, $"{dependencyDefinition.Name}.version.props" );
+            var path = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, dependencyDefinition.Name );
             var document = XDocument.Load( path );
 
             var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependencyDefinition.NameWithoutDot}BuildNumber" )?.Value;

@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
@@ -228,23 +229,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                                     var dependencySource = DependencySource.CreateRestoredDependency( (CiBuildId) buildSpec, origin );
 
-                                    // On TeamCity, the repo may be checked out under source-dependencies/<repo>.
-                                    // In that case, dependencies/ is at the work directory root (parent of source-dependencies).
-                                    var dependenciesBaseDir = context.RepoDirectory;
-                                    var parentDir = Path.GetDirectoryName( context.RepoDirectory );
-
-                                    if ( parentDir != null &&
-                                         string.Equals( Path.GetFileName( parentDir ), "source-dependencies", StringComparison.OrdinalIgnoreCase ) )
-                                    {
-                                        dependenciesBaseDir = Path.GetDirectoryName( parentDir )!;
-                                    }
-
-                                    dependencySource.VersionFile = Path.GetFullPath(
-                                        Path.Combine(
-                                            dependenciesBaseDir,
-                                            "dependencies",
-                                            name,
-                                            name + ".version.props" ) );
+                                    dependencySource.VersionFile = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, name );
 
                                     file._dependencies[name] = dependencySource;
                                 }
@@ -372,7 +357,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
                 // Transform file path for WSL if needed (for XML content)
                 var transformedFile = TransformPath( file );
 
-                var element = new XElement( "Import", new XAttribute( "Project", transformedFile ), new XAttribute( "Condition", $"Exists( '{transformedFile}' )" ) );
+                var element = new XElement(
+                    "Import",
+                    new XAttribute( "Project", transformedFile ),
+                    new XAttribute( "Condition", $"Exists( '{transformedFile}' )" ) );
 
                 if ( label != null )
                 {
@@ -454,7 +442,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                             if ( versionFile == null )
                             {
-                                throw new InvalidOperationException( $"'{this.FilePath}': The VersionFile property of dependency '{dependency.Key}' is not set." );
+                                throw new InvalidOperationException(
+                                    $"'{this.FilePath}': The VersionFile property of dependency '{dependency.Key}' is not set." );
                             }
 
                             WriteBuildServerSource();

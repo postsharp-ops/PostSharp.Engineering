@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -326,6 +327,30 @@ public static class TeamCityHelper
         var projectId = GetProjectIdWithParentProjectId( projectName, parentProjectId );
 
         return projectId;
+    }
+
+    /// <summary>
+    /// Gets the path to a restored dependency's version file. On TeamCity, when the repo is checked out
+    /// under <c>source-dependencies/&lt;repo&gt;</c>, the <c>dependencies/</c> directory is at the work
+    /// directory root (parent of <c>source-dependencies</c>), not under the repo directory.
+    /// </summary>
+    public static string GetRestoredDependencyVersionFile( string repoDirectory, string dependencyName )
+    {
+        var dependenciesBaseDir = repoDirectory;
+        var parentDir = Path.GetDirectoryName( repoDirectory );
+
+        if ( parentDir != null &&
+             string.Equals( Path.GetFileName( parentDir ), "source-dependencies", StringComparison.OrdinalIgnoreCase ) )
+        {
+            dependenciesBaseDir = Path.GetDirectoryName( parentDir )!;
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(
+                dependenciesBaseDir,
+                "dependencies",
+                dependencyName,
+                dependencyName + ".version.props" ) );
     }
 
     public static void SendImportDataMessage( string type, string path, string flowId, bool failOnNoData )
