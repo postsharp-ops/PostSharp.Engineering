@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.Docker;
 using System.Collections.Generic;
@@ -38,4 +39,6 @@ public abstract class AdditionalCiBuildConfiguration
         IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations );
     
     public BuildAgentRequirements? BuildAgentRequirements { get; init; }
+
+    public BuildConfigurationParameter[]? Parameters { get; init; }
 }

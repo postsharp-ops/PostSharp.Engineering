@@ -136,7 +136,8 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 SourceDependenciesRequirements.Full => productProperties.SourceDependencies,
                 _ => throw new ArgumentOutOfRangeException()
             },
-            SnapshotDependencies = snapshotDependencies?.ToArray()
+            SnapshotDependencies = snapshotDependencies?.ToArray(),
+            Parameters = this.Parameters
         };
 
         return downstreamMergeConfiguration;

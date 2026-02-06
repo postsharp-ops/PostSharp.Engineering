@@ -40,7 +40,7 @@ function Sanitize-ClaudeOutput {
 }
 
 # Tools whose output is silenced in the monitoring display
-$script:SilentTools = @('Read', 'Glob', 'Grep')
+$script:SilentTools = @('Read', 'Glob', 'Grep', 'Edit')
 $script:SilentToolIds = @{}
 
 # --- JSON stream line parser (matches ClaudeCodeHelper.TranslateJsonToHumanReadable) ---
@@ -99,7 +99,7 @@ function ConvertFrom-ClaudeJsonLine {
                             foreach ($dp in $displayProps) {
                                 $val = $block.input.($dp.Key)
                                 if ($val) {
-                                    $truncated = if ($val.Length -gt 120) { $val.Substring(0, 120) + "..." } else { $val }
+                                    $truncated = if ($val.Length -gt 1024) { $val.Substring(0, 1024) + "..." } else { $val }
                                     Write-Host (Sanitize-ClaudeOutput "  $($dp.Label): $truncated") -ForegroundColor Gray
                                     $shown = $true
                                     break
