@@ -369,17 +369,13 @@ try
             $claudeEnv["IS_TEAMCITY_AGENT"] = $env:IS_TEAMCITY_AGENT
         }
 
-        # Git identity - read from host git config if not set in environment
-        $gitUserName = $env:GIT_USER_NAME
-        $gitUserEmail = $env:GIT_USER_EMAIL
-        if (-not $gitUserName)
-        {
-            $gitUserName = git config --global user.name
-        }
-        if (-not $gitUserEmail)
-        {
-            $gitUserEmail = git config --global user.email
-        }
+        # Git identity - CLAUDE_ prefixed vars take precedence, then GIT_USER_*, then git config
+        $gitUserName = $env:CLAUDE_GIT_USER_NAME
+        if (-not $gitUserName) { $gitUserName = $env:GIT_USER_NAME }
+        if (-not $gitUserName) { $gitUserName = git config --global user.name }
+        $gitUserEmail = $env:CLAUDE_GIT_USER_EMAIL
+        if (-not $gitUserEmail) { $gitUserEmail = $env:GIT_USER_EMAIL }
+        if (-not $gitUserEmail) { $gitUserEmail = git config --global user.email }
         if ($gitUserName)
         {
             $claudeEnv["GIT_USER_NAME"] = $gitUserName
@@ -745,11 +741,10 @@ try
     # Start timing the entire process except cleaning
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-    # Ensure docker context directory exists and contains at least one file (not needed for registry images)
+    # Ensure docker context directory exists (not needed for registry images)
     if (-not $RegistryImage -and -not (Test-Path $dockerContextDirectory))
     {
-        Write-Error "Docker context directory '$dockerContextDirectory' does not exist."
-        exit 1
+        New-Item -ItemType Directory -Path $dockerContextDirectory -Force | Out-Null
     }
 
 
