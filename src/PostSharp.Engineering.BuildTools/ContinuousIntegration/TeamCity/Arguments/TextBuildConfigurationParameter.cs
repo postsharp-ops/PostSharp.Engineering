@@ -12,6 +12,8 @@ public class TextBuildConfigurationParameter : BuildConfigurationParameter
 
     public (string Regex, string ValidationMessage)? Validation { get; init; }
 
+    public ParameterDisplay Display { get; init; }
+
     public TextBuildConfigurationParameter( string name, string label, string description, string defaultValue = "", bool allowEmpty = false )
         : base( name, defaultValue )
     {
@@ -28,6 +30,7 @@ public class TextBuildConfigurationParameter : BuildConfigurationParameter
                         label ="{KotlinHelper.EscapeString( this.Label )}",
                         description = "{KotlinHelper.EscapeString( this.Description )}"{(!this.AllowEmpty ? "" : ", allowEmpty = true")}{(!this.Validation.HasValue ? "" : @$", 
                         regex = """"""{KotlinHelper.EscapeString( this.Validation.Value.Regex )}"""""",  
-                        validationMessage = ""{KotlinHelper.EscapeString( this.Validation.Value.ValidationMessage )}""")})
+                        validationMessage = ""{KotlinHelper.EscapeString( this.Validation.Value.ValidationMessage )}
+                        display = ParameterDisplay.{this.Display.ToString().ToUpperInvariant()}""")})
             """;
 }

@@ -20,7 +20,7 @@ public abstract class AdditionalCiBuildConfiguration
     public string? Branch { get; init; }
 
     public SourceDependenciesRequirements SourceDependenciesRequirements { get; init; }
-    
+
     /// <summary>
     /// Gets or sets the build configuration on which the current <see cref="AdditionalCiBuildConfiguration"/> depends.
     /// </summary>
@@ -37,8 +37,10 @@ public abstract class AdditionalCiBuildConfiguration
     internal abstract TeamCityBuildConfiguration TeamCityBuildConfiguration(
         ProductProperties productProperties,
         IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations );
-    
+
     public BuildAgentRequirements? BuildAgentRequirements { get; init; }
 
     public BuildConfigurationParameter[]? Parameters { get; init; }
+
+    public string? Dockerfile { get; init; }
 }

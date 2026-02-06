@@ -7,6 +7,7 @@
         <UseWPF>true</UseWPF>
         <LangVersion>preview</LangVersion>
         <AssemblyName>PostSharp.Engineering.McpApprovalServer</AssemblyName>
+        <IsPackable>false</IsPackable>
         <!-- SA0001: XML comment analysis is disabled due to project configuration -->
         <NoWarn>$(NoWarn);SA0001</NoWarn>
     </PropertyGroup>

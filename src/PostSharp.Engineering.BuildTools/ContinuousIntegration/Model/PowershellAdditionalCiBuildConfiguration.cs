@@ -106,10 +106,13 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 $"Execute {this.Script}",
                 this.Script,
                 this.Arguments,
-                this.BuildAgentRequirements == null ? product.DockerSpec :
-                this.BuildAgentRequirements is ContainerHostRequirements containerHostRequirements ? new DockerSpec(
-                    $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant() ) :
-                null,
+                this.BuildAgentRequirements == null
+                    ? (this.Dockerfile != null && product.DockerSpec != null ? product.DockerSpec with { Dockerfile = this.Dockerfile } : product.DockerSpec)
+                    : this.BuildAgentRequirements is ContainerHostRequirements containerHostRequirements
+                        ? new DockerSpec(
+                            $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant(),
+                            Dockerfile: this.Dockerfile )
+                        : null,
                 true )
             {
 #pragma warning disable CS0612 // Type or member is obsolete

@@ -16,9 +16,6 @@ internal class EpilogueComponent : ContainerComponent
     {
         writer.WriteLine(
             """
-            # Link to private repository for GHCR visibility
-            LABEL org.opencontainers.image.source=https://github.com/postsharp/PostSharp.Engineering.Images
-
             # Create directories for mountpoints
             ARG MOUNTPOINTS
             RUN if ($env:MOUNTPOINTS) { `

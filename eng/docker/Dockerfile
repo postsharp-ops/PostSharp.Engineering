@@ -63,9 +63,6 @@ RUN & .\dotnet-install.ps1 -Version 9.0.310 -InstallDir 'C:\Program Files\dotnet
 
 
 # Epilogue
-# Link to private repository for GHCR visibility
-LABEL org.opencontainers.image.source=https://github.com/postsharp/PostSharp.Engineering.Images
-
 # Create directories for mountpoints
 ARG MOUNTPOINTS
 RUN if ($env:MOUNTPOINTS) { `
