@@ -6,7 +6,8 @@ internal record TeamCitySnapshotDependency(
     string ObjectId,
     bool IsAbsoluteId,
     string? ArtifactRules = null,
-    FailureAction FailureAction = FailureAction.FailToStart );
+    FailureAction FailureAction = FailureAction.FailToStart,
+    ReuseBuilds ReuseBuilds = ReuseBuilds.Default );
 
 internal enum FailureAction
 {
@@ -14,4 +15,11 @@ internal enum FailureAction
     AddProblem,
     Ignore,
     Cancel
+}
+
+internal enum ReuseBuilds
+{
+    Default,
+    Successful,
+    Any
 }

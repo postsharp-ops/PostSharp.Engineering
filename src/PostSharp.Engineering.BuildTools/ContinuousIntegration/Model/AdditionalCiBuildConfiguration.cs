@@ -26,6 +26,13 @@ public abstract class AdditionalCiBuildConfiguration
     /// </summary>
     public BuildConfiguration? BuildSnapshotDependency { get; init; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the snapshot dependency should accept the last successful build
+    /// regardless of the current source snapshot. When <c>true</c>, TeamCity will reuse the last successful build
+    /// of the dependency instead of requiring a build from the exact same source revision.
+    /// </summary>
+    public bool ReuseLastSuccessfulBuild { get; init; }
+
     public bool OnlyCheckoutEngineering { get; init; }
 
     protected AdditionalCiBuildConfiguration( string id, string name )

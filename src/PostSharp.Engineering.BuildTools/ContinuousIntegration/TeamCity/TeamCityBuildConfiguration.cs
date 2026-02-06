@@ -308,10 +308,17 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                         _ => throw new ArgumentOutOfRangeException()
                     };
 
+                    var reuseBuildsLine = dependency.ReuseBuilds switch
+                    {
+                        ReuseBuilds.Successful => $"\n                     reuseBuilds = ReuseBuilds.SUCCESSFUL",
+                        ReuseBuilds.Any => $"\n                     reuseBuilds = ReuseBuilds.ANY",
+                        _ => ""
+                    };
+
                     writer.WriteLine(
                         $@"        dependency({objectName}) {{
             snapshot {{
-                     onDependencyFailure = FailureAction.{failureAction}
+                     onDependencyFailure = FailureAction.{failureAction}{reuseBuildsLine}
             }}" );
 
                     if ( dependency.ArtifactRules != null )

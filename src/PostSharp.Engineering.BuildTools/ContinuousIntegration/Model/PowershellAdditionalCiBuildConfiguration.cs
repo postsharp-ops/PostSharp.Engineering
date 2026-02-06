@@ -54,8 +54,10 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 .ToList();
 
             // Create snapshot dependencies for all transitive dependencies
+            var reuseBuilds = this.ReuseLastSuccessfulBuild ? ReuseBuilds.Successful : ReuseBuilds.Default;
+
             snapshotDependencies =
-                [new TeamCitySnapshotDependency( buildConfiguration.ObjectName, false, $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}" )];
+                [new TeamCitySnapshotDependency( buildConfiguration.ObjectName, false, $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}", ReuseBuilds: reuseBuilds )];
 
             snapshotDependencies.AddRange(
                 dependencies.Select( d => new TeamCitySnapshotDependency(
