@@ -228,9 +228,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                                     var dependencySource = DependencySource.CreateRestoredDependency( (CiBuildId) buildSpec, origin );
 
+                                    // On TeamCity, the repo may be checked out under source-dependencies/<repo>.
+                                    // In that case, dependencies/ is at the work directory root (parent of source-dependencies).
+                                    var dependenciesBaseDir = context.RepoDirectory;
+                                    var parentDir = Path.GetDirectoryName( context.RepoDirectory );
+
+                                    if ( parentDir != null &&
+                                         string.Equals( Path.GetFileName( parentDir ), "source-dependencies", StringComparison.OrdinalIgnoreCase ) )
+                                    {
+                                        dependenciesBaseDir = Path.GetDirectoryName( parentDir )!;
+                                    }
+
                                     dependencySource.VersionFile = Path.GetFullPath(
                                         Path.Combine(
-                                            context.RepoDirectory,
+                                            dependenciesBaseDir,
                                             "dependencies",
                                             name,
                                             name + ".version.props" ) );
