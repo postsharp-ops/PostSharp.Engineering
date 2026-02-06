@@ -471,12 +471,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                     case DependencySourceKind.RestoredDependency:
                         {
-                            var importProjectFile = Path.GetFullPath(
-                                Path.Combine(
-                                    context.RepoDirectory,
-                                    "dependencies",
-                                    dependency.Key,
-                                    dependency.Key + ".version.props" ) );
+                            var importProjectFile = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, dependency.Key );
 
                             AddImport( importProjectFile );
 

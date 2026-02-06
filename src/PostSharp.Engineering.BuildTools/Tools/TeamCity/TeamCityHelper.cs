@@ -330,28 +330,34 @@ public static class TeamCityHelper
     }
 
     /// <summary>
-    /// Gets the path to a restored dependency's version file. On TeamCity, when the repo is checked out
+    /// Gets the base directory for restored dependencies. On TeamCity, when the repo is checked out
     /// under <c>source-dependencies/&lt;repo&gt;</c>, the <c>dependencies/</c> directory is at the work
     /// directory root (parent of <c>source-dependencies</c>), not under the repo directory.
     /// </summary>
-    public static string GetRestoredDependencyVersionFile( string repoDirectory, string dependencyName )
+    public static string GetDependenciesBaseDirectory( string repoDirectory )
     {
-        var dependenciesBaseDir = repoDirectory;
         var parentDir = Path.GetDirectoryName( repoDirectory );
 
         if ( parentDir != null &&
              string.Equals( Path.GetFileName( parentDir ), "source-dependencies", StringComparison.OrdinalIgnoreCase ) )
         {
-            dependenciesBaseDir = Path.GetDirectoryName( parentDir )!;
+            return Path.GetDirectoryName( parentDir )!;
         }
 
-        return Path.GetFullPath(
-            Path.Combine(
-                dependenciesBaseDir,
-                "dependencies",
-                dependencyName,
-                dependencyName + ".version.props" ) );
+        return repoDirectory;
     }
+
+    /// <summary>
+    /// Gets the directory for a specific restored dependency.
+    /// </summary>
+    public static string GetRestoredDependencyDirectory( string repoDirectory, string dependencyName )
+        => Path.GetFullPath( Path.Combine( GetDependenciesBaseDirectory( repoDirectory ), "dependencies", dependencyName ) );
+
+    /// <summary>
+    /// Gets the path to a restored dependency's version file.
+    /// </summary>
+    public static string GetRestoredDependencyVersionFile( string repoDirectory, string dependencyName )
+        => Path.Combine( GetRestoredDependencyDirectory( repoDirectory, dependencyName ), dependencyName + ".version.props" );
 
     public static void SendImportDataMessage( string type, string path, string flowId, bool failOnNoData )
     {

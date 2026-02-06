@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Files.NuGet;
@@ -36,12 +37,9 @@ internal sealed class RestoredArtifactsNuGetConfigGenerator : NuGetConfigGenerat
         DependencyDefinition dependencyDefinition,
         BuildConfiguration configuration )
     {
-        // For restored artifacts, dependencies are always under dependencies/<name>
+        // For restored artifacts, dependencies are under the dependencies base directory
         // TeamCity artifact rule +:{PrivateArtifactsDir}/**/* => dependencies/{name} copies the contents directly
-        return Path.Combine(
-            context.RepoDirectory,
-            "dependencies",
-            dependencyKey );
+        return TeamCityHelper.GetRestoredDependencyDirectory( context.RepoDirectory, dependencyKey );
     }
 
     protected override bool ShouldIncludeDependency( DependencyDefinition dependencyDefinition )

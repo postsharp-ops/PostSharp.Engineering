@@ -459,7 +459,7 @@ internal static class DependenciesHelper
 
             if ( dependency.Source.VersionFile == null )
             {
-                var path = Path.Combine( context.RepoDirectory, "dependencies", dependency.Dependency.Name, $"{dependency.Dependency.Name}.version.props" );
+                var path = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, dependency.Dependency.Name );
                 dependency.Source.VersionFile = path;
             }
 
