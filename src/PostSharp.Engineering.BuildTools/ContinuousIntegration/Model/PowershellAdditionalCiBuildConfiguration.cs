@@ -54,7 +54,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 .ToList();
 
             // Create snapshot dependencies for all transitive dependencies
-            var reuseBuilds = this.ReuseLastSuccessfulBuild ? ReuseBuilds.Successful : ReuseBuilds.Default;
+            var reuseBuilds = this.ReuseLastSuccessfulBuild ? ReuseBuilds.LastSuccessful : ReuseBuilds.Default;
 
             snapshotDependencies =
                 [new TeamCitySnapshotDependency( buildConfiguration.ObjectName, false, $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}", ReuseBuilds: reuseBuilds )];
@@ -63,7 +63,8 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 dependencies.Select( d => new TeamCitySnapshotDependency(
                                          d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                                          true,
-                                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Definition.Name}" ) ) );
+                                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Definition.Name}",
+                                         ReuseBuilds: reuseBuilds ) ) );
 
             // If we have a build snapshot dependency, copy nuget.restored.config to nuget.config
             var copyNuGetConfigCommand = $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.config"" -Force;";

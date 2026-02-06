@@ -20,6 +20,5 @@ internal enum FailureAction
 internal enum ReuseBuilds
 {
     Default,
-    Successful,
-    Any
+    LastSuccessful
 }

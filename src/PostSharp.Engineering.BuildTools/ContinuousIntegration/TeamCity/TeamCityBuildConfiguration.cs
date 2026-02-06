@@ -64,10 +64,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         public void GenerateTeamcityCode( TextWriter writer )
         {
             writer.WriteLine(
-                $@"object {this.ObjectName} : BuildType({{
+                $$"""
+                  object {{this.ObjectName}} : BuildType({
 
-    name = ""{this.Name}""
-" );
+                      name = "{{this.Name}}"
+
+                  """ );
 
             if ( this.IsDeployment )
             {
@@ -125,10 +127,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             if ( buildParameters.Count > 0 )
             {
                 writer.WriteLine(
-                    $@"    params {{
-{string.Join( Environment.NewLine, buildParameters.Select( p => p.GenerateTeamCityCode() ) )}
-    }}
-" );
+                    $$"""
+                          params {
+                      {{string.Join( Environment.NewLine, buildParameters.Select( p => p.GenerateTeamCityCode() ) )}}
+                          }
+
+                      """ );
             }
 
             writer.WriteLine( "    vcs {" );
@@ -136,7 +140,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             if ( this.IsDefaultVcsRootUsed )
             {
                 // We set the VCS root explicitly for consolidated as well builds to enable the DefaultBranch paramater.
-                writer.WriteLine( @$"        root(AbsoluteId(""{this.VcsId}""))" );
+                writer.WriteLine( $"""        root(AbsoluteId("{this.VcsId}"))""" );
 
                 if ( allBuildSteps.Count == 0 )
                 {
@@ -151,7 +155,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             {
                 foreach ( var sourceDependency in this.SourceDependencies! )
                 {
-                    var objectName = sourceDependency.IsAbsoluteId ? @$"AbsoluteId(""{sourceDependency.VcsId}"")" : sourceDependency.VcsId;
+                    var objectName = sourceDependency.IsAbsoluteId ? $"""AbsoluteId("{sourceDependency.VcsId}")""" : sourceDependency.VcsId;
 
                     writer.WriteLine(
                         $""""
@@ -173,8 +177,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 }
 
                 writer.WriteLine(
-                    $@"
-    steps {{" );
+                    $$"""
+
+                          steps {
+                      """ );
 
                 foreach ( var buildStep in allBuildSteps )
                 {
@@ -212,17 +218,21 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             if ( requiresAnyFeatures )
             {
                 writer.WriteLine(
-                    $@"
-    features {{" );
+                    $$"""
+
+                          features {
+                      """ );
 
                 if ( requiresSwabra )
                 {
                     writer.WriteLine(
-                        $@"        swabra {{
-            filesCleanup = Swabra.FilesCleanup.BEFORE_BUILD
-            lockingProcesses = Swabra.LockingProcessPolicy.KILL
-            verbose = true
-        }}" );
+                        $$"""
+                                  swabra {
+                                      filesCleanup = Swabra.FilesCleanup.BEFORE_BUILD
+                                      lockingProcesses = Swabra.LockingProcessPolicy.KILL
+                                      verbose = true
+                                  }
+                          """ );
                 }
 
                 if ( this.RequiresCommitStatusPublisher )
@@ -262,10 +272,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 if ( requiresSshAgent )
                 {
                     writer.WriteLine(
-                        $@"        sshAgent {{
-            // By convention, the SSH key name is always PostSharp.Engineering for all repositories using SSH to connect.
-            teamcitySshKey = ""PostSharp.Engineering""
-        }}" );
+                        $$"""
+                                  sshAgent {
+                                      // By convention, the SSH key name is always PostSharp.Engineering for all repositories using SSH to connect.
+                                      teamcitySshKey = "PostSharp.Engineering"
+                                  }
+                          """ );
                 }
 
                 writer.WriteLine( $@"    }}" );
@@ -275,8 +287,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             if ( this.BuildTriggers is { Length: > 0 } )
             {
                 writer.WriteLine(
-                    @"
-    triggers {" );
+                    """
+
+                        triggers {
+                    """ );
 
                 foreach ( var trigger in this.BuildTriggers )
                 {
@@ -292,12 +306,14 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             if ( hasSnapshotDependencies )
             {
                 writer.WriteLine(
-                    $@"
-    dependencies {{" );
+                    $$"""
+
+                          dependencies {
+                      """ );
 
                 foreach ( var dependency in this.SnapshotDependencies! )
                 {
-                    var objectName = dependency.IsAbsoluteId ? @$"AbsoluteId(""{dependency.ObjectId}"")" : dependency.ObjectId;
+                    var objectName = dependency.IsAbsoluteId ? $"""AbsoluteId("{dependency.ObjectId}")""" : dependency.ObjectId;
 
                     var failureAction = dependency.FailureAction switch
                     {
@@ -308,38 +324,44 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                         _ => throw new ArgumentOutOfRangeException()
                     };
 
-                    var reuseBuildsLine = dependency.ReuseBuilds switch
+                    // ReuseBuilds.Any: no snapshot dependency, artifacts use lastSuccessful()
+                    // ReuseBuilds.Successful: snapshot with synchronizeRevisions = false
+                    // Default: normal snapshot dependency
+                    if ( dependency.ReuseBuilds != ReuseBuilds.LastSuccessful )
                     {
-                        ReuseBuilds.Successful => $"\n                     reuseBuilds = ReuseBuilds.SUCCESSFUL",
-                        ReuseBuilds.Any => $"\n                     reuseBuilds = ReuseBuilds.ANY",
-                        _ => ""
-                    };
-
-                    writer.WriteLine(
-                        $@"        dependency({objectName}) {{
-            snapshot {{
-                     onDependencyFailure = FailureAction.{failureAction}{reuseBuildsLine}
-            }}" );
+                        writer.WriteLine(
+                            $$"""
+                                      snapshot({{objectName}}) {
+                                               onDependencyFailure = FailureAction.{{failureAction}}
+                                      }
+                              """ );
+                    }
 
                     if ( dependency.ArtifactRules != null )
                     {
-                        writer.WriteLine(
-                            $@"
-            artifacts {{
-                cleanDestination = true
-                artifactRules = ""{dependency.ArtifactRules}""
-            }}" );
-                    }
+                        var buildRule = dependency.ReuseBuilds == ReuseBuilds.LastSuccessful
+                            ? "\n                              buildRule = lastSuccessful()"
+                            : "";
 
-                    writer.WriteLine( $@"        }}" );
+                        writer.WriteLine(
+                            $$"""
+
+                                      artifacts({{objectName}}) { {{buildRule}}
+                                          cleanDestination = true
+                                          artifactRules = "{{dependency.ArtifactRules}}"
+                                      }
+                              """ );
+                    }
                 }
 
                 writer.WriteLine( $@"     }}" );
             }
 
             writer.WriteLine(
-                $@"
-}})" );
+                $$"""
+
+                  })
+                  """ );
         }
     }
 }
