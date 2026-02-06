@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <PostSharpEngineeringReleaseVersion>2023.2.336</PostSharpEngineeringReleaseVersion>
-    <PostSharpEngineeringReleaseMainVersion>2023.2.336</PostSharpEngineeringReleaseMainVersion>
+    <PostSharpEngineeringReleaseVersion>2023.2.337</PostSharpEngineeringReleaseVersion>
+    <PostSharpEngineeringReleaseMainVersion>2023.2.337</PostSharpEngineeringReleaseMainVersion>
   </PropertyGroup>
 </Project>
