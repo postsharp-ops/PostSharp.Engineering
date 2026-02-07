@@ -371,11 +371,23 @@ try
 
         # Git identity - CLAUDE_ prefixed vars take precedence, then GIT_USER_*, then git config
         $gitUserName = $env:CLAUDE_GIT_USER_NAME
-        if (-not $gitUserName) { $gitUserName = $env:GIT_USER_NAME }
-        if (-not $gitUserName) { $gitUserName = git config --global user.name }
+        if (-not $gitUserName)
+        {
+            $gitUserName = $env:GIT_USER_NAME
+        }
+        if (-not $gitUserName)
+        {
+            $gitUserName = git config --global user.name
+        }
         $gitUserEmail = $env:CLAUDE_GIT_USER_EMAIL
-        if (-not $gitUserEmail) { $gitUserEmail = $env:GIT_USER_EMAIL }
-        if (-not $gitUserEmail) { $gitUserEmail = git config --global user.email }
+        if (-not $gitUserEmail)
+        {
+            $gitUserEmail = $env:GIT_USER_EMAIL
+        }
+        if (-not $gitUserEmail)
+        {
+            $gitUserEmail = git config --global user.email
+        }
         if ($gitUserName)
         {
             $claudeEnv["GIT_USER_NAME"] = $gitUserName
@@ -1413,7 +1425,8 @@ $envVarAssignments$gitConfigCommands$postInitCommands
     # Registry authentication and pull logic
     $builtNewImage = $false
     $dockerConfigArg = @()
-    $imageExistsInRegistry = $false
+    # When we skip the registry flow (e.g. -NoBuildImage parameter), assume image is already in registry to avoid unauthenticated push
+    $imageExistsInRegistry = ($NoBuildImage -or $existingContainerId)
 
     if ($dockerRegistry -and -not $NoBuildImage -and -not $existingContainerId)
     {
@@ -1823,7 +1836,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     if ($script:RegistryPushJob)
     {
         Write-Host ""
-        Write-Host "Checking registry push status..." -ForegroundColor Cyan
+        Write-Host "Waiting for registry push..." -ForegroundColor Cyan
 
         # Wait for the job to complete with a timeout
         $pushJob = $script:RegistryPushJob
