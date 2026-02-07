@@ -8,6 +8,12 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 
+internal enum BuildStepExecutionMode
+{
+    Default,
+    Always
+}
+
 internal abstract class BuildStep
 {
     private readonly DockerSpec? _dockerSpec;
@@ -39,6 +45,8 @@ internal abstract class BuildStep
             }
         }
     }
+
+    public BuildStepExecutionMode ExecutionMode { get; init; }
 
     /// <summary>
     /// Gets a time that should be added to the complete build configuration timeout.

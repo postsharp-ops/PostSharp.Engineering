@@ -115,6 +115,20 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 }
             }
 
+            // If any step uses Docker, add a cleanup step that always runs to remove orphaned containers.
+            if ( allBuildSteps.OfType<EngineeringPrepareImageBuildStep>().Any() )
+            {
+                allBuildSteps.Add(
+                    new PowerShellCommandBuildStep(
+                        "DockerCleanup",
+                        "Cleanup Docker containers",
+                        "$label = \"%system.teamcity.buildType.id%_%build.number%\"; $ids = docker ps -a -q --filter \"label=postsharp.build=$label\"; if ($ids) { docker rm -f $ids 2>&1 | Out-Null }",
+                        null )
+                    {
+                        ExecutionMode = BuildStepExecutionMode.Always
+                    } );
+            }
+
             var buildParameters = new List<BuildConfigurationParameter>();
 
             buildParameters.AddRange( allBuildSteps.SelectMany( s => s.BuildConfigurationParameters ) );

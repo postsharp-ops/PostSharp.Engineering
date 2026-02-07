@@ -8,9 +8,10 @@ internal static class KotlinHelper
 {
     public static string EscapeString( string value )
     {
-        // Escape for Kotlin string: \ => \\, " => \"
+        // Escape for Kotlin string: \ => \\, " => \", $ => ${'$'}
         return value
             .Replace( "\\", "\\\\", StringComparison.Ordinal )
-            .Replace( "\"", "\\\"", StringComparison.Ordinal );
+            .Replace( "\"", "\\\"", StringComparison.Ordinal )
+            .Replace( "$", "${'$'}", StringComparison.Ordinal );
     }
 }

@@ -42,7 +42,7 @@ internal class PowerShellScriptBuildStep : BuildStep
         {
             this.ScriptPath = "DockerBuild.ps1";
             var dockerfileArg = dockerSpec.Dockerfile != null ? $" -Dockerfile {dockerSpec.Dockerfile}" : "";
-            this.ScriptArguments = $"-Script {scriptPath} -ImageName {dockerSpec.ImageName}{dockerfileArg} -NoBuildImage {scriptArguments} {buildParameterValue}";
+            this.ScriptArguments = $"-Script {scriptPath} -ImageName {dockerSpec.ImageName}{dockerfileArg} -NoBuildImage -Label %system.teamcity.buildType.id%_%build.number% {scriptArguments} {buildParameterValue}";
         }
 
         if ( areCustomArgumentsAllowed )

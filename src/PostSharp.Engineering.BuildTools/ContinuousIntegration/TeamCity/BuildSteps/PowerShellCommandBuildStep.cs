@@ -31,9 +31,13 @@ internal class PowerShellCommandBuildStep : BuildStep
 
     public override string GenerateTeamCityCode()
     {
+        var executionModeCode = this.ExecutionMode == BuildStepExecutionMode.Always
+            ? "\n            executionMode = BuildStep.ExecutionMode.ALWAYS"
+            : "";
+
         return $@"        powerShell {{
             name = ""{KotlinHelper.EscapeString( this.Name )}""
-            id = ""{this.Id}""
+            id = ""{this.Id}""{executionModeCode}
             edition = PowerShellStep.Edition.Core{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
             scriptMode = script {{

@@ -94,6 +94,10 @@
 .PARAMETER Ports
     Port mappings from host to container (e.g., "8080:80", "3000").
 
+.PARAMETER Label
+    Label to apply to the container for identification (e.g., for cleanup of orphaned build containers).
+    The label is set as "postsharp.build=<value>" on the container.
+
 .PARAMETER BuildArgs
     Arguments passed to Build.ps1 within the container (or Claude prompt if -Claude is specified).
 
@@ -138,12 +142,13 @@ param(
     [string]$Dockerfile, # Path to custom Dockerfile (defaults to Dockerfile or Dockerfile.claude based on -Claude).
     [string]$RegistryImage, # Use a pre-built image from a registry, skipping Dockerfile build entirely.
     [switch]$NoInit, # Do not generate or call Init.g.ps1 (skips git config, safe.directory, etc).
-    [string]$Isolation = 'process', # Docker isolation mode (process or hyperv). Memory/CPU limits only apply to hyperv.
-    [string]$Memory, # Docker memory limit (e.g., "8g"). Only used with hyperv isolation.
+    [string]$Isolation = 'hyperv', # Docker isolation mode (process or hyperv). Memory/CPU limits only apply to hyperv.
+    [string]$Memory = '16g', # Docker memory limit (e.g., "8g"). Only used with hyperv isolation.
     [int]$Cpus = [Environment]::ProcessorCount, # Docker CPU limit. Only used with hyperv isolation.
     [string[]]$Mount, # Additional directories to mount from host (readonly by default, append :w for writable). Supports * and ** glob patterns.
     [string[]]$Env, # Additional environment variables to pass from host to container.
     [string[]]$Ports, # Port mappings from host to container (e.g., "8080:80", "3000").
+    [string]$Label, # Label to apply to the container (e.g., for identifying build containers for cleanup).
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container (or Claude prompt if -Claude is specified).
 )
@@ -1413,12 +1418,12 @@ $envVarAssignments$gitConfigCommands$postInitCommands
         }
     }
 
-    # If no existing container, kill any stopped containers with same image to avoid conflicts
+    # If no existing container, remove any containers with same image to avoid conflicts
     if (-not $existingContainerId)
     {
-        docker ps -q --filter "ancestor=$ImageTag" | ForEach-Object {
-            Write-Host "Killing container $_"
-            docker kill $_
+        docker ps -a -q --filter "ancestor=$ImageTag" | ForEach-Object {
+            Write-Host "Removing container $_"
+            docker rm -f $_ 2>&1 | Out-Null
         }
     }
 
@@ -1805,6 +1810,12 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
                 {
                     $dockerCmd += @('-p', $portMapping)
                 }
+            }
+
+            # Add label for container identification (used for cleanup of orphaned containers)
+            if ($Label)
+            {
+                $dockerCmd += @('--label', "postsharp.build=$Label")
             }
 
             if ($pwshArgs)
