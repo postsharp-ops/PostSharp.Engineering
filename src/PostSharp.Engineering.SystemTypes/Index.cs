@@ -1,4 +1,4 @@
-﻿#if !NETCOREAPP && !NETSTANDARD2_1
+﻿#if !NETCOREAPP && !NETSTANDARD2_1 && !POLYFILL_NO_INDEX
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
