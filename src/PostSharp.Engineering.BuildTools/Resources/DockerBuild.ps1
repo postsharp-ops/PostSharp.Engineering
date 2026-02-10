@@ -78,10 +78,12 @@
     Memory and CPU limits only apply to hyperv isolation.
 
 .PARAMETER Memory
-    Docker memory limit (e.g., "8g"). Only used with hyperv isolation. Defaults to 24g.
+    Docker memory limit (e.g., "8g"). Only used with hyperv isolation.
+    Defaults to $env:BuildAgentMemory (an integer in GB) if set, otherwise 24g.
 
 .PARAMETER Cpus
-    Docker CPU limit. Defaults to the host processor count. Only used with hyperv isolation.
+    Docker CPU limit. Only used with hyperv isolation.
+    Defaults to $env:BuildAgentCpus if set, otherwise the host processor count.
 
 .PARAMETER Mount
     Additional directories to mount from the host (readonly by default, append :w for writable).
@@ -143,8 +145,8 @@ param(
     [string]$RegistryImage, # Use a pre-built image from a registry, skipping Dockerfile build entirely.
     [switch]$NoInit, # Do not generate or call Init.g.ps1 (skips git config, safe.directory, etc).
     [string]$Isolation = 'hyperv', # Docker isolation mode (process or hyperv). Memory/CPU limits only apply to hyperv.
-    [string]$Memory = '24g', # Docker memory limit (e.g., "8g"). Only used with hyperv isolation.
-    [int]$Cpus = [Environment]::ProcessorCount, # Docker CPU limit. Only used with hyperv isolation.
+    [string]$Memory = $(if ($env:BuildAgentMemory) { "${env:BuildAgentMemory}g" } else { '24g' }), # Docker memory limit (e.g., "8g"). Only used with hyperv isolation. Defaults to $env:BuildAgentMemory (in GB) or 24g.
+    [int]$Cpus = $(if ($env:BuildAgentCpus) { [int]$env:BuildAgentCpus } else { [Environment]::ProcessorCount }), # Docker CPU limit. Only used with hyperv isolation. Defaults to $env:BuildAgentCpus or host processor count.
     [string[]]$Mount, # Additional directories to mount from host (readonly by default, append :w for writable). Supports * and ** glob patterns.
     [string[]]$Env, # Additional environment variables to pass from host to container.
     [string[]]$Ports, # Port mappings from host to container (e.g., "8080:80", "3000").
