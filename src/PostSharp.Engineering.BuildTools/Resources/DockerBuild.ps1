@@ -20,7 +20,7 @@ param(
     [string]$Dockerfile, # Path to custom Dockerfile (defaults to Dockerfile or Dockerfile.claude based on -Claude).
     [switch]$NoInit, # Do not generate or call Init.g.ps1 (skips git config, safe.directory, etc).
     [string]$Isolation = 'process', # Docker isolation mode (process or hyperv). Memory/CPU limits only apply to hyperv.
-    [string]$Memory, # Docker memory limit (e.g., "8g"). Only used with hyperv isolation.
+    [string]$Memory = '16g', # Minimum required memory for the container. On build agents, actual memory is calculated from BuildAgentMemorySize.
     [int]$Cpus = [Environment]::ProcessorCount, # Docker CPU limit. Only used with hyperv isolation.
     [string[]]$Mount, # Additional directories to mount from host (readonly by default, append :w for writable). Supports * and ** glob patterns.
     [string[]]$Env, # Additional environment variables to pass from host to container.
@@ -45,11 +45,7 @@ $EnvironmentVariables = '<ENVIRONMENT_VARIABLES>'
 $ErrorActionPreference = "Stop"
 $dockerContextDirectory = "$EngPath/docker-context"
 
-# Detect platform (use built-in variables if available, fallback for older PowerShell)
-if ($null -eq $IsWindows)
-{
-    $IsWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
-}
+# $IsWindows is a built-in automatic variable in PowerShell 6+.
 $IsUnix = -not $IsWindows  # Covers both Linux and macOS
 
 # Docker isolation is Windows-only
@@ -562,6 +558,10 @@ if ($Claude -and -not $NoMcp)
 if ($Clean)
 {
     Write-Host "Cleaning up." -ForegroundColor Green
+    if (Test-Path "artifacts")
+    {
+        Remove-Item artifacts -Force -Recurse -ErrorAction SilentlyContinue
+    }
     Get-ChildItem "bin" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
     Get-ChildItem "obj" -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 }
@@ -591,20 +591,20 @@ if (-not $KeepEnv)
         }
 
         # Add git identity to environment
+        $env:GIT_USER_EMAIL = git config --global user.email
+        $env:GIT_USER_NAME = git config --global user.name
+
         if ($env:IS_TEAMCITY_AGENT)
         {
-            # On TeamCity agents, check if the environment variables are set.
-            if (-not $env:GIT_USER_EMAIL -or -not $env:GIT_USER_NAME)
+            # On TeamCity agents, use defaults if not set.
+            if (-not $env:GIT_USER_EMAIL)
             {
-                Write-Error "On TeamCity agents, the GIT_USER_EMAIL and GIT_USER_NAME environment variables must be set."
-                exit 1
+                $env:GIT_USER_EMAIL = 'teamcity@postsharp.net'
             }
-        }
-        else
-        {
-            # On developer machines, use the current git user.
-            $env:GIT_USER_EMAIL = git config --global user.email
-            $env:GIT_USER_NAME = git config --global user.name
+            if (-not $env:GIT_USER_NAME)
+            {
+                $env:GIT_USER_NAME = 'teamcity'
+            }
         }
 
         New-EnvJson -EnvironmentVariableList $EnvironmentVariables
@@ -1195,6 +1195,72 @@ if (-not $existingContainerId)
     }
 }
 
+# Memory validation and calculation
+$hostReservedMemoryGB = 8
+
+# Parse Memory to get numeric value in GB
+function ConvertTo-MemoryGB
+{
+    param([string]$MemoryString)
+
+    if ($MemoryString -match '^(\d+(?:\.\d+)?)\s*[gG][bB]?$')
+    {
+        return [double]$Matches[1]
+    }
+    elseif ($MemoryString -match '^(\d+(?:\.\d+)?)\s*[mM][bB]?$')
+    {
+        return [double]$Matches[1] / 1024
+    }
+    elseif ($MemoryString -match '^(\d+)$')
+    {
+        # Assume bytes
+        return [double]$Matches[1] / 1024 / 1024 / 1024
+    }
+    else
+    {
+        Write-Error "Invalid memory format: $MemoryString. Use formats like '12g', '12GB', '12288m', or '12288MB'."
+        exit 1
+    }
+}
+
+# Determine actual Docker memory limit
+if ($env:BuildAgentMemorySize)
+{
+    # On build agents, use BuildAgentMemorySize to determine actual container memory
+    $availableMemoryGB = ConvertTo-MemoryGB -MemoryString $env:BuildAgentMemorySize
+    Write-Host "Available memory: $availableMemoryGB GB" -ForegroundColor Cyan
+
+    $calculatedMemoryGB = [math]::Floor($availableMemoryGB - $hostReservedMemoryGB)
+    Write-Host "Memory available for container: $calculatedMemoryGB GB (after reserving ${hostReservedMemoryGB}GB for host)" -ForegroundColor Cyan
+
+    if ($env:BuildAgentMaxMemory) {
+        $dockerMemoryLimitGB = [math]::Min($env:BuildAgentMaxMemory, $calculatedMemoryGB)
+        Write-Host "Max memory limit set to $env:BuildAgentMaxMemory GB from BuildAgentMaxMemory environment variable." -ForegroundColor Cyan
+    } else {
+        $dockerMemoryLimitGB = $calculatedMemoryGB
+    }
+    $dockerMemoryLimit = "${dockerMemoryLimitGB}g"
+    Write-Host "Container memory set to $dockerMemoryLimit" -ForegroundColor Cyan
+}
+else
+{
+    # On developer machines, use Memory parameter as actual limit
+    $dockerMemoryLimit = $Memory
+    Write-Host "Container memory set to $dockerMemoryLimit (from Memory parameter)" -ForegroundColor Cyan
+}
+
+Write-Host "Number of requested CPUs is set to $Cpus" -ForegroundColor Cyan
+
+if ($env:BuildAgentMaxCpus)
+{
+    $dockerCpus = [math]::Min($env:BuildAgentMaxCpus, $Cpus)
+    Write-Host "BuildAgentMaxCpus is set to $env:BuildAgentMaxCpus, actual number of CPUs will be $dockerCpus" -ForegroundColor Cyan
+}
+else
+{
+    $dockerCpus = $Cpus
+}
+
 # GHCR authentication and pull logic
 $builtNewImage = $false
 $dockerConfigArg = @()
@@ -1298,8 +1364,8 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
 
     # Build docker build command with optional --memory (not supported in process isolation)
     $dockerBuildCmd = @('build', '-t', $ImageTag)
-    if ($Memory -and $Isolation -ne 'process') {
-        $dockerBuildCmd += "--memory=$Memory"
+    if ($Isolation -ne 'process') {
+        $dockerBuildCmd += "--memory=$dockerMemoryLimit"
     }
     $dockerBuildCmd += @('--build-arg', "MOUNTPOINTS=$mountPointsAsString", '-f', '-', $dockerContextDirectory)
 
@@ -1344,7 +1410,8 @@ if (-not $BuildImage)
 {
     # Common setup for both Claude and normal build modes
     $pwshPath = if ($IsUnix) { '/usr/bin/pwsh' } else { 'C:\Program Files\PowerShell\7\pwsh.exe' }
-    $initCall = if (-not $NoInit) { "& c:\docker-context\Init.g.ps1; " } else { "" }
+    $initScriptPath = if ($IsUnix) { '/docker-context/Init.g.ps1' } else { 'c:\docker-context\Init.g.ps1' }
+    $initCall = if (-not $NoInit) { "& '$initScriptPath'; " } else { "" }
 
     # Convert volume mappings to docker args format (interleave "-v" flags)
     $volumeArgs = @()
@@ -1455,6 +1522,29 @@ if (-not $BuildImage)
             $BuildArgs = @("-StartVsmon") + $BuildArgs
         }
 
+        # Pass through PowerShell verbosity preferences
+        $verbosityCommands = @()
+        if ($VerbosePreference -ne 'SilentlyContinue')
+        {
+            $verbosityCommands += "`$VerbosePreference = '$VerbosePreference'"
+            $BuildArgs = @("-Verbose") + $BuildArgs
+        }
+        if ($DebugPreference -ne 'SilentlyContinue')
+        {
+            $verbosityCommands += "`$DebugPreference = '$DebugPreference'"
+            $BuildArgs = @("-Debug") + $BuildArgs
+        }
+        if ($InformationPreference -ne 'SilentlyContinue')
+        {
+            $verbosityCommands += "`$InformationPreference = '$InformationPreference'"
+        }
+        if ($WarningPreference -ne 'Continue')
+        {
+            $verbosityCommands += "`$WarningPreference = '$WarningPreference'"
+        }
+
+        $verbositySetup = if ($verbosityCommands.Count -gt 0) { ($verbosityCommands -join '; ') + '; ' } else { '' }
+
         if ($Interactive)
         {
             $pwshArgs = "-NoExit"
@@ -1482,7 +1572,7 @@ if (-not $BuildImage)
             $scriptFullPath = Join-Path $ContainerSourceDir $Script
         }
         $scriptInvocation = "& '$scriptFullPath'"
-        $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; $scriptInvocation $buildArgsString; $pwshExitCommand"
+        $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; $verbositySetup$scriptInvocation $buildArgsString; $pwshExitCommand"
 
         # No environment args for normal build
         $envArgs = @()
@@ -1507,10 +1597,8 @@ if (-not $BuildImage)
 
         # Only add --memory and --cpus when NOT using process isolation
         if ($Isolation -ne 'process') {
-            if ($Memory) {
-                $dockerCmd += "--memory=$Memory"
-            }
-            $dockerCmd += "--cpus=$Cpus"
+            $dockerCmd += "--memory=$dockerMemoryLimit"
+            $dockerCmd += "--cpus=$dockerCpus"
         }
 
         if ($isolationArg) { $dockerCmd += $isolationArg }

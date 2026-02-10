@@ -15,7 +15,13 @@ internal static class EmbeddedResourceHelper
         var product = context.Product;
         var replacements = new Dictionary<string, string>();
         replacements.Add( "<ENG_PATH>", product.EngineeringDirectory );
-        replacements.Add( "<ENVIRONMENT_VARIABLES>", string.Join( ",", EnvironmentVariableNames.All.OrderBy( x => x ) ) );
+
+        // Combine standard environment variables with product-specific additional ones
+        var allEnvironmentVariables = EnvironmentVariableNames.All
+            .Concat( product.AdditionalDockerEnvironmentVariables )
+            .OrderBy( x => x );
+
+        replacements.Add( "<ENVIRONMENT_VARIABLES>", string.Join( ",", allEnvironmentVariables ) );
         replacements.Add( "<PRODUCT_NAME>", product.ProductNameWithoutDot );
 
         ExtractResource( context, fileName, targetDirectory, replacements );

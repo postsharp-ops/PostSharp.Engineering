@@ -256,6 +256,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool GenerateTeamCitySettings { get; init; } = true;
 
         /// <summary>
+        /// Gets or sets additional environment variable names to pass to the Docker container.
+        /// These are appended to the standard list defined in <see cref="EnvironmentVariableNames.All"/>.
+        /// </summary>
+        public string[] AdditionalDockerEnvironmentVariables { get; init; } = [];
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the <c>generate-scripts</c> command should generate Dockerfiles.
+        /// When <c>false</c>, DockerBuild.ps1 is still generated but Dockerfiles must be maintained manually.
+        /// </summary>
+        public bool GenerateDockerfiles { get; init; } = true;
+
+        /// <summary>
         /// Gets or sets a value indicating whether the <c>prepare</c> command should generate the <c>nuget.config</c> file.
         /// </summary>
         public bool GenerateNuGetConfig { get; init; }
