@@ -1195,71 +1195,8 @@ if (-not $existingContainerId)
     }
 }
 
-# Memory validation and calculation
-$hostReservedMemoryGB = 8
-
-# Parse Memory to get numeric value in GB
-function ConvertTo-MemoryGB
-{
-    param([string]$MemoryString)
-
-    if ($MemoryString -match '^(\d+(?:\.\d+)?)\s*[gG][bB]?$')
-    {
-        return [double]$Matches[1]
-    }
-    elseif ($MemoryString -match '^(\d+(?:\.\d+)?)\s*[mM][bB]?$')
-    {
-        return [double]$Matches[1] / 1024
-    }
-    elseif ($MemoryString -match '^(\d+)$')
-    {
-        # Assume bytes
-        return [double]$Matches[1] / 1024 / 1024 / 1024
-    }
-    else
-    {
-        Write-Error "Invalid memory format: $MemoryString. Use formats like '12g', '12GB', '12288m', or '12288MB'."
-        exit 1
-    }
-}
-
-# Determine actual Docker memory limit
-if ($env:BuildAgentMemorySize)
-{
-    # On build agents, use BuildAgentMemorySize to determine actual container memory
-    $availableMemoryGB = ConvertTo-MemoryGB -MemoryString $env:BuildAgentMemorySize
-    Write-Host "Available memory: $availableMemoryGB GB" -ForegroundColor Cyan
-
-    $calculatedMemoryGB = [math]::Floor($availableMemoryGB - $hostReservedMemoryGB)
-    Write-Host "Memory available for container: $calculatedMemoryGB GB (after reserving ${hostReservedMemoryGB}GB for host)" -ForegroundColor Cyan
-
-    if ($env:BuildAgentMaxMemory) {
-        $dockerMemoryLimitGB = [math]::Min($env:BuildAgentMaxMemory, $calculatedMemoryGB)
-        Write-Host "Max memory limit set to $env:BuildAgentMaxMemory GB from BuildAgentMaxMemory environment variable." -ForegroundColor Cyan
-    } else {
-        $dockerMemoryLimitGB = $calculatedMemoryGB
-    }
-    $dockerMemoryLimit = "${dockerMemoryLimitGB}g"
-    Write-Host "Container memory set to $dockerMemoryLimit" -ForegroundColor Cyan
-}
-else
-{
-    # On developer machines, use Memory parameter as actual limit
-    $dockerMemoryLimit = $Memory
-    Write-Host "Container memory set to $dockerMemoryLimit (from Memory parameter)" -ForegroundColor Cyan
-}
-
-Write-Host "Number of requested CPUs is set to $Cpus" -ForegroundColor Cyan
-
-if ($env:BuildAgentMaxCpus)
-{
-    $dockerCpus = [math]::Min($env:BuildAgentMaxCpus, $Cpus)
-    Write-Host "BuildAgentMaxCpus is set to $env:BuildAgentMaxCpus, actual number of CPUs will be $dockerCpus" -ForegroundColor Cyan
-}
-else
-{
-    $dockerCpus = $Cpus
-}
+$dockerMemoryLimit = $Memory
+$dockerCpus = $Cpus
 
 # GHCR authentication and pull logic
 $builtNewImage = $false
