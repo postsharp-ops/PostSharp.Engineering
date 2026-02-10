@@ -1,4 +1,4 @@
-﻿#if !NETCOREAPP && !NETSTANDARD2_1 && !POLYFILL_NO_INDEX
+﻿#if !NETCOREAPP && !NETSTANDARD2_1 && !USING_SYSTEM_BCL_MEMORY
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
