@@ -293,6 +293,21 @@ namespace PostSharp.Engineering.BuildTools.Build
                         return false;
                     }
 
+                    // Verify signed NuGet packages.
+                    foreach ( var nupkg in Directory.EnumerateFiles( publicArtifactsDirectory, "*.nupkg" ) )
+                    {
+                        if ( !ToolInvocationHelper.InvokeTool(
+                                context.Console,
+                                "dotnet",
+                                $"nuget verify --all \"{nupkg}\"",
+                                context.RepoDirectory ) )
+                        {
+                            context.Console.WriteError( $"Signature verification failed for '{Path.GetFileName( nupkg )}'." );
+
+                            return false;
+                        }
+                    }
+
                     // Zipping public artifacts.
                     CreateZip( publicArtifactsDirectory );
 
