@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 public class ClaudeComponent : ContainerComponent
 {
     private const string _minNodeVersion = "22.0.0";
-    private const string _claudeVersion = "2.1.34";
+    private const string _claudeVersion = "2.1.72";
 
     public override string Name => "Install Claude CLI";
 
