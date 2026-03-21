@@ -60,6 +60,7 @@ public sealed class RiskAnalyzer
                                               ### Build/Package Operations
                                               - `dotnet build` / `dotnet test` / `dotnet pack` : LOW risk - local operations (but should normally be done in the container)
                                               - `dotnet nuget push`: HIGH risk - publishes packages publicly, hard to undo
+                                              - `msbuild *.binlog` / `dotnet build *.binlog` / replaying binlog files: REJECT - binlog replay must be done on the client (in the container), not on the host
 
                                               ### TeamCity Operations (REST API)
                                               TeamCity is accessed via REST API at https://postsharp.teamcity.com/app/rest/
@@ -68,8 +69,12 @@ public sealed class RiskAnalyzer
                                               - GET `/app/rest/builds` - viewing build history and status
                                               - GET `/app/rest/builds/{id}` - viewing specific build details
                                               - GET `/app/rest/builds/{id}/log` - reading build logs
+                                              - GET `/app/rest/builds/{id}/artifacts/content/{path}` - downloading build artifacts (e.g., .binlog files, log files, test results)
+                                              - GET `/app/rest/builds/{id}/artifacts/metadata/{path}` - viewing artifact metadata
+                                              - GET `/app/rest/builds/{id}/artifacts/children/{path}` - listing available artifacts
                                               - GET `/app/rest/buildTypes` - listing build configurations
                                               - GET `/app/rest/projects` - listing projects
+                                              - Downloading build artifacts via any TeamCity URL (e.g., `/repository/download/...`, `/builds/id-.../artifacts/...`) is LOW risk
                                               - Any GET request to TeamCity API is LOW risk
 
                                               **Scheduling builds:**

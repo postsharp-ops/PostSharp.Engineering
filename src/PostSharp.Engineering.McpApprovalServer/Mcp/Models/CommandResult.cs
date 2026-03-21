@@ -17,11 +17,9 @@ public sealed class CommandResult
 
     public string? RejectionReason { get; init; }
 
-    public static CommandResult Rejected()
+    public static CommandResult Rejected( string? reason = null )
     {
-        // Note: Reason is intentionally NOT included in the response to prevent
-        // adaptive attacks where a compromised agent learns from rejection reasons.
-        return new CommandResult { Status = "rejected", ExitCode = -1 };
+        return new CommandResult { Status = "rejected", ExitCode = -1, RejectionReason = reason };
     }
 
     public static CommandResult Error( string message, int exitCode = -1 )

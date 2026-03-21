@@ -133,7 +133,7 @@ public sealed class ExecuteCommandTool
             {
                 this._logger?.LogSection( "Request Rejected" );
 
-                result = CommandResult.Rejected();
+                result = CommandResult.Rejected( assessment.Reason );
             }
 
             // 7. Record in history
