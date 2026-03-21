@@ -4,5 +4,5 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 
 public record DockerSpec( string ImageName, int? Memory = null, string? Dockerfile = null )
 {
-    public DockerSpec WithClaudeDockerfile() => this with { Dockerfile = "Dockerfile.claude" };
+    public DockerSpec WithClaudeDockerfile( string engineeringDirectory ) => this with { Dockerfile = $"{engineeringDirectory}/docker/Dockerfile.claude" };
 }

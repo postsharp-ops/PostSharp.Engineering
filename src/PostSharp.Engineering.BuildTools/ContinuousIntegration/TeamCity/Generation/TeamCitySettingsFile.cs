@@ -206,7 +206,7 @@ internal static class TeamCitySettingsFile
         var product = productProperties.Product;
 
         // Use Claude Dockerfile for upstream merge to enable AI-assisted conflict resolution
-        var claudeDockerSpec = product.DockerSpec?.WithClaudeDockerfile();
+        var claudeDockerSpec = product.DockerSpec?.WithClaudeDockerfile( product.EngineeringDirectory );
 
         // Dependencies on UpstreamMerge of dependent repos (for cascading merge order).
         // Only consolidated products have snapshot dependencies - normal products merge independently.
