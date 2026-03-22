@@ -19,8 +19,8 @@ public enum ContainerComponentKind
     GitHubCli,
     AzureCli,
     AzureArtifactsCredentialProvider,
-    Claude,
     Timestamp,
+    Claude,
     ClaudeAddIns,
     Epilogue
 }

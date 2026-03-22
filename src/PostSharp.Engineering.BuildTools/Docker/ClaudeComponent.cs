@@ -8,14 +8,12 @@ using System.Linq;
 namespace PostSharp.Engineering.BuildTools.Docker;
 
 /// <summary>
-/// Installs the Claude CLI. This component is placed before the timestamp for caching.
-/// Plugin installation is handled by <see cref="ClaudeAddInsComponent"/> which runs after the timestamp.
+/// Installs the Claude CLI. This component is placed after the timestamp so that the latest version
+/// is installed whenever the Docker image is rebuilt. Plugin installation is handled by <see cref="ClaudeAddInsComponent"/>.
 /// </summary>
 public class ClaudeComponent : ContainerComponent
 {
     private const string _minNodeVersion = "22.0.0";
-    private const string _claudeVersion = "2.1.81";
-
     public override string Name => "Install Claude CLI";
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Claude;
@@ -36,7 +34,7 @@ public class ClaudeComponent : ContainerComponent
             """ );
 
         // Build a single multi-line RUN command for all operations
-        writer.WriteLine( $"RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code@{_claudeVersion}" );
+        writer.WriteLine( "RUN C:\\nodejs\\npm.cmd install --global @anthropic-ai/claude-code@latest" );
         writer.Write( "RUN mkdir C:\\Users\\ContainerAdministrator\\.claude" );
         writer.Write( " && echo {\"hasCompletedOnboarding\": true} > C:\\Users\\ContainerAdministrator\\.claude.json" );
         writer.Write( " && echo {\"alwaysThinkingEnabled\": true, \"spinnerTipsEnabled\": false} > C:\\Users\\ContainerAdministrator\\.claude\\settings.json" );
@@ -66,6 +64,10 @@ public class ClaudeComponent : ContainerComponent
             throw new InvalidOperationException( $"Claude CLI requires Node.js >= {_minNodeVersion}, but {existingNodeJs.Version} is configured." );
         }
 
-        // We don't add GitHub CLI because we don't have pass the token anyway.
+        // Require timestamp component for cache invalidation so @latest resolves on each daily build.
+        if ( !components.OfType<TimestampComponent>().Any() )
+        {
+            add( new TimestampComponent() );
+        }
     }
 }
