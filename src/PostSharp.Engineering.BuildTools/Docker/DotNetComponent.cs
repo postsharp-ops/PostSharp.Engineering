@@ -42,6 +42,11 @@ public sealed class DotNetComponent : ContainerComponent
         {
             add( new DotNetInstallerComponent() );
         }
+
+        if ( this.DotNetComponentKind == DotNetComponentKind.Sdk && !components.OfType<DotNetDumpComponent>().Any() )
+        {
+            add( new DotNetDumpComponent() );
+        }
     }
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
