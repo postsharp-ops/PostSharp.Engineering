@@ -446,8 +446,10 @@ internal static class ClaudeCodeHelper
                 (preferably the current/HEAD version). They will be regenerated when the PR build runs.
                 - Build.ps1
                 - DockerBuild.ps1
-                - Dockerfile
-                - Dockerfile.claude
+                - eng/docker/Dockerfile
+                - eng/docker/Dockerfile.claude
+                - eng/docker/Dockerfile.win2022
+                - eng/docker/Dockerfile.claude.win2022
                 - .teamcity/settings.kts
                 - .teamcity/pom.xml
                 - eng/Versions.*.g.props
