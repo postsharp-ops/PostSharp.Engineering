@@ -65,6 +65,8 @@ RUN & .\dotnet-install.ps1 -Version 9.0.310 -InstallDir 'C:\Program Files\dotnet
 # .NET Dump Tool
 RUN dotnet tool install --global dotnet-dump;
 
+ENV PATH="C:\Users\ContainerAdministrator\.dotnet\tools;${PATH}"
+
 
 # Epilogue
 # Create directories for mountpoints
