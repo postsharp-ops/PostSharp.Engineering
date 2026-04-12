@@ -16,6 +16,19 @@ namespace PostSharp.Engineering.BuildTools.Build
             return Execute( context, settings );
         }
 
+        private static void ClearReadOnlyAttributes( string directory )
+        {
+            foreach ( var file in Directory.EnumerateFiles( directory, "*", SearchOption.AllDirectories ) )
+            {
+                var attributes = File.GetAttributes( file );
+
+                if ( (attributes & FileAttributes.ReadOnly) != 0 )
+                {
+                    File.SetAttributes( file, attributes & ~FileAttributes.ReadOnly );
+                }
+            }
+        }
+
         public static bool Execute( BuildContext context, BuildSettings settings )
         {
             // Kill processes that may hold file locks.
@@ -28,6 +41,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 if ( Directory.Exists( directory ) )
                 {
                     context.Console.WriteMessage( $"Deleting directory '{directory}'." );
+                    ClearReadOnlyAttributes( directory );
                     Directory.Delete( directory, true );
                 }
             }
