@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol.AspNetCore;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Services;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Tools;
 using System;
@@ -44,6 +45,8 @@ public sealed class McpHttpServer
     /// </summary>
     public async Task StartAsync()
     {
+        TraceLogger.Logger.Info( $"McpHttpServer.StartAsync: Starting on http://0.0.0.0:{FixedPort}" );
+
         var builder = WebApplication.CreateBuilder();
 
         // Bind to all interfaces so Docker containers can access via host gateway IP
@@ -56,6 +59,16 @@ public sealed class McpHttpServer
             options.Limits.RequestHeadersTimeout = TimeSpan.MaxValue;
             options.Limits.MinRequestBodyDataRate = null;
             options.Limits.MinResponseDataRate = null;
+        } );
+
+        // Disable the MCP server's per-session idle timeout so long Claude
+        // sessions (hours or days) don't get their server-side session
+        // disposed while the user is idle. Without this, the SDK defaults
+        // to 2 hours, after which a reconnect is required.
+        builder.Services.Configure<HttpServerTransportOptions>( options =>
+        {
+            options.IdleTimeout = TimeSpan.MaxValue;
+            options.MaxIdleSessionCount = int.MaxValue;
         } );
 
         // Register services for tool dependencies (use shared instances from main DI container)
@@ -78,10 +91,17 @@ public sealed class McpHttpServer
             .WithHttpTransport()
             .WithToolsFromAssembly( typeof(ExecuteCommandTool).Assembly );
 
-        // Configure logging
+        // Configure logging — route framework logs (Kestrel, MCP SDK, ASP.NET) to
+        // the TraceLogger file so drops and errors are diagnosable after the fact.
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
-        builder.Logging.SetMinimumLevel( LogLevel.Warning );
+        builder.Logging.AddProvider( new TraceLoggerProvider() );
+        builder.Logging.SetMinimumLevel( LogLevel.Information );
+
+        // Silence the noisiest Microsoft categories but keep MCP/Kestrel warnings+.
+        builder.Logging.AddFilter( "Microsoft.AspNetCore", LogLevel.Warning );
+        builder.Logging.AddFilter( "Microsoft.Hosting", LogLevel.Warning );
+        builder.Logging.AddFilter( "ModelContextProtocol", LogLevel.Information );
 
         this._app = builder.Build();
 
@@ -93,6 +113,8 @@ public sealed class McpHttpServer
 
         // Start the server
         await this._app.StartAsync();
+
+        TraceLogger.Logger.Info( $"McpHttpServer.StartAsync: Started successfully. Log file: {TraceLogger.Logger.LogFilePath}" );
     }
 
     /// <summary>
@@ -102,9 +124,11 @@ public sealed class McpHttpServer
     {
         if ( this._app != null )
         {
+            TraceLogger.Logger.Info( "McpHttpServer.StopAsync: Stopping." );
             await this._app.StopAsync();
             await this._app.DisposeAsync();
             this._app = null;
+            TraceLogger.Logger.Info( "McpHttpServer.StopAsync: Stopped." );
         }
     }
 }

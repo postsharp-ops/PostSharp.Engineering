@@ -7,7 +7,9 @@ using PostSharp.Engineering.McpApprovalServer.Services;
 using PostSharp.Engineering.McpApprovalServer.ViewModels;
 using PostSharp.Engineering.McpApprovalServer.Views;
 using System;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace PostSharp.Engineering.McpApprovalServer;
 
@@ -22,6 +24,40 @@ public partial class App : Application
     protected override async void OnStartup( StartupEventArgs e )
     {
         base.OnStartup( e );
+
+        // Install global exception handlers so crashes are captured in the trace log
+        // instead of silently terminating the tray app (at which point MCP sessions
+        // would of course all be lost).
+        AppDomain.CurrentDomain.UnhandledException += ( _, args ) =>
+        {
+            if ( args.ExceptionObject is Exception ex )
+            {
+                TraceLogger.Logger.Error(
+                    $"AppDomain.UnhandledException (IsTerminating={args.IsTerminating})",
+                    ex );
+            }
+            else
+            {
+                TraceLogger.Logger.Error(
+                    $"AppDomain.UnhandledException (IsTerminating={args.IsTerminating}): {args.ExceptionObject ?? "<null>"}" );
+            }
+        };
+
+        this.DispatcherUnhandledException += ( _, args ) =>
+        {
+            TraceLogger.Logger.Error( "Dispatcher.UnhandledException", args.Exception );
+
+            // Don't let a UI exception tear the app down — MCP must stay up.
+            args.Handled = true;
+        };
+
+        TaskScheduler.UnobservedTaskException += ( _, args ) =>
+        {
+            TraceLogger.Logger.Error( "TaskScheduler.UnobservedTaskException", args.Exception );
+            args.SetObserved();
+        };
+
+        TraceLogger.Logger.Info( $"Application starting. Log file: {TraceLogger.Logger.LogFilePath}" );
 
         // Build and configure the host
         this._host = Host.CreateDefaultBuilder()
