@@ -184,44 +184,37 @@ public static class CommandRules
         },
         new CommandRule
         {
+            // Narrowly target actual drive-destroying cmdlets/commands only.
+            // The old rule matched any `Format-` prefix, which wrongly blocked
+            // the common PowerShell formatter cmdlets (Format-Table,
+            // Format-List, Format-Hex, Format-Wide, Format-Custom).
             Name = "format-drive",
-            Pattern = new Regex( @"Format-", RegexOptions.IgnoreCase ),
+            Pattern = new Regex(
+                @"\b(Format-Volume|Format-Partition|Clear-Disk|Initialize-Disk|Reset-PhysicalDisk|diskpart|format\.com|format\.exe)\b|(?<![\w-])format\s+[A-Za-z]:",
+                RegexOptions.IgnoreCase ),
             RiskLevel = RiskLevel.Critical,
             Recommendation = Recommendation.Reject,
             Reason = "Drive formatting is catastrophically destructive"
         },
         new CommandRule
         {
+            // Keep the specific "recursive delete" rule — it's genuinely
+            // dangerous — but leave non-recursive deletes to the AI analyzer
+            // so routine single-file cleanup isn't blanket-rejected.
             Name = "remove-item-recurse",
             Pattern = new Regex( @"Remove-Item.*-Recurse", RegexOptions.IgnoreCase ),
             RiskLevel = RiskLevel.Critical,
             Recommendation = Recommendation.Reject,
             Reason = "Recursive file deletion must be performed in the container, not on host"
         },
-        new CommandRule
-        {
-            Name = "file-deletion",
-            Pattern = new Regex( @"(Remove-Item|del\s|rm\s|rmdir)", RegexOptions.IgnoreCase ),
-            RiskLevel = RiskLevel.Critical,
-            Recommendation = Recommendation.Reject,
-            Reason = "File operations must be performed in the container, not on host"
-        },
-        new CommandRule
-        {
-            Name = "file-write-operations",
-            Pattern = new Regex( @"(Set-Content|Out-File|New-Item.*-ItemType\s+File|Copy-Item|Move-Item)", RegexOptions.IgnoreCase ),
-            RiskLevel = RiskLevel.High,
-            Recommendation = Recommendation.Reject,
-            Reason = "File modifications must be performed in the container"
-        },
-        new CommandRule
-        {
-            Name = "directory-operations",
-            Pattern = new Regex( @"(New-Item.*-ItemType\s+Directory|mkdir)", RegexOptions.IgnoreCase ),
-            RiskLevel = RiskLevel.High,
-            Recommendation = Recommendation.Reject,
-            Reason = "Directory operations must be performed in the container"
-        },
+
+        // NOTE: Blanket regex rules for file deletion, file writes, and
+        // directory creation were removed. They were too coarse — blocking
+        // benign cases like writing a temp file, copying a build artifact,
+        // moving a log, or creating a scratch directory. Risk for these
+        // operations is context-dependent (target path, content, etc.) and
+        // is better judged by the AI analyzer, which sees the full command
+        // text and claimed purpose.
 
         // ============================================
         // Package Publishing - ALL FORBIDDEN
