@@ -8,6 +8,7 @@ using ModelContextProtocol.AspNetCore;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Services;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Tools;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.McpApprovalServer.Services;
@@ -65,9 +66,14 @@ public sealed class McpHttpServer
         // sessions (hours or days) don't get their server-side session
         // disposed while the user is idle. Without this, the SDK defaults
         // to 2 hours, after which a reconnect is required.
+        //
+        // The SDK treats only Timeout.InfiniteTimeSpan (negative ticks) as
+        // the "never expire" sentinel — TimeSpan.MaxValue is interpreted as
+        // a finite timeout and silently overflows the pruner's tick math,
+        // which manifests as sessions being dropped after a few hours.
         builder.Services.Configure<HttpServerTransportOptions>( options =>
         {
-            options.IdleTimeout = TimeSpan.MaxValue;
+            options.IdleTimeout = Timeout.InfiniteTimeSpan;
             options.MaxIdleSessionCount = int.MaxValue;
         } );
 
