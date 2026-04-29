@@ -3,8 +3,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -139,10 +141,23 @@ internal static class ClaudeCodeHelper
             }
         }
 
+        // Resolve the Claude CLI executable on PATH. The npm install ships claude.cmd on Windows;
+        // the native installer ships claude.exe; on Unix it is plain "claude".
+        if ( !TryResolveClaudeExecutable( out var claudeExecutable ) )
+        {
+            console.WriteError(
+                "Claude CLI not found on PATH. Install it via 'npm i -g @anthropic-ai/claude-code' or the native installer from https://claude.com/claude-code." );
+            prBodyText = "";
+
+            return false;
+        }
+
+        console.WriteMessage( $"Using Claude executable: {claudeExecutable}" );
+
         // Invoke claude with custom output handler
         var success = ToolInvocationHelper.InvokeTool(
             console,
-            "claude.cmd",
+            claudeExecutable,
             claudeArgs,
             workingDirectory,
             out var exitCode,
@@ -510,5 +525,49 @@ internal static class ClaudeCodeHelper
 
                 Begin now.
                 """;
+    }
+
+    /// <summary>
+    /// Probes PATH for a Claude CLI launcher. The npm package installs <c>claude.cmd</c> on Windows,
+    /// the native installer ships <c>claude.exe</c>, and on Unix the binary is named <c>claude</c>.
+    /// Returns the resolved absolute path so <see cref="System.Diagnostics.Process"/> doesn't have to
+    /// rely on PATHEXT (which is not consulted when <c>UseShellExecute</c> is false).
+    /// </summary>
+    private static bool TryResolveClaudeExecutable( out string path )
+    {
+        var candidates = RuntimeInformation.IsOSPlatform( OSPlatform.Windows )
+            ? new[] { "claude.cmd", "claude.exe", "claude.bat", "claude" }
+            : new[] { "claude" };
+
+        var pathEnv = Environment.GetEnvironmentVariable( "PATH" ) ?? "";
+
+        foreach ( var dir in pathEnv.Split( Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries ) )
+        {
+            foreach ( var candidate in candidates )
+            {
+                string fullPath;
+
+                try
+                {
+                    fullPath = Path.Combine( dir.Trim().Trim( '"' ), candidate );
+                }
+                catch ( ArgumentException )
+                {
+                    // Skip malformed PATH entries.
+                    continue;
+                }
+
+                if ( File.Exists( fullPath ) )
+                {
+                    path = fullPath;
+
+                    return true;
+                }
+            }
+        }
+
+        path = "";
+
+        return false;
     }
 }
