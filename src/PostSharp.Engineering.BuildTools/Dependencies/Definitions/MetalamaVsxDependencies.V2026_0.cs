@@ -52,7 +52,7 @@ public static partial class MetalamaVsxDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2026.0", DevelopmentDependencies.Family )
+        public static ProductFamily Family { get; } = new( _projectName, "2026.0", DevelopmentDependencies.Family, MetalamaDependencies.V2026_0.Family )
         {
             // No UpstreamProductFamily - breaking downstream merge from 2025.1
             // DownstreamProductFamily = V2026_1.Family

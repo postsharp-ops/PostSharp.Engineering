@@ -4,8 +4,10 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
@@ -58,6 +60,21 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
 
             if ( !DependenciesConfigurationFile.TryLoad( context, buildSettings, buildSettings.BuildConfiguration, out var dependenciesOverrideFile ) )
             {
+                return false;
+            }
+
+            // Writing DockerMounts.g.ps1 needs a resolved VersionFile for every non-feed dependency.
+            // We do not fetch automatically here; the user is expected to have run 'dependencies fetch' first.
+            var unfetched = dependenciesOverrideFile.Dependencies
+                .Where( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null )
+                .Select( d => d.Key )
+                .ToList();
+
+            if ( unfetched.Count > 0 )
+            {
+                context.Console.WriteError(
+                    $"Cannot generate scripts: dependencies have not been fetched: {string.Join( ", ", unfetched )}. Run './Build.ps1 dependencies fetch' first." );
+
                 return false;
             }
 
