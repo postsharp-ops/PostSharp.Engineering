@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using System.Linq;
 using Xunit;
 
 namespace PostSharp.Engineering.BuildTools.Tests;
@@ -100,6 +101,27 @@ public class ParametrizedDependencyAliasTests
         Assert.Equal( "Metalama20260", configuration.Key );
         Assert.Equal( "Metalama20260", configuration.KeyWithoutDot );
         Assert.Equal( DependencyArtifactPickup.LastSuccessful, configuration.ArtifactPickup );
+    }
+
+    [Fact]
+    public void TwoAliasedRefsToSameDefinitionNameAreLookedUpByKeyWithoutThrowing()
+    {
+        // Reproduces the configuration that triggered the Copilot review's first comment: two ParametrizedDependency
+        // entries with the same Definition.Name but different Aliases. Looking them up by Key must succeed unambiguously
+        // for each. A naive Name-based SingleOrDefault would throw — the array-level assertion at the end documents
+        // why the Product lookup methods only filter on Key.
+        var definition = MetalamaDependencies.V2026_0.Metalama;
+        var first = definition.WithAlias( "First" );
+        var second = definition.WithAlias( "Second" );
+
+        var dependencies = new[] { first, second };
+
+        Assert.Same( first, dependencies.SingleOrDefault( d => d.Key == "First" ) );
+        Assert.Same( second, dependencies.SingleOrDefault( d => d.Key == "Second" ) );
+        Assert.Null( dependencies.SingleOrDefault( d => d.Key == "Other" ) );
+
+        // Documents the throw that the Name fallback (now removed) would have produced.
+        Assert.Throws<System.InvalidOperationException>( () => dependencies.SingleOrDefault( d => d.Name == definition.Name ) );
     }
 
     [Fact]

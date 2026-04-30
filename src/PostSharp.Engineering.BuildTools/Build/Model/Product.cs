@@ -278,12 +278,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
-            dependency = this.ParametrizedDependencies.SingleOrDefault( d => d.Key == name )
-                         ?? this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name );
+            // Lookup is by Key. For unaliased entries Key == Definition.Name, so legacy callers that pass a Name
+            // continue to resolve correctly. Multiple ParametrizedDependency entries that share Definition.Name but
+            // declare different Aliases are valid (e.g., two product-family versions referenced under different
+            // aliases) — they have distinct Keys; the caller must disambiguate by Alias. A Name-based fallback would
+            // throw on that legitimate configuration; SingleOrDefault on Key still surfaces a true configuration
+            // error (two entries declared with the same Alias) by throwing.
 
             // We do NOT attempt to get a ParametrizedDependency from a DependencyDefinition because we basically
             // don't know what the parameters are, and returning default parameters may delay the moment when a design
             // issue is visible.
+            dependency = this.ParametrizedDependencies.SingleOrDefault( d => d.Key == name );
 
             return dependency != null;
         }
@@ -300,8 +305,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool TryGetDependencyDefinition( string name, [NotNullWhen( true )] out DependencyDefinition? dependencyDefinition )
         {
-            dependencyDefinition = (this.ParametrizedDependencies.SingleOrDefault( d => d.Key == name )
-                                    ?? this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name ))?.Definition;
+            // See TryGetDependency for the rationale of looking up only by Key.
+            dependencyDefinition = this.ParametrizedDependencies.SingleOrDefault( d => d.Key == name )?.Definition;
 
             if ( dependencyDefinition != null )
             {

@@ -318,19 +318,19 @@ internal static class DependenciesHelper
 
                 if ( buildSpec is CiLatestBuildOfBranch branch )
                 {
-                    BuildConfiguration dependencyConfiguration;
-
-                    if ( context.Product.TryGetDependency( dependency.Dependency.Name, out var parametrizedDependency ) )
-                    {
-                        dependencyConfiguration = parametrizedDependency.ConfigurationMapping[configuration];
-                    }
-                    else
+                    // CiLatestBuildOfBranch is only ever set for direct deps (transitives carry CiBuildId).
+                    // Direct deps already have ResolvedDependency.Parametrized populated, so use it directly —
+                    // a Name-based lookup would return the wrong ParametrizedDependency when the consumer has
+                    // multiple aliased refs to the same Definition.Name.
+                    if ( dependency.Parametrized == null )
                     {
                         context.Console.WriteError(
                             $"The source of the transitive dependency '{dependency.Dependency.Name}' is set to CiLatestBuildOfBranch. This is allowed only for direct dependencies." );
 
                         return false;
                     }
+
+                    var dependencyConfiguration = dependency.Parametrized.ConfigurationMapping[configuration];
 
                     ciBuildType = dependency.Dependency.CiConfiguration.BuildTypes[dependencyConfiguration];
                     branchName = branch.Name;
@@ -525,7 +525,10 @@ internal static class DependenciesHelper
                 var producerRestoredPath = Path.Combine( aliasDirectory, dependency.Dependency.Name + ".version.props" );
                 var aliasedVersionPropsPath = Path.Combine( aliasDirectory, dependency.Key + ".version.props" );
 
-                if ( File.Exists( producerRestoredPath ) && !File.Exists( aliasedVersionPropsPath ) )
+                // Always re-transform when the producer file exists: TeamCity may have restored a fresher
+                // {Name}.version.props over an existing dependencies/{Key}/ directory, in which case a stale
+                // {Key}.version.props from a previous build would cause the consumer to read outdated metadata.
+                if ( File.Exists( producerRestoredPath ) )
                 {
                     TransformVersionPropsForAlias(
                         producerRestoredPath,
