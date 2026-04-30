@@ -278,7 +278,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
-            dependency = this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name );
+            dependency = this.ParametrizedDependencies.SingleOrDefault( d => d.Key == name )
+                         ?? this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name );
 
             // We do NOT attempt to get a ParametrizedDependency from a DependencyDefinition because we basically
             // don't know what the parameters are, and returning default parameters may delay the moment when a design
@@ -299,7 +300,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool TryGetDependencyDefinition( string name, [NotNullWhen( true )] out DependencyDefinition? dependencyDefinition )
         {
-            dependencyDefinition = this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name )?.Definition;
+            dependencyDefinition = (this.ParametrizedDependencies.SingleOrDefault( d => d.Key == name )
+                                    ?? this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name ))?.Definition;
 
             if ( dependencyDefinition != null )
             {

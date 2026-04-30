@@ -175,8 +175,14 @@ internal static class TeamCitySettingsFile
 
         if ( !isStandalone )
         {
+            // Aliased + LastSuccessful deps must be excluded: we don't snapshot-depend on them for the consumer's build,
+            // and the same applies to deployment.
+            var parametrizedDeploymentDependencies = product.ParametrizedDependencies
+                .Where( d => d.ArtifactPickup == Dependencies.Model.DependencyArtifactPickup.Snapshot )
+                .Select( d => d.Definition );
+
             snapshotDependencies = snapshotDependencies.Concat(
-                product.ParametrizedDependencies.Select( d => d.Definition )
+                parametrizedDeploymentDependencies
                     .Union( product.SourceDependencies )
                     .Where( d => d is { GenerateSnapshotDependency: true, CiConfiguration.DeploymentBuildType: not null } )
                     .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType!, true ) ) );
@@ -218,7 +224,9 @@ internal static class TeamCitySettingsFile
             // deduplicated by build type.
             snapshotDependencies =
                 product.ParametrizedDependencies
-                    .Where( d => d.Definition.GenerateSnapshotDependency && d.Definition.ProductFamily.UpstreamProductFamily != null )
+                    .Where( d => d.ArtifactPickup == Dependencies.Model.DependencyArtifactPickup.Snapshot
+                                 && d.Definition.GenerateSnapshotDependency
+                                 && d.Definition.ProductFamily.UpstreamProductFamily != null )
                     .Select( d => d.Definition )
                     .Concat( product.SourceDependencies.Where( d => d.GenerateSnapshotDependency && d.ProductFamily.UpstreamProductFamily != null ) )
                     .DistinctBy( d => d.CiConfiguration.UpstreamMergeBuildType )

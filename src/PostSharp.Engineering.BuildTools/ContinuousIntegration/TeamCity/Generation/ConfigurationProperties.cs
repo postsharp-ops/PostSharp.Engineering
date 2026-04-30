@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 using System.IO;
 using System.Linq;
@@ -36,7 +37,8 @@ internal class ConfigurationProperties
             .Select( d => new TeamCitySnapshotDependency(
                          d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                          true,
-                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Definition.Name}" ) )
+                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
+                         ReuseBuilds: d.ArtifactPickup == DependencyArtifactPickup.LastSuccessful ? ReuseBuilds.LastSuccessful : ReuseBuilds.Default ) )
             .ToList();
 
         var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
