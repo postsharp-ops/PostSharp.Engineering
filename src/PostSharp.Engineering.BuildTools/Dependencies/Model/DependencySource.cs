@@ -56,7 +56,30 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             BuildContext context,
             ParametrizedDependency dependency,
             DependencyConfigurationOrigin origin )
-            => CreateRestoredDependencyCore( context, dependency.Key, dependency.KeyWithoutDot, origin );
+        {
+            // For aliased deps in CI mode, TeamCity restores the producer's {Name}.version.props to dependencies/{Key}/.
+            // The on-disk file is {Name}.version.props (producer's name) but Core expects {Key}.version.props (alias).
+            // The full fetch path runs this transform via DependenciesHelper.ResolveRestoredDependencies, but VersionFile.TryRead
+            // (called from PrepareCommand) reaches Core directly without going through fetch. Run the transform here so the
+            // CI prepare step doesn't crash before the artifact-aware code path even gets a chance.
+            if ( dependency.Alias != null )
+            {
+                var aliasDirectory = TeamCityHelper.GetRestoredDependencyDirectory( context.RepoDirectory, dependency.Key );
+                var producerVersionPropsPath = Path.Combine( aliasDirectory, dependency.Definition.Name + ".version.props" );
+                var aliasedVersionPropsPath = Path.Combine( aliasDirectory, dependency.Key + ".version.props" );
+
+                if ( File.Exists( producerVersionPropsPath ) )
+                {
+                    DependenciesHelper.TransformVersionPropsForAlias(
+                        producerVersionPropsPath,
+                        aliasedVersionPropsPath,
+                        dependency.Definition.NameWithoutDot,
+                        dependency.KeyWithoutDot );
+                }
+            }
+
+            return CreateRestoredDependencyCore( context, dependency.Key, dependency.KeyWithoutDot, origin );
+        }
 
         /// <summary>
         /// Creates a <see cref="DependencySource"/> that represents a build server artifact dependency that has been restored,
