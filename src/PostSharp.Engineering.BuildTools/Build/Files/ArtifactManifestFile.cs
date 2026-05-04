@@ -60,7 +60,7 @@ internal static class ArtifactManifestFile
 
         manifestFileContent += $@"
         <{product.ProductNameWithoutDot}BuildConfiguration>{configuration}</{product.ProductNameWithoutDot}BuildConfiguration>
-        <{product.ProductNameWithoutDot}Dependencies>{string.Join( ";", product.ParametrizedDependencies.Select( x => x.Name ) )}</{product.ProductNameWithoutDot}Dependencies>
+        <{product.ProductNameWithoutDot}Dependencies>{string.Join( ";", product.ParametrizedDependencies.Select( x => x.Key ) )}</{product.ProductNameWithoutDot}Dependencies>
         <{product.ProductNameWithoutDot}PublicArtifactsDirectory>{product.PublicArtifactsDirectory}</{product.ProductNameWithoutDot}PublicArtifactsDirectory>
         <{product.ProductNameWithoutDot}PrivateArtifactsDirectory>{product.GetPrivateArtifactsRelativeDirectory( configuration )}</{product.ProductNameWithoutDot}PrivateArtifactsDirectory>
         <{product.ProductNameWithoutDot}EngineeringVersion>{VersionHelper.EngineeringVersion}</{product.ProductNameWithoutDot}EngineeringVersion>

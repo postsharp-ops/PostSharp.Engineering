@@ -70,6 +70,14 @@ public static partial class MetalamaVsxDependencies
                 [
                     DevelopmentDependencies.PostSharpEngineering,
                     MetalamaDependencies.V2026_1.Metalama,
+                    MetalamaDependencies.V2026_0.Metalama
+                        .ToDependency(
+                            new ConfigurationSpecific<BuildConfiguration>(
+                                BuildConfiguration.Public,
+                                BuildConfiguration.Public,
+                                BuildConfiguration.Public ) )
+                        .WithAlias( "Metalama20260" )
+                        .WithLastSuccessfulOnly(),
                     PostSharpDependencies.V2026_0.PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
                             BuildConfiguration.Release,

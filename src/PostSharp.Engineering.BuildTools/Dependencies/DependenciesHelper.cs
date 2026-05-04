@@ -27,22 +27,29 @@ internal static class DependenciesHelper
         DependenciesConfigurationFile dependenciesConfigurationFile,
         bool update )
     {
-        DependencyDefinition? GetDependencyDefinition( KeyValuePair<string, DependencySource> dependencyPair )
+        (DependencyDefinition? Definition, ParametrizedDependency? Parametrized) GetDependencyInfo( KeyValuePair<string, DependencySource> dependencyPair )
         {
-            if ( !context.Product.TryGetDependencyDefinition( dependencyPair.Key, out var dependency ) )
+            if ( context.Product.TryGetDependency( dependencyPair.Key, out var parametrizedDependency ) )
             {
-                context.Console.WriteWarning( $"The dependency '{dependencyPair.Key}' is not configured. Ignoring." );
+                return (parametrizedDependency.Definition, parametrizedDependency);
             }
 
-            return dependency;
+            if ( context.Product.TryGetDependencyDefinition( dependencyPair.Key, out var dependency ) )
+            {
+                return (dependency, null);
+            }
+
+            context.Console.WriteWarning( $"The dependency '{dependencyPair.Key}' is not configured. Ignoring." );
+
+            return (null, null);
         }
 
         var dependencies = dependenciesConfigurationFile
             .Dependencies
             .Where( d => d.Value.Origin != DependencyConfigurationOrigin.Transitive )
-            .Select( d => (d.Value, GetDependencyDefinition( d )) )
-            .Where( d => d.Item2 != null )
-            .Select( d => new ResolvedDependency( d.Value, d.Item2! ) )
+            .Select( d => (Pair: d, Info: GetDependencyInfo( d )) )
+            .Where( d => d.Info.Definition != null )
+            .Select( d => new ResolvedDependency( d.Pair.Value, d.Info.Definition!, d.Info.Parametrized ) )
             .ToList();
 
         if ( dependencies.Count == 0 )
@@ -53,8 +60,8 @@ internal static class DependenciesHelper
         }
 
         TeamCityClient? tc = null;
-        var iterationDependencies = dependencies.ToImmutableDictionary( d => d.Dependency.Name, d => d );
-        var dependencyDictionary = dependencies.ToImmutableDictionary( d => d.Dependency.Name, d => d );
+        var iterationDependencies = dependencies.ToImmutableDictionary( d => d.Key, d => d );
+        var dependencyDictionary = dependencies.ToImmutableDictionary( d => d.Key, d => d );
 
         while ( iterationDependencies.Count > 0 )
         {
@@ -127,7 +134,8 @@ internal static class DependenciesHelper
 
             var versionFile = Project.FromFile( directDependency.Source.VersionFile!, MSBuildLoadOptions.IgnoreImportErrors );
 
-            var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == directDependency.Dependency.NameWithoutDot + "Dependencies" );
+            // Item type uses KeyWithoutDot — for aliased deps the transform renamed `<MetalamaDependencies>` to `<Metalama20260Dependencies>`.
+            var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == directDependency.KeyWithoutDot + "Dependencies" );
 
             foreach ( var transitiveDependency in transitiveDependencies )
             {
@@ -153,7 +161,15 @@ internal static class DependenciesHelper
                     continue;
                 }
 
-                if ( !context.Product.TryGetDependencyDefinition( name, out var dependencyDefinition ) )
+                // Resolve the transitive dep's definition starting from the direct dep's product family. For aliased direct
+                // deps (e.g., Metalama 2026.0 aliased into a Metalama.Vsx 2026.1 build) this is essential — the consumer's
+                // family chain only includes the *current* version of the same logical product family (V2026_1), so a
+                // consumer-rooted lookup of "Metalama.Compiler" would find V2026_1.MetalamaCompiler whose CiConfiguration
+                // has 2026.1 build type IDs that don't match the 2026.0 buildId stored in the producer's version.props.
+                // For unaliased direct deps the direct dep's family is typically the same as (or relative-included by) the
+                // consumer's, so this preserves existing behavior.
+                if ( !directDependency.Dependency.ProductFamily.TryGetDependencyDefinition( name, out var dependencyDefinition )
+                     && !context.Product.TryGetDependencyDefinition( name, out dependencyDefinition ) )
                 {
                     context.Console.WriteError(
                         $"Cannot find the dependency definition for '{name}' referenced by '{directDependency.Dependency.Name}'. The dependency must be defined in PostSharp.Engineering." );
@@ -250,8 +266,9 @@ internal static class DependenciesHelper
                         throw new InvalidOperationException();
                 }
 
-                var newDependency = new ResolvedDependency( dependencySource, dependencyDefinition );
-                newDependenciesBuilder.Add( newDependency.Dependency.Name, newDependency );
+                // Transitive deps are not declared at the consumer's use site, so they have no ParametrizedDependency / alias.
+                var newDependency = new ResolvedDependency( dependencySource, dependencyDefinition, Parametrized: null );
+                newDependenciesBuilder.Add( newDependency.Key, newDependency );
                 dependenciesConfigurationFile.Dependencies[name] = dependencySource;
             }
 
@@ -301,19 +318,19 @@ internal static class DependenciesHelper
 
                 if ( buildSpec is CiLatestBuildOfBranch branch )
                 {
-                    BuildConfiguration dependencyConfiguration;
-
-                    if ( context.Product.TryGetDependency( dependency.Dependency.Name, out var parametrizedDependency ) )
-                    {
-                        dependencyConfiguration = parametrizedDependency.ConfigurationMapping[configuration];
-                    }
-                    else
+                    // CiLatestBuildOfBranch is only ever set for direct deps (transitives carry CiBuildId).
+                    // Direct deps already have ResolvedDependency.Parametrized populated, so use it directly —
+                    // a Name-based lookup would return the wrong ParametrizedDependency when the consumer has
+                    // multiple aliased refs to the same Definition.Name.
+                    if ( dependency.Parametrized == null )
                     {
                         context.Console.WriteError(
                             $"The source of the transitive dependency '{dependency.Dependency.Name}' is set to CiLatestBuildOfBranch. This is allowed only for direct dependencies." );
 
                         return false;
                     }
+
+                    var dependencyConfiguration = dependency.Parametrized.ConfigurationMapping[configuration];
 
                     ciBuildType = dependency.Dependency.CiConfiguration.BuildTypes[dependencyConfiguration];
                     branchName = branch.Name;
@@ -416,7 +433,8 @@ internal static class DependenciesHelper
                     dependency.Dependency.Name,
                     buildId.BuildTypeId,
                     buildId.BuildNumber,
-                    artifactsDirectory ) )
+                    artifactsDirectory,
+                    dependency.IsAliased ? dependency : null ) )
             {
                 return false;
             }
@@ -429,19 +447,61 @@ internal static class DependenciesHelper
     {
         foreach ( var dependency in dependencies.Values.Where( d => d.Source.SourceKind is DependencySourceKind.Local ) )
         {
-            if ( dependency.Source.VersionFile == null )
-            {
-                dependency.Source.VersionFile =
-                    Path.Combine(
-                        dependency.Source.GetResolvedLocalPath( context, dependency.Dependency.Name ),
-                        dependency.Dependency.Name + ".Import.props" );
-            }
+            // Producer's local .Import.props lives in the producer's repo root, named after the producer's product.
+            var producerName = dependency.Dependency.Name;
 
-            if ( !File.Exists( dependency.Source.VersionFile ) )
+            var producerImportPath = Path.Combine(
+                dependency.Source.GetResolvedLocalPath( context, producerName ),
+                producerName + ".Import.props" );
+
+            if ( !File.Exists( producerImportPath ) )
             {
-                context.Console.WriteError( $"The file '{dependency.Source.VersionFile}' does not exist. Check that the product has been built." );
+                context.Console.WriteError( $"The file '{producerImportPath}' does not exist. Check that the product has been built." );
 
                 return false;
+            }
+
+            if ( dependency.IsAliased )
+            {
+                // Resolve the .version.props that the producer's .Import.props points at, then transform it
+                // into an alias-prefixed copy under dependencies/{Key}/.
+                var importDocument = XDocument.Load( producerImportPath );
+                var importElement = importDocument.Descendants( "Import" ).FirstOrDefault();
+                var producerVersionPropsRelative = importElement?.Attribute( "Project" )?.Value;
+
+                if ( producerVersionPropsRelative == null )
+                {
+                    context.Console.WriteError( $"Cannot read <Import Project=\"...\"/> from '{producerImportPath}'." );
+
+                    return false;
+                }
+
+                var producerVersionPropsAbsolute = Path.GetFullPath(
+                    Path.Combine( Path.GetDirectoryName( producerImportPath )!, producerVersionPropsRelative ) );
+
+                if ( !File.Exists( producerVersionPropsAbsolute ) )
+                {
+                    context.Console.WriteError( $"The file '{producerVersionPropsAbsolute}' does not exist." );
+
+                    return false;
+                }
+
+                var aliasDirectory = TeamCityHelper.GetRestoredDependencyDirectory( context.RepoDirectory, dependency.Key );
+                var aliasedVersionPropsPath = Path.Combine( aliasDirectory, dependency.Key + ".version.props" );
+
+                TransformVersionPropsForAlias(
+                    producerVersionPropsAbsolute,
+                    aliasedVersionPropsPath,
+                    dependency.Dependency.NameWithoutDot,
+                    dependency.KeyWithoutDot );
+
+                WriteAliasImportFile( aliasDirectory, dependency.Key );
+
+                dependency.Source.VersionFile = Path.Combine( aliasDirectory, dependency.Key + ".Import.props" );
+            }
+            else
+            {
+                dependency.Source.VersionFile = producerImportPath;
             }
         }
 
@@ -457,9 +517,34 @@ internal static class DependenciesHelper
                 continue;
             }
 
-            if ( dependency.Source.VersionFile == null )
+            // For aliased deps, TeamCity's artifact rule (generated by ConfigurationProperties.cs) restores the producer's
+            // {Name}.version.props to dependencies/{Key}/. We then transform it in place to {Key}.version.props.
+            if ( dependency.IsAliased )
             {
-                var path = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, dependency.Dependency.Name );
+                var aliasDirectory = TeamCityHelper.GetRestoredDependencyDirectory( context.RepoDirectory, dependency.Key );
+                var producerRestoredPath = Path.Combine( aliasDirectory, dependency.Dependency.Name + ".version.props" );
+                var aliasedVersionPropsPath = Path.Combine( aliasDirectory, dependency.Key + ".version.props" );
+
+                // Always re-transform when the producer file exists: TeamCity may have restored a fresher
+                // {Name}.version.props over an existing dependencies/{Key}/ directory, in which case a stale
+                // {Key}.version.props from a previous build would cause the consumer to read outdated metadata.
+                if ( File.Exists( producerRestoredPath ) )
+                {
+                    TransformVersionPropsForAlias(
+                        producerRestoredPath,
+                        aliasedVersionPropsPath,
+                        dependency.Dependency.NameWithoutDot,
+                        dependency.KeyWithoutDot );
+                }
+
+                if ( dependency.Source.VersionFile == null )
+                {
+                    dependency.Source.VersionFile = aliasedVersionPropsPath;
+                }
+            }
+            else if ( dependency.Source.VersionFile == null )
+            {
+                var path = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, dependency.Key );
                 dependency.Source.VersionFile = path;
             }
 
@@ -472,10 +557,11 @@ internal static class DependenciesHelper
 
             var document = XDocument.Load( dependency.Source.VersionFile );
 
-            var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.Dependency.NameWithoutDot}BuildNumber" )
+            // BuildNumber/BuildType use KeyWithoutDot — for aliased deps the transform renamed them.
+            var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.KeyWithoutDot}BuildNumber" )
                 ?.Value;
 
-            var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.Dependency.NameWithoutDot}BuildType" )?.Value;
+            var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.KeyWithoutDot}BuildType" )?.Value;
 
             if ( !string.IsNullOrEmpty( buildNumber ) && !string.IsNullOrEmpty( buildType ) )
             {
@@ -536,7 +622,8 @@ internal static class DependenciesHelper
         string dependencyName,
         string ciBuildTypeId,
         int buildNumber,
-        string artifactsPath )
+        string artifactsPath,
+        ResolvedDependency? aliasedDependency )
     {
         if ( !DownloadBuild( context, teamCity, dependencyName, ciBuildTypeId, buildNumber, artifactsPath, out var restoreDirectory ) )
         {
@@ -553,7 +640,25 @@ internal static class DependenciesHelper
             return false;
         }
 
-        dependencySource.VersionFile = versionFile;
+        if ( aliasedDependency != null )
+        {
+            // Write a transformed copy alongside the original; the import target is the transformed one.
+            var aliasedVersionFile = Path.Combine(
+                Path.GetDirectoryName( versionFile )!,
+                aliasedDependency.Key + ".version.props" );
+
+            TransformVersionPropsForAlias(
+                versionFile,
+                aliasedVersionFile,
+                aliasedDependency.Dependency.NameWithoutDot,
+                aliasedDependency.KeyWithoutDot );
+
+            dependencySource.VersionFile = aliasedVersionFile;
+        }
+        else
+        {
+            dependencySource.VersionFile = versionFile;
+        }
 
         return true;
     }
@@ -580,5 +685,139 @@ internal static class DependenciesHelper
         return null;
     }
 
-    private record ResolvedDependency( DependencySource Source, DependencyDefinition Dependency );
+    private record ResolvedDependency( DependencySource Source, DependencyDefinition Dependency, ParametrizedDependency? Parametrized )
+    {
+        /// <summary>
+        /// Gets the consumer-side key: <see cref="ParametrizedDependency.Key"/> if available, otherwise <see cref="DependencyDefinition.Name"/>.
+        /// </summary>
+        public string Key => this.Parametrized?.Key ?? this.Dependency.Name;
+
+        /// <summary>
+        /// Gets <see cref="Key"/> with dots removed.
+        /// </summary>
+        public string KeyWithoutDot => this.Parametrized?.KeyWithoutDot ?? this.Dependency.NameWithoutDot;
+
+        /// <summary>
+        /// Whether the consumer-side key differs from the definition name (i.e., an alias is in effect).
+        /// </summary>
+        public bool IsAliased => this.Parametrized?.Alias != null;
+    }
+
+    /// <summary>
+    /// Element-name suffixes emitted by <c>ArtifactManifestFile.TryWrite</c> as producer-prefixed properties or item types.
+    /// Used by <see cref="TransformVersionPropsForAlias"/> to identify which elements to rename when an aliased dep
+    /// is consumed. Other elements (transitive Feed dep version properties, item metadata, etc.) are left alone.
+    /// </summary>
+    internal static readonly string[] ProducerPropertySuffixes =
+    {
+        "",                                  // bare prefix (rarely used; included for completeness)
+        "Version",
+        "MainVersion",
+        "PreviewVersion",
+        "AssemblyVersion",
+        "VersionPrefix",
+        "VersionSuffix",
+        "VersionPatchNumber",
+        "VersionWithoutSuffix",
+        "BuildConfiguration",
+        "BuildNumber",
+        "BuildType",
+        "BuildDate",
+        "Dependencies",
+        "ArtifactsDirectory",
+        "PublicArtifactsDirectory",
+        "PrivateArtifactsDirectory",
+        "EngineeringVersion",
+        "VersionFilePath"
+    };
+
+    /// <summary>
+    /// Transforms a producer-published <c>{ProducerName}.version.props</c> (or <c>.Import.props</c>) into a copy whose
+    /// producer-prefixed property/item names are replaced with the consumer's alias prefix. Used so that two references
+    /// to the same logical product (e.g., Metalama 2026.1 and Metalama 2026.0) under different aliases can coexist in
+    /// the consumer's MSBuild scope without colliding on properties like <c>$(MetalamaVersion)</c>.
+    /// </summary>
+    /// <param name="sourceFile">Source file path.</param>
+    /// <param name="destinationFile">Destination file path. Parent directory is created if missing.</param>
+    /// <param name="oldPrefix">Producer's <c>NameWithoutDot</c> (e.g., <c>Metalama</c>).</param>
+    /// <param name="newPrefix">Consumer's <c>KeyWithoutDot</c> (e.g., <c>Metalama20260</c>).</param>
+    /// <remarks>
+    /// Renames only elements whose local name matches <c>{oldPrefix}{Suffix}</c> where <c>Suffix</c> is in
+    /// <see cref="ProducerPropertySuffixes"/>. This conservative rule avoids accidentally renaming transitive dep version
+    /// properties such as <c>MetalamaCompilerVersion</c> (whose suffix <c>CompilerVersion</c> is not in the list).
+    /// Also absolutizes any relative <c>&lt;Import Project="..."/&gt;</c> path against the source file's directory so the
+    /// relocated copy still resolves.
+    /// </remarks>
+    internal static void TransformVersionPropsForAlias( string sourceFile, string destinationFile, string oldPrefix, string newPrefix )
+    {
+        var document = XDocument.Load( sourceFile );
+        var sourceDirectory = Path.GetDirectoryName( sourceFile )!;
+
+        foreach ( var element in document.Descendants().ToList() )
+        {
+            var localName = element.Name.LocalName;
+
+            if ( localName.StartsWith( oldPrefix, StringComparison.Ordinal ) )
+            {
+                var remainder = localName.Substring( oldPrefix.Length );
+
+                if ( Array.IndexOf( ProducerPropertySuffixes, remainder ) >= 0 )
+                {
+                    element.Name = element.Name.Namespace + (newPrefix + remainder);
+                }
+            }
+
+            if ( element.Name.LocalName == "Import" )
+            {
+                var projectAttribute = element.Attribute( "Project" );
+
+                if ( projectAttribute != null && !Path.IsPathRooted( projectAttribute.Value ) )
+                {
+                    projectAttribute.Value = Path.GetFullPath( Path.Combine( sourceDirectory, projectAttribute.Value ) );
+                }
+
+                var conditionAttribute = element.Attribute( "Condition" );
+
+                if ( conditionAttribute != null )
+                {
+                    // Conditions like "Exists('../foo.props')" need the path absolutized too.
+                    var match = System.Text.RegularExpressions.Regex.Match( conditionAttribute.Value, @"Exists\s*\(\s*'([^']+)'\s*\)" );
+
+                    if ( match.Success )
+                    {
+                        var pathInCondition = match.Groups[1].Value;
+
+                        if ( !Path.IsPathRooted( pathInCondition ) )
+                        {
+                            var absolutePath = Path.GetFullPath( Path.Combine( sourceDirectory, pathInCondition ) );
+                            conditionAttribute.Value = conditionAttribute.Value.Replace( pathInCondition, absolutePath, StringComparison.Ordinal );
+                        }
+                    }
+                }
+            }
+        }
+
+        Directory.CreateDirectory( Path.GetDirectoryName( destinationFile )! );
+        document.Save( destinationFile );
+    }
+
+    /// <summary>
+    /// Writes a thin <c>{Key}.Import.props</c> file at <paramref name="aliasDirectory"/> that imports the alongside
+    /// <c>{Key}.version.props</c>. This keeps the consumer's import-file convention (one <c>.Import.props</c> entry point
+    /// per dep) while still pointing at the transformed version.props.
+    /// </summary>
+    private static void WriteAliasImportFile( string aliasDirectory, string key )
+    {
+        var importFilePath = Path.Combine( aliasDirectory, key + ".Import.props" );
+        var versionPropsRelative = key + ".version.props";
+
+        var content = $@"<!-- File generated by PostSharp.Engineering, method {nameof(DependenciesHelper)}.{nameof(WriteAliasImportFile)}, for aliased dependency '{key}'. -->
+<Project>
+    <Import Project=""$(MSBuildThisFileDirectory){versionPropsRelative}"" Condition=""Exists( '$(MSBuildThisFileDirectory){versionPropsRelative}' )""/>
+</Project>
+";
+
+        Directory.CreateDirectory( aliasDirectory );
+        File.WriteAllText( importFilePath, content );
+    }
 }

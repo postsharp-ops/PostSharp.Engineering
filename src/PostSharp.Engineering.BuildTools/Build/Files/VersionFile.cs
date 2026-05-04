@@ -55,14 +55,14 @@ public class VersionFile
 
         var defaultDependencyProperties = context.Product.ParametrizedDependencies
             .ToDictionary<ParametrizedDependency, string, (string Version, string File)>(
-                d => d.Name,
+                d => d.Key,
                 d =>
                 {
-                    var property = versionsProject.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" );
+                    var property = versionsProject.Properties.SingleOrDefault( p => p.Name == d.KeyWithoutDot + "Version" );
 
                     if ( property == null )
                     {
-                        property = centralPackageManagementVersionsProject?.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" );
+                        property = centralPackageManagementVersionsProject?.Properties.SingleOrDefault( p => p.Name == d.KeyWithoutDot + "Version" );
                     }
 
                     if ( property == null )
@@ -79,14 +79,14 @@ public class VersionFile
 
         foreach ( var dependencyDefinition in context.Product.ParametrizedDependencies )
         {
-            var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
+            var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Key];
 
             if ( dependencyVersion == default )
             {
                 // A property is required because we update it during the release process.
 
                 context.Console.WriteError(
-                    $"A property named '{dependencyDefinition.NameWithoutDot}Version' must be defined, typically in 'eng/AutoUpdatedVersions.props', even with empty value." );
+                    $"A property named '{dependencyDefinition.KeyWithoutDot}Version' must be defined, typically in 'eng/AutoUpdatedVersions.props', even with empty value." );
 
                 continue;
             }
@@ -97,7 +97,7 @@ public class VersionFile
             if ( dependencyVersion.Version != "" && !Regex.IsMatch( dependencyVersion.Version, @"^\d+.*$" ) )
             {
                 context.Console.WriteError(
-                    $"{dependencyVersion.File}: invalid value '{dependencyVersion}' for property '{dependencyDefinition.Name}Version': the value is neither empty nor a valid version number." );
+                    $"{dependencyVersion.File}: invalid value '{dependencyVersion}' for property '{dependencyDefinition.Key}Version': the value is neither empty nor a valid version number." );
 
                 versionFile = null;
 
@@ -111,7 +111,7 @@ public class VersionFile
             {
                 if ( dependencyVersion.Version == "" )
                 {
-                    context.Console.WriteError( $"{dependencyVersion.File}: missing value for property '{dependencyDefinition.NameWithoutDot}Version'." );
+                    context.Console.WriteError( $"{dependencyVersion.File}: missing value for property '{dependencyDefinition.KeyWithoutDot}Version'." );
 
                     versionFile = null;
 
@@ -138,7 +138,7 @@ public class VersionFile
                     DependencyConfigurationOrigin.Default );
             }
 
-            dependenciesBuilder[dependencyDefinition.Name] = dependencySource;
+            dependenciesBuilder[dependencyDefinition.Key] = dependencySource;
         }
 
         versionFile = new VersionFile( dependenciesBuilder.ToImmutable() );
@@ -154,9 +154,12 @@ public class VersionFile
 
         foreach ( var dependency in dependenciesConfigurationFile.Dependencies.Keys )
         {
-            var dependencyDefinition = context.Product.ProductFamily.GetDependencyDefinition( dependency );
+            // Look up the parametrized dependency to get the consumer-side key (which equals Name when no alias is set).
+            var keyWithoutDot = context.Product.TryGetDependency( dependency, out var parametrizedDependency )
+                ? parametrizedDependency.KeyWithoutDot
+                : context.Product.ProductFamily.GetDependencyDefinition( dependency ).NameWithoutDot;
 
-            var propertyName = $"{dependencyDefinition.NameWithoutDot}Version";
+            var propertyName = $"{keyWithoutDot}Version";
 
             var elements = document.Root!.XPathSelectElements( $"/Project/PropertyGroup/{propertyName}" ).ToList();
 

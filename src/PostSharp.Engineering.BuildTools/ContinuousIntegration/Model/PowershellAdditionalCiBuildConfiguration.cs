@@ -63,7 +63,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 dependencies.Select( d => new TeamCitySnapshotDependency(
                                          d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                                          true,
-                                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Definition.Name}",
+                                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
                                          ReuseBuilds: reuseBuilds ) ) );
 
             // If we have a build snapshot dependency, copy nuget.restored.config to nuget.config
@@ -88,7 +88,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             foreach ( var dependency in dependencies )
             {
                 versionImports +=
-                    $"<Import Project=`\"../dependencies/{dependency.Definition.Name}/{dependency.Definition.Name}.version.props`\" />";
+                    $"<Import Project=`\"../dependencies/{dependency.Key}/{dependency.Key}.version.props`\" />";
             }
 
             var createVersionsFileCommand =

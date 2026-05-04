@@ -204,9 +204,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
                                 var localPath = item.Element( "Path" )?.Value;
                                 var dependencySource = DependencySource.CreateLocalDependency( origin, localPath );
 
-                                dependencySource.VersionFile = Path.Combine(
-                                    dependencySource.GetResolvedLocalPath( context, name ),
-                                    name + ".Import.props" );
+                                if ( product.TryGetDependency( name, out var parametrizedDependency ) && parametrizedDependency.Alias != null )
+                                {
+                                    // Aliased Local: import the transformed copy under dependencies/{Key}/, written at fetch time.
+                                    dependencySource.VersionFile = Path.Combine(
+                                        TeamCityHelper.GetRestoredDependencyDirectory( context.RepoDirectory, parametrizedDependency.Key ),
+                                        parametrizedDependency.Key + ".Import.props" );
+                                }
+                                else
+                                {
+                                    var producerName = parametrizedDependency?.Definition.Name ?? name;
+
+                                    dependencySource.VersionFile = Path.Combine(
+                                        dependencySource.GetResolvedLocalPath( context, producerName ),
+                                        producerName + ".Import.props" );
+                                }
 
                                 file._dependencies[name] = dependencySource;
 
@@ -403,6 +415,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
                 var dependencySource = dependency.Value;
                 var dependencyDefinition = product.GetDependencyDefinition( dependency.Key );
 
+                var keyWithoutDot = product.TryGetDependency( dependency.Key, out var parametrizedDependency )
+                    ? parametrizedDependency.KeyWithoutDot
+                    : dependencyDefinition.NameWithoutDot;
+
                 var item = new XElement(
                     "LocalDependencySource",
                     new XAttribute( "Include", dependency.Key ),
@@ -461,8 +477,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
                                 AddMetadataToItemIfNotNull( "Path", TransformPath( dependencySource.LocalPath ) );
                             }
 
-                            var importProjectFile = Path.GetFullPath(
-                                Path.Combine( dependencySource.GetResolvedLocalPath( context, dependency.Key ), dependency.Key + ".Import.props" ) );
+                            string importProjectFile;
+
+                            if ( parametrizedDependency?.Alias != null )
+                            {
+                                // Aliased Local: import the transformed copy under dependencies/{Key}/, written by Phase 7's transform.
+                                importProjectFile = Path.GetFullPath(
+                                    Path.Combine(
+                                        TeamCityHelper.GetRestoredDependencyDirectory( context.RepoDirectory, parametrizedDependency.Key ),
+                                        parametrizedDependency.Key + ".Import.props" ) );
+                            }
+                            else
+                            {
+                                importProjectFile = Path.GetFullPath(
+                                    Path.Combine(
+                                        dependencySource.GetResolvedLocalPath( context, dependencyDefinition.Name ),
+                                        dependencyDefinition.Name + ".Import.props" ) );
+                            }
 
                             AddImport( importProjectFile );
                         }
@@ -491,7 +522,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
 
                             if ( !string.IsNullOrEmpty( dependencySource.Version ) )
                             {
-                                propertyGroup.Add( new XElement( $"{dependencyDefinition.NameWithoutDot}Version", dependencySource.Version ) );
+                                propertyGroup.Add( new XElement( $"{keyWithoutDot}Version", dependencySource.Version ) );
                             }
                         }
 
@@ -561,24 +592,24 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
             // Add direct dependencies.
             for ( var i = 0; i < context.Product.ParametrizedDependencies.Length; i++ )
             {
-                var name = context.Product.ParametrizedDependencies[i].Name;
+                var key = context.Product.ParametrizedDependencies[i].Key;
 
                 var rowNumber = (i + 1).ToString( CultureInfo.InvariantCulture );
 
-                if ( !this.Dependencies.TryGetValue( name, out var source ) )
+                if ( !this.Dependencies.TryGetValue( key, out var source ) )
                 {
-                    table.AddRow( rowNumber, name, "<missing>", "" );
+                    table.AddRow( rowNumber, key, "<missing>", "" );
                 }
                 else
                 {
-                    table.AddRow( rowNumber, name, source.ToString(), source.VersionFile ?? "" );
+                    table.AddRow( rowNumber, key, source.ToString(), source.VersionFile ?? "" );
                 }
             }
 
             // Add implicit dependencies (if previously fetched).
             foreach ( var dependency in this.Dependencies )
             {
-                if ( context.Product.ParametrizedDependencies.Any( d => d.Name == dependency.Key ) )
+                if ( context.Product.ParametrizedDependencies.Any( d => d.Key == dependency.Key ) )
                 {
                     continue;
                 }

@@ -86,7 +86,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 {
                     var childConfiguration = child.ConfigurationMapping[configuration];
 
-                    var dependencyConfiguration = new DependencyConfiguration( child, childConfiguration );
+                    var dependencyConfiguration = new DependencyConfiguration( child, childConfiguration ) { Parametrized = child };
 
                     if ( !dependencies.Add( dependencyConfiguration ) )
                     {
@@ -157,6 +157,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public ParametrizedDependency ToDependency( ConfigurationSpecific<BuildConfiguration> configurationMapping )
             => new( this ) { ConfigurationMapping = configurationMapping };
+
+        /// <summary>
+        /// Returns a <see cref="ParametrizedDependency"/> that references this definition under a consumer-side <paramref name="alias"/>.
+        /// </summary>
+        public ParametrizedDependency WithAlias( string alias ) => this.ToDependency() with { Alias = alias };
 
         public DependencyDefinition(
             ProductFamily productFamily,

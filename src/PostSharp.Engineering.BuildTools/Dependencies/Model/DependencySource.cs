@@ -49,18 +49,38 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         /// <summary>
         /// Creates a <see cref="DependencySource"/> that represents a build server artifact dependency that has been restored,
-        /// and that exists under the 'dependencies' directory.
+        /// and that exists under the 'dependencies' directory. Uses the consumer-side <see cref="ParametrizedDependency.Key"/>
+        /// for the path and the property prefix, so this method is alias-aware.
+        /// </summary>
+        public static DependencySource CreateRestoredDependency(
+            BuildContext context,
+            ParametrizedDependency dependency,
+            DependencyConfigurationOrigin origin )
+            => CreateRestoredDependencyCore( context, dependency.Key, dependency.KeyWithoutDot, origin );
+
+        /// <summary>
+        /// Creates a <see cref="DependencySource"/> that represents a build server artifact dependency that has been restored,
+        /// and that exists under the 'dependencies' directory. Uses <see cref="DependencyDefinition.Name"/> as the key, so this
+        /// overload is suitable only for unaliased references. Prefer the <see cref="ParametrizedDependency"/> overload at use sites
+        /// that may involve aliases.
         /// </summary>
         public static DependencySource CreateRestoredDependency(
             BuildContext context,
             DependencyDefinition dependencyDefinition,
             DependencyConfigurationOrigin origin )
+            => CreateRestoredDependencyCore( context, dependencyDefinition.Name, dependencyDefinition.NameWithoutDot, origin );
+
+        private static DependencySource CreateRestoredDependencyCore(
+            BuildContext context,
+            string key,
+            string keyWithoutDot,
+            DependencyConfigurationOrigin origin )
         {
-            var path = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, dependencyDefinition.Name );
+            var path = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, key );
             var document = XDocument.Load( path );
 
-            var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependencyDefinition.NameWithoutDot}BuildNumber" )?.Value;
-            var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependencyDefinition.NameWithoutDot}BuildType" )?.Value;
+            var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{keyWithoutDot}BuildNumber" )?.Value;
+            var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{keyWithoutDot}BuildType" )?.Value;
 
             CiBuildId? buildId;
 

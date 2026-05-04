@@ -50,4 +50,8 @@
         <EmbeddedResource Include="Resources\**\*" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="PostSharp.Engineering.BuildTools.Tests" />
+    </ItemGroup>
+
 </Project>
