@@ -38,7 +38,10 @@ internal class ConfigurationProperties
                          d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                          true,
                          $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
-                         ReuseBuilds: d.ArtifactPickup == DependencyArtifactPickup.LastSuccessful ? ReuseBuilds.LastSuccessful : ReuseBuilds.Default ) )
+                         ReuseBuilds: d.ArtifactPickup == DependencyArtifactPickup.LastSuccessful ? ReuseBuilds.LastSuccessful : ReuseBuilds.Default,
+                         Branch: d.ArtifactPickup == DependencyArtifactPickup.LastSuccessful && configuration == BuildConfiguration.Public
+                             ? d.Definition.ReleaseBranch
+                             : null ) )
             .ToList();
 
         var sourceSnapshotDependencies = product.SourceDependencies.Where( d => d.GenerateSnapshotDependency )

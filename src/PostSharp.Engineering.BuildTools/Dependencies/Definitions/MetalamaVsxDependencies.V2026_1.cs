@@ -69,7 +69,9 @@ public static partial class MetalamaVsxDependencies
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering,
-                    MetalamaDependencies.V2026_1.Metalama,
+                    MetalamaDependencies.V2026_1.Metalama
+                        .ToDependency()
+                        .WithLastSuccessfulOnly(),
                     MetalamaDependencies.V2026_0.Metalama
                         .ToDependency(
                             new ConfigurationSpecific<BuildConfiguration>(

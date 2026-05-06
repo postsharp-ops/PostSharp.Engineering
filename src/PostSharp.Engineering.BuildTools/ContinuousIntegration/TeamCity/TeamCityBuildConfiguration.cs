@@ -354,7 +354,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                     if ( dependency.ArtifactRules != null )
                     {
                         var buildRule = dependency.ReuseBuilds == ReuseBuilds.LastSuccessful
-                            ? "\n                              buildRule = lastSuccessful()"
+                            ? dependency.Branch != null
+                                ? $"\n                              buildRule = lastSuccessful(branch = \"{dependency.Branch}\")"
+                                : "\n                              buildRule = lastSuccessful()"
                             : "";
 
                         writer.WriteLine(

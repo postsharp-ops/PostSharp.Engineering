@@ -7,7 +7,8 @@ internal record TeamCitySnapshotDependency(
     bool IsAbsoluteId,
     string? ArtifactRules = null,
     FailureAction FailureAction = FailureAction.FailToStart,
-    ReuseBuilds ReuseBuilds = ReuseBuilds.Default );
+    ReuseBuilds ReuseBuilds = ReuseBuilds.Default,
+    string? Branch = null );
 
 internal enum FailureAction
 {
