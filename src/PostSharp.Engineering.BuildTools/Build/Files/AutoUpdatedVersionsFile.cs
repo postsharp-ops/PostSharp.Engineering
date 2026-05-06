@@ -188,8 +188,11 @@ internal static class AutoUpdatedVersionsFile
                 inheritedMainVersion = releasedMainVersionPropertyValue;
             }
 
-            // Load dependency version from public version.
-            var versionElementName = $"{dependency.NameWithoutDot}Version";
+            // Load dependency version from public version. Use the consumer-side key (alias when set, else dep name)
+            // so multiple references to the same dep — e.g. Metalama 2026.1 and Metalama 2026.0 (aliased "Metalama20260")
+            // — produce distinct version elements (MetalamaVersion vs Metalama20260Version) instead of overwriting each
+            // other. Matches how VersionFile.cs and the alias version-props transform name properties.
+            var versionElementName = $"{dependencyConfiguration.KeyWithoutDot}Version";
             var versionElement = thisAutoUpdatedVersionsPropertyGroupElement.Element( versionElementName );
             var oldVersionValue = versionElement?.Value;
 
