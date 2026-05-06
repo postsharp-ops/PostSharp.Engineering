@@ -119,21 +119,30 @@ internal static class AutoUpdatedVersionsFile
         var errors = 0;
         string? inheritedMainVersion = null;
 
+        var consumerFamilyVersion = context.Product.DependencyDefinition.ProductFamily.Version;
+
         foreach ( var dependencyConfiguration in autoUpdatedDependencies )
         {
             var dependency = dependencyConfiguration.Definition;
 
-            string[] filePathCandidates =
-            [
-                Path.GetFullPath(
-                    Path.Combine(
-                        context.RepoDirectory,
-                        context.Product.SourceDependenciesDirectory,
-                        dependency.Name,
-                        dependency.EngineeringDirectory,
-                        FileName ) ),
-                Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", dependency.Name, dependency.EngineeringDirectory, FileName ) )
-            ];
+            // Local source-dep paths use only dependency.Name (no version qualifier), so two references to the same
+            // logical product under different family versions — e.g. Metalama 2026.1 and Metalama 2026.0 (aliased) on
+            // Vsx 2026.1 — would resolve to the same local checkout, and both iterations would read whichever branch
+            // it happens to be on. For cross-family deps, skip local candidates and always download from the dep's
+            // own release branch on GitHub.
+            string[] filePathCandidates = dependency.ProductFamily.Version == consumerFamilyVersion
+                ?
+                [
+                    Path.GetFullPath(
+                        Path.Combine(
+                            context.RepoDirectory,
+                            context.Product.SourceDependenciesDirectory,
+                            dependency.Name,
+                            dependency.EngineeringDirectory,
+                            FileName ) ),
+                    Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", dependency.Name, dependency.EngineeringDirectory, FileName ) )
+                ]
+                : [];
 
             var theirAutoUpdatedVersionsFilePath = filePathCandidates.FirstOrDefault( File.Exists );
 
