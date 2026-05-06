@@ -37,7 +37,10 @@ internal class ConfigurationProperties
             .Select( d => new TeamCitySnapshotDependency(
                          d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                          true,
-                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
+                         string.Join(
+                             "\\n",
+                             $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
+                             $"+:{d.Definition.EngineeringDirectory.Replace( '\\', '/' )}/AutoUpdatedVersions.props=>dependencies/{d.Key}/AutoUpdatedVersions.props" ),
                          ReuseBuilds: d.ArtifactPickup == DependencyArtifactPickup.LastSuccessful ? ReuseBuilds.LastSuccessful : ReuseBuilds.Default,
                          Branch: d.ArtifactPickup == DependencyArtifactPickup.LastSuccessful && configuration == BuildConfiguration.Public
                              ? d.Definition.ReleaseBranch

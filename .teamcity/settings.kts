@@ -29,6 +29,7 @@ object PublicBuild : BuildType({
 +:artifacts/testResults/**/*=>artifacts/testResults
 +:artifacts/logs/**/*=>logs
 +:artifacts/dumps/**/*=>dumps
++:eng/AutoUpdatedVersions.props=>eng
 """
 
     params {

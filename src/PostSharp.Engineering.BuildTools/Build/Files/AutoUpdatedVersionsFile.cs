@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -125,7 +125,11 @@ internal static class AutoUpdatedVersionsFile
                         dependency.Name,
                         dependency.EngineeringDirectory,
                         FileName ) ),
-                Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", dependency.Name, dependency.EngineeringDirectory, FileName ) )
+                Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", dependency.Name, dependency.EngineeringDirectory, FileName ) ),
+
+                // Artifact-dep flow: producer publishes its own AutoUpdatedVersions.props as a build artifact;
+                // consumer pulls it to dependencies/<key>/AutoUpdatedVersions.props (see TeamCitySettingsFile and ConfigurationProperties).
+                Path.GetFullPath( Path.Combine( context.RepoDirectory, "dependencies", dependencyConfiguration.Key, FileName ) )
             ];
 
             var theirAutoUpdatedVersionsFilePath = filePathCandidates.FirstOrDefault( File.Exists );
