@@ -76,24 +76,36 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public IReadOnlySet<DependencyConfiguration> GetAllDependencies( BuildConfiguration buildConfiguration )
         {
             HashSet<DependencyConfiguration> dependencies = new();
-            PopulateRecursive( this, buildConfiguration );
+            PopulateRecursive( this, buildConfiguration, ancestorIsLastSuccessful: false );
 
             return dependencies;
 
-            void PopulateRecursive( DependencyDefinition dependency, BuildConfiguration configuration )
+            void PopulateRecursive( DependencyDefinition dependency, BuildConfiguration configuration, bool ancestorIsLastSuccessful )
             {
                 foreach ( var child in dependency.Dependencies )
                 {
                     var childConfiguration = child.ConfigurationMapping[configuration];
 
-                    var dependencyConfiguration = new DependencyConfiguration( child, childConfiguration ) { Parametrized = child };
+                    // Propagate LastSuccessful through transitive deps: if any ancestor on the path from the consumer to
+                    // this child is LastSuccessful, we don't trigger that ancestor's build, so chaining the build of its
+                    // transitive deps is pointless. Treat the whole subtree under a LastSuccessful node as LastSuccessful.
+                    var childIsLastSuccessful = ancestorIsLastSuccessful || child.ArtifactPickup == DependencyArtifactPickup.LastSuccessful;
+
+                    var effectivePickup = childIsLastSuccessful
+                        ? DependencyArtifactPickup.LastSuccessful
+                        : child.ArtifactPickup;
+
+                    var dependencyConfiguration = new DependencyConfiguration( child, childConfiguration )
+                    {
+                        Parametrized = child, EffectiveArtifactPickup = effectivePickup
+                    };
 
                     if ( !dependencies.Add( dependencyConfiguration ) )
                     {
                         continue;
                     }
 
-                    PopulateRecursive( child, childConfiguration );
+                    PopulateRecursive( child, childConfiguration, childIsLastSuccessful );
                 }
             }
         }
