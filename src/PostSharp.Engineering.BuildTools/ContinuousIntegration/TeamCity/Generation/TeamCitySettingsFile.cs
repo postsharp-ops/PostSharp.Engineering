@@ -52,10 +52,6 @@ internal static class TeamCitySettingsFile
             publishedArtifactRules += $@"\n+:{productProperties.LogsDirectory}/**/*=>logs";
             publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
 
-            // Publish AutoUpdatedVersions.props so consumers can read released versions of auto-updated dependencies
-            // without needing them as source dependencies. Read by AutoUpdatedVersionsFile.TryRead during bump.
-            publishedArtifactRules += $@"\n+:{product.AutoUpdatedVersionsFilePath.Replace( '\\', '/' )}=>{product.EngineeringDirectory.Replace( '\\', '/' )}";
-
             var teamCityBuildConfiguration = CreateBuildConfiguration(
                 context,
                 productProperties,
@@ -273,27 +269,12 @@ internal static class TeamCitySettingsFile
 
     private static TeamCityBuildConfiguration CreateBumpConfiguration( ProductProperties productProperties )
     {
-        var product = productProperties.Product;
-
-        // Bump reads each auto-update dependency's AutoUpdatedVersions.props to learn its latest released version.
-        // Pull only the props file from the dependency's last successful Public build on its release branch.
-        var bumpDependencies = product.DependencyDefinition.GetAllDependencies( BuildConfiguration.Public )
-            .Where( d => d.Definition.AutoUpdateVersion && d.Definition.GenerateSnapshotDependency )
-            .Select( d => new TeamCitySnapshotDependency(
-                         d.Definition.CiConfiguration.BuildTypes[d.Configuration],
-                         true,
-                         $"+:{d.Definition.EngineeringDirectory.Replace( '\\', '/' )}/AutoUpdatedVersions.props=>dependencies/{d.Key}/AutoUpdatedVersions.props",
-                         ReuseBuilds: ReuseBuilds.LastSuccessful,
-                         Branch: d.Definition.ReleaseBranch ) )
-            .OrderBy( d => d.ObjectId )
-            .ToArray();
-
         var bumpConfiguration = new TeamCityBuildConfiguration(
             objectName: "VersionBump",
             name: $"Version Bump",
             productProperties.DefaultBranch,
             productProperties.VcsId,
-            buildAgentRequirements: product.ResolvedBuildAgentRequirements )
+            buildAgentRequirements: productProperties.Product.ResolvedBuildAgentRequirements )
         {
             BuildSteps =
             [
@@ -302,10 +283,9 @@ internal static class TeamCitySettingsFile
                     "Bump",
                     "bump",
                     areCustomArgumentsAllowed: true,
-                    dockerSpec: product.DockerSpec,
-                    timeout: product.VersionBumpTimeout )
+                    dockerSpec: productProperties.Product.DockerSpec,
+                    timeout: productProperties.Product.VersionBumpTimeout )
             ],
-            SnapshotDependencies = bumpDependencies,
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh
         };
 

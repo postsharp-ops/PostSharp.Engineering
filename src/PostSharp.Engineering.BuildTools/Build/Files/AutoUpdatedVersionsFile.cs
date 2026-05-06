@@ -31,9 +31,16 @@ internal static class AutoUpdatedVersionsFile
         string path,
         [NotNullWhen( true )] out string? dependencyReleasedVersion,
         [NotNullWhen( true )] out string? releasedMainVersionPropertyValue )
-    {
-        var theirAutoUpdatedVersionsDocument = XDocument.Load( path );
+        => TryParse( context, dependency, path, XDocument.Load( path ), out dependencyReleasedVersion, out releasedMainVersionPropertyValue );
 
+    private static bool TryParse(
+        BuildContext context,
+        DependencyDefinition dependency,
+        string source,
+        XDocument theirAutoUpdatedVersionsDocument,
+        [NotNullWhen( true )] out string? dependencyReleasedVersion,
+        [NotNullWhen( true )] out string? releasedMainVersionPropertyValue )
+    {
         var releasedVersionPropertyName = $"{dependency.NameWithoutDot}ReleaseVersion";
 
         dependencyReleasedVersion = theirAutoUpdatedVersionsDocument.Root
@@ -43,7 +50,7 @@ internal static class AutoUpdatedVersionsFile
 
         if ( string.IsNullOrEmpty( dependencyReleasedVersion ) )
         {
-            context.Console.WriteError( $"The '{releasedVersionPropertyName}' property in '{path}' is not defined." );
+            context.Console.WriteError( $"The '{releasedVersionPropertyName}' property in '{source}' is not defined." );
 
             releasedMainVersionPropertyValue = null;
             dependencyReleasedVersion = null;
@@ -60,7 +67,7 @@ internal static class AutoUpdatedVersionsFile
 
         if ( string.IsNullOrEmpty( releasedMainVersionPropertyValue ) )
         {
-            context.Console.WriteError( $"The '{releasedMainVersionPropertyName}' property in '{path}' is not defined." );
+            context.Console.WriteError( $"The '{releasedMainVersionPropertyName}' property in '{source}' is not defined." );
 
             releasedMainVersionPropertyValue = null;
             dependencyReleasedVersion = null;
@@ -125,28 +132,48 @@ internal static class AutoUpdatedVersionsFile
                         dependency.Name,
                         dependency.EngineeringDirectory,
                         FileName ) ),
-                Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", dependency.Name, dependency.EngineeringDirectory, FileName ) ),
-
-                // Artifact-dep flow: producer publishes its own AutoUpdatedVersions.props as a build artifact;
-                // consumer pulls it to dependencies/<key>/AutoUpdatedVersions.props (see TeamCitySettingsFile and ConfigurationProperties).
-                Path.GetFullPath( Path.Combine( context.RepoDirectory, "dependencies", dependencyConfiguration.Key, FileName ) )
+                Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", dependency.Name, dependency.EngineeringDirectory, FileName ) )
             ];
 
             var theirAutoUpdatedVersionsFilePath = filePathCandidates.FirstOrDefault( File.Exists );
 
-            if ( theirAutoUpdatedVersionsFilePath == null )
+            string source;
+            XDocument theirAutoUpdatedVersionsDocument;
+
+            if ( theirAutoUpdatedVersionsFilePath != null )
             {
-                context.Console.WriteError( $"None of these files exists: {string.Join( ", ", filePathCandidates.Select( x => $"'{x}'" ) )}." );
+                source = theirAutoUpdatedVersionsFilePath;
+                theirAutoUpdatedVersionsDocument = XDocument.Load( theirAutoUpdatedVersionsFilePath );
+            }
+            else
+            {
+                // Fallback for artifact-only dependencies: AutoUpdatedVersions.props is build-independent source code,
+                // so download it directly from the dependency's VCS repository on its release branch (or development branch
+                // when no release branch is set). Keeps bump independent of any CI artifact pipeline.
+                var branch = dependency.ReleaseBranch ?? dependency.Branch;
+                var pathInRepo = $"{dependency.EngineeringDirectory.Replace( '\\', '/' )}/{FileName}";
+                source = $"{dependency.VcsRepository}/{branch}/{pathInRepo}";
 
-                errors++;
+                context.Console.WriteMessage(
+                    $"Local '{FileName}' for '{dependency.Name}' not found at any of [{string.Join( ", ", filePathCandidates.Select( x => $"'{x}'" ) )}]; downloading from '{source}'." );
 
-                continue;
+                if ( !dependency.VcsRepository.TryDownloadTextFile( context.Console, branch, pathInRepo, out var text ) )
+                {
+                    context.Console.WriteError( $"Failed to download '{source}'." );
+
+                    errors++;
+
+                    continue;
+                }
+
+                theirAutoUpdatedVersionsDocument = XDocument.Parse( text );
             }
 
-            if ( !TryRead(
+            if ( !TryParse(
                     context,
                     dependency,
-                    theirAutoUpdatedVersionsFilePath,
+                    source,
+                    theirAutoUpdatedVersionsDocument,
                     out var dependencyReleasedVersion,
                     out var releasedMainVersionPropertyValue ) )
             {
