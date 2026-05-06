@@ -49,7 +49,10 @@ public static partial class MetalamaVsxDependencies
                         isVersioned,
                         pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck,
                         vcsRootProjectId: vcsRootProjectId ),
-                    isVersioned ) { }
+                    isVersioned )
+            {
+                this.PublishesFromReleaseBranch = true;
+            }
         }
 
         public static ProductFamily Family { get; } = new( _projectName, "2026.1", DevelopmentDependencies.Family, MetalamaDependencies.V2026_1.Family )
