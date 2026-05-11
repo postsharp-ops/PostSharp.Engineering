@@ -288,12 +288,11 @@ internal static class AutoUpdatedVersionsFile
             thisMainVersionElement.Value = versionComponents.MainVersion;
         }
 
-        // Write changes (always try to write to handle formatting and condition changes).
-        if ( !dry )
-        {
-            hasChanges = TextFileHelper.WriteIfDifferent( thisAutoUpdatedVersionsFilePath, thisAutoUpdatedVersionsDocument, context );
-        }
-        else if ( hasChanges )
+        // Always compare against the file on disk to handle formatting and condition changes,
+        // and to reset the stale per-edit hasChanges flag when in-memory edits cancel out.
+        hasChanges = TextFileHelper.WriteIfDifferent( thisAutoUpdatedVersionsFilePath, thisAutoUpdatedVersionsDocument, context, dry );
+
+        if ( dry && hasChanges )
         {
             context.Console.WriteMessage( $"New content for '{thisAutoUpdatedVersionsFilePath}':" );
             context.Console.WriteMessage( thisAutoUpdatedVersionsDocument.ToNiceString() );
@@ -308,13 +307,15 @@ internal static class AutoUpdatedVersionsFile
     public static bool TryWriteAndCommit( BuildContext context, bool dry )
     {
         // Go through all dependencies and update their fixed version in AutoUpdatedVersions.props file.
-        if ( !TryWrite( context, dry, out var dependenciesUpdated, out _, out _, out _ ) )
+        // Gate on hasChanges (whether the file was actually written), not on the per-dependency edit flag:
+        // cross-family edits can cancel out, leaving the file unchanged on disk.
+        if ( !TryWrite( context, dry, out _, out var hasChanges, out _, out _ ) )
         {
             return false;
         }
 
-        // Commit and push if dependencies versions were updated in previous step.
-        if ( dependenciesUpdated )
+        // Commit and push if the AutoUpdatedVersions.props file was changed.
+        if ( hasChanges )
         {
             if ( dry )
             {

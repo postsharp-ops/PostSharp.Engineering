@@ -8,9 +8,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 
 internal static class TextFileHelper
 {
-    public static bool WriteIfDifferent( string path, XDocument content, BuildContext context ) => WriteIfDifferent( path, content.ToNiceString(), context );
+    public static bool WriteIfDifferent( string path, XDocument content, BuildContext context, bool dry = false )
+        => WriteIfDifferent( path, content.ToNiceString(), context, dry );
 
-    public static bool WriteIfDifferent( string path, string content, BuildContext context )
+    public static bool WriteIfDifferent( string path, string content, BuildContext context, bool dry = false )
     {
         if ( File.Exists( path ) && content == File.ReadAllText( path ) )
         {
@@ -20,9 +21,16 @@ internal static class TextFileHelper
         }
         else
         {
-            context.Console.WriteMessage( $"Writing '{path}'." );
-            Directory.CreateDirectory( Path.GetDirectoryName( path )! );
-            File.WriteAllText( path, content );
+            if ( dry )
+            {
+                context.Console.WriteMessage( $"Dry run: would write '{path}'." );
+            }
+            else
+            {
+                context.Console.WriteMessage( $"Writing '{path}'." );
+                Directory.CreateDirectory( Path.GetDirectoryName( path )! );
+                File.WriteAllText( path, content );
+            }
 
             return true;
         }
