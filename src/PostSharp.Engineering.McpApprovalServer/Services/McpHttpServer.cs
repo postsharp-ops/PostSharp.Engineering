@@ -8,7 +8,6 @@ using ModelContextProtocol.AspNetCore;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Services;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Tools;
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.McpApprovalServer.Services;
@@ -62,19 +61,24 @@ public sealed class McpHttpServer
             options.Limits.MinResponseDataRate = null;
         } );
 
-        // Disable the MCP server's per-session idle timeout so long Claude
-        // sessions (hours or days) don't get their server-side session
-        // disposed while the user is idle. Without this, the SDK defaults
-        // to 2 hours, after which a reconnect is required.
+        // Run the MCP transport in stateless mode so each tools/call POST is
+        // self-contained and does not require the client to hold an SSE
+        // stream open between the initialize handshake and subsequent calls.
         //
-        // The SDK treats only Timeout.InfiniteTimeSpan (negative ticks) as
-        // the "never expire" sentinel — TimeSpan.MaxValue is interpreted as
-        // a finite timeout and silently overflows the pruner's tick math,
-        // which manifests as sessions being dropped after a few hours.
+        // Background: ModelContextProtocol.AspNetCore 1.2.0 destroys the
+        // server-side session as soon as the SSE stream from the initialize
+        // request disconnects, which made tools/call return HTTP 500 from
+        // Docker clients that did not keep a background SSE connection
+        // alive. This is safe here because (a) application state lives in
+        // CommandHistoryService and ApprovalRequestQueue, not MCP sessions,
+        // (b) ExecuteCommandTool uses a hardcoded "default" session ID,
+        // (c) tool calls are request/response — the POST blocks until the
+        // approval flow completes and returns the result on the same
+        // connection, and (d) no server-initiated messages need a
+        // persistent SSE channel.
         builder.Services.Configure<HttpServerTransportOptions>( options =>
         {
-            options.IdleTimeout = Timeout.InfiniteTimeSpan;
-            options.MaxIdleSessionCount = int.MaxValue;
+            options.Stateless = true;
         } );
 
         // Register services for tool dependencies (use shared instances from main DI container)
