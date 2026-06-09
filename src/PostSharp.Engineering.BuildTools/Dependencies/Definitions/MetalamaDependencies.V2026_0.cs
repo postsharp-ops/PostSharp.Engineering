@@ -182,7 +182,7 @@ public static partial class MetalamaDependencies
                 MetalamaGitHubOrganization.Metalama,
                 false,
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
-                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" ) { Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama] };
+                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" ) { Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama, MetalamaPremium] };
 
         public static DependencyDefinition MetalamaPerformance { get; } =
             new MetalamaDependencyDefinition(
