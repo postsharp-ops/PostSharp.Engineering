@@ -208,7 +208,13 @@ if ($Prompt)
     }
 
     # Stream JSON output for human-readable real-time monitoring
-    $processArgs = "-p --output-format stream-json --verbose --model $Model --dangerously-skip-permissions $mcpConfigArg"
+    # In headless `-p` mode the process exits at the `result` event, so a scheduled wakeup /
+    # cron / remote trigger can never fire and any work deferred to it is abandoned. Removing
+    # these forces Claude to wait WITHIN the turn (Monitor / run_in_background polling), which
+    # keeps the process alive for long builds. Do NOT disallow Monitor or run_in_background --
+    # those are the in-turn wait mechanisms long builds depend on.
+    $disallowedTools = "ScheduleWakeup CronCreate CronDelete CronList RemoteTrigger"
+    $processArgs = "-p --output-format stream-json --verbose --model $Model --dangerously-skip-permissions --disallowedTools `"$disallowedTools`" $mcpConfigArg"
 
     # Resolve the Claude CLI launcher: npm ships claude.cmd on Windows, the native installer ships
     # claude.exe, and on Linux/macOS the binary is plain "claude". Get-Command honors PATHEXT so
