@@ -1,5 +1,6 @@
 # The original of this file is in <PostSharp.Engineering>/src/PostSharp.Engineering.BuildTools/Resources/DockerBuild.ps1.
 # You can generate this file using `./Build.ps1 generate-scripts`.
+# Documentation: https://raw.githubusercontent.com/postsharp/PostSharp.Engineering/HEAD/doc/dockerbuild.md
 
 <#
 .SYNOPSIS
