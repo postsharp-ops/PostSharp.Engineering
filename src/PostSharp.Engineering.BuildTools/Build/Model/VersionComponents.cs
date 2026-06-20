@@ -11,6 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model;
 
@@ -208,7 +209,7 @@ internal record VersionComponents
 
                     File.WriteAllText( localVersionFile, localVersion.ToString( CultureInfo.InvariantCulture ) );
 
-                    versionSuffix = $"local-{userName}-{configurationLowerCase}";
+                    versionSuffix = $"local-{SanitizeVersionLabel( userName )}-{configurationLowerCase}";
 
                     patchNumber = localVersion;
 
@@ -244,6 +245,22 @@ internal record VersionComponents
         version = new VersionComponents( mainVersion, versionPrefix, patchNumber, versionSuffix, configuration, product );
 
         return true;
+    }
+
+    // Sanitizes a user name so it forms a valid SemVer/NuGet pre-release label. Characters outside [0-9A-Za-z-]
+    // are illegal in a version string, and build agents typically run under a machine-account name such as
+    // "MACHINE$", whose trailing '$' would otherwise produce an invalid version like "...-local-MACHINE$-debug-1".
+    private static string SanitizeVersionLabel( string? userName )
+    {
+        if ( string.IsNullOrWhiteSpace( userName ) )
+        {
+            return "unknown";
+        }
+
+        // Replace any run of illegal characters with a single hyphen, then trim leading/trailing hyphens.
+        var sanitized = Regex.Replace( userName, "[^0-9A-Za-z]+", "-" ).Trim( '-' );
+
+        return sanitized.Length == 0 ? "unknown" : sanitized;
     }
 
     private static bool TryInheritedReadMainVersion(
