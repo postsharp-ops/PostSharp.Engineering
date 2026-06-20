@@ -18,6 +18,10 @@ internal static class EmbeddedResourceHelper
         replacements.Add( "<ENVIRONMENT_VARIABLES>", string.Join( ",", EnvironmentVariableNames.All.OrderBy( x => x ) ) );
         replacements.Add( "<PRODUCT_NAME>", product.ProductNameWithoutDot );
 
+        // Image-name prefix for chained Dockerfiles: stems are "{prefix}-{layer}". Must match
+        // ContainerRequirements.GetImagePrefix / the default DockerSpec.ImageName.
+        replacements.Add( "<DOCKER_IMAGE_PREFIX>", $"{product.ProductNameWithoutDot}-{product.ProductFamily.Version}".ToLowerInvariant() );
+
         ExtractResource( context, fileName, targetDirectory, replacements );
     }
 

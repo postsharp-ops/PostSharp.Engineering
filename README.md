@@ -564,6 +564,7 @@ Additional design documentation is available in the [doc/](doc/) folder:
 - [Build Flow](doc/build-flow.md) - Build process diagrams
 - [Publish Flow](doc/publish-flow.md) - Publishing process
 - [Dependencies](doc/dependencies.md) - Metalama dependency graph
+- [DockerBuild.ps1](doc/dockerbuild.md) - Containerized builds and Claude sandboxing
 
 ## License
 

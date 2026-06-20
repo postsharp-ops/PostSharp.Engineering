@@ -18,6 +18,8 @@ public class ClaudeComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.Claude;
 
+    public override string Layer => ContainerLayers.Claude;
+
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
         // We don't use the native installer because it's very slow to download.

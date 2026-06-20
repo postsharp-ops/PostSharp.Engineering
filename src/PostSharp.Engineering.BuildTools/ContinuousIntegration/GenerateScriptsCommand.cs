@@ -39,16 +39,16 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
             EmbeddedResourceHelper.ExtractScript( context, "RunClaude.ps1", "eng" );
             var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
-            // Generate main Dockerfile variants (standard + win2022 + claude + claude.win2022)
-            if ( !image.WriteAllVariants( context, "", [] ) )
+            // Generate the main image chain (build [+ vs17] + claude leaf).
+            if ( !image.WriteDockerfiles( context, additionalName: null, extraComponents: [], validateBuildComponents: true ) )
             {
                 return false;
             }
 
-            // Generate additional Dockerfile variants
+            // Generate a chain per additional Dockerfile.
             foreach ( var additionalDockerfile in product.AdditionalDockerfiles )
             {
-                if ( !image.WriteAllVariants( context, additionalDockerfile.Name, additionalDockerfile.Components ) )
+                if ( !image.WriteDockerfiles( context, additionalDockerfile.Name, additionalDockerfile.Components, validateBuildComponents: false ) )
                 {
                     return false;
                 }

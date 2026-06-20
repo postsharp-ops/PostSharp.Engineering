@@ -14,20 +14,11 @@ internal class EpilogueComponent : ContainerComponent
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
+        // Note: bind-mount directories are NOT created here. They are machine-specific, so DockerBuild.ps1
+        // creates them in a thin local "boot" image layered over the resolved chain image (New-BootImage),
+        // keeping the chain images clean, shareable and free of the host's mount set.
         writer.WriteLine(
             """
-            # Create directories for mountpoints
-            ARG MOUNTPOINTS
-            RUN if ($env:MOUNTPOINTS) { `
-                    $mounts = $env:MOUNTPOINTS -split ';'; `
-                    foreach ($dir in $mounts) { `
-                        if ($dir) { `
-                            Write-Host "Creating directory $dir`."; `
-                            New-Item -ItemType Directory -Path $dir -Force | Out-Null; `
-                        } `
-                    } `
-                }
-
             # Configure .NET SDK
             ENV DOTNET_NOLOGO=1
             """ );

@@ -22,6 +22,10 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.VsBuildTools;
 
+    // The heavy, rarely-changing VS Build Tools form the base of the chain so the toolchain above can be
+    // rebuilt without reinstalling VS.
+    public override string Layer => ContainerLayers.Vs17;
+
     [Obsolete( "Specify the VisualStudioBuildToolsComponentVersion/" )]
     public VisualStudioBuildToolsComponent( string[] vsComponents ) : this( VisualStudioBuildToolsComponentVersion.v17_14_15, vsComponents ) { }
 

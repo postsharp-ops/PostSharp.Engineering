@@ -24,100 +24,81 @@ public record ContainerRequirements : ContainerHostRequirements
 
     public override bool IsDockerized => true;
 
-    public bool WriteAllVariants(
+    /// <summary>
+    /// Emits the chain of Dockerfiles for one image family (the main product, or an additional Dockerfile).
+    /// Components are partitioned by <see cref="ContainerComponent.Layer"/>; each active layer is written as its
+    /// own <c>&lt;stem&gt;.Dockerfile</c> building <c>FROM</c> its nearest active ancestor (the lowest active
+    /// layer builds from the external OS base). The Claude layer is always part of the chain.
+    /// </summary>
+    /// <remarks>
+    /// The Dockerfile <b>file name</b> (stem) carries no product/version prefix - it is just the layer name
+    /// (e.g. <c>build.Dockerfile</c>), or <c>&lt;additionalName&gt;-&lt;layer&gt;.Dockerfile</c> for an additional
+    /// chain. The product/version prefix lives only in the <b>image tag</b>, which <c>DockerBuild.ps1</c> forms
+    /// as <c>&lt;DOCKER_IMAGE_PREFIX&gt;-&lt;stem&gt;:&lt;hash&gt;</c>.
+    /// </remarks>
+    public bool WriteDockerfiles(
         BuildContext context,
-        string suffix,
-        ContainerComponent[] extraComponents )
-    {
-        var name = string.IsNullOrEmpty( suffix ) ? "Dockerfile" : $"Dockerfile.{suffix}";
-        var claudeComponents = new ContainerComponent[] { new ClaudeComponent(), new ClaudeAddInsComponent() };
-        var validate = string.IsNullOrEmpty( suffix );
-
-        // Win2025
-        if ( !this.WriteDockerfileCore(
-                context,
-                name,
-                ContainerOperatingSystem.Windows2025,
-                extraComponents,
-                validate ) )
-        {
-            return false;
-        }
-
-        // Win2022
-        if ( !this.WriteDockerfileCore(
-                context,
-                $"{name}.win2022",
-                ContainerOperatingSystem.Windows2022,
-                extraComponents,
-                false ) )
-        {
-            return false;
-        }
-
-        // Win2025 + Claude
-        if ( !this.WriteDockerfileCore(
-                context,
-                $"{name}.claude",
-                ContainerOperatingSystem.Windows2025,
-                [..extraComponents, ..claudeComponents],
-                false ) )
-        {
-            return false;
-        }
-
-        // Win2022 + Claude
-        if ( !this.WriteDockerfileCore(
-                context,
-                $"{name}.claude.win2022",
-                ContainerOperatingSystem.Windows2022,
-                [..extraComponents, ..claudeComponents],
-                false ) )
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private bool WriteDockerfileCore(
-        BuildContext context,
-        string dockerfileName,
-        ContainerOperatingSystem operatingSystem,
-        ContainerComponent[] additionalComponents,
+        string? additionalName,
+        ContainerComponent[] extraComponents,
         bool validateBuildComponents )
     {
-        var contextDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "docker-context" );
-
-        Directory.CreateDirectory( contextDirectory );
+        var dockerContextRoot = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "docker-context" );
+        Directory.CreateDirectory( dockerContextRoot );
 
         var dockerfilesDir = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "docker" );
         Directory.CreateDirectory( dockerfilesDir );
 
-        // Add base components
-        var allComponents = new List<ContainerComponent> { new PrologComponent(), new PowershellComponent(), new GitComponent(), new EpilogueComponent() };
+        // The file stem (also the context-dir name and the ARG BASE_IMAGE reference) is prefix-free: just the
+        // layer name, or "<additionalName>-<layer>" to disambiguate additional chains.
+        string Stem( string layerName )
+            => additionalName == null ? layerName : $"{additionalName.ToLowerInvariant()}-{layerName}";
+
+        // Assemble components. The prolog is layer-specific and is prepended per layer below, so it is not here.
+        // The Claude layer is always part of the chain.
+        var allComponents = new List<ContainerComponent>
+        {
+            new PowershellComponent(), new GitComponent(), new EpilogueComponent(), new ClaudeComponent(), new ClaudeAddInsComponent()
+        };
 
         allComponents.AddRange( this.Components );
+        allComponents.AddRange( extraComponents );
 
-        // Add additional component if specified (e.g., Claude)
-        foreach ( var additionalComponent in additionalComponents )
+        void Add( ContainerComponent c )
         {
-            allComponents.Add( additionalComponent );
+            allComponents.Add( c );
+            c.AddRequirements( allComponents, Add );
         }
 
-        // Add required components
+        // Resolve component requirements (recursive).
         foreach ( var component in allComponents.ToList() )
         {
-            void Add( ContainerComponent c )
-            {
-                allComponents.Add( c );
-                c.AddRequirements( allComponents, Add );
-            }
-
             component.AddRequirements( allComponents, Add );
         }
 
-        // Deduplicate components by key (last occurrence wins)
+        // A layer's own components are magically added whenever the layer is active. Loop until stable, since an
+        // own component can activate a further layer.
+        bool addedOwnComponent;
+
+        do
+        {
+            addedOwnComponent = false;
+            var activeLayerNames = allComponents.Select( c => c.Layer ).Distinct().ToList();
+
+            foreach ( var layerName in activeLayerNames )
+            {
+                foreach ( var ownComponent in ContainerLayers.Get( layerName ).OwnComponents )
+                {
+                    if ( allComponents.All( c => c.Key != ownComponent.Key ) )
+                    {
+                        Add( ownComponent );
+                        addedOwnComponent = true;
+                    }
+                }
+            }
+        }
+        while ( addedOwnComponent );
+
+        // Deduplicate components by key (last occurrence wins).
         var seen = new HashSet<string>();
         var deduplicatedComponents = new List<ContainerComponent>();
 
@@ -132,16 +113,7 @@ public record ContainerRequirements : ContainerHostRequirements
         deduplicatedComponents.Reverse();
         allComponents = deduplicatedComponents;
 
-        // Validate components
-        foreach ( var component in allComponents )
-        {
-            if ( !component.Validate( context, contextDirectory ) )
-            {
-                return false;
-            }
-        }
-
-        // Validate publishers and testers (only for base Dockerfile)
+        // Validate publishers and testers (only for the main build image).
         if ( validateBuildComponents )
         {
             var hasMissingRequirement = false;
@@ -157,28 +129,67 @@ public record ContainerRequirements : ContainerHostRequirements
             }
         }
 
-        // Order components
-        var orderedComponents = allComponents.OrderBy( x => x ).ToList();
+        // Partition components by layer.
+        var componentsByLayer = allComponents.GroupBy( c => c.Layer ).ToDictionary( g => g.Key, g => g.ToList() );
 
-        var dockerfilePath = Path.Combine( dockerfilesDir, dockerfileName );
-        using var dockerfileContent = new StringWriter();
-
-        foreach ( var component in orderedComponents )
+        // Walk the standard chain root → leaf and emit each active layer.
+        foreach ( var layer in ContainerLayers.StandardChain )
         {
-            context.Console.WriteMessage( $"Processing component '{component.Name}'." );
-
-            if ( component.Kind != ContainerComponentKind.Prolog )
+            if ( !componentsByLayer.TryGetValue( layer.Name, out var layerComponents ) )
             {
-                dockerfileContent.WriteLine();
-                dockerfileContent.WriteLine();
-                dockerfileContent.WriteLine( $"# {component.Name}" );
+                continue;
             }
 
-            component.PopulateContextDirectory( context, contextDirectory );
-            component.WriteDockerfile( dockerfileContent, operatingSystem );
-        }
+            // Resolve the actual parent: the nearest active ancestor (null ⇒ this layer is the chain root).
+            string? parentStem = null;
 
-        TextFileHelper.WriteIfDifferent( dockerfilePath, dockerfileContent.ToString(), context );
+            for ( var ancestor = layer.PreferredParentLayer; ancestor != null; ancestor = ContainerLayers.Get( ancestor ).PreferredParentLayer )
+            {
+                if ( componentsByLayer.ContainsKey( ancestor ) )
+                {
+                    parentStem = Stem( ancestor );
+
+                    break;
+                }
+            }
+
+            var stem = Stem( layer.Name );
+            var perImageContext = Path.Combine( dockerContextRoot, stem );
+            Directory.CreateDirectory( perImageContext );
+
+            // Prepend the layer's own prolog: a root prolog (FROM the OS base) when this layer has no active
+            // ancestor, otherwise a stem prolog (FROM ${BASE_IMAGE} = the parent stem).
+            ContainerComponent prolog = parentStem == null ? new RootPrologComponent() : new ChildPrologComponent( parentStem );
+
+            var orderedComponents = layerComponents
+                .Prepend( prolog )
+                .OrderBy( x => x )
+                .ToList();
+
+            using var dockerfileContent = new StringWriter();
+
+            foreach ( var component in orderedComponents )
+            {
+                if ( !component.Validate( context, perImageContext ) )
+                {
+                    return false;
+                }
+
+                context.Console.WriteMessage( $"Processing component '{component.Name}' in layer '{layer.Name}'." );
+
+                if ( component.Kind != ContainerComponentKind.Prolog )
+                {
+                    dockerfileContent.WriteLine();
+                    dockerfileContent.WriteLine();
+                    dockerfileContent.WriteLine( $"# {component.Name}" );
+                }
+
+                component.PopulateContextDirectory( context, perImageContext );
+                component.WriteDockerfile( dockerfileContent, ContainerOperatingSystem.Default );
+            }
+
+            TextFileHelper.WriteIfDifferent( Path.Combine( dockerfilesDir, $"{stem}.Dockerfile" ), dockerfileContent.ToString(), context );
+        }
 
         return true;
     }

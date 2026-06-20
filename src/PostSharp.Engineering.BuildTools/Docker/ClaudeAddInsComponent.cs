@@ -19,6 +19,8 @@ public class ClaudeAddInsComponent : ContainerComponent
 
     public override ContainerComponentKind Kind => ContainerComponentKind.ClaudeAddIns;
 
+    public override string Layer => ContainerLayers.Claude;
+
     /// <summary>
     /// Gets the list of marketplace URLs to add in the container.
     /// These should be GitHub repository URLs (e.g., https://github.com/org/repo).

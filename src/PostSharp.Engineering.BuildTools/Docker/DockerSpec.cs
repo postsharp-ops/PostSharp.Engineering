@@ -4,5 +4,7 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 
 public record DockerSpec( string ImageName, int? Memory = null, string? Dockerfile = null )
 {
-    public DockerSpec WithClaudeDockerfile( string engineeringDirectory ) => this with { Dockerfile = $"{engineeringDirectory}/docker/Dockerfile.claude" };
+    // Dockerfile names are prefix-free (just the layer); the image tag carries the prefix. The main chain's
+    // Claude leaf is docker/claude.Dockerfile.
+    public DockerSpec WithClaudeDockerfile( string engineeringDirectory ) => this with { Dockerfile = $"{engineeringDirectory}/docker/claude.Dockerfile" };
 }
