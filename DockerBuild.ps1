@@ -814,10 +814,18 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     # Build the local "boot" image: a thin layer over the resolved chain image that creates the bind-mount
     # directories. The mount set is machine-specific, so this is kept out of the shared chain images and is
     # never pushed. Returns the boot image tag, which is what `docker run` uses.
+    #
+    # The boot image is the leaf that `docker run` actually executes, so its tag must be GLOBALLY UNIQUE:
+    # concurrent invocations on the same host resolve to the same chain hash and would otherwise collide on a
+    # single boot tag, with one run rebuilding (or removing) the image out from under the other. A
+    # YYYYMMDDTHHmmss timestamp suffix keeps each run's leaf image distinct. The image is removed after the run
+    # (see the boot-image cleanup near the end), so unique tags do not accumulate.
     function New-BootImage([string]$baseTag)
     {
         $ref = ($baseTag -split '/')[-1]   # strip any registry prefix - the boot image is local only
-        if ($ref -match '^(.*):([^:]+)$') { $bootTag = "$( $Matches[1] )-boot:$( $Matches[2] )" } else { $bootTag = "$ref-boot:latest" }
+        $stamp = (Get-Date).ToString("yyyyMMdd'T'HHmmss")   # local time; only needs to be unique per host run
+        if ($ref -match '^(.*):([^:]+)$') { $bootTag = "$( $Matches[1] )-boot:$( $Matches[2] )-$stamp" } else { $bootTag = "$ref-boot:$stamp" }
+        $script:BootImageTag = $bootTag   # tracked so the run can remove this leaf image afterwards
 
         # On Windows the mountpoints RUN uses backtick line-continuations, so set `# escape=` + backtick. On
         # Unix the block uses backslash continuations, so keep Docker's default escape char (emit no directive).
@@ -894,6 +902,9 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     # ALL builds complete (so a push never overlaps a host docker build), and all waited for at the end.
     $script:ImagesToPush = @()
     $script:RegistryPushJobs = @()
+
+    # Tag of the local, run-specific boot image (set by New-BootImage); removed after the container exits.
+    $script:BootImageTag = $null
 
     function Add-VolumeMount
     {
@@ -2132,6 +2143,17 @@ finally
     if ($isDynamicCpus)
     {
         try { Invoke-DynamicCpuRebalance -AdditionalContainers 0 | Out-Null } catch { }
+    }
+
+    # Remove the run-specific boot image. Its tag is unique per run (timestamp suffix), so leaving it behind
+    # would accumulate dangling leaf images. Running here (not after the run) guarantees removal even when the
+    # build throws or the user presses Ctrl+C - PowerShell still executes finally on a pipeline interrupt. The
+    # `docker run --rm` removes the container, so the image is normally unreferenced; `-f` untags it even if a
+    # stopped container still references it. Best-effort: a removal failure must not mask the build's exit code.
+    if ($script:BootImageTag)
+    {
+        Write-Host "Removing boot image $($script:BootImageTag)" -ForegroundColor Gray
+        docker image rm -f $script:BootImageTag *> $null
     }
 
     # Restore original location

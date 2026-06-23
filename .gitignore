@@ -16,8 +16,7 @@ global.json
 *.g.json
 *.g.ps1
 eng/docker-context/claude.json
-eng/docker-context/.g/
-eng/.g/
+.g/
 scripts/build-agents/last-execution.txt
 *.log
 copilot.data.*
