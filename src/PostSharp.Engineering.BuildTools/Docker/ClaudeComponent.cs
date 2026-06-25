@@ -58,8 +58,10 @@ public class ClaudeComponent : ContainerComponent
 
         if ( existingNodeJs == null )
         {
-            // Auto-add NodeJsComponent with minimum required version
-            add( new NodeJsComponent( _minNodeVersion ) );
+            // Node.js is required by Claude only (the product did not add it), so install it on the dedicated
+            // claude-pre layer - a child of the build image. CI builds the build leaf and thus never builds Node.js;
+            // only the Claude dev image (downstream of claude-pre) picks it up.
+            add( new NodeJsComponent( _minNodeVersion, ContainerLayers.ClaudePre ) );
         }
         else if ( Version.Parse( existingNodeJs.Version ) < Version.Parse( _minNodeVersion ) )
         {

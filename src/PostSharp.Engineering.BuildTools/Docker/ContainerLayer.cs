@@ -37,6 +37,13 @@ public static class ContainerLayers
 {
     public const string Vs17 = "vs17";
     public const string Build = "build";
+
+    /// <summary>
+    /// Layer for Claude's prerequisites (e.g. Node.js) that are required by Claude but not by the product itself.
+    /// Sits between <see cref="Build"/> and <see cref="Claude"/> so these prerequisites stay out of the build image.
+    /// </summary>
+    public const string ClaudePre = "claude-pre";
+
     public const string Claude = "claude";
 
     /// <summary>
@@ -44,11 +51,20 @@ public static class ContainerLayers
     /// preferred parent; when that parent is inactive, the emitter links to the nearest active ancestor (or
     /// builds <c>FROM</c> the external OS base when there is none).
     /// </summary>
+    /// <remarks>
+    /// The <see cref="ClaudePre"/> layer sits between <see cref="Build"/> and <see cref="Claude"/> so that
+    /// prerequisites required <i>only by Claude</i> (e.g. Node.js) stay out of the build image that CI builds: CI
+    /// builds the <see cref="Build"/> leaf (the prerequisites are a child layer, never built), while the Claude dev
+    /// image picks them up. When the product itself needs Node.js (e.g. Gulp), it adds <see cref="NodeJsComponent"/>
+    /// on the default <see cref="Build"/> layer instead, leaving the <see cref="ClaudePre"/> layer inactive and the
+    /// chain collapsing to <c>build → claude</c>.
+    /// </remarks>
     public static readonly IReadOnlyList<ContainerLayer> StandardChain =
     [
         new ContainerLayer( Vs17 ),
         new ContainerLayer( Build, Vs17 ),
-        new ContainerLayer( Claude, Build )
+        new ContainerLayer( ClaudePre, Build ),
+        new ContainerLayer( Claude, ClaudePre )
     ];
 
     public static ContainerLayer Get( string name )
