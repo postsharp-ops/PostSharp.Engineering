@@ -246,11 +246,15 @@ try
             $r = Invoke-DockerBuild @('-Claude')
             if ($r.ExitCode -ne 0) { Write-Host "---- registry build output ----`n$($r.Output)`n----" -ForegroundColor DarkGray }
             Test-Case "registry: build+push exits 0" ($r.ExitCode -eq 0)
-            # Drop local images, then rebuild: the chain must be satisfied by pulling from the registry.
+            # Drop local images, then rebuild: the ancestor chain (vs/build) must be satisfied by pulling from the
+            # registry. The Claude LEAF is never pushed/pulled - it is always rebuilt locally (it bakes a daily
+            # cache-buster + `@latest` installs), so after the rebuild it exists locally again because it was built,
+            # not pulled.
             Remove-TestImages
             $r2 = Invoke-DockerBuild @('-Claude')
             Test-Case "registry: second build (after local rmi) exits 0" ($r2.ExitCode -eq 0)
-            Test-Case "registry: '$imagePrefix-claude' available again (pulled)" (Test-ImageExists "$savedRegistry/$imagePrefix-claude")
+            Test-Case "registry: '$imagePrefix-build' available again (pulled from registry)" (Test-ImageExists "$savedRegistry/$imagePrefix-build")
+            Test-Case "registry: '$imagePrefix-claude' available again (rebuilt locally, never pulled)" (Test-ImageExists "$savedRegistry/$imagePrefix-claude")
         }
         finally
         {
@@ -263,6 +267,7 @@ try
     Skip-Case "OS build-arg fold (ltsc2025 vs ltsc2022)" "requires building on two Windows host editions; the WINDOWS_VERSION build-arg + hash fold is exercised, not asserted here"
     Skip-Case "boot image + MOUNTPOINTS creation" "requires 'docker run' of a PowerShell-7 image; covered by real product builds"
     Skip-Case "runtime env/init delivery" "requires 'docker run' of a PowerShell-7 image; covered by real product builds"
+    Skip-Case "-NoBuildImage run step rebuilds the local-only Claude leaf" "the run step resolves the chain then 'docker run's a PowerShell-7 image; the local-only Claude leaf rebuild (cross-daemon CI case) is covered by real product builds, not the lightweight fixtures"
 }
 finally
 {
