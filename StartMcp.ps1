@@ -7,6 +7,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+Push-Location $PSScriptRoot
+
 $projectPath = "$PSScriptRoot\src\PostSharp.Engineering.McpApprovalServer\PostSharp.Engineering.McpApprovalServer.csproj"
 $outputPath = "$PSScriptRoot\src\PostSharp.Engineering.McpApprovalServer\bin\Debug\net8.0-windows"
 $tempPath = "$env:LOCALAPPDATA\PostSharp\McpApprovalServer\bin"
@@ -51,3 +53,5 @@ Start-Process -FilePath $exePath
 
 Write-Host "MCP Approval Server started." -ForegroundColor Green
 Write-Host "Logs: $env:LOCALAPPDATA\PostSharp\McpApprovalServer\audit\" -ForegroundColor Gray
+
+Pop-Location
