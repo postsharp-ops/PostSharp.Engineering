@@ -48,9 +48,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         public bool RequiresCommitStatusPublisher { get; init; }
 
         /// <summary>
-        /// Gets or sets the set of NuGet package ID prefixes (the <c>*</c> wildcard is allowed) produced by the whole
-        /// closure of dependencies of the product. When set, a build step that deletes these packages from the NuGet
-        /// cache is inserted in front of all other build steps. This prevents stale dependency packages from a previous
+        /// Gets or sets the set of NuGet package ID prefixes (the <c>*</c> wildcard is allowed) produced by the product
+        /// itself and by the whole closure of its dependencies. When set, a build step that deletes these packages from
+        /// the NuGet cache is inserted in front of all other build steps. This prevents stale packages from a previous
         /// build from leaking into this build.
         /// </summary>
         public string[]? NuGetCachePackagePrefixes { get; set; }
@@ -124,14 +124,15 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             }
 
             // Insert, in front of all other build steps, a step that deletes from the NuGet cache all packages produced
-            // by the whole closure of dependencies. Composite builds have no build steps, so they are skipped.
+            // by the product itself and by the whole closure of its dependencies. Composite builds have no build steps,
+            // so they are skipped.
             if ( this.NuGetCachePackagePrefixes is { Length: > 0 } && allBuildSteps.Count > 0 )
             {
                 allBuildSteps.Insert(
                     0,
                     new PowerShellCommandBuildStep(
-                        "CleanDependencyNuGetCache",
-                        "Clean NuGet cache of dependency packages",
+                        "CleanNuGetCache",
+                        "Clean NuGet cache of produced and dependency packages",
                         GenerateNuGetCacheCleanupCommand( this.NuGetCachePackagePrefixes ),
                         null ) );
             }
