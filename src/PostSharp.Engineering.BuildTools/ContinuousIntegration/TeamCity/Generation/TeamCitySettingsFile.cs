@@ -1,8 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -140,6 +142,18 @@ internal static class TeamCitySettingsFile
             if ( !extension.AddTeamcityBuildConfiguration( context, teamCityBuildConfigurations ) )
             {
                 return false;
+            }
+        }
+
+        // Insert, in front of every build configuration, a step that cleans the NuGet cache of all packages produced by
+        // the whole closure of dependencies, so stale dependency packages cannot leak into the build.
+        var nugetCachePackagePrefixes = GetDependencyClosurePackagePrefixes( product );
+
+        if ( nugetCachePackagePrefixes.Length > 0 )
+        {
+            foreach ( var teamCityBuildConfiguration in teamCityBuildConfigurations )
+            {
+                teamCityBuildConfiguration.NuGetCachePackagePrefixes = nugetCachePackagePrefixes;
             }
         }
 
@@ -402,6 +416,23 @@ internal static class TeamCitySettingsFile
         };
 
         return teamCityBuildConfiguration;
+    }
+
+    /// <summary>
+    /// Gets the distinct, ordered set of package ID patterns (the <c>*</c> wildcard is allowed) produced by the whole
+    /// closure of dependencies of the <paramref name="product"/>, across all build configurations. These are the
+    /// "namespace prefixes" used to clean the NuGet cache before each build.
+    /// </summary>
+    private static string[] GetDependencyClosurePackagePrefixes( Product product )
+    {
+        var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
+
+        return configurations
+            .SelectMany( c => product.DependencyDefinition.GetAllDependencies( c ) )
+            .SelectMany( d => d.Definition.PackagePatterns )
+            .Distinct( StringComparer.OrdinalIgnoreCase )
+            .OrderBy( p => p, StringComparer.OrdinalIgnoreCase )
+            .ToArray();
     }
 
     private static void GeneratePom( BuildContext context, string projectObjectName, string tcUrl )

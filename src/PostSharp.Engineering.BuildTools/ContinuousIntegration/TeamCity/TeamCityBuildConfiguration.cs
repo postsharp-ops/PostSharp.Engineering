@@ -47,6 +47,14 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
         public bool RequiresCommitStatusPublisher { get; init; }
 
+        /// <summary>
+        /// Gets or sets the set of NuGet package ID prefixes (the <c>*</c> wildcard is allowed) produced by the whole
+        /// closure of dependencies of the product. When set, a build step that deletes these packages from the NuGet
+        /// cache is inserted in front of all other build steps. This prevents stale dependency packages from a previous
+        /// build from leaking into this build.
+        /// </summary>
+        public string[]? NuGetCachePackagePrefixes { get; set; }
+
         public TeamCityBuildConfiguration(
             string objectName,
             string name,
@@ -113,6 +121,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                     newStep.InsertPrerequisites( allBuildSteps, AddBuildStep );
                     allBuildSteps.Add( newStep );
                 }
+            }
+
+            // Insert, in front of all other build steps, a step that deletes from the NuGet cache all packages produced
+            // by the whole closure of dependencies. Composite builds have no build steps, so they are skipped.
+            if ( this.NuGetCachePackagePrefixes is { Length: > 0 } && allBuildSteps.Count > 0 )
+            {
+                allBuildSteps.Insert(
+                    0,
+                    new PowerShellCommandBuildStep(
+                        "CleanDependencyNuGetCache",
+                        "Clean NuGet cache of dependency packages",
+                        GenerateNuGetCacheCleanupCommand( this.NuGetCachePackagePrefixes ),
+                        null ) );
             }
 
             // If any step uses Docker, add a cleanup step that always runs to remove orphaned containers.
@@ -378,6 +399,36 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
                   })
                   """ );
+        }
+
+        /// <summary>
+        /// Generates a single-line PowerShell command that deletes, from the NuGet global packages folder, all package
+        /// directories whose name matches one of the given <paramref name="packagePrefixes"/>. The command honors the
+        /// <c>NUGET_PACKAGES</c> environment variable and otherwise falls back to the default location in the user profile
+        /// (<c>$HOME/.nuget/packages</c>). It logs each removed directory with its file count and prints a summary of how
+        /// many directories and files were deleted.
+        /// </summary>
+        private static string GenerateNuGetCacheCleanupCommand( IEnumerable<string> packagePrefixes )
+        {
+            // NuGet stores packages in lower-case directories, so the match patterns are lower-cased here. Single quotes
+            // are doubled to remain valid inside a PowerShell single-quoted string literal.
+            var patterns = string.Join(
+                ", ",
+                packagePrefixes.Select( p => "'" + p.Replace( "'", "''", StringComparison.Ordinal ).ToLowerInvariant() + "'" ) );
+
+            return
+                "$nugetPackages = if ( $env:NUGET_PACKAGES ) { $env:NUGET_PACKAGES } else { Join-Path $HOME '.nuget' 'packages' }; "
+                + "$removedDirs = 0; $removedFiles = 0; "
+                + "if ( Test-Path -LiteralPath $nugetPackages ) { "
+                + "foreach ( $pattern in @(" + patterns + ") ) { "
+                + "Get-ChildItem -LiteralPath $nugetPackages -Directory -Filter $pattern -ErrorAction SilentlyContinue | "
+                + "ForEach-Object { "
+                + "$files = @( Get-ChildItem -LiteralPath $_.FullName -Recurse -File -ErrorAction SilentlyContinue ).Count; "
+                + "Write-Host \"Removing NuGet cache directory: $($_.FullName) ($files file(s))\"; "
+                + "Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue; "
+                + "if ( -not ( Test-Path -LiteralPath $_.FullName ) ) { $removedDirs++; $removedFiles += $files } } "
+                + "} Write-Host \"Removed $removedDirs package directory(ies) and $removedFiles file(s) from the NuGet cache.\"; "
+                + "} else { Write-Host \"NuGet packages folder not found: $nugetPackages\" }";
         }
     }
 }
