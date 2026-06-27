@@ -21,7 +21,7 @@ public static partial class PostSharpDependencies
             $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}",
             "PostSharpGitHub" );
 
-        private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildDistribution";
+        private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildSignedDistribution";
 
         public static DependencyDefinition PostSharp { get; } = new(
             Family,
