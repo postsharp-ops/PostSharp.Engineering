@@ -35,7 +35,13 @@ public sealed class RiskAnalyzer
                                               - `git reset --hard`: HIGH risk - can lose uncommitted work
 
                                               ### Git Push Content Analysis
-                                              When a `git push` is requested, you have read access to the working directory.
+                                              When a `git push` is requested, you have read access to the working directory and the
+                                              read-only git commands `git log`, `git diff`, `git status` and `git show` are
+                                              PRE-APPROVED and WILL execute — you can and must run them. They are part of your own
+                                              tool allow-list and have nothing to do with the command being reviewed, so never reject
+                                              or downgrade a request on the grounds that you "cannot run `git diff`" or that "tool
+                                              constraints prevent diff inspection". If you believe you cannot inspect the diff, you are
+                                              mistaken: just run the command.
                                               Inspect the commits that would be pushed yourself by running, for example:
                                               - `git log --oneline @{upstream}..HEAD` to list the commits
                                               - `git diff @{upstream}..HEAD` to see the actual changes
@@ -373,9 +379,11 @@ public sealed class RiskAnalyzer
 
         sb.AppendLine();
 
-        sb.AppendLine( "You have read access to the working directory above. Use the Read, Grep, Glob and read-only git" );
-        sb.AppendLine( "commands (e.g. `git log`, `git diff`, `git status`, `git show`) to inspect files and pending commits" );
-        sb.AppendLine( "yourself when you need more context to assess the risk." );
+        sb.AppendLine( "You have read access to the working directory above. The Read, Grep, Glob tools and the" );
+        sb.AppendLine( "read-only git commands `git log`, `git diff`, `git status` and `git show` are PRE-APPROVED" );
+        sb.AppendLine( "and WILL execute — run them yourself whenever you need more context to assess the risk." );
+        sb.AppendLine( "These tools are on your own allow-list and are unrelated to the command under review, so do" );
+        sb.AppendLine( "NOT reject or escalate merely because you think you cannot inspect files or the diff: you can." );
         sb.AppendLine();
 
         // Session history
@@ -406,11 +414,13 @@ public sealed class RiskAnalyzer
         if ( IsGitPushCommand( command ) )
         {
             sb.AppendLine( "5. **CRITICAL FOR GIT PUSH**: Inspect the pending commits yourself with `git log @{upstream}..HEAD`" );
-            sb.AppendLine( "   and `git diff @{upstream}..HEAD`, then analyze the diff for:" );
+            sb.AppendLine( "   and `git diff @{upstream}..HEAD` (both are pre-approved and will execute), then analyze the diff for:" );
             sb.AppendLine( "   - Secrets, API keys, passwords, tokens, or credentials" );
             sb.AppendLine( "   - Inappropriate language, profanity, or unprofessional comments" );
             sb.AppendLine( "   - Security vulnerabilities or suspicious code patterns" );
             sb.AppendLine( "   - If ANY secrets or inappropriate content found: REJECT immediately" );
+            sb.AppendLine( "   Never reject the push on the grounds that you could not run `git diff` or inspect the changes —" );
+            sb.AppendLine( "   the command is available to you; actually run it before deciding." );
         }
 
         sb.AppendLine();
