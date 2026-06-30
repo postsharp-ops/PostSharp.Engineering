@@ -1,13 +1,10 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Tools.Git;
@@ -22,7 +19,6 @@ namespace PostSharp.Engineering.BuildTools.Tools.Git;
 /// <list type="bullet">
 ///   <item><b>Upstream</b>: The older product version (e.g., 2026.0) from which changes flow</item>
 ///   <item><b>Downstream</b>: The newer product version (e.g., 2026.1) receiving the changes</item>
-///   <item><b>Merge Branch</b>: A temporary branch (merge/{downstream}/{upstream}-{hash}) where the merge happens</item>
 /// </list>
 ///
 /// <para>
@@ -31,18 +27,18 @@ namespace PostSharp.Engineering.BuildTools.Tools.Git;
 /// <list type="number">
 ///   <item>Command runs on the downstream branch (e.g., develop/2026.1)</item>
 ///   <item>Fetches latest from upstream branch (e.g., develop/2026.0)</item>
-///   <item>Creates a merge branch from downstream</item>
-///   <item>Merges upstream INTO the merge branch</item>
+///   <item>Merges upstream INTO the downstream branch directly</item>
 ///   <item>Uses Claude Code to resolve any conflicts</item>
-///   <item>Creates a PR from merge branch to downstream</item>
-///   <item>Schedules a build on the merge branch</item>
+///   <item>If Claude resolves the conflicts, commits and pushes the merge to the downstream branch</item>
+///   <item>If Claude cannot resolve the conflicts, leaves the in-progress merge in the working tree and fails</item>
 /// </list>
 ///
 /// <para>
-/// <b>Key Difference from Old DownstreamMerge:</b>
-/// The old DownstreamMerge ran on upstream and pushed TO downstream.
-/// This UpstreamMerge runs on downstream and pulls FROM upstream.
-/// Also, the PR is NOT auto-merged - it requires manual review.
+/// <b>No merge branches:</b>
+/// This operation no longer creates intermediate <c>merge/{version}/...</c> branches or pull requests.
+/// If the AI can perform the merge, the result goes straight into the downstream branch; if it cannot,
+/// the operation fails so a human can finish the merge locally. Deployment is handled separately by the
+/// standard deploy procedure (version bump + deploy), not by this command.
 /// </para>
 /// </summary>
 internal static class UpstreamMerge
@@ -154,68 +150,14 @@ internal static class UpstreamMerge
     }
 
     /// <summary>
-    /// Checks for any incomplete merge branches in the repository.
-    /// These are branches matching pattern "merge/{version}/*" that haven't been merged yet.
-    /// </summary>
-    private static bool TryCheckPendingMerges( BuildContext context, BaseBuildSettings settings )
-    {
-        var productFamily = context.Product.ProductFamily;
-        var pendingBranchesExist = false;
-
-        // Check current version and all upstream versions for pending merge branches
-        while ( productFamily != null )
-        {
-            context.Console.WriteMessage( $"  Checking for pending merge branches for version '{productFamily.Version}'..." );
-
-            var filter = $"merge/{productFamily.Version}/*";
-            context.Console.WriteMessage( $"  Looking for branches matching pattern: {filter}" );
-
-            if ( !GitHelper.TryGetRemoteReferences( context, settings, filter, out var references ) )
-            {
-                context.Console.WriteError( "  Failed to get remote references." );
-
-                return false;
-            }
-
-            if ( references.Length > 0 )
-            {
-                context.Console.WriteWarning( $"  Found {references.Length} pending merge branch(es):" );
-
-                ExplainUnmergedBranches(
-                    context.Console,
-                    references.Select( r => r.Reference ),
-                    settings.Force );
-
-                pendingBranchesExist = true;
-            }
-            else
-            {
-                context.Console.WriteMessage( $"  No pending merge branches found for version '{productFamily.Version}'." );
-            }
-
-            productFamily = productFamily.UpstreamProductFamily;
-        }
-
-        if ( settings.Force )
-        {
-            if ( pendingBranchesExist )
-            {
-                context.Console.WriteWarning( "  Pending merge branches exist but are being ignored due to --force flag." );
-            }
-
-            return true;
-        }
-
-        return !pendingBranchesExist;
-    }
-
-    /// <summary>
     /// Main entry point for the upstream merge operation.
-    /// Merges code from the upstream development branch into the current (downstream) branch.
+    /// Merges code from the upstream development branch directly into the current (downstream) branch.
     ///
     /// <para>
     /// This command is designed to run on the downstream branch and pull changes from upstream.
-    /// Unlike the old DownstreamMerge, the PR is NOT auto-merged and requires manual review.
+    /// If the AI can resolve the merge, the result is pushed straight to the downstream branch; otherwise
+    /// the in-progress merge is left in the working tree and the operation fails. No merge branch or pull
+    /// request is created.
     /// </para>
     /// </summary>
     /// <param name="context">The build context containing product and repo information.</param>
@@ -350,312 +292,91 @@ internal static class UpstreamMerge
 
         context.Console.WriteMessage( $"Successfully fetched '{upstreamBranch}'." );
 
-        // ==================== STEP 7: Get Upstream Commit Hash ====================
+        // ==================== STEP 7: Count Commits to Merge ====================
         context.Console.WriteMessage( "" );
-        context.Console.WriteMessage( "Step 7: Getting latest commit hash from upstream branch..." );
+        context.Console.WriteMessage( "Step 7: Counting commits to merge from upstream..." );
 
-        if ( !GitHelper.TryGetCurrentCommitHash( context, $"origin/{upstreamBranch}", out var upstreamCommitHash ) )
+        if ( !GitHelper.TryGetCommitsCount( context, "HEAD", $"origin/{upstreamBranch}", upstreamProductFamily, out var commitsCount ) )
         {
-            context.Console.WriteError( "Failed to get commit hash for upstream branch." );
+            context.Console.WriteError( "Failed to count commits." );
 
             return false;
         }
 
-        if ( upstreamCommitHash == null )
+        if ( commitsCount < 0 )
         {
-            context.Console.WriteError( $"Could not get commit hash for upstream branch 'origin/{upstreamBranch}'." );
+            context.Console.WriteError( $"Invalid commits count: {commitsCount}" );
 
             return false;
         }
 
-        context.Console.WriteMessage( $"Upstream commit hash: {upstreamCommitHash}" );
-
-        try
+        if ( commitsCount == 0 )
         {
-            // ==================== STEP 8: Count Commits to Merge ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 8: Counting commits to merge from upstream..." );
-
-            if ( !GitHelper.TryGetCommitsCount( context, "HEAD", $"origin/{upstreamBranch}", upstreamProductFamily, out var commitsCount ) )
-            {
-                context.Console.WriteError( "Failed to count commits." );
-
-                return false;
-            }
-
-            if ( commitsCount < 0 )
-            {
-                throw new InvalidOperationException( $"Invalid commits count: {commitsCount}" );
-            }
-
-            if ( commitsCount == 0 )
-            {
-                context.Console.WriteSuccess( $"No commits to merge. '{currentBranch}' is up-to-date with '{upstreamBranch}'." );
-
-                return true;
-            }
-
-            context.Console.WriteImportantMessage( $"Found {commitsCount} commit(s) to merge from '{upstreamBranch}' into '{currentBranch}'." );
-
-            // ==================== STEP 9: Verify PR Status Check is Configured ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 9: Verifying PR status check configuration..." );
-
-            var pullRequestStatusCheckBuildTypeId = product.DependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
-            var isPullRequestRequired = pullRequestStatusCheckBuildTypeId != null;
-
-            if ( !isPullRequestRequired )
-            {
-                context.Console.WriteError( "Upstream merge requires a pull request status check build type to be configured." );
-                context.Console.WriteError( "This is needed to validate the merge before it can be approved." );
-
-                return false;
-            }
-
-            context.Console.WriteMessage( $"PR status check build type: {pullRequestStatusCheckBuildTypeId}" );
-
-            // ==================== STEP 10: Determine Merge Branch Name ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 10: Determining merge branch name..." );
-
-            // Merge branch name format: merge/{currentVersion}/{upstreamVersion}-{commitHash}
-            // This uniquely identifies the merge based on the upstream commit being merged
-            var targetBranch = $"merge/{currentProductFamily.Version}/{upstreamProductFamily.Version}-{upstreamCommitHash}";
-            context.Console.WriteMessage( $"Merge branch name: {targetBranch}" );
-
-            // ==================== STEP 11: Check for Existing Merge Branches ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 11: Checking for existing merge branches..." );
-
-            var filter = $"merge/{currentProductFamily.Version}/*";
-            context.Console.WriteMessage( $"Looking for branches matching: {filter}" );
-
-            if ( !GitHelper.TryGetRemoteReferences( context, settings, filter, out var references ) )
-            {
-                context.Console.WriteError( "Failed to get remote references." );
-
-                return false;
-            }
-
-            context.Console.WriteMessage( $"Found {references.Length} existing merge branch(es)." );
-
-            var targetBranchReference = $"refs/heads/{targetBranch}";
-            var targetBranchExistsRemotely = references.Any( r => r.Reference == targetBranchReference );
-
-            if ( targetBranchExistsRemotely )
-            {
-                context.Console.WriteMessage( $"Target merge branch already exists on remote: {targetBranch}" );
-            }
-
-            // ==================== STEP 12: Delete Prior Merge Branches ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 12: Cleaning up prior merge branches from same upstream version..." );
-
-            // Find merge branches from the same upstream version (but different commit hash)
-            // These are obsolete and should be deleted to avoid confusion
-            var formerMergeBranches = references.Where( r => r.Reference != targetBranchReference )
-                .Where( r => r.Reference.StartsWith(
-                            $"refs/heads/merge/{currentProductFamily.Version}/{upstreamProductFamily.Version}-",
-                            StringComparison.OrdinalIgnoreCase ) )
-                .ToArray();
-
-            if ( formerMergeBranches.Length == 0 )
-            {
-                context.Console.WriteMessage( "No prior merge branches to clean up." );
-            }
-            else
-            {
-                context.Console.WriteMessage( $"Found {formerMergeBranches.Length} prior merge branch(es) to delete:" );
-
-                foreach ( var formerBranch in formerMergeBranches )
-                {
-                    var branchName = formerBranch.Reference.Substring( "refs/heads/".Length );
-                    context.Console.WriteMessage( $"  Deleting: {branchName}" );
-
-                    if ( !GitHelper.TryDeleteRemoteBranch( context, branchName ) )
-                    {
-                        // Log warning but continue - branch deletion failure should not block the merge
-                        context.Console.WriteWarning( $"  Failed to delete '{branchName}'. This is non-fatal, continuing..." );
-                    }
-                    else
-                    {
-                        context.Console.WriteMessage( $"  Deleted: {branchName}" );
-                    }
-                }
-            }
-
-            // ==================== STEP 13: Create Merge Branch (delete if exists) ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 13: Creating merge branch..." );
-
-            // If the target branch exists (remotely or locally), delete it first.
-            // This ensures we always start fresh from the current downstream branch,
-            // avoiding stale state where the merge branch conflicts with an updated target.
-            if ( targetBranchExistsRemotely )
-            {
-                context.Console.WriteImportantMessage( $"Merge branch '{targetBranch}' exists on remote. Deleting to start fresh..." );
-
-                if ( !GitHelper.TryDeleteRemoteBranch( context, targetBranch ) )
-                {
-                    context.Console.WriteWarning( $"Failed to delete remote branch '{targetBranch}'. Continuing anyway..." );
-                }
-                else
-                {
-                    context.Console.WriteMessage( "Remote branch deleted." );
-                }
-            }
-
-            // Check if it exists locally and delete
-            if ( !GitHelper.TryGetCurrentCommitHash( context, targetBranch, out var targetBranchCurrentCommitHash ) )
-            {
-                context.Console.WriteError( "Failed to check if branch exists locally." );
-
-                return false;
-            }
-
-            if ( targetBranchCurrentCommitHash != null )
-            {
-                context.Console.WriteMessage( $"Merge branch '{targetBranch}' exists locally. Deleting..." );
-
-                if ( !GitHelper.TryDeleteLocalBranch( context, targetBranch ) )
-                {
-                    context.Console.WriteWarning( $"Failed to delete local branch '{targetBranch}'. Continuing anyway..." );
-                }
-                else
-                {
-                    context.Console.WriteMessage( "Local branch deleted." );
-                }
-            }
-
-            // Create fresh merge branch from current HEAD (the downstream branch)
-            context.Console.WriteImportantMessage( $"Creating new merge branch: {targetBranch}" );
-
-            if ( !GitHelper.TryCreateBranch( context, targetBranch ) )
-            {
-                context.Console.WriteError( "Failed to create merge branch." );
-
-                return false;
-            }
-
-            context.Console.WriteMessage( "Successfully created merge branch." );
-
-            context.Console.WriteMessage( "Merge branch pushed successfully." );
-
-            // ==================== STEP 14: Perform the Merge ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 14: Performing the merge..." );
-
-            if ( !TryMerge( context, upstreamBranch, targetBranch, currentBranch, out var areChangesPending, out var prBodyText ) )
-            {
-                context.Console.WriteError( "Merge operation failed." );
-
-                return false;
-            }
-
-            if ( !areChangesPending )
-            {
-                // This can happen if someone manually resolved and merged the changes
-                context.Console.WriteSuccess( $"No changes to merge. '{currentBranch}' is already up-to-date with '{upstreamBranch}'." );
-
-                return true;
-            }
-
-            context.Console.WriteSuccess( $"Merge completed! Changes from '{upstreamBranch}' have been merged into '{targetBranch}'." );
-
-            // ==================== STEP 17: Create Pull Request ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 17: Creating pull request..." );
-
-            if ( !TryCreatePullRequest( context, targetBranch, currentBranch, upstreamBranch, prBodyText, out var pullRequestUrl ) )
-            {
-                context.Console.WriteError( "Failed to create pull request." );
-
-                return false;
-            }
-
-            // ==================== STEP 18: Schedule Build ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Step 18: Scheduling build on merge branch..." );
-
-            if ( !TryScheduleBuild(
-                    product.DependencyDefinition.CiConfiguration,
-                    context.Console,
-                    targetBranch,
-                    upstreamBranch,
-                    pullRequestUrl,
-                    pullRequestStatusCheckBuildTypeId!,
-                    out var buildUrl ) )
-            {
-                context.Console.WriteError( "Failed to schedule build." );
-
-                return false;
-            }
-
-            // ==================== SUCCESS ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteSuccess( "========================================" );
-            context.Console.WriteSuccess( "Upstream merge completed successfully!" );
-            context.Console.WriteSuccess( "========================================" );
-            context.Console.WriteMessage( "" );
-            context.Console.WriteImportantMessage( $"Pull Request: {pullRequestUrl}" );
-            context.Console.WriteImportantMessage( $"Build: {buildUrl}" );
-            context.Console.WriteMessage( "" );
-            context.Console.WriteWarning( "IMPORTANT: This PR requires manual review and will NOT be auto-merged." );
-            context.Console.WriteMessage( "Please review the changes and merge manually when the build passes." );
+            context.Console.WriteSuccess( $"No commits to merge. '{currentBranch}' is up-to-date with '{upstreamBranch}'." );
 
             return true;
         }
-        finally
-        {
-            // ==================== CLEANUP: Return to Original Branch ====================
-            context.Console.WriteMessage( "" );
-            context.Console.WriteMessage( "Cleanup: Returning to original branch..." );
 
-            try
-            {
-                GitHelper.TryCheckoutAndPull( context, product.DependencyDefinition.Branch );
-                context.Console.WriteMessage( $"Returned to branch '{product.DependencyDefinition.Branch}'." );
-            }
-            catch ( Exception e )
-            {
-                context.Console.WriteWarning( $"Failed to return to original branch: {e.Message}" );
-                context.Console.WriteError( e.ToString() );
-            }
+        context.Console.WriteImportantMessage( $"Found {commitsCount} commit(s) to merge from '{upstreamBranch}' into '{currentBranch}'." );
+
+        // ==================== STEP 8: Perform the Merge ====================
+        context.Console.WriteMessage( "" );
+        context.Console.WriteMessage( "Step 8: Performing the merge directly into the downstream branch..." );
+
+        if ( !TryMerge( context, upstreamBranch, currentBranch, out var areChangesPending ) )
+        {
+            context.Console.WriteError( "Merge operation failed." );
+
+            return false;
         }
+
+        if ( !areChangesPending )
+        {
+            // This can happen if someone manually resolved and merged the changes
+            context.Console.WriteSuccess( $"No changes to merge. '{currentBranch}' is already up-to-date with '{upstreamBranch}'." );
+
+            return true;
+        }
+
+        // ==================== SUCCESS ====================
+        context.Console.WriteMessage( "" );
+        context.Console.WriteSuccess( "========================================" );
+        context.Console.WriteSuccess( "Upstream merge completed successfully!" );
+        context.Console.WriteSuccess( "========================================" );
+        context.Console.WriteMessage( "" );
+        context.Console.WriteImportantMessage( $"Changes from '{upstreamBranch}' have been merged into '{currentBranch}' and pushed." );
+        context.Console.WriteMessage( "Deployment is handled separately by the standard deploy procedure (version bump + deploy)." );
+
+        return true;
     }
 
     /// <summary>
-    /// Performs the actual git merge operation.
+    /// Performs the actual git merge operation directly into the downstream branch.
     ///
     /// <para>
     /// This method:
     /// </para>
     /// <list type="number">
-    ///   <item>Merges the upstream branch into the target (merge) branch using --no-commit --no-ff</item>
-    ///   <item>Handles files that should keep their downstream version (Build.ps1, .teamcity/*, etc.)</item>
+    ///   <item>Merges the upstream branch into the (currently checked out) downstream branch using --no-commit --no-ff</item>
     ///   <item>Detects merge conflicts and invokes Claude Code to resolve them</item>
-    ///   <item>Commits the merge and pushes</item>
+    ///   <item>If Claude resolves them, regenerates scripts, commits the merge and pushes</item>
+    ///   <item>If Claude cannot resolve them, leaves the in-progress merge in the working tree and returns false</item>
     /// </list>
     /// </summary>
     /// <param name="context">Build context.</param>
     /// <param name="sourceBranch">The upstream branch to merge FROM.</param>
-    /// <param name="targetBranch">The merge branch to merge INTO.</param>
-    /// <param name="currentBranch">The downstream branch (for error messages).</param>
-    /// <param name="areChangesPending">Output: true if there were changes to merge.</param>
-    /// <param name="prBodyText">Output: text from Claude for the PR body (if conflicts were resolved).</param>
+    /// <param name="downstreamBranch">The downstream branch to merge INTO (must be the current branch).</param>
+    /// <param name="areChangesPending">Output: true if there were changes to merge and push.</param>
     /// <returns>True if merge succeeded, false otherwise.</returns>
     private static bool TryMerge(
         BuildContext context,
         string sourceBranch,
-        string targetBranch,
-        string currentBranch,
-        out bool areChangesPending,
-        out string prBodyText )
+        string downstreamBranch,
+        out bool areChangesPending )
     {
         areChangesPending = false;
-        prBodyText = "";
 
-        context.Console.WriteImportantMessage( $"Merging 'origin/{sourceBranch}' into '{targetBranch}'..." );
+        context.Console.WriteImportantMessage( $"Merging 'origin/{sourceBranch}' into '{downstreamBranch}'..." );
 
         // Ensure credentials are configured for push operations
         if ( !GitHelper.TryConfigureCredentials( context ) )
@@ -667,9 +388,9 @@ internal static class UpstreamMerge
 
         // Perform the merge with --no-commit so we can handle conflicts
         // --no-ff ensures a merge commit is created even for fast-forward merges
-        context.Console.WriteMessage( "Executing: git merge --no-commit --no-ff origin/{sourceBranch}" );
+        context.Console.WriteMessage( $"Executing: git merge --no-commit --no-ff origin/{sourceBranch}" );
 
-        if ( !GitHelper.TryMerge( context, $"origin/{sourceBranch}", targetBranch, "--no-commit --no-ff", true ) )
+        if ( !GitHelper.TryMerge( context, $"origin/{sourceBranch}", downstreamBranch, "--no-commit --no-ff", true ) )
         {
             context.Console.WriteError( "Git merge command failed." );
 
@@ -719,12 +440,12 @@ internal static class UpstreamMerge
                         // UA = unmerged, added by them
                         // DU = deleted by us, unmerged
                         // UD = unmerged, deleted by them
-                        context.Console.WriteMessage( $"    -> CONFLICT: Requires resolution by Claude" );
+                        context.Console.WriteMessage( "    -> CONFLICT: Requires resolution by Claude" );
                         filesWithConflicts.Add( fileToResolve );
                     }
                     else
                     {
-                        context.Console.WriteMessage( $"    -> Auto-merged successfully" );
+                        context.Console.WriteMessage( "    -> Auto-merged successfully" );
                     }
                 }
 
@@ -747,8 +468,8 @@ internal static class UpstreamMerge
                             context.Console,
                             context.RepoDirectory,
                             sourceBranch,
-                            targetBranch,
-                            out prBodyText ) )
+                            downstreamBranch,
+                            out _ ) )
                     {
                         context.Console.WriteSuccess( "Claude successfully resolved all merge conflicts!" );
 
@@ -771,15 +492,17 @@ internal static class UpstreamMerge
                     }
                     else
                     {
+                        // Per design, we never create a merge branch. If the AI cannot resolve the
+                        // conflicts, we leave the in-progress merge in the working tree (we do NOT
+                        // abort or reset) so a human can finish it locally, and we fail the operation.
                         context.Console.WriteError( "Claude failed to resolve merge conflicts." );
                         context.Console.WriteError( "" );
-                        context.Console.WriteError( "Manual resolution required:" );
-                        context.Console.WriteError( $"  1. Checkout the merge branch: git checkout {targetBranch}" );
-                        context.Console.WriteError( $"  2. Merge upstream manually: git merge origin/{sourceBranch}" );
-                        context.Console.WriteError( "  3. Resolve conflicts in your IDE" );
-                        context.Console.WriteError( "  4. Commit the merge: git commit" );
-                        context.Console.WriteError( $"  5. Push: git push" );
-                        context.Console.WriteError( $"  6. Create a PR to '{currentBranch}' or run this command again" );
+                        context.Console.WriteError( "The in-progress merge has been left in the working tree. Manual resolution required:" );
+                        context.Console.WriteError( $"  1. Resolve the conflicts in '{downstreamBranch}' in your IDE" );
+                        context.Console.WriteError( "  2. Stage the result: git add -A" );
+                        context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 generate-scripts" );
+                        context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
+                        context.Console.WriteError( "  5. Push: git push" );
 
                         return false;
                     }
@@ -815,12 +538,10 @@ internal static class UpstreamMerge
 
             if ( !GitHelper.TryCommitMerge( context ) )
             {
+                // Leave the in-progress merge in the working tree for manual completion.
                 context.Console.WriteError( "Failed to commit merge." );
                 context.Console.WriteError( "" );
-                context.Console.WriteError( "Manual resolution required:" );
-                context.Console.WriteError( $"  1. Checkout the merge branch: git checkout {targetBranch}" );
-                context.Console.WriteError( $"  2. Complete the merge manually" );
-                context.Console.WriteError( $"  3. Create a PR to '{currentBranch}' or run this command again" );
+                context.Console.WriteError( "The in-progress merge has been left in the working tree. Complete it manually and push." );
 
                 return false;
             }
@@ -832,9 +553,9 @@ internal static class UpstreamMerge
             context.Console.WriteMessage( "No merge in progress - changes may have already been merged." );
         }
 
-        // Push the merge commit
+        // Push the merge commit directly to the downstream branch
         context.Console.WriteMessage( "" );
-        context.Console.WriteMessage( "Pushing merge commit to remote..." );
+        context.Console.WriteMessage( $"Pushing merge commit to '{downstreamBranch}'..." );
 
         if ( !GitHelper.TryPush( context ) )
         {
@@ -845,211 +566,9 @@ internal static class UpstreamMerge
         }
 
         context.Console.WriteMessage( "Merge pushed successfully." );
-        context.Console.WriteImportantMessage( $"'{sourceBranch}' has been merged into '{targetBranch}'." );
+        context.Console.WriteImportantMessage( $"'{sourceBranch}' has been merged into '{downstreamBranch}'." );
         areChangesPending = true;
 
         return true;
-    }
-
-    /// <summary>
-    /// Creates a pull request from the merge branch to the downstream branch.
-    /// </summary>
-    /// <param name="context">Build context.</param>
-    /// <param name="targetBranch">The merge branch (PR source).</param>
-    /// <param name="currentBranch">The downstream branch (PR target).</param>
-    /// <param name="sourceBranch">The upstream branch (for PR title).</param>
-    /// <param name="prBodyText">Text from Claude for the PR body.</param>
-    /// <param name="pullRequestUrl">Output: URL of the created PR.</param>
-    /// <returns>True if PR was created successfully.</returns>
-    private static bool TryCreatePullRequest(
-        BuildContext context,
-        string targetBranch,
-        string currentBranch,
-        string sourceBranch,
-        string prBodyText,
-        [NotNullWhen( true )] out string? pullRequestUrl )
-    {
-        context.Console.WriteImportantMessage( $"Creating pull request: {targetBranch} -> {currentBranch}" );
-
-        // Get the remote URL to determine which VCS we're using (GitHub, Azure DevOps, etc.)
-        if ( !GitHelper.TryGetRemoteUrl( context, out var remoteUrl ) )
-        {
-            context.Console.WriteError( "Failed to get remote URL." );
-            pullRequestUrl = null;
-
-            return false;
-        }
-
-        context.Console.WriteMessage( $"Remote URL: {remoteUrl}" );
-
-        try
-        {
-            var pullRequestTitle = $"Upstream merge from '{sourceBranch}' branch";
-            context.Console.WriteMessage( $"PR Title: {pullRequestTitle}" );
-
-            if ( VcsUrlParser.TryGetRepository( remoteUrl, out var repository ) )
-            {
-                context.Console.WriteMessage( $"VCS Provider: {repository.Provider}" );
-                context.Console.WriteMessage( "Creating pull request via API..." );
-
-                var newPullRequest = repository.TryCreatePullRequestAsync(
-                        context.Console,
-                        targetBranch,
-                        currentBranch,
-                        pullRequestTitle,
-                        prBodyText )
-                    .ConfigureAwait( false )
-                    .GetAwaiter()
-                    .GetResult();
-
-                if ( !newPullRequest.Success )
-                {
-                    context.Console.WriteError( "Failed to create pull request via API." );
-                    pullRequestUrl = null;
-
-                    return false;
-                }
-
-                context.Console.WriteSuccess( $"Pull request created: {newPullRequest.Url}" );
-                pullRequestUrl = newPullRequest.Url!;
-
-                return true;
-            }
-            else
-            {
-                context.Console.WriteError( $"Could not parse VCS URL: '{remoteUrl}'." );
-                context.Console.WriteError( "Supported formats: GitHub (git@github.com:* or https://github.com/*)" );
-                pullRequestUrl = null;
-
-                return false;
-            }
-        }
-        catch ( Exception e )
-        {
-            context.Console.WriteError( $"Exception while creating pull request: {e.Message}" );
-            context.Console.WriteError( e.ToString() );
-            pullRequestUrl = null;
-
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Schedules a TeamCity build on the merge branch.
-    /// This build validates the merge before the PR can be approved.
-    /// </summary>
-    /// <param name="ciConfiguration">CI configuration with TeamCity settings.</param>
-    /// <param name="console">Console for logging.</param>
-    /// <param name="targetBranch">The merge branch to build.</param>
-    /// <param name="sourceBranch">The upstream branch (for build description).</param>
-    /// <param name="pullRequestUrl">URL of the PR (for build description).</param>
-    /// <param name="buildTypeId">TeamCity build type ID to trigger.</param>
-    /// <param name="buildUrl">Output: URL of the scheduled build.</param>
-    /// <returns>True if build was scheduled successfully.</returns>
-    private static bool TryScheduleBuild(
-        CiProjectConfiguration ciConfiguration,
-        ConsoleHelper console,
-        string targetBranch,
-        string sourceBranch,
-        string pullRequestUrl,
-        string buildTypeId,
-        [NotNullWhen( true )] out string? buildUrl )
-    {
-        console.WriteImportantMessage( $"Scheduling build '{buildTypeId}' on branch '{targetBranch}'..." );
-
-        // Connect to TeamCity
-        console.WriteMessage( "Connecting to TeamCity..." );
-
-        if ( !TeamCityHelper.TryConnectTeamCity( ciConfiguration, console, out var tc ) )
-        {
-            console.WriteError( "Failed to connect to TeamCity." );
-            buildUrl = null;
-
-            return false;
-        }
-
-        console.WriteMessage( "Connected to TeamCity." );
-
-        // Schedule the build
-        var buildComment = $"Triggered by PostSharp.Engineering for upstream merge from '{sourceBranch}' branch. Pull request: {pullRequestUrl}";
-        console.WriteMessage( $"Build comment: {buildComment}" );
-
-        var buildId = tc.ScheduleBuild(
-            console,
-            buildTypeId,
-            buildComment,
-            targetBranch );
-
-        if ( buildId == null )
-        {
-            console.WriteError( "Failed to schedule build - no build ID returned." );
-            buildUrl = null;
-
-            return false;
-        }
-
-        buildUrl = $"https://postsharp.teamcity.com/viewLog.html?buildId={buildId}";
-        console.WriteSuccess( $"Build scheduled: {buildUrl}" );
-
-        return true;
-    }
-
-    /// <summary>
-    /// Explains the presence of unmerged branches to the user.
-    /// Provides guidance on how to handle them.
-    /// </summary>
-    private static void ExplainUnmergedBranches( ConsoleHelper console, IEnumerable<string> references, bool force, string? filteredBranchesDescription = null )
-    {
-        void Write( string message )
-        {
-            if ( force )
-            {
-                console.WriteWarning( message );
-            }
-            else
-            {
-                console.WriteError( message );
-            }
-        }
-
-        Write( "" );
-        Write( "========================================" );
-        Write( "EXISTING MERGE BRANCHES DETECTED" );
-        Write( "========================================" );
-        Write( "" );
-        Write( "There are existing merge branches in the repository that haven't been merged yet." );
-        Write( "" );
-        Write( "Before proceeding, please check if these branches contain important changes:" );
-        Write( "  - They may contain manually resolved conflicts that should not be lost" );
-        Write( "  - They may have a pending pull request that needs to be completed" );
-        Write( "" );
-        Write( "Options:" );
-        Write( "  1. Complete the pending merge (create/complete the PR)" );
-        Write( "  2. Delete the branch if it's no longer needed" );
-        Write( "  3. Use --force to ignore and proceed anyway" );
-
-        if ( force )
-        {
-            console.WriteWarning( "" );
-            console.WriteWarning( "The --force flag is set, so we will proceed despite these branches." );
-        }
-
-        Write( "" );
-
-        if ( filteredBranchesDescription != null )
-        {
-            Write( filteredBranchesDescription );
-            Write( "" );
-        }
-
-        Write( "The affected branches are:" );
-
-        foreach ( var reference in references )
-        {
-            var branchName = reference.Replace( "refs/heads/", "", StringComparison.Ordinal );
-            Write( $"  - {branchName}" );
-        }
-
-        Write( "" );
     }
 }
