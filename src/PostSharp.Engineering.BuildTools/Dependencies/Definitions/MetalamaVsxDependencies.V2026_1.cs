@@ -84,10 +84,11 @@ public static partial class MetalamaVsxDependencies
                         .WithAlias( "Metalama20260" )
                         .WithLastSuccessfulOnly(),
                     PostSharpDependencies.V2026_0.PostSharp.ToDependency(
-                        new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Release,
-                            BuildConfiguration.Release,
-                            BuildConfiguration.Release ) )
+                            new ConfigurationSpecific<BuildConfiguration>(
+                                BuildConfiguration.Release,
+                                BuildConfiguration.Release,
+                                BuildConfiguration.Release ) )
+                        .WithLastSuccessfulOnly()
                 ]
             };
     }
