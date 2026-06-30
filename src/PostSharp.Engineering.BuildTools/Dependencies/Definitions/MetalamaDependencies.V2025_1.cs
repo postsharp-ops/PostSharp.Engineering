@@ -134,24 +134,6 @@ public static partial class MetalamaDependencies
                 Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama]
             };
 
-        public static DependencyDefinition MetalamaVsx { get; } =
-            new MetalamaDependencyDefinition(
-                "Metalama.Vsx",
-                VcsProvider.GitHub,
-                MetalamaGitHubOrganization.Metalama )
-            {
-                PackagePatterns = ["Metalama.Repacked"],
-                Dependencies =
-                [
-                    DevelopmentDependencies.PostSharpEngineering, Metalama,
-                    PostSharpDependencies.V2025_1.PostSharp.ToDependency(
-                        new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Release,
-                            BuildConfiguration.Release,
-                            BuildConfiguration.Release ) )
-                ]
-            };
-
         public static DependencyDefinition MetalamaSamples { get; } =
             new MetalamaDependencyDefinition(
                 "Metalama.Samples",
@@ -229,8 +211,7 @@ public static partial class MetalamaDependencies
                     MetalamaCommunity,
                     MetalamaPremium,
                     MetalamaSamples,
-                    MetalamaDocumentation,
-                    MetalamaVsx
+                    MetalamaDocumentation
                 ],
                 SourceDependencies =
                 [
@@ -240,7 +221,6 @@ public static partial class MetalamaDependencies
                     MetalamaPremium,
                     MetalamaSamples,
                     MetalamaDocumentation,
-                    MetalamaVsx,
                     NopCommerce
                 ]
             };
