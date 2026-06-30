@@ -35,7 +35,10 @@ public sealed class RiskAnalyzer
                                               - `git reset --hard`: HIGH risk - can lose uncommitted work
 
                                               ### Git Push Content Analysis
-                                              When a `git push` is requested, you will receive the actual commit diff below.
+                                              When a `git push` is requested, you have read access to the working directory.
+                                              Inspect the commits that would be pushed yourself by running, for example:
+                                              - `git log --oneline @{upstream}..HEAD` to list the commits
+                                              - `git diff @{upstream}..HEAD` to see the actual changes
                                               Analyze the diff carefully for:
                                               - **Secrets/Credentials**: API keys, passwords, tokens, private keys, connection strings
                                                 - Look for patterns like: `password=`, `api_key=`, `secret=`, `token=`, `-----BEGIN`
@@ -220,13 +223,13 @@ public sealed class RiskAnalyzer
 
         // First try with Haiku (fast and cheap)
         Logger.Trace( "RiskAnalyzer", "Starting risk analysis with Haiku..." );
-        var assessment = await InvokeClaudeAsync( prompt, "haiku", cancellationToken );
+        var assessment = await InvokeClaudeAsync( prompt, "haiku", workingDirectory, cancellationToken );
 
         // If Haiku is uncertain, escalate to Opus
         if ( assessment.Level == RiskLevel.Uncertain )
         {
             Logger.Trace( "RiskAnalyzer", "Haiku returned UNCERTAIN, escalating to Opus..." );
-            assessment = await InvokeClaudeAsync( prompt, "opus", cancellationToken );
+            assessment = await InvokeClaudeAsync( prompt, "opus", workingDirectory, cancellationToken );
 
             // If Opus is still uncertain, treat as medium risk requiring human review
             if ( assessment.Level == RiskLevel.Uncertain )
@@ -249,6 +252,7 @@ public sealed class RiskAnalyzer
     private static async Task<RiskAssessment> InvokeClaudeAsync(
         string prompt,
         string model,
+        string workingDirectory,
         CancellationToken cancellationToken )
     {
         try
@@ -263,10 +267,16 @@ public sealed class RiskAnalyzer
             // Process.Start with UseShellExecute=false doesn't resolve .cmd files via PATH.
             // We use cmd /c to properly resolve and execute the claude command.
             // Pass the prompt via stdin to avoid Windows command-line length limits (~8191 chars).
+            // The working directory is set to the request's working directory and read-only
+            // tools are allowed so the model can inspect commits/diffs itself instead of having
+            // them embedded in the prompt.
+            var allowedTools = "Read Grep Glob \"Bash(git log:*)\" \"Bash(git diff:*)\" \"Bash(git status:*)\" \"Bash(git show:*)\"";
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = "cmd",
-                Arguments = $"/c claude --model {model}",
+                Arguments = $"/c claude --model {model} --allowedTools {allowedTools}",
+                WorkingDirectory = workingDirectory,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -363,19 +373,10 @@ public sealed class RiskAnalyzer
 
         sb.AppendLine();
 
-        // For git push commands, include the commit diff for analysis
-        if ( IsGitPushCommand( command ) )
-        {
-            var commitDiff = await GetCommitDiffAsync( workingDirectory, cancellationToken );
-
-            if ( !string.IsNullOrEmpty( commitDiff ) )
-            {
-                sb.AppendLine( "## Commits to be Pushed (ANALYZE CAREFULLY)" );
-                sb.AppendLine();
-                sb.AppendLine( commitDiff );
-                sb.AppendLine();
-            }
-        }
+        sb.AppendLine( "You have read access to the working directory above. Use the Read, Grep, Glob and read-only git" );
+        sb.AppendLine( "commands (e.g. `git log`, `git diff`, `git status`, `git show`) to inspect files and pending commits" );
+        sb.AppendLine( "yourself when you need more context to assess the risk." );
+        sb.AppendLine();
 
         // Session history
         if ( history.Count > 0 )
@@ -404,7 +405,8 @@ public sealed class RiskAnalyzer
 
         if ( IsGitPushCommand( command ) )
         {
-            sb.AppendLine( "5. **CRITICAL FOR GIT PUSH**: Analyze the commit diff above for:" );
+            sb.AppendLine( "5. **CRITICAL FOR GIT PUSH**: Inspect the pending commits yourself with `git log @{upstream}..HEAD`" );
+            sb.AppendLine( "   and `git diff @{upstream}..HEAD`, then analyze the diff for:" );
             sb.AppendLine( "   - Secrets, API keys, passwords, tokens, or credentials" );
             sb.AppendLine( "   - Inappropriate language, profanity, or unprofessional comments" );
             sb.AppendLine( "   - Security vulnerabilities or suspicious code patterns" );
@@ -437,58 +439,5 @@ public sealed class RiskAnalyzer
     {
         // Match "git push" with optional flags and arguments
         return Regex.IsMatch( command, @"^\s*git\s+push\b", RegexOptions.IgnoreCase );
-    }
-
-    private static async Task<string?> GetCommitDiffAsync( string workingDirectory, CancellationToken cancellationToken )
-    {
-        try
-        {
-            // Get the list of commits that would be pushed
-            var logOutput = await GitHelper.RunCommandAsync(
-                workingDirectory,
-                "log --oneline @{upstream}..HEAD",
-                cancellationToken );
-
-            if ( string.IsNullOrWhiteSpace( logOutput ) )
-            {
-                return null; // No commits to push
-            }
-
-            // Get the diff of commits to be pushed (limit to reasonable size)
-            var diffOutput = await GitHelper.RunCommandAsync(
-                workingDirectory,
-                "diff @{upstream}..HEAD",
-                cancellationToken );
-
-            var sb = new StringBuilder();
-            sb.AppendLine( "### Commits to be pushed:" );
-            sb.AppendLine( "```" );
-            sb.AppendLine( logOutput.Length > 2000 ? logOutput[..2000] + "\n... (truncated)" : logOutput );
-            sb.AppendLine( "```" );
-            sb.AppendLine();
-            sb.AppendLine( "### Diff of changes:" );
-            sb.AppendLine( "```diff" );
-
-            // Limit diff size to avoid token limits (keep first 15000 chars)
-            if ( diffOutput.Length > 15000 )
-            {
-                sb.AppendLine( diffOutput[..15000] );
-                sb.AppendLine( "... (diff truncated - review full diff manually if concerned)" );
-            }
-            else
-            {
-                sb.AppendLine( diffOutput );
-            }
-
-            sb.AppendLine( "```" );
-
-            return sb.ToString();
-        }
-        catch ( Exception ex )
-        {
-            Logger.Error( $"Failed to get commit diff: {ex.Message}" );
-
-            return null; // If we can't get diff, proceed without it
-        }
     }
 }

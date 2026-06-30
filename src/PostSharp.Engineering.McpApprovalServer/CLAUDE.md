@@ -97,7 +97,12 @@ The AI receives:
 - Command and claimed purpose
 - Working directory and git branch
 - Session history (last 10 commands)
-- For `git push`: Full commit diff for secrets/content analysis
+
+The Claude CLI is launched with its working directory set to the request's working
+directory and is granted read-only tools (`Read`, `Grep`, `Glob`, and read-only git
+commands). Instead of embedding the commit diff in the prompt, the model inspects the
+pending commits itself (`git log`/`git diff @{upstream}..HEAD`) only when it needs that
+context — keeping the prompt small and analysis fast.
 
 ## Session Auto-Approval
 
