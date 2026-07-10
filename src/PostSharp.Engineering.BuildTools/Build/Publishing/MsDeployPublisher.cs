@@ -63,8 +63,43 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
         public override bool VerifyContainerRequirements( BuildContext context, ContainerRequirements requirements )
         {
             return base.VerifyContainerRequirements( context, requirements )
+                   && requirements.RequireComponent<AzureCliComponent>( context )
                    && requirements.RequireComponent<VisualStudioBuildToolsComponent>( context, out var vs )
                    && vs.RequireVSComponent( context, "Microsoft.VisualStudio.Component.WebDeploy" );
+        }
+
+        /// <summary>
+        /// Starts the deployment slots we have just deployed to, so that the testers can reach them. The slots are
+        /// typically stopped between deployments.
+        /// </summary>
+        protected override SuccessCode OnFilesPublished(
+            BuildContext context,
+            PublishSettings settings,
+            (string Private, string Public) directories,
+            BuildArguments buildArguments,
+            BuildConfigurationInfo configuration )
+        {
+            // Several configurations can target the same slot with different virtual directories.
+            var slots = this._configurations
+                .Where( c => c.StartSlotAfterDeployment )
+                .Select( c => (c.SubscriptionId, c.ResourceGroupName, c.SiteName, c.SlotName) )
+                .Distinct();
+
+            foreach ( var slot in slots )
+            {
+                if ( !AppServiceHelper.Start(
+                        context,
+                        slot.SubscriptionId,
+                        slot.ResourceGroupName,
+                        slot.SiteName,
+                        slot.SlotName,
+                        settings.Dry ) )
+                {
+                    return SuccessCode.Error;
+                }
+            }
+
+            return SuccessCode.Success;
         }
 
         public override SuccessCode PublishFile(

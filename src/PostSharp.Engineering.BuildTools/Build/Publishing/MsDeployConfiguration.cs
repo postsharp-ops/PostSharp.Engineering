@@ -23,6 +23,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
         public string? VirtualDirectory { get; init; }
 
+        /// <summary>
+        /// When set to <c>true</c>, the default, <see cref="SlotName"/> is started after the package has been deployed
+        /// to it, i.e. before the testers of the <see cref="MsDeployPublisher"/> are executed. Deployment slots are
+        /// typically stopped when they are not being deployed or swapped. Note that deploying to a stopped slot is
+        /// supported, because stopping a slot does not stop its SCM site, through which <c>MSDeploy</c> works.
+        /// </summary>
+        public bool StartSlotAfterDeployment { get; init; } = true;
+
         public MsDeployConfiguration(
             ParametricString packageFileName,
             string subscriptionId,

@@ -35,6 +35,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildArguments buildArguments,
             BuildConfigurationInfo configuration );
 
+        /// <summary>
+        /// Called after all artifact files have been successfully published and before the <see cref="Testers"/> are
+        /// executed. When this method fails, the <see cref="Testers"/> are not executed.
+        /// </summary>
+        protected virtual SuccessCode OnFilesPublished(
+            BuildContext context,
+            PublishSettings settings,
+            (string Private, string Public) directories,
+            BuildArguments buildArguments,
+            BuildConfigurationInfo configuration )
+            => SuccessCode.Success;
+
         protected override bool Publish(
             BuildContext context,
             PublishSettings settings,
@@ -93,23 +105,47 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
             if ( allFilesSucceeded )
             {
-                foreach ( var tester in this.Testers )
+                var canRunTesters = true;
+
+                switch ( this.OnFilesPublished( context, settings, directories, buildArguments, configuration ) )
                 {
-                    switch ( tester.Execute( context, directories.Private, buildArguments, settings.Dry ) )
+                    case SuccessCode.Success:
+                        break;
+
+                    case SuccessCode.Error:
+                        // Running the testers would only add noise to the root cause.
+                        success = false;
+                        canRunTesters = false;
+
+                        break;
+
+                    case SuccessCode.Fatal:
+                        return false;
+
+                    default:
+                        throw new NotImplementedException();
+                }
+
+                if ( canRunTesters )
+                {
+                    foreach ( var tester in this.Testers )
                     {
-                        case SuccessCode.Success:
-                            break;
+                        switch ( tester.Execute( context, directories.Private, buildArguments, settings.Dry ) )
+                        {
+                            case SuccessCode.Success:
+                                break;
 
-                        case SuccessCode.Error:
-                            success = false;
+                            case SuccessCode.Error:
+                                success = false;
 
-                            break;
+                                break;
 
-                        case SuccessCode.Fatal:
-                            return false;
+                            case SuccessCode.Fatal:
+                                return false;
 
-                        default:
-                            throw new NotImplementedException();
+                            default:
+                                throw new NotImplementedException();
+                        }
                     }
                 }
             }

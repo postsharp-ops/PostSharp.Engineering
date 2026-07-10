@@ -21,7 +21,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
 
         public string SourceSlot { get; init; } = "staging";
 
-        public string TargetSlot { get; init; } = "production";
+        public string TargetSlot { get; init; } = AppServiceHelper.ProductionSlotName;
+
+        /// <summary>
+        /// When set to <c>true</c>, the default, <see cref="SourceSlot"/> is started before the swap. Azure aborts a
+        /// swap whose source slot does not answer an HTTP request, and the source slot is typically stopped between
+        /// deployments.
+        /// </summary>
+        public bool StartSourceSlotBeforeSwap { get; init; } = true;
+
+        /// <summary>
+        /// When set to <c>true</c>, the default, <see cref="SourceSlot"/> is stopped after a successful swap. After the
+        /// swap, the source slot runs the application that was previously in production, which we do not want to keep
+        /// running.
+        /// </summary>
+        public bool StopSourceSlotAfterSwap { get; init; } = true;
 
         public AppServiceSwapper( string subscriptionId, string resourceGroupName, string appServiceName, string? sourceSlot = null, string? targetSlot = null )
         {
@@ -46,6 +60,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
             BuildConfigurationInfo configuration,
             BuildArguments buildArguments )
         {
+            // Also covers the revert swap and the case where the swap runs as a separate build, long after the slot
+            // has been deployed to and stopped. Starting a running slot is a no-op.
+            if ( this.StartSourceSlotBeforeSwap
+                 && !AppServiceHelper.Start( context, this.SubscriptionId, this.ResourceGroupName, this.AppServiceName, this.SourceSlot, settings.Dry ) )
+            {
+                return SuccessCode.Error;
+            }
+
             context.Console.WriteMessage( $"Swapping {this.SourceSlot} slot with {this.TargetSlot} slot of {this.AppServiceName} app service." );
 
             var args =
@@ -59,6 +81,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
             }
 
             return AzHelper.Run( context, args, settings.Dry ) ? SuccessCode.Success : SuccessCode.Error;
+        }
+
+        public override SuccessCode CleanUpAfterSwap(
+            BuildContext context,
+            SwapSettings settings,
+            BuildConfigurationInfo configuration,
+            BuildArguments buildArguments )
+        {
+            if ( !this.StopSourceSlotAfterSwap )
+            {
+                return SuccessCode.Success;
+            }
+
+            return AppServiceHelper.Stop( context, this.SubscriptionId, this.ResourceGroupName, this.AppServiceName, this.SourceSlot, settings.Dry )
+                ? SuccessCode.Success
+                : SuccessCode.Error;
         }
 
         public override bool VerifyContainerRequirements( BuildContext context, ContainerRequirements requirements )
