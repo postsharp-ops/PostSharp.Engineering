@@ -28,7 +28,11 @@ public static class TemplateDependencies
                 isVersioned ) { }
     }
 
-    public static ProductFamily Family { get; } = new( "Template", "2023.0", DevelopmentDependencies.Family, MetalamaDependencies.V2025_1.Family );
+    public static ProductFamily Family { get; } =
+        new( "Template", "2023.0", DevelopmentDependencies.Family, MetalamaDependencies.V2025_1.Family )
+        {
+            GitHubAppConnectionId = GitHubAppConnections.PostSharp
+        };
 
     // This is only used from the project template.
     public static DependencyDefinition MyProduct { get; } =

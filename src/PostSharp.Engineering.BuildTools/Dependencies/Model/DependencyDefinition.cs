@@ -81,6 +81,19 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public VcsRepository VcsRepository { get; }
 
+        /// <summary>
+        /// Gets the identifier of the TeamCity GitHub App connection that issues the build-scoped token of this
+        /// repository, when the repository does not belong to the GitHub organization of
+        /// <see cref="Model.ProductFamily.GitHubAppConnectionId"/>. When <c>null</c>, the value of the family is used.
+        /// </summary>
+        public string? GitHubAppConnectionId { get; init; }
+
+        /// <summary>
+        /// Gets the identifier of the TeamCity GitHub App connection that issues the build-scoped token of this
+        /// repository, or <c>null</c> when no connection is configured.
+        /// </summary>
+        public string? EffectiveGitHubAppConnectionId => this.GitHubAppConnectionId ?? this.ProductFamily.GitHubAppConnectionId;
+
         public ParametrizedDependency[] Dependencies { get; init; } = [];
 
         public IReadOnlySet<DependencyConfiguration> GetAllDependencies( BuildConfiguration buildConfiguration )

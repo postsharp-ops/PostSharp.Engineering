@@ -48,6 +48,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         public bool RequiresCommitStatusPublisher { get; init; }
 
         /// <summary>
+        /// Gets or sets the settings of the build feature that issues a GitHub App installation token for the duration
+        /// of the build and exposes it as the <c>GITHUB_TOKEN</c> environment variable. <c>null</c> when the repository
+        /// is not hosted on GitHub, or when its product family has no GitHub App connection.
+        /// </summary>
+        public GitHubAppBuildScopedTokenSettings? GitHubAppBuildScopedToken { get; set; }
+
+        /// <summary>
         /// Gets or sets the set of NuGet package ID prefixes (the <c>*</c> wildcard is allowed) produced by the product
         /// itself and by the whole closure of its dependencies. When set, a build step that deletes these packages from
         /// the NuGet cache is inserted in front of all other build steps. This prevents stale packages from a previous
@@ -248,7 +255,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
             var requiresSwabra = allBuildSteps.Count > 0;
             var requiresSshAgent = this.IsSshAgentRequired;
-            var requiresAnyFeatures = requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher;
+
+            var requiresAnyFeatures =
+                requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher || this.GitHubAppBuildScopedToken != null;
 
             // Features.
             if ( requiresAnyFeatures )
@@ -267,6 +276,20 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                                       filesCleanup = Swabra.FilesCleanup.BEFORE_BUILD
                                       lockingProcesses = Swabra.LockingProcessPolicy.KILL
                                       verbose = true
+                                  }
+                          """ );
+                }
+
+                if ( this.GitHubAppBuildScopedToken != null )
+                {
+                    // Issue a GitHub App installation token for the duration of the build. It is the only credential
+                    // that GitHub accepts for an app, and it is what the features and the build steps below read.
+                    writer.WriteLine(
+                        $$"""
+                                  gitHubAppBuildScopedToken {
+                                      parameterName = "env.{{EnvironmentVariableNames.GitHubToken}}"
+                                      connectionId = "{{this.GitHubAppBuildScopedToken.ConnectionId}}"
+                                      targetRepositories = "{{this.GitHubAppBuildScopedToken.TargetRepository}}"
                                   }
                           """ );
                 }

@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -50,13 +51,16 @@ public static partial class MetalamaDependencies
                         isVersioned,
                         pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck,
                         vcsRootProjectId: vcsRootProjectId ),
-                    isVersioned ) { }
+                    isVersioned )
+            {
+                this.GitHubAppConnectionId = GetGitHubAppConnectionId( organization );
+            }
         }
 
         public static ProductFamily Family { get; } = new( _projectName, "2025.1", DevelopmentDependencies.Family, PostSharpDependencies.V2025_1.Family )
         {
             // UpstreamProductFamily = V2025_0.Family,
-            ConsolidatedProjectName = "Metalama.Consolidated"
+            ConsolidatedProjectName = "Metalama.Consolidated", GitHubAppConnectionId = GitHubAppConnections.Metalama
         };
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release

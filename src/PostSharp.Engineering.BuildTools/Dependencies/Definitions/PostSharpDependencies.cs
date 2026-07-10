@@ -44,7 +44,7 @@ public static partial class PostSharpDependencies
         "PostSharp.Documentation",
         "1.0",
         DevelopmentDependencies.Family,
-        PostSharpPackageDependencies.Family );
+        PostSharpPackageDependencies.Family ) { GitHubAppConnectionId = GitHubAppConnections.PostSharp };
 
     public static DependencyDefinition PostSharpDocumentation { get; } = new PostSharpDocumentationDependencyDefinition(
         "PostSharp.Documentation",

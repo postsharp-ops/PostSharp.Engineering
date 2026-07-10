@@ -99,6 +99,11 @@ object PublicBuild : BuildType({
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
         }
+        gitHubAppBuildScopedToken {
+            parameterName = "env.GITHUB_TOKEN"
+            connectionId = "PROJECT_EXT_59"
+            targetRepositories = "PostSharp.Engineering"
+        }
     commitStatusPublisher {
         vcsRootExtId = "Engineering_PostSharpEngineering"
         publisher = github {
@@ -198,6 +203,11 @@ object PublicDeployment : BuildType({
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
         }
+        gitHubAppBuildScopedToken {
+            parameterName = "env.GITHUB_TOKEN"
+            connectionId = "PROJECT_EXT_59"
+            targetRepositories = "PostSharp.Engineering"
+        }
     }
 
     dependencies {
@@ -284,6 +294,11 @@ object VersionBump : BuildType({
             filesCleanup = Swabra.FilesCleanup.BEFORE_BUILD
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
+        }
+        gitHubAppBuildScopedToken {
+            parameterName = "env.GITHUB_TOKEN"
+            connectionId = "PROJECT_EXT_59"
+            targetRepositories = "PostSharp.Engineering"
         }
     }
 

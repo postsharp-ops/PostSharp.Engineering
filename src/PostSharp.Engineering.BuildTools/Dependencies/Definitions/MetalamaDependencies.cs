@@ -12,6 +12,19 @@ public partial class MetalamaDependencies
 {
     private const string _projectName = "Metalama";
 
+    /// <summary>
+    /// Returns the TeamCity GitHub App connection that serves the given organization, or <c>null</c> for a repository
+    /// that is not hosted on GitHub. A connection can only issue tokens for the repositories of its own organization,
+    /// and the Metalama families contain repositories of both organizations.
+    /// </summary>
+    internal static string? GetGitHubAppConnectionId( MetalamaGitHubOrganization? organization )
+        => organization switch
+        {
+            MetalamaGitHubOrganization.PostSharp => GitHubAppConnections.PostSharp,
+            MetalamaGitHubOrganization.Metalama => GitHubAppConnections.Metalama,
+            _ => null
+        };
+
     internal static VcsRepository CreateMetalamaVcsRepository(
         string name,
         VcsProvider provider,

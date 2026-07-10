@@ -23,6 +23,9 @@ public static class BusinessSystemsDependencies
                 false )
         {
             this.Dependencies = [DevelopmentDependencies.PostSharpEngineering];
+
+            // Most repositories of this family are hosted on Azure DevOps, so the family has no GitHub App connection.
+            this.GitHubAppConnectionId = isGitHub ? GitHubAppConnections.PostSharp : null;
         }
     }
 

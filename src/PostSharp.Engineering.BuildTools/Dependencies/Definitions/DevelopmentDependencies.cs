@@ -11,7 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 [PublicAPI]
 public static class DevelopmentDependencies
 {
-    public static ProductFamily Family { get; } = new( "Engineering", "2023.2" );
+    public static ProductFamily Family { get; } = new( "Engineering", "2023.2" ) { GitHubAppConnectionId = GitHubAppConnections.PostSharp };
 
     public static DependencyDefinition PostSharpEngineering { get; } = new(
         Family,

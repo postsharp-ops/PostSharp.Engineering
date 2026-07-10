@@ -157,6 +157,18 @@ internal static class TeamCitySettingsFile
             }
         }
 
+        // A GitHub App has no long-lived credential, so every build configuration issues its own installation token.
+        if ( product.DependencyDefinition.VcsRepository is GitHubRepository gitHubRepository
+             && product.DependencyDefinition.EffectiveGitHubAppConnectionId is { } gitHubAppConnectionId )
+        {
+            var buildScopedToken = new GitHubAppBuildScopedTokenSettings( gitHubAppConnectionId, gitHubRepository.Name );
+
+            foreach ( var teamCityBuildConfiguration in teamCityBuildConfigurations )
+            {
+                teamCityBuildConfiguration.GitHubAppBuildScopedToken = buildScopedToken;
+            }
+        }
+
         var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray(), [] );
 
         GeneratePom( context, product.DependencyDefinition.CiConfiguration.ProjectId.Id, product.DependencyDefinition.CiConfiguration.BaseUrl );

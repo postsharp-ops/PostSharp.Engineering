@@ -15,7 +15,8 @@ public static partial class PostSharpDependencies
     [PublicAPI]
     public static class V2025_1
     {
-        public static ProductFamily Family { get; } = new( _projectName, "2025.1", DevelopmentDependencies.Family );
+        public static ProductFamily Family { get; } =
+            new( _projectName, "2025.1", DevelopmentDependencies.Family ) { GitHubAppConnectionId = GitHubAppConnections.PostSharp };
 
         private static readonly TeamCityProjectId _teamCityProjectId = new(
             $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}",

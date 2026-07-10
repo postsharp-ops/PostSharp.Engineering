@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System;
 using System.Collections.Generic;
@@ -28,6 +29,13 @@ public class ProductFamily
     public string VersionWithoutDots { get; }
 
     public ProductFamily? UpstreamProductFamily { get; init; }
+
+    /// <summary>
+    /// Gets the identifier of the TeamCity GitHub App connection that issues the build-scoped token for the
+    /// repositories of this family. See <see cref="GitHubAppConnections"/>. A repository of this family that belongs to
+    /// another GitHub organization must override this value with <see cref="DependencyDefinition.GitHubAppConnectionId"/>.
+    /// </summary>
+    public string? GitHubAppConnectionId { get; init; }
 
     public BuildAgentRequirements DefaultBuildAgentRequirements { get; init; } = BuildAgentRequirements.Default;
 

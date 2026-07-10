@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -52,11 +53,14 @@ public static partial class MetalamaVsxDependencies
                     isVersioned )
             {
                 this.PublishesFromReleaseBranch = true;
+                this.GitHubAppConnectionId = MetalamaDependencies.GetGitHubAppConnectionId( organization );
             }
         }
 
         public static ProductFamily Family { get; } = new( _projectName, "2026.0", DevelopmentDependencies.Family, MetalamaDependencies.V2026_0.Family )
         {
+            GitHubAppConnectionId = GitHubAppConnections.Metalama
+
             // No UpstreamProductFamily - breaking downstream merge from 2025.1
             // DownstreamProductFamily = V2026_1.Family
         };
