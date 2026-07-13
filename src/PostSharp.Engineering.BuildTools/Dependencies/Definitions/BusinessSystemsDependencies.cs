@@ -12,30 +12,35 @@ public static class BusinessSystemsDependencies
 {
     private class BusinessSystemsDependencyDefinition : DependencyDefinition
     {
-        public BusinessSystemsDependencyDefinition( string dependencyName, bool isGitHub = false )
+        public BusinessSystemsDependencyDefinition( string dependencyName, string? gitHubOwner = null, string? gitHubAppConnectionId = null )
             : base(
                 Family,
                 dependencyName,
                 "master",
                 null,
-                isGitHub ? new GitHubRepository( dependencyName, "postsharp" ) : new AzureDevOpsRepository( Family.Name, dependencyName ),
+                gitHubOwner != null
+                    ? new GitHubRepository( dependencyName, gitHubOwner )
+                    : new AzureDevOpsRepository( Family.Name, dependencyName ),
                 TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ) ),
                 false )
         {
             this.Dependencies = [DevelopmentDependencies.PostSharpEngineering];
 
-            // Most repositories of this family are hosted on Azure DevOps, so the family has no GitHub App connection.
-            this.GitHubAppConnectionId = isGitHub ? GitHubAppConnections.PostSharp : null;
+            // Repositories of this family are hosted on different organizations (Azure DevOps and several GitHub
+            // organizations), so the family has no GitHub App connection and each GitHub repository sets its own.
+            this.GitHubAppConnectionId = gitHubAppConnectionId;
         }
     }
 
     public static ProductFamily Family { get; } = new( "Business%20Systems", "1.0", DevelopmentDependencies.Family );
 
-    public static DependencyDefinition BusinessSystems { get; } = new BusinessSystemsDependencyDefinition( "BusinessSystems" );
+    public static DependencyDefinition BusinessSystems { get; } =
+        new BusinessSystemsDependencyDefinition( "BusinessSystems", "sharpcrafters-sro", GitHubAppConnections.SharpCrafters );
 
     public static DependencyDefinition HelpBrowser { get; } = new BusinessSystemsDependencyDefinition( "HelpBrowser" );
 
     public static DependencyDefinition PostSharpWeb { get; } = new BusinessSystemsDependencyDefinition( "PostSharpWeb" );
 
-    public static DependencyDefinition MetalamaMarketplace { get; } = new BusinessSystemsDependencyDefinition( "MetalamaMarketplace", true );
+    public static DependencyDefinition MetalamaMarketplace { get; } =
+        new BusinessSystemsDependencyDefinition( "MetalamaMarketplace", "postsharp", GitHubAppConnections.PostSharp );
 }

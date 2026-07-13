@@ -20,4 +20,9 @@ public static class GitHubAppConnections
     /// Connection to the app named <c>TeamCity (postsharp org)</c>, which serves the <c>postsharp</c> organization.
     /// </summary>
     public const string PostSharp = "PROJECT_EXT_59";
+
+    /// <summary>
+    /// Connection to the app that serves the <c>sharpcrafters-sro</c> organization.
+    /// </summary>
+    public const string SharpCrafters = "PROJECT_EXT_13";
 }

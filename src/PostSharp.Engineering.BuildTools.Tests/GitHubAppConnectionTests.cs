@@ -51,6 +51,7 @@ public class GitHubAppConnectionTests
             {
                 "metalama" => GitHubAppConnections.Metalama,
                 "postsharp" => GitHubAppConnections.PostSharp,
+                "sharpcrafters-sro" => GitHubAppConnections.SharpCrafters,
                 _ => throw new InvalidOperationException( $"'{name}': unknown GitHub organization '{repository.Owner}'." )
             };
 
