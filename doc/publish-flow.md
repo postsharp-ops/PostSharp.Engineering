@@ -93,9 +93,21 @@ flowchart TB
 ```
 
 The archive is pulled onto the deploy agent through an artifact dependency on the Build configuration, so any `.zip`
-the build produces in the private artifacts directory is available to the SCP step. The default bootstrapper is a
-Windows `pwsh` one-liner that extracts the most recently uploaded archive into a `current` subdirectory of
-`RemoteDirectory` and runs the `deploy.ps1` it contains; override `BootstrapperCommand` for anything else.
+the build produces in the private artifacts directory is available to the SCP step. The default bootstrapper extracts
+the most recently uploaded archive matching `ArchivePattern` into a `current` subdirectory of `RemoteDirectory` and
+runs the `deploy.ps1` it contains.
+
+The default is emitted as a `pwsh … -EncodedCommand <base64>` invocation (base64 of the UTF-16LE script)
+**specifically so it survives a target whose default SSH shell is PowerShell** — the recommended setup. The SSH Exec
+runner runs the command *through* that outer shell; a plain `pwsh -Command "…$var…"` would have its `$` variables
+expanded by the outer pwsh before the inner script ran (`$ErrorActionPreference` → `Continue`, the path variables →
+empty), breaking the deployment. A base64 payload contains no `$`, quotes, or spaces, so it passes through the outer
+shell (pwsh, bash, or cmd) unchanged. (This is separate from, and additional to, the Kotlin `$` → `${'$'}` escaping,
+which only makes `settings.kts` itself compile.)
+
+A custom `BootstrapperCommand` is passed to the SSH Exec runner verbatim, so targets not running PowerShell are also
+supported. But on a PowerShell-default-shell target, a custom `-Command "…$var…"` string is subject to the same
+outer-shell expansion — encode it the same way (`pwsh … -EncodedCommand <base64>`) or otherwise keep it shell-safe.
 
 The private key is provided by the TeamCity **SSH Agent** build feature, which loads a single uploaded key. All targets
 in the same build configuration must therefore share the same `SshKeyName`.

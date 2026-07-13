@@ -61,10 +61,19 @@ public class SshPublisher : Publisher
 
     /// <summary>
     /// Gets the command executed on the target machine over SSH after the archive has been uploaded. When <c>null</c>
-    /// (the default), a Windows PowerShell (<c>pwsh</c>) one-liner is used that extracts the most recently uploaded
-    /// archive from <see cref="RemoteDirectory"/> into a <c>current</c> subdirectory and runs the <c>deploy.ps1</c>
-    /// it contains.
+    /// (the default), a <c>pwsh … -EncodedCommand &lt;base64&gt;</c> invocation is used that extracts the most recently
+    /// uploaded archive matching <see cref="ArchivePattern"/> from <see cref="RemoteDirectory"/> into a <c>current</c>
+    /// subdirectory and runs the <c>deploy.ps1</c> it contains. The default is base64-encoded so that it survives a
+    /// target whose default SSH shell is PowerShell, which would otherwise expand the <c>$</c> variables of a plain
+    /// <c>-Command "…"</c> string before the script runs.
     /// </summary>
+    /// <remarks>
+    /// A custom command is passed to the SSH Exec runner verbatim (so that targets not running PowerShell are also
+    /// supported). If the target's default SSH shell is PowerShell and the command is a <c>-Command "…$var…"</c>
+    /// string, the outer shell expands those <c>$</c> variables before the command runs. To be safe on such targets,
+    /// pass the script as a <c>pwsh … -EncodedCommand &lt;base64&gt;</c> invocation (base64 of the UTF-16LE script), or
+    /// otherwise ensure the command is shell-safe.
+    /// </remarks>
     public string? BootstrapperCommand { get; init; }
 
     public SshPublisher( string hostName, string userName, string remoteDirectory )

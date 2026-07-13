@@ -4,7 +4,10 @@ using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using System;
 using System.IO;
+using System.Text;
 using Xunit;
 
 namespace PostSharp.Engineering.BuildTools.Tests;
@@ -25,6 +28,34 @@ public class SshDeploymentTests
         // Defaults.
         Assert.Equal( 22, publisher.Port );
         Assert.Equal( "PostSharp.Engineering", publisher.SshKeyName );
+    }
+
+    // The default bootstrapper must be a base64 -EncodedCommand so a target whose default SSH shell is PowerShell
+    // cannot expand the script's $ variables before it runs. A -Command "…$var…" string would be mangled by that
+    // outer shell; a base64 payload (no $, quotes, or spaces) passes through unchanged.
+    [Fact]
+    public void DefaultBootstrapper_IsBase64EncodedAndShellSafe()
+    {
+        var command = TeamCitySettingsFile.GetDefaultBootstrapperCommand( "C:/Deploy/App", "App.*.zip" );
+
+        const string prefix = "pwsh -NoProfile -ExecutionPolicy Bypass -EncodedCommand ";
+        Assert.StartsWith( prefix, command );
+
+        // The payload token must be pure base64: no $, quotes, or spaces, so no outer shell can mangle it.
+        var encoded = command.Substring( prefix.Length );
+        Assert.Matches( "^[A-Za-z0-9+/]+={0,2}$", encoded );
+        Assert.DoesNotContain( "$", command );
+        Assert.DoesNotContain( "\"", command );
+        Assert.DoesNotContain( " ", encoded );
+
+        // Decoding the UTF-16LE payload yields the real extract-and-run script, including the "no archive" guard.
+        var script = Encoding.Unicode.GetString( Convert.FromBase64String( encoded ) );
+        Assert.Contains( "$ErrorActionPreference = 'Stop'", script );
+        Assert.Contains( "$directory = 'C:/Deploy/App'", script );
+        Assert.Contains( "-Filter 'App.*.zip'", script );
+        Assert.Contains( "if (-not $archive) { throw", script );
+        Assert.Contains( "Expand-Archive", script );
+        Assert.Contains( "deploy.ps1", script );
     }
 
     [Fact]

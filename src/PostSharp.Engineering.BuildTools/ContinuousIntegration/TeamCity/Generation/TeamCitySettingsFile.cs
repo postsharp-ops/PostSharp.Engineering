@@ -325,19 +325,34 @@ internal static class TeamCitySettingsFile
     }
 
     /// <summary>
-    /// Builds the default remote bootstrapper command (Windows / <c>pwsh</c>): it extracts the most recently uploaded
-    /// archive from <paramref name="remoteDirectory"/> into a <c>current</c> subdirectory and runs the <c>deploy.ps1</c>
-    /// it contains. Kept on a single line because the emitted Kotlin string literal is single-line.
+    /// Builds the default remote bootstrapper command: a PowerShell script that extracts the most recently uploaded
+    /// archive matching <paramref name="archivePattern"/> from <paramref name="remoteDirectory"/> into a
+    /// <c>current</c> subdirectory and runs the <c>deploy.ps1</c> it contains.
     /// </summary>
-    private static string GetDefaultBootstrapperCommand( string remoteDirectory, string archivePattern )
-        => "pwsh -NoProfile -ExecutionPolicy Bypass -Command \""
-           + "$ErrorActionPreference='Stop'; "
-           + $"$d='{remoteDirectory}'; "
-           + $"$zip=Get-ChildItem -LiteralPath $d -Filter '{archivePattern}' | Sort-Object LastWriteTime | Select-Object -Last 1; "
-           + "$dest=Join-Path $d 'current'; "
-           + "if(Test-Path $dest){Remove-Item -Recurse -Force $dest}; "
-           + "Expand-Archive -LiteralPath $zip.FullName -DestinationPath $dest -Force; "
-           + "& (Join-Path $dest 'deploy.ps1')\"";
+    /// <remarks>
+    /// The SSH Exec runner runs this command through the target's default SSH shell. When that shell is PowerShell
+    /// (the recommended setup), a plain <c>pwsh -Command "…"</c> would have its <c>$</c> variables expanded by that
+    /// outer shell before the inner script runs. Emitting the script as a base64 <c>-EncodedCommand</c> — whose
+    /// payload is only <c>[A-Za-z0-9+/=]</c>, with no <c>$</c>, quotes, or spaces — makes it pass through the outer
+    /// shell (pwsh, bash, or cmd) unchanged. The base64 encodes the UTF-16LE bytes of the script, as
+    /// <c>-EncodedCommand</c> requires.
+    /// </remarks>
+    internal static string GetDefaultBootstrapperCommand( string remoteDirectory, string archivePattern )
+    {
+        var script =
+            "$ErrorActionPreference = 'Stop'; "
+            + $"$directory = '{remoteDirectory}'; "
+            + $"$archive = Get-ChildItem -LiteralPath $directory -Filter '{archivePattern}' | Sort-Object LastWriteTime | Select-Object -Last 1; "
+            + "if (-not $archive) { throw \"No archive found in $directory.\" }; "
+            + "$destination = Join-Path $directory 'current'; "
+            + "if (Test-Path $destination) { Remove-Item -Recurse -Force $destination }; "
+            + "Expand-Archive -LiteralPath $archive.FullName -DestinationPath $destination -Force; "
+            + "& (Join-Path $destination 'deploy.ps1')";
+
+        var encodedCommand = Convert.ToBase64String( System.Text.Encoding.Unicode.GetBytes( script ) );
+
+        return $"pwsh -NoProfile -ExecutionPolicy Bypass -EncodedCommand {encodedCommand}";
+    }
 
     private static TeamCityBuildConfiguration CreateUpstreamMergeConfiguration( ProductProperties productProperties )
     {
