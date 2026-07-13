@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -66,8 +67,15 @@ internal static class TeamCitySettingsFile
 
             TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
 
-            // Create a TeamCity configuration for Deploy.
-            if ( configurationInfo.PrivatePublishers != null || configurationInfo.PublicPublishers != null )
+            // SSH publishers are inert markers: they are deployed by native TeamCity SSH runners in their own
+            // configuration, not by the 'b publish' step. So they are handled separately from the other publishers.
+            var allPublishers = ( configurationInfo.PublicPublishers ?? [] ).Concat( configurationInfo.PrivatePublishers ?? [] ).ToList();
+            var sshPublishers = allPublishers.OfType<SshPublisher>().ToArray();
+            var hasNonSshPublisher = allPublishers.Any( p => p is not SshPublisher );
+
+            // Create a TeamCity configuration for the publisher-based Deploy (skipped when the only publishers are the
+            // inert SSH markers, which get their own configuration below).
+            if ( hasNonSshPublisher )
             {
                 if ( configurationInfo.ExportsToTeamCityDeploy )
                 {
@@ -92,6 +100,19 @@ internal static class TeamCitySettingsFile
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
                 }
+            }
+
+            // Create a TeamCity configuration for SSH deployment, built from native SSH runners.
+            if ( sshPublishers.Length > 0 )
+            {
+                var sshDeploymentConfiguration = CreateSshDeployConfiguration(
+                    productProperties,
+                    configurationProperties,
+                    teamCityBuildConfiguration,
+                    deployedArtifactRules,
+                    sshPublishers );
+
+                teamCityBuildConfigurations.Add( sshDeploymentConfiguration );
             }
 
             // Create a TeamCity configuration for Swap.
@@ -232,6 +253,91 @@ internal static class TeamCitySettingsFile
 
         return teamCityDeploymentConfiguration;
     }
+
+    private static TeamCityBuildConfiguration CreateSshDeployConfiguration(
+        ProductProperties productProperties,
+        ConfigurationProperties configurationProperties,
+        TeamCityBuildConfiguration teamCityBuildConfiguration,
+        string deployedArtifactRules,
+        SshPublisher[] sshPublishers )
+    {
+        var product = productProperties.Product;
+
+        // The SSH Agent build feature loads a single key, so every target of this configuration must use the same one.
+        var sshKeyName = sshPublishers[0].SshKeyName;
+
+        if ( sshPublishers.Any( d => d.SshKeyName != sshKeyName ) )
+        {
+            throw new InvalidOperationException(
+                $"All SshPublishers of the '{configurationProperties.Configuration}' configuration must use the same "
+                + "SshKeyName, because the TeamCity SSH Agent build feature can load only one key." );
+        }
+
+        var steps = new List<BuildStep>();
+
+        for ( var i = 0; i < sshPublishers.Length; i++ )
+        {
+            var deployment = sshPublishers[i];
+            var sourcePath = $"{configurationProperties.PrivateArtifactsDirectory}/{deployment.ArchivePattern}";
+
+            var bootstrapperCommand = deployment.BootstrapperCommand
+                                      ?? GetDefaultBootstrapperCommand( deployment.RemoteDirectory, deployment.ArchivePattern );
+
+            steps.Add(
+                new SshUploadBuildStep(
+                    $"ScpUpload_{i}",
+                    $"SCP upload to {deployment.HostName}",
+                    sourcePath,
+                    $"{deployment.HostName}:{deployment.RemoteDirectory}",
+                    deployment.UserName,
+                    deployment.Port ) );
+
+            steps.Add(
+                new SshExecBuildStep(
+                    $"SshExec_{i}",
+                    $"Bootstrap on {deployment.HostName}",
+                    bootstrapperCommand,
+                    deployment.HostName,
+                    deployment.UserName,
+                    deployment.Port ) );
+        }
+
+        // Depend on the Build configuration so its artifacts (including the .zip) are downloaded onto the deploy agent.
+        var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration
+            .Where( d => d.ArtifactRules != null )
+            .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] );
+
+        var sshDeploymentConfiguration = new TeamCityBuildConfiguration(
+            objectName: $"{configurationProperties.Configuration}SshDeployment",
+            name: $"Deploy via SSH [{configurationProperties.Configuration}]",
+            productProperties.DefaultBranch,
+            productProperties.VcsId,
+            buildAgentRequirements: product.ResolvedBuildAgentRequirements )
+        {
+            BuildSteps = steps.ToArray(),
+            IsDeployment = true,
+            SnapshotDependencies = snapshotDependencies.OrderBy( d => d.ObjectId ).ToArray(),
+            IsSshAgentRequired = true,
+            SshAgentKeyName = sshKeyName
+        };
+
+        return sshDeploymentConfiguration;
+    }
+
+    /// <summary>
+    /// Builds the default remote bootstrapper command (Windows / <c>pwsh</c>): it extracts the most recently uploaded
+    /// archive from <paramref name="remoteDirectory"/> into a <c>current</c> subdirectory and runs the <c>deploy.ps1</c>
+    /// it contains. Kept on a single line because the emitted Kotlin string literal is single-line.
+    /// </summary>
+    private static string GetDefaultBootstrapperCommand( string remoteDirectory, string archivePattern )
+        => "pwsh -NoProfile -ExecutionPolicy Bypass -Command \""
+           + "$ErrorActionPreference='Stop'; "
+           + $"$d='{remoteDirectory}'; "
+           + $"$zip=Get-ChildItem -LiteralPath $d -Filter '{archivePattern}' | Sort-Object LastWriteTime | Select-Object -Last 1; "
+           + "$dest=Join-Path $d 'current'; "
+           + "if(Test-Path $dest){Remove-Item -Recurse -Force $dest}; "
+           + "Expand-Archive -LiteralPath $zip.FullName -DestinationPath $dest -Force; "
+           + "& (Join-Path $dest 'deploy.ps1')\"";
 
     private static TeamCityBuildConfiguration CreateUpstreamMergeConfiguration( ProductProperties productProperties )
     {

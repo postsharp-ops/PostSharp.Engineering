@@ -1,0 +1,177 @@
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build.Publishing;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
+using System.IO;
+using Xunit;
+
+namespace PostSharp.Engineering.BuildTools.Tests;
+
+public class SshDeploymentTests
+{
+    [Fact]
+    public void SshPublisher_IsAPublisherWithDeploymentProperties()
+    {
+        var publisher = new SshPublisher( "host1", "deployer", "C:/deploy" ) { ArchivePattern = "MyApp-*.zip" };
+
+        Assert.IsAssignableFrom<Publisher>( publisher );
+        Assert.Equal( "host1", publisher.HostName );
+        Assert.Equal( "deployer", publisher.UserName );
+        Assert.Equal( "C:/deploy", publisher.RemoteDirectory );
+        Assert.Equal( "MyApp-*.zip", publisher.ArchivePattern );
+
+        // Defaults.
+        Assert.Equal( 22, publisher.Port );
+        Assert.Equal( "PostSharp.Engineering", publisher.SshKeyName );
+    }
+
+    [Fact]
+    public void SshUpload_GeneratesScpRunnerWithSshAgentAuth()
+    {
+        var step = new SshUploadBuildStep(
+            "ScpUpload_0",
+            "SCP upload to deploy.example.com",
+            "artifacts/publish/private/*.zip",
+            "deploy.example.com:C:/deploy/incoming",
+            "deployer",
+            22 );
+
+        var code = step.GenerateTeamCityCode();
+
+        Assert.Contains( "sshUpload {", code );
+        Assert.Contains( "transportProtocol = SSHUpload.TransportProtocol.SCP", code );
+        Assert.Contains( "sourcePath = \"artifacts/publish/private/*.zip\"", code );
+        Assert.Contains( "targetUrl = \"deploy.example.com:C:/deploy/incoming\"", code );
+        Assert.Contains( "authMethod = sshAgent {", code );
+        Assert.Contains( "username = \"deployer\"", code );
+
+        // The default port must not be emitted.
+        Assert.DoesNotContain( "port =", code );
+    }
+
+    [Fact]
+    public void SshExec_GeneratesExecRunnerWithSshAgentAuth()
+    {
+        var step = new SshExecBuildStep(
+            "SshExec_0",
+            "Bootstrap on deploy.example.com",
+            "pwsh -NoProfile -Command \"Write-Host hello\"",
+            "deploy.example.com",
+            "deployer",
+            22 );
+
+        var code = step.GenerateTeamCityCode();
+
+        Assert.Contains( "sshExec {", code );
+        Assert.Contains( "targetUrl = \"deploy.example.com\"", code );
+        Assert.Contains( "authMethod = sshAgent {", code );
+        Assert.Contains( "username = \"deployer\"", code );
+
+        // Double quotes inside the command must be escaped for the Kotlin string literal.
+        Assert.Contains( "commands = \"pwsh -NoProfile -Command \\\"Write-Host hello\\\"\"", code );
+    }
+
+    // Kotlin interpolates '$' in string literals, so a PowerShell '$variable' in the remote command must be emitted as
+    // ${'$'}variable, otherwise the generated settings.kts fails to compile.
+    [Fact]
+    public void SshExec_EscapesDollarSignForKotlin()
+    {
+        var step = new SshExecBuildStep(
+            "SshExec_0",
+            "Bootstrap",
+            "$ErrorActionPreference='Stop'; $dest='current'",
+            "host",
+            "deployer",
+            22 );
+
+        var code = step.GenerateTeamCityCode();
+
+        Assert.Contains( "${'$'}ErrorActionPreference", code );
+        Assert.Contains( "${'$'}dest", code );
+
+        // No raw, unescaped PowerShell variable sigil must survive into the Kotlin literal.
+        Assert.DoesNotContain( "\"$ErrorActionPreference", code );
+    }
+
+    [Fact]
+    public void NonDefaultPort_IsEmitted()
+    {
+        var upload = new SshUploadBuildStep( "ScpUpload_0", "u", "src", "host:dir", "deployer", 2222 );
+        var exec = new SshExecBuildStep( "SshExec_0", "e", "cmd", "host", "deployer", 2222 );
+
+        Assert.Contains( "port = 2222", upload.GenerateTeamCityCode() );
+        Assert.Contains( "port = 2222", exec.GenerateTeamCityCode() );
+    }
+
+    // Exercises the whole deployment build-config emission: DEPLOYMENT type, the SSH Agent build feature with a custom
+    // key name, both SSH runners, and the artifact dependency that pulls the .zip onto the deploy agent.
+    [Fact]
+    public void DeployConfiguration_EmitsSshAgentFeatureWithCustomKeyAndArtifactDependency()
+    {
+        var configuration = new TeamCityBuildConfiguration(
+            "PublicSshDeployment",
+            "Deploy via SSH [Public]",
+            "develop/2023.2",
+            "SomeVcsId",
+            BuildAgentRequirements.Default )
+        {
+            IsDeployment = true,
+            IsSshAgentRequired = true,
+            SshAgentKeyName = "MyDeployKey",
+            BuildSteps =
+            [
+                new SshUploadBuildStep(
+                    "ScpUpload_0",
+                    "SCP upload to host",
+                    "artifacts/publish/private/*.zip",
+                    "host:C:/deploy/incoming",
+                    "deployer",
+                    22 ),
+                new SshExecBuildStep( "SshExec_0", "Bootstrap on host", "pwsh -NoProfile", "host", "deployer", 22 )
+            ],
+            SnapshotDependencies =
+            [
+                new TeamCitySnapshotDependency(
+                    "PublicBuild",
+                    false,
+                    "+:artifacts/publish/private/**/*=>artifacts/publish/private" )
+            ]
+        };
+
+        var writer = new StringWriter();
+        configuration.GenerateTeamcityCode( writer );
+        var code = writer.ToString();
+
+        Assert.Contains( "type = Type.DEPLOYMENT", code );
+        Assert.Contains( "sshAgent {", code );
+        Assert.Contains( "teamcitySshKey = \"MyDeployKey\"", code );
+        Assert.Contains( "sshUpload {", code );
+        Assert.Contains( "sshExec {", code );
+        Assert.Contains( "snapshot(PublicBuild)", code );
+        Assert.Contains( "artifacts(PublicBuild)", code );
+        Assert.Contains( "artifactRules = \"+:artifacts/publish/private/**/*=>artifacts/publish/private\"", code );
+    }
+
+    // Without a custom key name, the conventional PostSharp.Engineering key is used (backward compatibility).
+    [Fact]
+    public void SshAgentFeature_DefaultsToConventionalKey()
+    {
+        var configuration = new TeamCityBuildConfiguration(
+            "SomeBuild",
+            "Some Build",
+            "develop/2023.2",
+            "SomeVcsId",
+            BuildAgentRequirements.Default )
+        {
+            IsSshAgentRequired = true,
+            BuildSteps = [new SshExecBuildStep( "SshExec_0", "e", "cmd", "host", "deployer", 22 )]
+        };
+
+        var writer = new StringWriter();
+        configuration.GenerateTeamcityCode( writer );
+
+        Assert.Contains( "teamcitySshKey = \"PostSharp.Engineering\"", writer.ToString() );
+    }
+}

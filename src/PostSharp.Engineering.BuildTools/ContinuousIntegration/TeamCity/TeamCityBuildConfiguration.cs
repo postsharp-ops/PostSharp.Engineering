@@ -31,6 +31,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
         public bool IsSshAgentRequired { get; init; }
 
+        /// <summary>
+        /// Gets the name of the TeamCity-uploaded SSH key loaded by the <c>SSH Agent</c> build feature when
+        /// <see cref="IsSshAgentRequired"/> is <c>true</c>. When <c>null</c>, the conventional key name
+        /// <c>PostSharp.Engineering</c> is used.
+        /// </summary>
+        public string? SshAgentKeyName { get; init; }
+
         public string? ArtifactRules { get; init; }
 
         public string[]? AdditionalArtifactRules { get; init; }
@@ -330,11 +337,14 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
                 if ( requiresSshAgent )
                 {
+                    // By convention, the SSH key name defaults to PostSharp.Engineering (used by all repositories that
+                    // connect to Git over SSH). Deployment configurations can load a different uploaded key.
+                    var sshAgentKeyName = this.SshAgentKeyName ?? "PostSharp.Engineering";
+
                     writer.WriteLine(
                         $$"""
                                   sshAgent {
-                                      // By convention, the SSH key name is always PostSharp.Engineering for all repositories using SSH to connect.
-                                      teamcitySshKey = "PostSharp.Engineering"
+                                      teamcitySshKey = "{{sshAgentKeyName}}"
                                   }
                           """ );
                 }
