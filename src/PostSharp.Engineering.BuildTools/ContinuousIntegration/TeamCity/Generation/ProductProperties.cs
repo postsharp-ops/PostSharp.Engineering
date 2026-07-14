@@ -43,11 +43,8 @@ internal class ProductProperties
         this.LogsDirectory = product.LogsDirectory.Replace( "\\", "/", StringComparison.Ordinal );
         this.DumpsDirectory = product.DumpDirectory.Replace( "\\", "/", StringComparison.Ordinal );
 
-        this.SourceDependencies = product.SourceDependencies.Select( d => new TeamCitySourceDependency(
-                                                                         d.CiConfiguration.ProjectId.ToString(),
-                                                                         TeamCityHelper.GetVcsId( d ),
-                                                                         true,
-                                                                         $"+:. => {product.SourceDependenciesDirectory}/{d.Name}" ) )
+        this.SourceDependencies = product.SourceDependencies
+            .Select( d => new TeamCitySourceDependency( d, $"+:. => {product.SourceDependenciesDirectory}/{d.Name}" ) )
             .ToArray();
 
         this.EngOnlySourceDependencies = product.SourceDependencies.Select( d =>
@@ -62,11 +59,7 @@ internal class ProductProperties
                                         Environment.NewLine,
                                         d.AdditionalEngineeringDirectories.Select( x => $"+{x} => {product.SourceDependenciesDirectory}/{d.Name}/{x}" ) );
 
-                return new TeamCitySourceDependency(
-                    d.CiConfiguration.ProjectId.ToString(),
-                    TeamCityHelper.GetVcsId( d ),
-                    true,
-                    checkoutRules );
+                return new TeamCitySourceDependency( d, checkoutRules );
             } )
             .ToArray();
     }

@@ -205,11 +205,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             {
                 foreach ( var sourceDependency in this.SourceDependencies! )
                 {
-                    var objectName = sourceDependency.IsAbsoluteId ? $"""AbsoluteId("{sourceDependency.VcsId}")""" : sourceDependency.VcsId;
-
                     writer.WriteLine(
                         $""""
-                                 root({objectName},
+                                 root(AbsoluteId("{sourceDependency.VcsId}"),
                                    """{sourceDependency.CheckoutRules}""")
                          """" );
                 }
@@ -291,12 +289,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 {
                     // Issue a GitHub App installation token for the duration of the build. It is the only credential
                     // that GitHub accepts for an app, and it is what the features and the build steps below read.
+                    // targetRepositories takes a newline-separated list, and there is no token standing for all
+                    // repositories, so the ones the build reaches are enumerated.
+                    var targetRepositories = string.Join( "\\n", this.GitHubAppBuildScopedToken.TargetRepositories );
+
                     writer.WriteLine(
                         $$"""
                                   gitHubAppBuildScopedToken {
                                       parameterName = "env.{{EnvironmentVariableNames.GitHubToken}}"
                                       connectionId = "{{this.GitHubAppBuildScopedToken.ConnectionId}}"
-                                      targetRepositories = "{{this.GitHubAppBuildScopedToken.TargetRepository}}"
+                                      targetRepositories = "{{targetRepositories}}"
                                   }
                           """ );
                 }

@@ -175,7 +175,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition(
                 "Metalama.Tests.NopCommerce",
                 VcsProvider.GitHub,
-                MetalamaGitHubOrganization.PostSharp,
+                MetalamaGitHubOrganization.Metalama,
                 false,
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
                 vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}",

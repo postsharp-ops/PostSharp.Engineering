@@ -82,7 +82,32 @@ public class GitHubAppConnectionTests
         Assert.Equal(
             GitHubAppConnections.PostSharp,
             MetalamaDependencies.V2026_1.TimelessDotNetEngineer.EffectiveGitHubAppConnectionId );
+    }
 
-        Assert.Equal( GitHubAppConnections.PostSharp, MetalamaDependencies.V2026_1.NopCommerce.EffectiveGitHubAppConnectionId );
+    /// <summary>
+    /// A build checks out its source dependencies and pushes to them, using the build-scoped token of its own
+    /// repository. A token is issued by a single GitHub App connection, and a connection only serves the repositories
+    /// of its own organization, so a source dependency of another organization could not be pushed to.
+    /// </summary>
+    [Fact]
+    public void EverySourceDependency_SharesTheConnectionOfItsConsumer()
+    {
+        var checkedCount = 0;
+
+        foreach ( var (_, definition) in GetAllDependencyDefinitions() )
+        {
+            foreach ( var sourceDependency in definition.SourceDependencies )
+            {
+                if ( sourceDependency.VcsRepository is not GitHubRepository )
+                {
+                    continue;
+                }
+
+                Assert.Equal( definition.EffectiveGitHubAppConnectionId, sourceDependency.EffectiveGitHubAppConnectionId );
+                checkedCount++;
+            }
+        }
+
+        Assert.True( checkedCount > 0, "No source dependency was checked. The reflection sweep is probably broken." );
     }
 }

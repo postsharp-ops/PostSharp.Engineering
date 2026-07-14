@@ -182,11 +182,11 @@ internal static class TeamCitySettingsFile
         if ( product.DependencyDefinition.VcsRepository is GitHubRepository gitHubRepository
              && product.DependencyDefinition.EffectiveGitHubAppConnectionId is { } gitHubAppConnectionId )
         {
-            var buildScopedToken = new GitHubAppBuildScopedTokenSettings( gitHubAppConnectionId, gitHubRepository.Name );
-
             foreach ( var teamCityBuildConfiguration in teamCityBuildConfigurations )
             {
-                teamCityBuildConfiguration.GitHubAppBuildScopedToken = buildScopedToken;
+                teamCityBuildConfiguration.GitHubAppBuildScopedToken = new GitHubAppBuildScopedTokenSettings(
+                    gitHubAppConnectionId,
+                    GetTargetRepositories( context.Console, gitHubRepository, gitHubAppConnectionId, teamCityBuildConfiguration ) );
             }
         }
 
@@ -196,6 +196,58 @@ internal static class TeamCitySettingsFile
         GenerateTeamCityConfiguration( context, teamCityProject );
 
         return true;
+    }
+
+    /// <summary>
+    /// Gets the repositories that the build-scoped token of <paramref name="buildConfiguration"/> must reach: the
+    /// repository of the product itself, plus the repository of every source dependency the configuration checks out,
+    /// because commands such as <c>bump</c> walk into the source dependencies and push to them. Deriving the list from
+    /// the owning repository alone leaves those pushes with a token that has no access to their target, which GitHub
+    /// rejects with a 403.
+    /// </summary>
+    /// <remarks>
+    /// A token is issued by a single GitHub App connection, and a connection only serves the repositories of its own
+    /// organization. A source dependency of another organization therefore cannot be covered by this token. That is
+    /// legitimate as long as the build only reads it — the checkout authenticates through the VCS root of the
+    /// dependency, not through this token — so it is skipped with a warning instead of failing the generation.
+    /// </remarks>
+    internal static ImmutableArray<string> GetTargetRepositories(
+        ConsoleHelper console,
+        GitHubRepository repository,
+        string connectionId,
+        TeamCityBuildConfiguration buildConfiguration )
+    {
+        var targetRepositories = ImmutableArray.CreateBuilder<string>();
+        targetRepositories.Add( repository.Name );
+
+        foreach ( var sourceDependency in buildConfiguration.SourceDependencies ?? [] )
+        {
+            var definition = sourceDependency.Definition;
+
+            if ( definition.VcsRepository is not GitHubRepository sourceRepository )
+            {
+                // Not hosted on GitHub, so no GitHub App token can reach it anyway.
+                continue;
+            }
+
+            if ( definition.EffectiveGitHubAppConnectionId != connectionId )
+            {
+                console.WriteWarning(
+                    $"The '{buildConfiguration.Name}' build configuration checks out '{definition.Name}', which is served by the "
+                    + $"'{definition.EffectiveGitHubAppConnectionId ?? "(none)"}' GitHub App connection, while the build issues its token from "
+                    + $"'{connectionId}'. A token cannot reach the repositories of another organization, so the build will not be able to "
+                    + $"push to '{sourceRepository.Owner}/{sourceRepository.Name}'." );
+
+                continue;
+            }
+
+            if ( !targetRepositories.Contains( sourceRepository.Name ) )
+            {
+                targetRepositories.Add( sourceRepository.Name );
+            }
+        }
+
+        return targetRepositories.ToImmutable();
     }
 
     private static TeamCityBuildConfiguration CreateDeployConfiguration(
