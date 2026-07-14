@@ -103,25 +103,21 @@ object PublicBuild : BuildType({
             connectionId = "%GITHUB_CONNECTION_POSTSHARP_OPS%"
             targetRepositories = "PostSharp.Engineering"
         }
-    commitStatusPublisher {
-        vcsRootExtId = "Engineering_PostSharpEngineering"
-        publisher = github {
-            githubUrl = "https://api.github.com"
-            authType = vcsRoot()
-        }
-    }
-pullRequests {
-       vcsRootExtId = "Engineering_PostSharpEngineering"
-        provider = github {
-            authType = token {
-                token = "%env.GITHUB_TOKEN%"
+        commitStatusPublisher {
+            vcsRootExtId = "Engineering_PostSharpEngineering"
+            publisher = github {
+                githubUrl = "https://api.github.com"
+                authType = vcsRoot()
             }
-           filterTargetBranch = "+:refs/heads/develop/2023.2"
-           filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
-       }
-   }
-
-
+        }
+        pullRequests {
+            vcsRootExtId = "Engineering_PostSharpEngineering"
+            provider = github {
+                authType = vcsRoot()
+                filterTargetBranch = "+:refs/heads/develop/2023.2"
+                filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
+            }
+        }
     }
 
 })

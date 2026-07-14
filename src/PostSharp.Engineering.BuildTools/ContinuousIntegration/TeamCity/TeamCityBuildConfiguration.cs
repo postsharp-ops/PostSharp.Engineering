@@ -307,30 +307,27 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                     // through the GitHub App connection, so no token has to be passed here.
                     writer.WriteLine(
                         $$"""
-                              commitStatusPublisher {
-                                  vcsRootExtId = "{{this.VcsId}}"
-                                  publisher = github {
-                                      githubUrl = "https://api.github.com"
-                                      authType = vcsRoot()
+                                  commitStatusPublisher {
+                                      vcsRootExtId = "{{this.VcsId}}"
+                                      publisher = github {
+                                          githubUrl = "https://api.github.com"
+                                          authType = vcsRoot()
+                                      }
                                   }
-                              }
                           """ );
 
-                    // Integrate with PRs.
+                    // Integrate with PRs. Like the commit status publisher, this reuses the credentials of the VCS root,
+                    // which authenticates through the GitHub App connection.
                     writer.WriteLine(
                         $$"""
-                          pullRequests {
-                                 vcsRootExtId = "{{this.VcsId}}"
-                                  provider = github {
-                                      authType = token {
-                                          token = "%env.{{EnvironmentVariableNames.GitHubToken}}%"
+                                  pullRequests {
+                                      vcsRootExtId = "{{this.VcsId}}"
+                                      provider = github {
+                                          authType = vcsRoot()
+                                          filterTargetBranch = "+:refs/heads/{{this.DefaultBranch}}"
+                                          filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
                                       }
-                                     filterTargetBranch = "+:refs/heads/{{this.DefaultBranch}}"
-                                     filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
-                                 }
-                             }
-
-
+                                  }
                           """ );
                 }
 
