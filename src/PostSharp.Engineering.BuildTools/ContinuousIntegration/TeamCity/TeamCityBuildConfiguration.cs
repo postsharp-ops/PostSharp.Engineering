@@ -303,16 +303,15 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
                 if ( this.RequiresCommitStatusPublisher )
                 {
-                    // Report status to GitHub.
+                    // Report status to GitHub. The publisher reuses the credentials of the VCS root, which authenticates
+                    // through the GitHub App connection, so no token has to be passed here.
                     writer.WriteLine(
                         $$"""
                               commitStatusPublisher {
                                   vcsRootExtId = "{{this.VcsId}}"
                                   publisher = github {
                                       githubUrl = "https://api.github.com"
-                                      authType = personalToken {
-                                          token = "%env.{{EnvironmentVariableNames.GitHubToken}}%"
-                                      }
+                                      authType = vcsRoot()
                                   }
                               }
                           """ );

@@ -5,24 +5,30 @@ using JetBrains.Annotations;
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 /// <summary>
-/// Identifiers of the TeamCity GitHub App connections. A connection is bound to a GitHub organization, and it can only
+/// References to the TeamCity GitHub App connections. A connection is bound to a GitHub organization, and it can only
 /// issue tokens for the repositories of that organization.
 /// </summary>
+/// <remarks>
+/// The values are TeamCity parameter references, not connection identifiers. TeamCity assigns a connection an opaque
+/// identifier (<c>PROJECT_EXT_nn</c>) that depends on the order in which the connections were created, so it cannot be
+/// hardcoded here. Instead, each parameter below must be defined on the TeamCity root project and set to the
+/// identifier of the corresponding connection.
+/// </remarks>
 [PublicAPI]
 public static class GitHubAppConnections
 {
     /// <summary>
     /// Connection to the app named <c>TeamCity - Metalama org</c>, which serves the <c>metalama</c> organization.
     /// </summary>
-    public const string Metalama = "PROJECT_EXT_58";
+    public const string Metalama = "%GITHUB_CONNECTION_METALAMA%";
 
     /// <summary>
     /// Connection to the app named <c>TeamCity (postsharp org)</c>, which serves the <c>postsharp</c> organization.
     /// </summary>
-    public const string PostSharp = "PROJECT_EXT_59";
+    public const string PostSharp = "%GITHUB_CONNECTION_POSTSHARP%";
 
     /// <summary>
     /// Connection to the app that serves the <c>postsharp-ops</c> organization, formerly named <c>sharpcrafters-sro</c>.
     /// </summary>
-    public const string PostSharpOps = "PROJECT_EXT_13";
+    public const string PostSharpOps = "%GITHUB_CONNECTION_POSTSHARP_OPS%";
 }

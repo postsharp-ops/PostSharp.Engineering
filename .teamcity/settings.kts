@@ -100,16 +100,14 @@ object PublicBuild : BuildType({
         }
         gitHubAppBuildScopedToken {
             parameterName = "env.GITHUB_TOKEN"
-            connectionId = "PROJECT_EXT_59"
+            connectionId = "%GITHUB_CONNECTION_POSTSHARP_OPS%"
             targetRepositories = "PostSharp.Engineering"
         }
     commitStatusPublisher {
         vcsRootExtId = "Engineering_PostSharpEngineering"
         publisher = github {
             githubUrl = "https://api.github.com"
-            authType = personalToken {
-                token = "%env.GITHUB_TOKEN%"
-            }
+            authType = vcsRoot()
         }
     }
 pullRequests {
@@ -204,7 +202,7 @@ object PublicDeployment : BuildType({
         }
         gitHubAppBuildScopedToken {
             parameterName = "env.GITHUB_TOKEN"
-            connectionId = "PROJECT_EXT_59"
+            connectionId = "%GITHUB_CONNECTION_POSTSHARP_OPS%"
             targetRepositories = "PostSharp.Engineering"
         }
     }
@@ -296,7 +294,7 @@ object VersionBump : BuildType({
         }
         gitHubAppBuildScopedToken {
             parameterName = "env.GITHUB_TOKEN"
-            connectionId = "PROJECT_EXT_59"
+            connectionId = "%GITHUB_CONNECTION_POSTSHARP_OPS%"
             targetRepositories = "PostSharp.Engineering"
         }
     }
