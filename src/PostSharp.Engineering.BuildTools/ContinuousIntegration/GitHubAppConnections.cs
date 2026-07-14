@@ -22,7 +22,7 @@ public static class GitHubAppConnections
     public const string PostSharp = "PROJECT_EXT_59";
 
     /// <summary>
-    /// Connection to the app that serves the <c>sharpcrafters-sro</c> organization.
+    /// Connection to the app that serves the <c>postsharp-ops</c> organization, formerly named <c>sharpcrafters-sro</c>.
     /// </summary>
-    public const string SharpCrafters = "PROJECT_EXT_13";
+    public const string PostSharpOps = "PROJECT_EXT_13";
 }
