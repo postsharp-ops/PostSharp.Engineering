@@ -39,8 +39,6 @@ public static class BusinessSystemsDependencies
 
     public static DependencyDefinition HelpBrowser { get; } = new BusinessSystemsDependencyDefinition( "HelpBrowser" );
 
-    public static DependencyDefinition PostSharpWeb { get; } = new BusinessSystemsDependencyDefinition( "PostSharpWeb" );
-
     public static DependencyDefinition MetalamaMarketplace { get; } =
         new BusinessSystemsDependencyDefinition( "MetalamaMarketplace", "postsharp", GitHubAppConnections.PostSharp );
 }

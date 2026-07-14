@@ -11,14 +11,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 [PublicAPI]
 public static class DevelopmentDependencies
 {
-    public static ProductFamily Family { get; } = new( "Engineering", "2023.2" ) { GitHubAppConnectionId = GitHubAppConnections.PostSharp };
+    public static ProductFamily Family { get; } = new( "Engineering", "2023.2" ) { GitHubAppConnectionId = GitHubAppConnections.PostSharpOps };
 
     public static DependencyDefinition PostSharpEngineering { get; } = new(
         Family,
         "PostSharp.Engineering",
         $"develop/{Family.Version}",
         $"release/{Family.Version}",
-        new GitHubRepository( "PostSharp.Engineering", "postsharp" ),
+        new GitHubRepository( "PostSharp.Engineering", "postsharp-ops" ),
         TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( "PostSharp.Engineering", Family.Name ) ) )
     {
         GenerateSnapshotDependency = false,

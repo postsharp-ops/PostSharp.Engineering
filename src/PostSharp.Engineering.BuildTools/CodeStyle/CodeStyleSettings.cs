@@ -23,5 +23,5 @@ internal class CodeStyleSettings : CommonCommandSettings
     [Description( "Remote URL of the repo." )]
     [CommandOption( "-u|--url" )]
     public string Url { get; init; } =
-        "https://github.com/postsharp/PostSharp.Engineering.CodeStyle.git";
+        "https://github.com/postsharp-ops/PostSharp.Engineering.CodeStyle.git";
 }

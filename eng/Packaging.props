@@ -3,10 +3,10 @@
     <!-- Properties of NuGet packages-->
     <PropertyGroup>
         <Authors>PostSharp Technologies</Authors>
-        <PackageProjectUrl>https://github.com/postsharp/PostSharp.Engineering</PackageProjectUrl>
+        <PackageProjectUrl>https://github.com/postsharp-ops/PostSharp.Engineering</PackageProjectUrl>
         <PackageTags>PostSharp, Metalama, build</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <RepositoryUrl>https://github.com/postsharp/PostSharp.Engineering</RepositoryUrl>
+        <RepositoryUrl>https://github.com/postsharp-ops/PostSharp.Engineering</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageReleaseNotes>https://github.com/orgs/metalama/discussions/categories/changelog</PackageReleaseNotes>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>

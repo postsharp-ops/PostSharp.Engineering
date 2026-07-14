@@ -20,7 +20,7 @@ public partial class TestDependencies
                 return new AzureDevOpsRepository( DevelopmentDependencies.Family.Name, name );
 
             case VcsProvider.GitHub:
-                return new GitHubRepository( name, "postsharp" );
+                return new GitHubRepository( name, "postsharp-ops" );
 
             default:
                 throw new InvalidOperationException( $"Unknown VCS provider: \"{provider}\"" );

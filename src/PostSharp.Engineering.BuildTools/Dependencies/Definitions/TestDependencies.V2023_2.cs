@@ -40,7 +40,7 @@ public static partial class TestDependencies
         {
             UpstreamProductFamily = V2023_1.Family,
             ConsolidatedProjectName = "Consolidated",
-            GitHubAppConnectionId = GitHubAppConnections.PostSharp
+            GitHubAppConnectionId = GitHubAppConnections.PostSharpOps
         };
 
         public static DependencyDefinition Consolidated { get; } = new TestDependencyDefinition(

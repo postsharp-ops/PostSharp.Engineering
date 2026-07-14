@@ -187,7 +187,7 @@ For implementation details, see:
 
 ## Quick Start
 
-For new projects, use the template repository: https://github.com/postsharp/PostSharp.Engineering.ProductTemplate
+For new projects, use the template repository: https://github.com/postsharp-ops/PostSharp.Engineering.ProductTemplate
 
 ### Build Commands
 

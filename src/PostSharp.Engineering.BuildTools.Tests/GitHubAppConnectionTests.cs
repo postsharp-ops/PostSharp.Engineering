@@ -63,8 +63,8 @@ public class GitHubAppConnectionTests
     }
 
     [Fact]
-    public void PostSharpEngineering_UsesThePostSharpConnection()
-        => Assert.Equal( GitHubAppConnections.PostSharp, DevelopmentDependencies.PostSharpEngineering.EffectiveGitHubAppConnectionId );
+    public void PostSharpEngineering_UsesThePostSharpOpsConnection()
+        => Assert.Equal( GitHubAppConnections.PostSharpOps, DevelopmentDependencies.PostSharpEngineering.EffectiveGitHubAppConnectionId );
 
     [Fact]
     public void MetalamaRepository_UsesTheMetalamaConnection()

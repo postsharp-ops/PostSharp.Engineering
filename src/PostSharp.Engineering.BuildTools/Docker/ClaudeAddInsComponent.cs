@@ -29,7 +29,7 @@ public class ClaudeAddInsComponent : ContainerComponent
     public string[] Marketplaces { get; init; } =
     [
         "https://github.com/metalama/Metalama.AI.Skills",
-        "https://github.com/postsharp/PostSharp.Engineering.AISkills"
+        "https://github.com/postsharp-ops/PostSharp.Engineering.AISkills"
     ];
 
     /// <summary>
