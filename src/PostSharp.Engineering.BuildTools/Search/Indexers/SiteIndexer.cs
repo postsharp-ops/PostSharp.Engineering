@@ -71,7 +71,8 @@ public class SiteIndexer
         var batch = new List<Snippet>( batchSize );
         var finishedBatchesCount = 0;
         var parsedDocuments = new HashSet<string>();
-        var errors = 0;
+        var fetchErrors = 0;
+        var uploadErrors = 0;
 
         void StartUploadingBatch()
         {
@@ -107,7 +108,7 @@ public class SiteIndexer
             catch ( Exception e )
             {
                 this._console.WriteError( e.ToString() );
-                errors++;
+                uploadErrors++;
             }
 
             uploadBatchTasks.Remove( completedTask );
@@ -129,8 +130,10 @@ public class SiteIndexer
             }
             catch ( Exception e )
             {
-                this._console.WriteError( $"Cannot get {url}: {e.Message}" );
-                errors++;
+                // An individual page being unreachable (e.g. a stale sitemap entry that now 404s) is tolerated up to a
+                // threshold; it should not abort the whole index and prevent the alias swap.
+                this._console.WriteWarning( $"Skipping '{url}': {e.Message}" );
+                fetchErrors++;
 
                 continue;
             }
@@ -184,15 +187,27 @@ public class SiteIndexer
             await AwaitForAnyBatchUploadTaskCompleted();
         }
 
-        if ( errors > 0 )
+        // Fail on any upload error, when nothing was indexed, or when too many pages were unreachable; otherwise a few
+        // stale/unreachable sitemap entries are tolerated so the (mostly complete) index is still published.
+        var maxToleratedFetchErrors = Math.Max( 5, urls.Count / 10 );
+
+        if ( uploadErrors > 0 || parsedDocuments.Count == 0 || fetchErrors > maxToleratedFetchErrors )
         {
-            this._console.WriteError( $"{sw.Elapsed}: Indexing failed. {errors} errors." );
+            this._console.WriteError(
+                $"{sw.Elapsed}: Indexing failed. Parsed {parsedDocuments.Count}/{urls.Count} document(s); {fetchErrors} fetch error(s), {uploadErrors} upload error(s)." );
 
             return false;
         }
         else
         {
-            this._console.WriteMessage( $"{sw.Elapsed}: Indexing completed." );
+            if ( fetchErrors > 0 )
+            {
+                this._console.WriteWarning( $"{sw.Elapsed}: Indexing completed with {fetchErrors} unreachable page(s) skipped." );
+            }
+            else
+            {
+                this._console.WriteMessage( $"{sw.Elapsed}: Indexing completed." );
+            }
 
             return true;
         }
