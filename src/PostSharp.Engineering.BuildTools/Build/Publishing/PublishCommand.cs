@@ -106,6 +106,16 @@ internal class PublishCommand : BaseCommand<PublishSettings>
         var configurationInfo = product.Configurations.GetValue( configuration );
         var hasTarget = false;
 
+        if ( !DeploymentSelection.TryValidate(
+                context.Console,
+                Publisher.GetPublishDeploymentNames( configurationInfo ),
+                settings.Deployment,
+                "publish",
+                validateExists: true ) )
+        {
+            return false;
+        }
+
         if ( !Publisher.PublishDirectory(
                 context,
                 settings,
@@ -113,7 +123,8 @@ internal class PublishCommand : BaseCommand<PublishSettings>
                 configurationInfo,
                 buildArguments,
                 false,
-                ref hasTarget ) )
+                ref hasTarget,
+                settings.Deployment ) )
         {
             return false;
         }
@@ -125,7 +136,8 @@ internal class PublishCommand : BaseCommand<PublishSettings>
                 configurationInfo,
                 buildArguments,
                 true,
-                ref hasTarget ) )
+                ref hasTarget,
+                settings.Deployment ) )
         {
             return false;
         }

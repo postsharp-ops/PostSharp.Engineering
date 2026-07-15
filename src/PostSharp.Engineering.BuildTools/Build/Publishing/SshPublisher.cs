@@ -14,14 +14,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing;
 /// <para>
 /// Unlike other publishers, this one performs no work at <c>b publish</c> time: the transfer and the remote bootstrap
 /// are carried out by TeamCity's native <c>SSH Upload</c> and <c>SSH Exec</c> runners, which the TeamCity settings
-/// generator emits into a dedicated deployment configuration when it finds an <see cref="SshPublisher"/> among a
-/// build configuration's publishers. This publisher therefore only carries the target's configuration for the
-/// generator to read; its <see cref="Publish"/> method is a no-op.
+/// generator emits into a deployment configuration. SSH publishers are grouped by their
+/// <see cref="Publisher.DeploymentName"/> (defaulting to <c>ssh</c>): each group becomes one deployment configuration
+/// whose steps are the SSH runners of its targets. This publisher therefore only carries the target's configuration
+/// for the generator to read; its <see cref="Publish"/> method is a no-op.
 /// </para>
 /// <para>
 /// The private key is provided by the TeamCity <c>SSH Agent</c> build feature, which loads the uploaded SSH key named
-/// <see cref="SshKeyName"/>. All SSH publishers of the same build configuration must use the same
-/// <see cref="SshKeyName"/>, because a build configuration can load only one key into the SSH agent.
+/// <see cref="SshKeyName"/>. All SSH publishers of the same deployment must use the same <see cref="SshKeyName"/>,
+/// because a deployment configuration can load only one key into the SSH agent. Targets that need different keys can
+/// be split into separate deployments by giving them distinct <see cref="Publisher.DeploymentName"/>s.
 /// </para>
 /// </remarks>
 [PublicAPI]
@@ -75,6 +77,18 @@ public class SshPublisher : Publisher
     /// otherwise ensure the command is shell-safe.
     /// </remarks>
     public string? BootstrapperCommand { get; init; }
+
+    /// <summary>
+    /// SSH publishers belong to the <c>ssh</c> deployment by default, so that they are grouped into a deployment
+    /// configuration built from native TeamCity SSH runners rather than from the <c>b publish</c> step.
+    /// </summary>
+    protected override string DefaultDeploymentName => "ssh";
+
+    /// <summary>
+    /// An SSH publisher is deployed by native TeamCity SSH runners, not by the <c>b publish</c> step, so it is inert at
+    /// publish time.
+    /// </summary>
+    internal override bool IsInertAtPublishTime => true;
 
     public SshPublisher( string hostName, string userName, string remoteDirectory )
     {

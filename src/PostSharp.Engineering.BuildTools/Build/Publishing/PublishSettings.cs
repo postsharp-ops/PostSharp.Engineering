@@ -20,4 +20,8 @@ public class PublishSettings : BuildSettings
     [Description( "Avoids check of the current branch" )]
     [CommandOption( "--standalone" )]
     public bool IsStandalone { get; protected set; }
+
+    [Description( "Name of the deployment to publish. Required when the configuration defines more than one deployment." )]
+    [CommandOption( "--deployment" )]
+    public string? Deployment { get; init; }
 }
