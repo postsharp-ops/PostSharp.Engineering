@@ -43,5 +43,5 @@ public static class BusinessSystemsDependencies
         new BusinessSystemsDependencyDefinition( "MetalamaMarketplace", "postsharp", GitHubAppConnections.PostSharp );
 
     public static DependencyDefinition WebIndexer { get; } =
-        new BusinessSystemsDependencyDefinition( "WebIndexer", "postsharp", GitHubAppConnections.PostSharp );
+        new BusinessSystemsDependencyDefinition( "WebIndexer", "postsharp-ops", GitHubAppConnections.PostSharpOps );
 }
