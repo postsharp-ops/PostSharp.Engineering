@@ -3,6 +3,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Typesense;
 using Typesense.Setup;
@@ -83,4 +84,21 @@ public class TypesenseBackend : SearchBackendBase
 
     public override Task EmplaceDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch )
         => this.CreateDocumentsAsync( collection, batch, ImportType.Emplace );
+
+    public override async Task<int> DeleteDocumentsAsync( string collection, string filterBy )
+    {
+        var response = await this._client.DeleteDocuments( collection, filterBy, 100 );
+
+        return response.NumberOfDeleted;
+    }
+
+    public override async Task<IReadOnlyList<T>> ExportDocumentsAsync<T>( string collection )
+        => await this._client.ExportDocuments<T>( collection, CancellationToken.None );
+
+    public override async Task<IReadOnlyList<T>> SearchDocumentsAsync<T>( string collection, SearchParameters searchParameters )
+    {
+        var result = await this._client.Search<T>( collection, searchParameters, CancellationToken.None );
+
+        return result.Hits.Select( h => h.Document ).ToList();
+    }
 }

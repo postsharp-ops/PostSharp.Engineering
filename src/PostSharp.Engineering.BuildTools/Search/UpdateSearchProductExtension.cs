@@ -15,6 +15,7 @@ using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Search;
 
@@ -37,6 +38,12 @@ public class UpdateSearchProductExtension : ProductExtension
 
     public ConfigurationSpecific<IBuildTrigger[]?>? BuildTriggers { get; }
 
+    /// <summary>
+    /// Gets a value indicating whether the generated TeamCity deployment runs an incremental update
+    /// (<c>search update &lt;source&gt; --incremental</c>) instead of a full rebuild.
+    /// </summary>
+    public bool Incremental { get; }
+
     public UpdateSearchProductExtension(
         string typesenseUri,
         string source,
@@ -46,15 +53,17 @@ public class UpdateSearchProductExtension : ProductExtension
         BuildConfiguration[]? buildConfigurations = null,
         TimeSpan? timeOutThreshold = null,
         string? customBuildConfigurationName = null,
-        ConfigurationSpecific<IBuildTrigger[]?>? buildTriggers = null ) : this(
+        ConfigurationSpecific<IBuildTrigger[]?>? buildTriggers = null,
+        bool incremental = false ) : this(
         typesenseUri,
         source,
         sourceUrl,
-        searchBackend => new DocumentationUpdater( products, new DocumentParserFactory( createParser ), searchBackend ),
+        searchBackend => new DocumentationUpdater( source, sourceUrl, products, new DocumentParserFactory( createParser ), searchBackend ),
         buildConfigurations,
         timeOutThreshold,
         customBuildConfigurationName,
-        buildTriggers ) { }
+        buildTriggers,
+        incremental ) { }
 
     public UpdateSearchProductExtension(
         string typesenseUri,
@@ -64,7 +73,8 @@ public class UpdateSearchProductExtension : ProductExtension
         BuildConfiguration[]? buildConfigurations = null,
         TimeSpan? timeOutThreshold = null,
         string? customBuildConfigurationName = null,
-        ConfigurationSpecific<IBuildTrigger[]?>? buildTriggers = null )
+        ConfigurationSpecific<IBuildTrigger[]?>? buildTriggers = null,
+        bool incremental = false )
     {
         this._createUpdater = createUpdater;
         this.TypesenseUri = typesenseUri;
@@ -74,6 +84,7 @@ public class UpdateSearchProductExtension : ProductExtension
         this.TimeOut = timeOutThreshold ?? TimeSpan.FromMinutes( 30 );
         this.CustomBuildConfigurationName = customBuildConfigurationName;
         this.BuildTriggers = buildTriggers;
+        this.Incremental = incremental;
     }
 
     internal CollectionUpdater CreateUpdater( SearchBackendBase searchBackend )
@@ -83,16 +94,36 @@ public class UpdateSearchProductExtension : ProductExtension
 
     internal override bool AddTeamcityBuildConfiguration( BuildContext context, List<TeamCityBuildConfiguration> teamCityBuildConfigurations )
     {
+        // When the product declares several search collections, each gets its own deployment build
+        // configuration. The [source] argument selects the collection and is appended both to the
+        // TeamCity object ids (to keep them unique) and to the 'search update' command line.
+        var hasMultipleCollections = context.Product.Extensions.OfType<UpdateSearchProductExtension>().Count() > 1;
+
+        // TeamCity object ids only allow [A-Za-z0-9_], so sanitize the source (e.g. "postsharp-web").
+        var idSuffix = hasMultipleCollections
+            ? "_" + new string( this.Source.Where( char.IsLetterOrDigit ).ToArray() )
+            : "";
+
+        var command = hasMultipleCollections ? $"search update {this.Source}" : "search update";
+
+        if ( this.Incremental )
+        {
+            command += " --incremental";
+        }
+
         BuildStep CreateBuildStep()
         {
-            return new EngineeringCommandBuildStep( "UpdateSearch", "Update search", "search update", null, true, timeout: this.TimeOut );
+            return new EngineeringCommandBuildStep( "UpdateSearch", "Update search", command, null, true, timeout: this.TimeOut );
         }
 
         foreach ( var configuration in this.BuildConfigurations )
         {
             var configurationInfo = context.Product.Configurations[configuration];
 
-            var name = this.CustomBuildConfigurationName ?? $"Update Search [{configuration}]";
+            var name = this.CustomBuildConfigurationName
+                       ?? ( hasMultipleCollections
+                           ? $"Update Search {this.Source} [{configuration}]"
+                           : $"Update Search [{configuration}]" );
 
             var dependencies = configurationInfo.ExportsToTeamCityDeploy
                 ? new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) }
@@ -103,7 +134,7 @@ public class UpdateSearchProductExtension : ProductExtension
             var buildAgentRequirements = context.Product.ResolvedBuildAgentRequirements;
 
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
-                $"{configuration}UpdateSearch",
+                $"{configuration}UpdateSearch{idSuffix}",
                 name,
                 context.Product.DependencyDefinition.PublishingBranch,
                 vcsRootId,
@@ -117,7 +148,7 @@ public class UpdateSearchProductExtension : ProductExtension
             if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies )
             {
                 var teamCityUpdateSearchWithoutDependenciesConfiguration = new TeamCityBuildConfiguration(
-                    $"{configuration}UpdateSearchNoDependency",
+                    $"{configuration}UpdateSearchNoDependency{idSuffix}",
                     $"Standalone {name}",
                     context.Product.DependencyDefinition.Branch,
                     vcsRootId,
@@ -132,6 +163,16 @@ public class UpdateSearchProductExtension : ProductExtension
 
     internal override bool AddCommands( IConfigurator root, BaseCommandData data )
     {
+        // A product may declare several search collections (several UpdateSearchProductExtension instances).
+        // They all share a single 'search update [source]' command, so only the first extension registers it.
+        // The command selects which collection to update from the optional [source] argument.
+        var searchExtensions = data.Product.Extensions.OfType<UpdateSearchProductExtension>().ToList();
+
+        if ( searchExtensions.Count > 0 && !ReferenceEquals( searchExtensions[0], this ) )
+        {
+            return true;
+        }
+
         root.AddBranch(
             "search",
             search =>

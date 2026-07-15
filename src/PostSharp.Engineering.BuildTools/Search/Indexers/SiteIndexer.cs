@@ -30,18 +30,30 @@ public class SiteIndexer
         this._console = console;
     }
 
-    public async Task<bool> IndexSiteMapAsync( string collection, string source, ImmutableArray<string> products, string url )
+    public async Task<bool> IndexSiteMapAsync( string collection, string source, ImmutableArray<string> products, string url, bool upsert = false )
     {
         this._console.WriteMessage( $"Loading sitemap from '{url}'." );
 
-        var documents = await new SiteMapReader( this._web ).GetDocumentsAsync( url );
+        var entries = await new SiteMapReader( this._web ).GetEntriesAsync( url );
 
         this._console.WriteMessage( "Sitemap loaded." );
 
-        return await this.IndexArticlesAsync( collection, source, products, documents );
+        var urls = entries.Select( e => e.Url ).ToList();
+
+        var lastModifiedByUrl = entries
+            .GroupBy( e => e.Url )
+            .ToDictionary( g => g.Key, g => g.Max( e => e.LastModified ) );
+
+        return await this.IndexArticlesAsync( collection, source, products, urls, upsert, lastModifiedByUrl );
     }
 
-    public async Task<bool> IndexArticlesAsync( string collection, string source, ImmutableArray<string> products, IReadOnlyCollection<string> urls )
+    public async Task<bool> IndexArticlesAsync(
+        string collection,
+        string source,
+        ImmutableArray<string> products,
+        IReadOnlyCollection<string> urls,
+        bool upsert = false,
+        IReadOnlyDictionary<string, long>? lastModifiedByUrl = null )
     {
         var sw = new Stopwatch();
         sw.Start();
@@ -76,7 +88,10 @@ public class SiteIndexer
 
             WriteMessage( $"Batch parsed. Starting indexing. (Partially) parsed documents: {parsedDocumentsInBatch}." );
 
-            var task = this._search.CreateDocumentsAsync( collection, batch.ToImmutableArray() );
+            var task = upsert
+                ? this._search.UpsertDocumentsAsync( collection, batch.ToImmutableArray() )
+                : this._search.CreateDocumentsAsync( collection, batch.ToImmutableArray() );
+
             uploadBatchTasks.Add( task );
             batch.Clear();
         }
@@ -136,8 +151,14 @@ public class SiteIndexer
             }
             else
             {
+                var lastModified = lastModifiedByUrl != null && lastModifiedByUrl.TryGetValue( url, out var lm ) ? lm : 0;
+
                 foreach ( var snippet in snippets )
                 {
+                    // Stamp the page URL and last-modification time so incremental updates can diff and delete by page.
+                    snippet.Url = url;
+                    snippet.LastModified = lastModified;
+
                     if ( uploadBatchTasks.Count == parallelism )
                     {
                         await AwaitForAnyBatchUploadTaskCompleted();

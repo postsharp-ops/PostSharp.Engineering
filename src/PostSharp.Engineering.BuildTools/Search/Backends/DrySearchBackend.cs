@@ -100,4 +100,17 @@ public class DrySearchBackend : SearchBackendBase
     public override Task UpdateDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch ) => this.WriteDocuments( batch );
 
     public override Task EmplaceDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch ) => this.WriteDocuments( batch );
+
+    public override Task<int> DeleteDocumentsAsync( string collection, string filterBy )
+    {
+        this._console.WriteMessage( $"Delete from '{collection}' where {filterBy}" );
+
+        return Task.FromResult( 0 );
+    }
+
+    public override Task<IReadOnlyList<T>> ExportDocumentsAsync<T>( string collection )
+        => Task.FromResult<IReadOnlyList<T>>( [] );
+
+    public override Task<IReadOnlyList<T>> SearchDocumentsAsync<T>( string collection, SearchParameters searchParameters )
+        => Task.FromResult<IReadOnlyList<T>>( [] );
 }

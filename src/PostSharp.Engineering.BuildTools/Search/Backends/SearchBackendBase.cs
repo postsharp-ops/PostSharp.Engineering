@@ -33,4 +33,21 @@ public abstract class SearchBackendBase
     public abstract Task UpdateDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch );
 
     public abstract Task EmplaceDocumentsAsync<T>( string collection, IReadOnlyCollection<T> batch );
+
+    /// <summary>
+    /// Deletes all documents matching a Typesense <c>filter_by</c> expression. Returns the number of deleted documents.
+    /// Used by incremental indexing to remove stale documents.
+    /// </summary>
+    public abstract Task<int> DeleteDocumentsAsync( string collection, string filterBy );
+
+    /// <summary>
+    /// Exports all documents of a collection. Used by incremental indexing to read the currently-indexed state.
+    /// </summary>
+    public abstract Task<IReadOnlyList<T>> ExportDocumentsAsync<T>( string collection );
+
+    /// <summary>
+    /// Runs a search and returns the matching documents (without search metadata). Used by incremental indexing,
+    /// e.g. to read the most recently updated document.
+    /// </summary>
+    public abstract Task<IReadOnlyList<T>> SearchDocumentsAsync<T>( string collection, SearchParameters searchParameters );
 }

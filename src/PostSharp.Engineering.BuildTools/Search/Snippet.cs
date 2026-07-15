@@ -49,6 +49,21 @@ public class Snippet
     [JsonPropertyName( "link" )]
     public string Link { get; set; } = "";
 
+    /// <summary>
+    /// Gets or sets the URL of the page this snippet belongs to (i.e. <see cref="Link"/> without the section anchor).
+    /// Used as the delete-by-filter key during incremental indexing.
+    /// </summary>
+    [JsonPropertyName( "url" )]
+    [Facet]
+    public string Url { get; set; } = "";
+
+    /// <summary>
+    /// Gets or sets the last-modification time of the page (Unix time in seconds, from the sitemap <c>lastmod</c>),
+    /// or 0 when unknown. Used by incremental indexing to detect changed pages.
+    /// </summary>
+    [JsonPropertyName( "lastmod" )]
+    public long LastModified { get; set; }
+
     [JsonPropertyName( "products" )]
     [Facet]
     public string[] Products { get; set; } = [];

@@ -29,6 +29,7 @@ public static class CollectionSchemaFactory
                 type = arrayTypeCode switch
                 {
                     TypeCode.Int32 => FieldType.Int32Array,
+                    TypeCode.Int64 => FieldType.Int64Array,
                     TypeCode.String => FieldType.StringArray,
                     TypeCode.Object => FieldType.ObjectArray,
                     _ => throw new InvalidOperationException( $"Unknown array type code: \"{arrayTypeCode}\"" )
@@ -46,6 +47,7 @@ public static class CollectionSchemaFactory
                 type = typeCode switch
                 {
                     TypeCode.Int32 => FieldType.Int32,
+                    TypeCode.Int64 => FieldType.Int64,
                     TypeCode.String => FieldType.String,
                     TypeCode.Object => FieldType.Object,
                     _ => throw new InvalidOperationException( $"Unknown type code: \"{typeCode}\"" )

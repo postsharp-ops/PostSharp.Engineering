@@ -33,18 +33,41 @@ internal class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
 
         CollectionUpdater updater;
 
-        var productExtension = context.Product.Extensions.OfType<UpdateSearchProductExtension>().Single();
+        var searchExtensions = context.Product.Extensions.OfType<UpdateSearchProductExtension>().ToList();
+
+        UpdateSearchProductExtension productExtension;
+
+        if ( settings.Source != null )
+        {
+            productExtension = searchExtensions.SingleOrDefault( e => e.Source == settings.Source )
+                               ?? throw new InvalidOperationException(
+                                   $"No search collection with source '{settings.Source}' is defined. Available sources: {string.Join( ", ", searchExtensions.Select( e => e.Source ) )}." );
+        }
+        else if ( searchExtensions.Count == 1 )
+        {
+            productExtension = searchExtensions[0];
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"This product defines several search collections; specify which one to update as the [source] argument. Available sources: {string.Join( ", ", searchExtensions.Select( e => e.Source ) )}." );
+        }
 
         // When the collection is set explicitly, we don't work with an alias.
         var alias = settings.Collection == null ? productExtension.Source : null;
         string targetCollection;
-        (string? Production, string Staging) targetCollections;
+
+        // A full rebuild uses blue/green: it resets the inactive staging collection and then swaps the alias.
+        // An incremental update writes in place to the live collection and does not reset or swap.
+        bool doReset;
+        bool doSwap;
 
         if ( settings.Dry )
         {
             updater = productExtension.CreateUpdater( new DrySearchBackend( console ) );
             targetCollection = "dry"; // Console backend doesn't work with collection names.
-            targetCollections = (null, targetCollection);
+            doReset = true;
+            doSwap = false;
         }
         else
         {
@@ -61,26 +84,63 @@ internal class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
             var backend = new TypesenseBackend( apiKey, uri.Host, uri.Port.ToString( CultureInfo.InvariantCulture ), uri.Scheme );
             updater = productExtension.CreateUpdater( backend );
 
-            targetCollections = alias == null
-                ? (null, settings.Collection!)
-                : await GetTargetCollectionsForAliasAsync( backend, alias );
+            if ( settings.Incremental )
+            {
+                if ( alias == null )
+                {
+                    // Explicit collection (development): update it in place.
+                    targetCollection = settings.Collection!;
+                    doReset = false;
+                    doSwap = false;
+                }
+                else
+                {
+                    var (production, _) = await GetTargetCollectionsForAliasAsync( backend, alias );
 
-            targetCollection = targetCollections.Staging;
+                    if ( production == null )
+                    {
+                        // Nothing live yet: fall back to a full build (reset staging, then swap the alias).
+                        // The updater's incremental path treats an empty collection as "everything is new".
+                        targetCollection = $"{alias}A";
+                        console.WriteMessage(
+                            $"No live '{alias}' collection found; performing a full build into '{targetCollection}' instead of an incremental update." );
+                        doReset = true;
+                        doSwap = true;
+                    }
+                    else
+                    {
+                        // Update the live collection in place.
+                        targetCollection = production;
+                        console.WriteMessage( $"Incrementally updating the live '{production}' collection (alias '{alias}')." );
+                        doReset = false;
+                        doSwap = false;
+                    }
+                }
+            }
+            else
+            {
+                var targetCollections = alias == null
+                    ? (Production: (string?) null, Staging: settings.Collection!)
+                    : await GetTargetCollectionsForAliasAsync( backend, alias );
 
-            console.WriteMessage( $"Resetting '{targetCollection}' collection." );
+                targetCollection = targetCollections.Staging;
+                doReset = true;
+                doSwap = true;
+
+                console.WriteMessage( $"Resetting '{targetCollection}' collection." );
+            }
         }
 
-        await ResetCollectionAsync( updater, targetCollection );
+        if ( doReset )
+        {
+            await ResetCollectionAsync( updater, targetCollection );
+        }
 
         var success = await updater.UpdateAsync( context, settings, targetCollection );
 
-        if ( success && !settings.Dry && alias != null )
+        if ( success && !settings.Dry && doSwap && alias != null )
         {
-            var sourceCollectionDescription = targetCollections.Production == null
-                ? "none"
-                : $"'{targetCollections.Production}' collection";
-
-            console.WriteMessage( $"Swapping '{alias}' from {sourceCollectionDescription} to '{targetCollection}' collection." );
+            console.WriteMessage( $"Swapping '{alias}' to '{targetCollection}' collection." );
             await updater.Backend.UpsertCollectionAliasAsync( alias, targetCollection );
         }
 
