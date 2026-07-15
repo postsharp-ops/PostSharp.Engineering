@@ -21,7 +21,18 @@ internal static class TeamCitySettingsFile
         context.Console.WriteHeading( "Generating build integration scripts" );
 
         var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
+
+        // Root-level build configurations of the generated TeamCity project.
         var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
+
+        // Per-build-configuration deployment sub-projects (folders), each holding that configuration's deployments,
+        // swaps, and their Deploy All / Swap All aggregates.
+        var subProjects = new List<TeamCityProject>();
+
+        // Every build configuration that lives inside a sub-project, tracked flat so that the product-wide
+        // post-processing (NuGet cache cleanup, GitHub App token) can be applied to them as well.
+        var subProjectConfigurations = new List<TeamCityBuildConfiguration>();
+
         var teamCityBuildBuildConfigurations = new Dictionary<BuildConfiguration, TeamCityBuildConfiguration>();
 
         // Create product-level properties once
@@ -65,67 +76,155 @@ internal static class TeamCitySettingsFile
             teamCityBuildConfigurations.Add( teamCityBuildConfiguration );
             teamCityBuildBuildConfigurations.Add( configuration, teamCityBuildConfiguration );
 
-            TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
-
-            // SSH publishers are inert markers: they are deployed by native TeamCity SSH runners in their own
-            // configuration, not by the 'b publish' step. So they are handled separately from the other publishers.
+            // Group publishers into deployments by their effective deployment name. Each group becomes its own TeamCity
+            // deployment configuration. Publishers without an explicit DeploymentName join the "default" group, while SSH
+            // publishers join the "ssh" group by default. SSH publishers are inert markers deployed by native TeamCity
+            // SSH runners; non-SSH publishers deploy through the 'b publish' step.
             var allPublishers = ( configurationInfo.PublicPublishers ?? [] ).Concat( configurationInfo.PrivatePublishers ?? [] ).ToList();
-            var sshPublishers = allPublishers.OfType<SshPublisher>().ToArray();
-            var hasNonSshPublisher = allPublishers.Any( p => p is not SshPublisher );
 
-            // Create a TeamCity configuration for the publisher-based Deploy (skipped when the only publishers are the
-            // inert SSH markers, which get their own configuration below).
-            if ( hasNonSshPublisher )
+            var deploymentGroups = allPublishers
+                .GroupBy( p => p.EffectiveDeploymentName, StringComparer.Ordinal )
+                .OrderBy( g => g.Key, StringComparer.Ordinal )
+                .ToList();
+
+            // One "primary" deployment configuration per group (the target of Deploy All and of same-named swappers).
+            var primaryDeploymentConfigurations = new List<TeamCityBuildConfiguration>();
+
+            // Every deployment configuration of this build configuration, including the standalone variant of default.
+            var deploymentConfigurationsForConfig = new List<TeamCityBuildConfiguration>();
+
+            // Maps a deployment name to its primary configuration, so that swappers can depend on the deployment they swap.
+            var deploymentConfigurationsByName = new Dictionary<string, TeamCityBuildConfiguration>( StringComparer.Ordinal );
+
+            foreach ( var group in deploymentGroups )
             {
-                if ( configurationInfo.ExportsToTeamCityDeploy )
-                {
-                    teamCityDeploymentConfiguration = CreateDeployConfiguration(
-                        productProperties,
-                        configurationProperties,
-                        teamCityBuildConfiguration,
-                        deployedArtifactRules,
-                        false );
+                var deploymentName = group.Key;
+                var sshPublishers = group.OfType<SshPublisher>().ToArray();
+                var hasPublishStepPublisher = group.Any( p => !p.IsInertAtPublishTime );
 
-                    teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
+                // Publishers that are not inert deploy through a 'b publish' step, which is only exported when the
+                // configuration opts in.
+                var includePublishStep = hasPublishStepPublisher && configurationInfo.ExportsToTeamCityDeploy;
+
+                if ( !includePublishStep && sshPublishers.Length == 0 )
+                {
+                    // A publish-only group whose 'b publish' deploy is not exported produces no configuration.
+                    continue;
                 }
 
-                if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies )
-                {
-                    teamCityDeploymentConfiguration = CreateDeployConfiguration(
-                        productProperties,
-                        configurationProperties,
-                        teamCityBuildConfiguration,
-                        deployedArtifactRules,
-                        true );
-
-                    teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
-                }
-            }
-
-            // Create a TeamCity configuration for SSH deployment, built from native SSH runners.
-            if ( sshPublishers.Length > 0 )
-            {
-                var sshDeploymentConfiguration = CreateSshDeployConfiguration(
+                var deploymentConfiguration = CreateDeploymentConfiguration(
                     productProperties,
                     configurationProperties,
                     teamCityBuildConfiguration,
                     deployedArtifactRules,
-                    sshPublishers );
+                    deploymentName,
+                    isStandalone: false,
+                    includePublishStep,
+                    sshPublishers,
+                    includeCrossDependencies: deploymentName == "default" );
 
-                teamCityBuildConfigurations.Add( sshDeploymentConfiguration );
+                primaryDeploymentConfigurations.Add( deploymentConfiguration );
+                deploymentConfigurationsForConfig.Add( deploymentConfiguration );
+                deploymentConfigurationsByName[deploymentName] = deploymentConfiguration;
             }
 
-            // Create a TeamCity configuration for Swap.
-            if ( configurationInfo is { Swappers: { Length: > 0 }, SwapAfterPublishing: false } )
+            // The default group additionally exports a standalone (no-dependency) variant when requested. It is an
+            // alternative way to run the default deployment, not a separate target, so it is not part of Deploy All.
+            var defaultGroup = deploymentGroups.FirstOrDefault( g => g.Key == "default" );
+
+            if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies
+                 && defaultGroup != null
+                 && defaultGroup.Any( p => !p.IsInertAtPublishTime ) )
             {
-                var swapConfiguration = CreateSwapConfiguration(
+                var standaloneConfiguration = CreateDeploymentConfiguration(
                     productProperties,
                     configurationProperties,
-                    teamCityDeploymentConfiguration,
                     teamCityBuildConfiguration,
-                    deployedArtifactRules );
+                    deployedArtifactRules,
+                    "default",
+                    isStandalone: true,
+                    includePublishStep: true,
+                    sshPublishers: [],
+                    includeCrossDependencies: false );
 
-                teamCityBuildConfigurations.Add( swapConfiguration );
+                deploymentConfigurationsForConfig.Add( standaloneConfiguration );
+            }
+
+            // Group swappers into swap configurations by their deployment name (unless swapping happens right after
+            // publishing, in which case there is no separate swap configuration).
+            var swapConfigurationsForConfig = new List<TeamCityBuildConfiguration>();
+
+            if ( configurationInfo is { Swappers: { Length: > 0 }, SwapAfterPublishing: false } )
+            {
+                var swapGroups = configurationInfo.Swappers
+                    .GroupBy( s => s.EffectiveDeploymentName, StringComparer.Ordinal )
+                    .OrderBy( g => g.Key, StringComparer.Ordinal );
+
+                foreach ( var swapGroup in swapGroups )
+                {
+                    deploymentConfigurationsByName.TryGetValue( swapGroup.Key, out var matchingDeployment );
+
+                    if ( matchingDeployment == null )
+                    {
+                        context.Console.WriteWarning(
+                            $"The '{swapGroup.Key}' swapper group of the '{configurationProperties.Configuration}' configuration has no "
+                            + "matching deployment, so its swap configuration will have no deployment dependency." );
+                    }
+
+                    var swapConfiguration = CreateSwapConfiguration(
+                        productProperties,
+                        configurationProperties,
+                        swapGroup.Key,
+                        matchingDeployment,
+                        teamCityBuildConfiguration,
+                        deployedArtifactRules );
+
+                    swapConfigurationsForConfig.Add( swapConfiguration );
+                }
+            }
+
+            // A Deploy All / Swap All aggregate is generated as soon as there are multiple deployments / swaps. When
+            // either exists, all deployments and swaps of this build configuration are moved into a sub-project folder.
+            var deployAll = primaryDeploymentConfigurations.Count >= 2
+                ? CreateDeployAllConfiguration( productProperties, configurationProperties, primaryDeploymentConfigurations )
+                : null;
+
+            var swapAll = swapConfigurationsForConfig.Count >= 2
+                ? CreateSwapAllConfiguration( productProperties, configurationProperties, swapConfigurationsForConfig )
+                : null;
+
+            if ( deployAll != null || swapAll != null )
+            {
+                var folderConfigurations = new List<TeamCityBuildConfiguration>();
+
+                if ( deployAll != null )
+                {
+                    folderConfigurations.Add( deployAll );
+                }
+
+                folderConfigurations.AddRange( deploymentConfigurationsForConfig );
+
+                if ( swapAll != null )
+                {
+                    folderConfigurations.Add( swapAll );
+                }
+
+                folderConfigurations.AddRange( swapConfigurationsForConfig );
+
+                subProjectConfigurations.AddRange( folderConfigurations );
+
+                subProjects.Add(
+                    new TeamCityProject(
+                        $"{configurationProperties.Configuration}Deployments",
+                        $"Deployments [{configurationProperties.Configuration}]",
+                        folderConfigurations.ToArray(),
+                        [] ) );
+            }
+            else
+            {
+                // A single deployment (and/or a single swap): keep the historical flat, top-level layout.
+                teamCityBuildConfigurations.AddRange( deploymentConfigurationsForConfig );
+                teamCityBuildConfigurations.AddRange( swapConfigurationsForConfig );
             }
         }
 
@@ -166,13 +265,16 @@ internal static class TeamCitySettingsFile
             }
         }
 
+        // Post-processing must reach every generated configuration, including those nested in deployment sub-projects.
+        var allConfigurations = teamCityBuildConfigurations.Concat( subProjectConfigurations ).ToList();
+
         // Insert, in front of every build configuration, a step that cleans the NuGet cache of all packages produced by
         // the current repo and by the whole closure of its dependencies, so stale packages cannot leak into the build.
         var nugetCachePackagePrefixes = GetNuGetCachePackagePrefixes( product );
 
         if ( nugetCachePackagePrefixes.Length > 0 )
         {
-            foreach ( var teamCityBuildConfiguration in teamCityBuildConfigurations )
+            foreach ( var teamCityBuildConfiguration in allConfigurations )
             {
                 teamCityBuildConfiguration.NuGetCachePackagePrefixes = nugetCachePackagePrefixes;
             }
@@ -182,7 +284,7 @@ internal static class TeamCitySettingsFile
         if ( product.DependencyDefinition.VcsRepository is GitHubRepository gitHubRepository
              && product.DependencyDefinition.EffectiveGitHubAppConnectionId is { } gitHubAppConnectionId )
         {
-            foreach ( var teamCityBuildConfiguration in teamCityBuildConfigurations )
+            foreach ( var teamCityBuildConfiguration in allConfigurations )
             {
                 teamCityBuildConfiguration.GitHubAppBuildScopedToken = new GitHubAppBuildScopedTokenSettings(
                     gitHubAppConnectionId,
@@ -195,7 +297,7 @@ internal static class TeamCitySettingsFile
             }
         }
 
-        var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray(), [] );
+        var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray(), [], subProjects.ToArray() );
 
         GeneratePom( context, product.DependencyDefinition.CiConfiguration.ProjectId.Id, product.DependencyDefinition.CiConfiguration.BaseUrl );
         GenerateTeamCityConfiguration( context, teamCityProject );
@@ -281,29 +383,90 @@ internal static class TeamCitySettingsFile
         return targetRepositories.ToImmutable();
     }
 
-    private static TeamCityBuildConfiguration CreateDeployConfiguration(
+    /// <summary>
+    /// Creates the deployment configuration of a single deployment group. Non-SSH publishers of the group (when
+    /// <paramref name="includePublishStep"/> is set) deploy through a <c>b publish --deployment</c> step;
+    /// <paramref name="sshPublishers"/> deploy through native TeamCity SSH upload/exec runners. The two kinds can
+    /// coexist in one group.
+    /// </summary>
+    private static TeamCityBuildConfiguration CreateDeploymentConfiguration(
         ProductProperties productProperties,
         ConfigurationProperties configurationProperties,
         TeamCityBuildConfiguration teamCityBuildConfiguration,
         string deployedArtifactRules,
-        bool isStandalone )
+        string deploymentName,
+        bool isStandalone,
+        bool includePublishStep,
+        SshPublisher[] sshPublishers,
+        bool includeCrossDependencies )
     {
         var product = productProperties.Product;
+        var configurationInfo = configurationProperties.BuildConfigurationInfo;
+        var steps = new List<BuildStep>();
 
-        BuildStep step =
-            new EngineeringCommandBuildStep(
-                "Publish",
-                "Publish",
-                "publish",
-                $"--configuration {configurationProperties.Configuration}{(isStandalone ? " --standalone" : "")}",
-                true,
-                product.DockerSpec,
-                configurationProperties.BuildConfigurationInfo.DeploymentTimeout ?? product.DeploymentTimeout );
+        if ( includePublishStep )
+        {
+            steps.Add(
+                new EngineeringCommandBuildStep(
+                    "Publish",
+                    "Publish",
+                    "publish",
+                    $"--configuration {configurationProperties.Configuration} --deployment {deploymentName}{(isStandalone ? " --standalone" : "")}",
+                    true,
+                    product.DockerSpec,
+                    configurationInfo.DeploymentTimeout ?? product.DeploymentTimeout ) );
+        }
 
-        var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration.Where( d => d.ArtifactRules != null )
+        // The SSH Agent build feature loads a single key, so every SSH target of this group must use the same one.
+        string? sshKeyName = null;
+
+        if ( sshPublishers.Length > 0 )
+        {
+            sshKeyName = sshPublishers[0].SshKeyName;
+
+            if ( sshPublishers.Any( d => d.SshKeyName != sshKeyName ) )
+            {
+                throw new InvalidOperationException(
+                    $"All SshPublishers of the '{deploymentName}' deployment of the '{configurationProperties.Configuration}' configuration "
+                    + "must use the same SshKeyName, because the TeamCity SSH Agent build feature can load only one key." );
+            }
+
+            for ( var i = 0; i < sshPublishers.Length; i++ )
+            {
+                var deployment = sshPublishers[i];
+                var sourcePath = $"{configurationProperties.PrivateArtifactsDirectory}/{deployment.ArchivePattern}";
+
+                var bootstrapperCommand = deployment.BootstrapperCommand
+                                          ?? GetDefaultBootstrapperCommand( deployment.RemoteDirectory, deployment.ArchivePattern );
+
+                steps.Add(
+                    new SshUploadBuildStep(
+                        $"ScpUpload_{i}",
+                        $"SCP upload to {deployment.HostName}",
+                        sourcePath,
+                        $"{deployment.HostName}:{deployment.RemoteDirectory}",
+                        deployment.UserName,
+                        deployment.Port ) );
+
+                steps.Add(
+                    new SshExecBuildStep(
+                        $"SshExec_{i}",
+                        $"Bootstrap on {deployment.HostName}",
+                        bootstrapperCommand,
+                        deployment.HostName,
+                        deployment.UserName,
+                        deployment.Port ) );
+            }
+        }
+
+        // Depend on the Build configuration so its artifacts (including the .zip) are downloaded onto the deploy agent.
+        var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration
+            .Where( d => d.ArtifactRules != null )
             .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] );
 
-        if ( !isStandalone )
+        // Only the primary default deployment carries the cross-product deployment dependencies; the standalone variant
+        // and additional named deployments depend on the Build configuration alone.
+        if ( includeCrossDependencies && !isStandalone )
         {
             // Aliased + LastSuccessful deps must be excluded: we don't snapshot-depend on them for the consumer's build,
             // and the same applies to deployment.
@@ -318,81 +481,11 @@ internal static class TeamCitySettingsFile
                     .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType!, true ) ) );
         }
 
-        // The standalone deployment doesn't expect pre-publishing and post-publishing step to be triggered,
-        // so it's done from the develop branch.
-        var teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
-            objectName: isStandalone ? $"{configurationProperties.Configuration}DeploymentNoDependency" : $"{configurationProperties.Configuration}Deployment",
-            name: (isStandalone ? "Standalone " : "") + (configurationProperties.BuildConfigurationInfo.TeamCityDeploymentName
-                                                         ?? $"Deploy [{configurationProperties.Configuration}]"),
-            productProperties.DefaultBranch,
-            productProperties.VcsId,
-            buildAgentRequirements: product.ResolvedBuildAgentRequirements )
-        {
-            BuildSteps = [step],
-            IsDeployment = true,
-            SnapshotDependencies = snapshotDependencies.OrderBy( d => d.ObjectId ).ToArray(),
-            IsSshAgentRequired = productProperties.IsRepoRemoteSsh
-        };
+        var (objectName, name) = GetDeploymentNaming( configurationProperties, deploymentName, isStandalone );
 
-        return teamCityDeploymentConfiguration;
-    }
-
-    private static TeamCityBuildConfiguration CreateSshDeployConfiguration(
-        ProductProperties productProperties,
-        ConfigurationProperties configurationProperties,
-        TeamCityBuildConfiguration teamCityBuildConfiguration,
-        string deployedArtifactRules,
-        SshPublisher[] sshPublishers )
-    {
-        var product = productProperties.Product;
-
-        // The SSH Agent build feature loads a single key, so every target of this configuration must use the same one.
-        var sshKeyName = sshPublishers[0].SshKeyName;
-
-        if ( sshPublishers.Any( d => d.SshKeyName != sshKeyName ) )
-        {
-            throw new InvalidOperationException(
-                $"All SshPublishers of the '{configurationProperties.Configuration}' configuration must use the same "
-                + "SshKeyName, because the TeamCity SSH Agent build feature can load only one key." );
-        }
-
-        var steps = new List<BuildStep>();
-
-        for ( var i = 0; i < sshPublishers.Length; i++ )
-        {
-            var deployment = sshPublishers[i];
-            var sourcePath = $"{configurationProperties.PrivateArtifactsDirectory}/{deployment.ArchivePattern}";
-
-            var bootstrapperCommand = deployment.BootstrapperCommand
-                                      ?? GetDefaultBootstrapperCommand( deployment.RemoteDirectory, deployment.ArchivePattern );
-
-            steps.Add(
-                new SshUploadBuildStep(
-                    $"ScpUpload_{i}",
-                    $"SCP upload to {deployment.HostName}",
-                    sourcePath,
-                    $"{deployment.HostName}:{deployment.RemoteDirectory}",
-                    deployment.UserName,
-                    deployment.Port ) );
-
-            steps.Add(
-                new SshExecBuildStep(
-                    $"SshExec_{i}",
-                    $"Bootstrap on {deployment.HostName}",
-                    bootstrapperCommand,
-                    deployment.HostName,
-                    deployment.UserName,
-                    deployment.Port ) );
-        }
-
-        // Depend on the Build configuration so its artifacts (including the .zip) are downloaded onto the deploy agent.
-        var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration
-            .Where( d => d.ArtifactRules != null )
-            .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] );
-
-        var sshDeploymentConfiguration = new TeamCityBuildConfiguration(
-            objectName: $"{configurationProperties.Configuration}SshDeployment",
-            name: $"Deploy via SSH [{configurationProperties.Configuration}]",
+        return new TeamCityBuildConfiguration(
+            objectName,
+            name,
             productProperties.DefaultBranch,
             productProperties.VcsId,
             buildAgentRequirements: product.ResolvedBuildAgentRequirements )
@@ -400,11 +493,107 @@ internal static class TeamCitySettingsFile
             BuildSteps = steps.ToArray(),
             IsDeployment = true,
             SnapshotDependencies = snapshotDependencies.OrderBy( d => d.ObjectId ).ToArray(),
-            IsSshAgentRequired = true,
+
+            // An SSH group loads its own key; a publish-only group loads the conventional key when the repo uses Git over SSH.
+            IsSshAgentRequired = sshPublishers.Length > 0 || productProperties.IsRepoRemoteSsh,
             SshAgentKeyName = sshKeyName
         };
+    }
 
-        return sshDeploymentConfiguration;
+    /// <summary>
+    /// Computes the object name and display name of a deployment configuration. The <c>default</c> and <c>ssh</c>
+    /// deployments keep their historical names for backward compatibility; other deployments are suffixed with a
+    /// Kotlin-safe form of their name.
+    /// </summary>
+    private static (string ObjectName, string Name) GetDeploymentNaming(
+        ConfigurationProperties configurationProperties,
+        string deploymentName,
+        bool isStandalone )
+    {
+        var configuration = configurationProperties.Configuration;
+        var configurationInfo = configurationProperties.BuildConfigurationInfo;
+
+        if ( deploymentName == "default" )
+        {
+            var baseName = configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]";
+
+            return isStandalone
+                ? ($"{configuration}DeploymentNoDependency", $"Standalone {baseName}")
+                : ($"{configuration}Deployment", baseName);
+        }
+
+        if ( deploymentName == "ssh" )
+        {
+            return ($"{configuration}SshDeployment", $"Deploy via SSH [{configuration}]");
+        }
+
+        return ($"{configuration}Deployment_{ToObjectNameSuffix( deploymentName )}", $"Deploy {deploymentName} [{configuration}]");
+    }
+
+    /// <summary>
+    /// Converts a free-form deployment name into a Kotlin-safe PascalCase identifier suffix (e.g. <c>web-staging</c>
+    /// becomes <c>WebStaging</c>). The result is always appended to a name that already starts with a letter, so a
+    /// suffix starting with a digit is harmless.
+    /// </summary>
+    internal static string ToObjectNameSuffix( string deploymentName )
+    {
+        var parts = System.Text.RegularExpressions.Regex.Split( deploymentName, "[^A-Za-z0-9]+" )
+            .Where( p => p.Length > 0 )
+            .Select( p => char.ToUpperInvariant( p[0] ) + p.Substring( 1 ) );
+
+        var suffix = string.Concat( parts );
+
+        return suffix.Length > 0 ? suffix : "X";
+    }
+
+    /// <summary>
+    /// Creates the composite <c>Deploy All</c> configuration that aggregates every deployment of a build configuration,
+    /// so that triggering it deploys all targets at once.
+    /// </summary>
+    private static TeamCityBuildConfiguration CreateDeployAllConfiguration(
+        ProductProperties productProperties,
+        ConfigurationProperties configurationProperties,
+        IReadOnlyList<TeamCityBuildConfiguration> deploymentConfigurations )
+    {
+        var snapshotDependencies = deploymentConfigurations
+            .Select( d => new TeamCitySnapshotDependency( d.ObjectName, false ) )
+            .OrderBy( d => d.ObjectId )
+            .ToArray();
+
+        // A null BuildAgentRequirements makes the configuration composite (Type.COMPOSITE).
+        return new TeamCityBuildConfiguration(
+            $"{configurationProperties.Configuration}DeployAll",
+            $"Deploy All [{configurationProperties.Configuration}]",
+            productProperties.DefaultBranch,
+            productProperties.VcsId )
+        {
+            BuildSteps = [],
+            SnapshotDependencies = snapshotDependencies
+        };
+    }
+
+    /// <summary>
+    /// Creates the composite <c>Swap All</c> configuration that aggregates every swap of a build configuration.
+    /// </summary>
+    private static TeamCityBuildConfiguration CreateSwapAllConfiguration(
+        ProductProperties productProperties,
+        ConfigurationProperties configurationProperties,
+        IReadOnlyList<TeamCityBuildConfiguration> swapConfigurations )
+    {
+        var snapshotDependencies = swapConfigurations
+            .Select( d => new TeamCitySnapshotDependency( d.ObjectName, false ) )
+            .OrderBy( d => d.ObjectId )
+            .ToArray();
+
+        return new TeamCityBuildConfiguration(
+            $"{configurationProperties.Configuration}SwapAll",
+            $"Swap All [{configurationProperties.Configuration}]",
+            productProperties.DeploymentBranch,
+            productProperties.VcsId )
+        {
+            BuildSteps = [],
+            SnapshotDependencies = snapshotDependencies
+        };
     }
 
     /// <summary>
@@ -525,21 +714,29 @@ internal static class TeamCitySettingsFile
     private static TeamCityBuildConfiguration CreateSwapConfiguration(
         ProductProperties productProperties,
         ConfigurationProperties configurationProperties,
-        TeamCityBuildConfiguration? teamCityDeploymentConfiguration,
+        string deploymentName,
+        TeamCityBuildConfiguration? matchingDeploymentConfiguration,
         TeamCityBuildConfiguration teamCityBuildConfiguration,
         string deployedArtifactRule )
     {
+        var configuration = configurationProperties.Configuration;
+        var configurationInfo = configurationProperties.BuildConfigurationInfo;
         var snapshotDependencies = new List<TeamCitySnapshotDependency>();
 
-        if ( teamCityDeploymentConfiguration != null )
+        // Link the swap to the deployment it swaps: depend on the same-named deployment and pull the Build artifacts.
+        if ( matchingDeploymentConfiguration != null )
         {
-            snapshotDependencies.Add( new TeamCitySnapshotDependency( teamCityDeploymentConfiguration.ObjectName, false ) );
+            snapshotDependencies.Add( new TeamCitySnapshotDependency( matchingDeploymentConfiguration.ObjectName, false ) );
             snapshotDependencies.Add( new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRule ) );
         }
 
+        var (objectName, name) = deploymentName == "default"
+            ? ($"{configuration}Swap", configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]")
+            : ($"{configuration}Swap_{ToObjectNameSuffix( deploymentName )}", $"Swap {deploymentName} [{configuration}]");
+
         var swapConfiguration = new TeamCityBuildConfiguration(
-            objectName: $"{configurationProperties.Configuration}Swap",
-            name: configurationProperties.BuildConfigurationInfo.TeamCitySwapName ?? $"Swap [{configurationProperties.Configuration}]",
+            objectName,
+            name,
             productProperties.DeploymentBranch,
             productProperties.VcsId,
             buildAgentRequirements: productProperties.Product.ResolvedBuildAgentRequirements )
@@ -550,10 +747,10 @@ internal static class TeamCitySettingsFile
                     "Swap",
                     "Swap",
                     "swap",
-                    $"--configuration {configurationProperties.Configuration}",
+                    $"--configuration {configuration} --deployment {deploymentName}",
                     true,
                     productProperties.Product.DockerSpec,
-                    configurationProperties.BuildConfigurationInfo.SwapTimeout ?? productProperties.Product.SwapTimeout )
+                    configurationInfo.SwapTimeout ?? productProperties.Product.SwapTimeout )
             ],
             IsDeployment = true,
             SnapshotDependencies = snapshotDependencies.OrderBy( d => d.ObjectId ).ToArray()

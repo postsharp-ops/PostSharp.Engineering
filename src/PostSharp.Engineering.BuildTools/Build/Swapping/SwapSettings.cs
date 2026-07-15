@@ -17,5 +17,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
         [Description( "Prints the command line, but does not execute it" )]
         [CommandOption( "--dry" )]
         public bool Dry { get; init; }
+
+        [Description( "Name of the deployment to swap. Required when the configuration defines more than one deployment with swappers." )]
+        [CommandOption( "--deployment" )]
+        public string? Deployment { get; init; }
     }
 }

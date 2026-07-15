@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using System;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Swapping;
 
@@ -17,7 +18,10 @@ internal class SwapCommand : BaseCommand<SwapSettings>
 
     public static bool ExecuteAfterPublishing( BuildContext context, PublishSettings publishSettings )
     {
-        var swapSettings = new SwapSettings() { BuildConfiguration = publishSettings.BuildConfiguration, Dry = publishSettings.Dry };
+        var swapSettings = new SwapSettings()
+        {
+            BuildConfiguration = publishSettings.BuildConfiguration, Dry = publishSettings.Dry, Deployment = publishSettings.Deployment
+        };
 
         return Execute( context, swapSettings );
     }
@@ -31,12 +35,30 @@ internal class SwapCommand : BaseCommand<SwapSettings>
 
         var directories = product.GetArtifactsAbsoluteDirectories( context, settings.BuildConfiguration );
 
+        // A deployment requested at publish time may have no swapper of the same name, so existence is not validated:
+        // in that case there is simply nothing to swap.
+        var deploymentNames = ( configuration.Swappers ?? [] )
+            .Select( s => s.EffectiveDeploymentName )
+            .Distinct( StringComparer.Ordinal )
+            .ToList();
+
+        if ( !DeploymentSelection.TryValidate( context.Console, deploymentNames, settings.Deployment, "swap", validateExists: false ) )
+        {
+            return false;
+        }
+
         var success = true;
 
         if ( configuration.Swappers != null )
         {
             foreach ( var swapper in configuration.Swappers )
             {
+                // Skip swappers that do not belong to the requested deployment.
+                if ( settings.Deployment != null && !string.Equals( swapper.EffectiveDeploymentName, settings.Deployment, StringComparison.Ordinal ) )
+                {
+                    continue;
+                }
+
                 if ( !swapper.IsEnabled( buildArguments ) )
                 {
                     swapper.WarnSkipped( context, buildArguments );

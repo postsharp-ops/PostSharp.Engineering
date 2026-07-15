@@ -20,6 +20,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
         public bool SwapPrerelease { get; init; } = true;
 
         /// <summary>
+        /// Gets the name of the deployment this swapper is linked to. A swapper swaps the slots of the deployment of the
+        /// same name, and its generated TeamCity swap configuration depends on that deployment's configuration. When
+        /// <c>null</c> (the default), the swapper is linked to the <c>default</c> deployment.
+        /// </summary>
+        public string? DeploymentName { get; init; }
+
+        /// <summary>
+        /// Gets the effective deployment name of this swapper: <see cref="DeploymentName"/> when set, otherwise
+        /// <c>"default"</c>. This is the key by which swappers are grouped and linked to a deployment.
+        /// </summary>
+        internal string EffectiveDeploymentName => this.DeploymentName ?? "default";
+
+        /// <summary>
         /// Gets or sets the list of testers that are executed against the target slot after the swap. When one of them
         /// fails, the swap is reverted.
         /// </summary>
