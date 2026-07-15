@@ -186,7 +186,12 @@ internal static class TeamCitySettingsFile
             {
                 teamCityBuildConfiguration.GitHubAppBuildScopedToken = new GitHubAppBuildScopedTokenSettings(
                     gitHubAppConnectionId,
-                    GetTargetRepositories( context.Console, gitHubRepository, gitHubAppConnectionId, teamCityBuildConfiguration ) );
+                    GetTargetRepositories(
+                        context.Console,
+                        gitHubRepository,
+                        gitHubAppConnectionId,
+                        teamCityBuildConfiguration,
+                        product.AdditionalGitHubTokenRepositories ) );
             }
         }
 
@@ -200,25 +205,36 @@ internal static class TeamCitySettingsFile
 
     /// <summary>
     /// Gets the repositories that the build-scoped token of <paramref name="buildConfiguration"/> must reach: the
-    /// repository of the product itself, plus the repository of every source dependency the configuration checks out,
-    /// because commands such as <c>bump</c> walk into the source dependencies and push to them. Deriving the list from
+    /// repository of the product itself, the repository of every source dependency the configuration checks out (because
+    /// commands such as <c>bump</c> walk into the source dependencies and push to them), and the
+    /// <paramref name="additionalRepositories"/> the product pushes to without checking them out. Deriving the list from
     /// the owning repository alone leaves those pushes with a token that has no access to their target, which GitHub
     /// rejects with a 403.
     /// </summary>
     /// <remarks>
     /// A token is issued by a single GitHub App connection, and a connection only serves the repositories of its own
-    /// organization. A source dependency of another organization therefore cannot be covered by this token. That is
-    /// legitimate as long as the build only reads it — the checkout authenticates through the VCS root of the
-    /// dependency, not through this token — so it is skipped with a warning instead of failing the generation.
+    /// organization. A repository of another organization therefore cannot be covered by this token. For a source
+    /// dependency that is legitimate — the build only reads it, and the checkout authenticates through the VCS root of
+    /// the dependency, not through this token — so it is skipped with a warning instead of failing the generation. An
+    /// additional repository of another organization is a configuration mistake and is likewise skipped with a warning.
     /// </remarks>
     internal static ImmutableArray<string> GetTargetRepositories(
         ConsoleHelper console,
         GitHubRepository repository,
         string connectionId,
-        TeamCityBuildConfiguration buildConfiguration )
+        TeamCityBuildConfiguration buildConfiguration,
+        ImmutableArray<GitHubRepository> additionalRepositories )
     {
         var targetRepositories = ImmutableArray.CreateBuilder<string>();
         targetRepositories.Add( repository.Name );
+
+        void AddRepository( string name )
+        {
+            if ( !targetRepositories.Contains( name ) )
+            {
+                targetRepositories.Add( name );
+            }
+        }
 
         foreach ( var sourceDependency in buildConfiguration.SourceDependencies ?? [] )
         {
@@ -241,10 +257,25 @@ internal static class TeamCitySettingsFile
                 continue;
             }
 
-            if ( !targetRepositories.Contains( sourceRepository.Name ) )
+            AddRepository( sourceRepository.Name );
+        }
+
+        foreach ( var additionalRepository in additionalRepositories )
+        {
+            // The connection is bound to one organization, so an additional repository is reachable exactly when it
+            // shares the organization of the product repository.
+            if ( !string.Equals( additionalRepository.Owner, repository.Owner, StringComparison.OrdinalIgnoreCase ) )
             {
-                targetRepositories.Add( sourceRepository.Name );
+                console.WriteWarning(
+                    $"The '{repository.Name}' product lists '{additionalRepository.Owner}/{additionalRepository.Name}' among its additional "
+                    + $"token repositories, but it belongs to a different organization than the product repository "
+                    + $"'{repository.Owner}/{repository.Name}'. A build-scoped token is issued by a single connection and cannot reach the "
+                    + $"repositories of another organization, so it is left out of the token of the '{buildConfiguration.Name}' build configuration." );
+
+                continue;
             }
+
+            AddRepository( additionalRepository.Name );
         }
 
         return targetRepositories.ToImmutable();

@@ -31,12 +31,15 @@ public class GitHubAppBuildScopedTokenTests
             "SomeVcsId",
             BuildAgentRequirements.Default ) { BuildSteps = [], SourceDependencies = sourceDependencies };
 
-    private static string[] GetTargetRepositories( TeamCityBuildConfiguration buildConfiguration )
+    private static string[] GetTargetRepositories(
+        TeamCityBuildConfiguration buildConfiguration,
+        params GitHubRepository[] additionalRepositories )
         => TeamCitySettingsFile.GetTargetRepositories(
                 new ConsoleHelper(),
                 (GitHubRepository) _consolidated.DependencyDefinition.VcsRepository,
                 _consolidated.DependencyDefinition.EffectiveGitHubAppConnectionId!,
-                buildConfiguration )
+                buildConfiguration,
+                [..additionalRepositories] )
             .ToArray();
 
     /// <summary>
@@ -90,6 +93,47 @@ public class GitHubAppBuildScopedTokenTests
             [new TeamCitySourceDependency( foreignDependency, "+:. => source-dependencies/TimelessDotNetEngineer" )] );
 
         Assert.Equal( ["Metalama.Consolidated"], GetTargetRepositories( buildConfiguration ) );
+    }
+
+    /// <summary>
+    /// A product can push to a repository that is not one of its source dependencies. Such a repository is added to the
+    /// token through <see cref="Product.AdditionalGitHubTokenRepositories"/>, on top of whatever the build checks out.
+    /// </summary>
+    [Fact]
+    public void AdditionalTokenRepository_OfTheSameOrganization_IsAdded()
+    {
+        // A repository the build pushes to without checking it out, in the same organization as the product.
+        var additional = new GitHubRepository( "Metalama.Vsx", "metalama" );
+
+        Assert.Equal(
+            ["Metalama.Consolidated", "Metalama.Vsx"],
+            GetTargetRepositories( CreateBuildConfiguration( [] ), additional ) );
+    }
+
+    /// <summary>
+    /// An additional repository already reached as a source dependency must not be listed twice.
+    /// </summary>
+    [Fact]
+    public void AdditionalTokenRepository_ThatIsAlreadyASourceDependency_IsNotDuplicated()
+    {
+        var buildConfiguration = CreateBuildConfiguration( new ProductProperties( _consolidated ).SourceDependencies );
+        var alreadyReached = new GitHubRepository( "Metalama.Samples", "metalama" );
+
+        var targetRepositories = GetTargetRepositories( buildConfiguration, alreadyReached );
+
+        Assert.Single( targetRepositories, "Metalama.Samples" );
+    }
+
+    /// <summary>
+    /// A token is issued by a single connection, which serves one organization, so an additional repository of another
+    /// organization cannot be covered and is left out with a warning rather than making the token unissuable.
+    /// </summary>
+    [Fact]
+    public void AdditionalTokenRepository_OfAnotherOrganization_IsLeftOut()
+    {
+        var foreign = new GitHubRepository( "TimelessDotNetEngineer", "postsharp" );
+
+        Assert.Equal( ["Metalama.Consolidated"], GetTargetRepositories( CreateBuildConfiguration( [] ), foreign ) );
     }
 
     /// <summary>

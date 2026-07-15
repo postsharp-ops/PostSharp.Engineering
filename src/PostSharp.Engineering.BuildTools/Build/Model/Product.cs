@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.BillOfMaterials;
 using PostSharp.Engineering.BuildTools.Build.Bumping;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -331,6 +332,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ProductExtension[] Extensions { get; init; } = [];
 
         public bool BuildRequiresSourceDependencies { get; init; } = true;
+
+        /// <summary>
+        /// Gets or sets GitHub repositories that the build-scoped GitHub App token must reach on top of the product
+        /// repository and the source dependencies each build checks out. Use this when a build pushes to a repository
+        /// that is not one of its source dependencies, so the token would otherwise have no access to it and the push
+        /// would be rejected with a 403.
+        /// </summary>
+        /// <remarks>
+        /// A token is issued by a single GitHub App connection, and a connection only serves the repositories of one
+        /// organization, so every repository listed here must belong to the same organization as the product
+        /// repository. One that does not is left out of the generated token with a warning.
+        /// </remarks>
+        public ImmutableArray<GitHubRepository> AdditionalGitHubTokenRepositories { get; init; } = [];
 
         internal string GetPrivateArtifactsAbsoluteDirectory( BuildContext context, BuildConfiguration configuration )
             => Path.Combine(
