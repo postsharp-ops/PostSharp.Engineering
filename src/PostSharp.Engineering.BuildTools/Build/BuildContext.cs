@@ -106,7 +106,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             if ( repoDirectory == null )
             {
                 console.WriteError(
-                    "This tool must be called from a git repository, or the environment variable REPO_DIRECTORY must be set to the root directory of the repository." );
+                    "This tool must be called from a git repository or worktree, or the environment variable ENG_REPO_DIRECTORY must be set to the root directory of the repository or worktree." );
 
                 return false;
             }
@@ -136,7 +136,11 @@ namespace PostSharp.Engineering.BuildTools.Build
                 return null;
             }
 
-            if ( Directory.Exists( Path.Combine( directory, ".git" ) ) )
+            var gitPath = Path.Combine( directory, ".git" );
+
+            // A normal clone has a `.git` directory; a worktree has a `.git` *file* that points to the main
+            // repository's worktrees folder. Either one marks the root of the (work)tree.
+            if ( Directory.Exists( gitPath ) || File.Exists( gitPath ) )
             {
                 var gitIgnorePath = Path.Combine( directory, ".gitignore" );
 
