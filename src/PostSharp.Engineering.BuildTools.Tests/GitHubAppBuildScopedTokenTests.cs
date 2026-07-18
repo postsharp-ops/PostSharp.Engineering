@@ -208,13 +208,27 @@ public class GitHubAppBuildScopedTokenTests
                 ["Metalama.Consolidated"],
                 "env.CLAUDE_GITHUB_TOKEN" ) );
 
+        // Asserted line by line: the generated Kotlin carries CRLF regardless of the platform, while a multi-line
+        // literal here would take the line endings of this file as checked out, which differ across platforms.
+        Assert.Contains( "gitHubAppBuildScopedToken {", code, StringComparison.Ordinal );
+
         Assert.Contains(
             """
-            gitHubAppBuildScopedToken {
-                        parameterName = "env.CLAUDE_GITHUB_TOKEN"
-                        connectionId = "%GITHUB_CONNECTION_METALAMA_AGENT%"
-                        targetRepositories = "Metalama.Consolidated"
-                    }
+            parameterName = "env.CLAUDE_GITHUB_TOKEN"
+            """,
+            code,
+            StringComparison.Ordinal );
+
+        Assert.Contains(
+            """
+            connectionId = "%GITHUB_CONNECTION_METALAMA_AGENT%"
+            """,
+            code,
+            StringComparison.Ordinal );
+
+        Assert.Contains(
+            """
+            targetRepositories = "Metalama.Consolidated"
             """,
             code,
             StringComparison.Ordinal );
