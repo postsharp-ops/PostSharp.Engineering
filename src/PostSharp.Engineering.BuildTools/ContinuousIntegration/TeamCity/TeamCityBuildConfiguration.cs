@@ -56,10 +56,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
         /// <summary>
         /// Gets or sets the settings of the build feature that issues a GitHub App installation token for the duration
-        /// of the build and exposes it as the <c>GITHUB_TOKEN</c> environment variable. <c>null</c> when the repository
-        /// is not hosted on GitHub, or when its product family has no GitHub App connection.
+        /// of the build and exposes it as an environment variable, by default <c>GITHUB_TOKEN</c>. <c>null</c> when the
+        /// repository is not hosted on GitHub, or when its product family has no GitHub App connection.
         /// </summary>
         public GitHubAppBuildScopedTokenSettings? GitHubAppBuildScopedToken { get; set; }
+
+        /// <summary>
+        /// Gets or sets the connection and parameter that replace the ones this build configuration would inherit from
+        /// its repository. <c>null</c> for all but the few build configurations that run under an identity of their own.
+        /// </summary>
+        internal GitHubAppTokenOverride? GitHubAppTokenOverride { get; set; }
 
         /// <summary>
         /// Gets or sets the set of NuGet package ID prefixes (the <c>*</c> wildcard is allowed) produced by the product
@@ -296,7 +302,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                     writer.WriteLine(
                         $$"""
                                   gitHubAppBuildScopedToken {
-                                      parameterName = "env.{{EnvironmentVariableNames.GitHubToken}}"
+                                      parameterName = "{{this.GitHubAppBuildScopedToken.ParameterName}}"
                                       connectionId = "{{this.GitHubAppBuildScopedToken.ConnectionId}}"
                                       targetRepositories = "{{targetRepositories}}"
                                   }

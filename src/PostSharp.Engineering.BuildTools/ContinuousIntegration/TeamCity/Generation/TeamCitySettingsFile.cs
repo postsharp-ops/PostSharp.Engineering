@@ -253,6 +253,7 @@ internal static class TeamCitySettingsFile
         foreach ( var additional in product.AdditionalCiBuildConfigurations )
         {
             var configuration = additional.TeamCityBuildConfiguration( productProperties, teamCityBuildBuildConfigurations );
+            configuration.GitHubAppTokenOverride = additional.GitHubAppToken;
             teamCityBuildConfigurations.Add( configuration );
         }
 
@@ -286,14 +287,12 @@ internal static class TeamCitySettingsFile
         {
             foreach ( var teamCityBuildConfiguration in allConfigurations )
             {
-                teamCityBuildConfiguration.GitHubAppBuildScopedToken = new GitHubAppBuildScopedTokenSettings(
+                teamCityBuildConfiguration.GitHubAppBuildScopedToken = CreateBuildScopedTokenSettings(
+                    context.Console,
+                    gitHubRepository,
                     gitHubAppConnectionId,
-                    GetTargetRepositories(
-                        context.Console,
-                        gitHubRepository,
-                        gitHubAppConnectionId,
-                        teamCityBuildConfiguration,
-                        product.AdditionalGitHubTokenRepositories ) );
+                    teamCityBuildConfiguration,
+                    product.AdditionalGitHubTokenRepositories );
             }
         }
 
@@ -303,6 +302,33 @@ internal static class TeamCitySettingsFile
         GenerateTeamCityConfiguration( context, teamCityProject );
 
         return true;
+    }
+
+    /// <summary>
+    /// Creates the build-scoped token settings of a single build configuration. The connection and the parameter come
+    /// from <see cref="TeamCityBuildConfiguration.GitHubAppTokenOverride"/> when the build configuration acts under an
+    /// identity of its own, and from the repository otherwise. A build configuration issues exactly one token, so an
+    /// override substitutes for the repository's connection instead of adding a second token.
+    /// </summary>
+    /// <remarks>
+    /// The scope of the token is deliberately computed from <paramref name="connectionId"/>, the connection of the
+    /// repository, and never from the override. <see cref="GetTargetRepositories"/> uses the connection as a proxy for
+    /// the GitHub organization, and an overriding connection serves the same organization as the repository, so passing
+    /// it would match no source dependency, warn about each one, and silently narrow the token to the owning repository.
+    /// </remarks>
+    internal static GitHubAppBuildScopedTokenSettings CreateBuildScopedTokenSettings(
+        ConsoleHelper console,
+        GitHubRepository repository,
+        string connectionId,
+        TeamCityBuildConfiguration buildConfiguration,
+        ImmutableArray<GitHubRepository> additionalRepositories )
+    {
+        var tokenOverride = buildConfiguration.GitHubAppTokenOverride;
+
+        return new GitHubAppBuildScopedTokenSettings(
+            tokenOverride?.ConnectionId ?? connectionId,
+            GetTargetRepositories( console, repository, connectionId, buildConfiguration, additionalRepositories ),
+            tokenOverride?.EffectiveParameterName ?? GitHubAppBuildScopedTokenSettings.DefaultParameterName );
     }
 
     /// <summary>

@@ -50,4 +50,11 @@ public abstract class AdditionalCiBuildConfiguration
     public BuildConfigurationParameter[]? Parameters { get; init; }
 
     public string? Dockerfile { get; init; }
+
+    /// <summary>
+    /// Gets the GitHub App connection and parameter that replace the ones inherited from the repository, or <c>null</c>
+    /// to use the repository's own. A build configuration issues a single build-scoped token, so setting this
+    /// substitutes the identity of the token rather than adding a second one.
+    /// </summary>
+    public GitHubAppTokenOverride? GitHubAppToken { get; init; }
 }

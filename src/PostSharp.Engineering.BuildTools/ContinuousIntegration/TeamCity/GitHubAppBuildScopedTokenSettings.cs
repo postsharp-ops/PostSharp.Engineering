@@ -13,4 +13,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 /// <param name="TargetRepositories">Names of the repositories the token gives access to, without the organization.
 /// Tokens are fine-grained: they only reach the repositories listed here, and TeamCity has no wildcard standing for
 /// all repositories, so a build that pushes to its source dependencies must list them next to its own repository.</param>
-internal record GitHubAppBuildScopedTokenSettings( string ConnectionId, ImmutableArray<string> TargetRepositories );
+/// <param name="ParameterName">Name of the TeamCity parameter that receives the token, including the <c>env.</c> prefix
+/// that turns it into an environment variable. Defaults to <see cref="DefaultParameterName"/>. A build configuration
+/// that hands the token over to a process reading another variable overrides this.</param>
+internal record GitHubAppBuildScopedTokenSettings(
+    string ConnectionId,
+    ImmutableArray<string> TargetRepositories,
+    string ParameterName = GitHubAppBuildScopedTokenSettings.DefaultParameterName )
+{
+    /// <summary>
+    /// The parameter that the build steps and the build tools read by default.
+    /// </summary>
+    public const string DefaultParameterName = "env." + EnvironmentVariableNames.GitHubToken;
+}

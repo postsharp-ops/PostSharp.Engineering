@@ -188,8 +188,27 @@ scenario (§3) in two important ways:
 - **Limited "bot" identity, not the developer's rights.** Claude mode reads `CLAUDE_`-prefixed environment
   variables and passes them into the container **unprefixed** — e.g. `CLAUDE_GITHUB_TOKEN` becomes
   `GITHUB_TOKEN`, and `CLAUDE_GIT_USER_NAME` / `CLAUDE_GIT_USER_EMAIL` set the commit identity. The CI host
-  populates these from a restricted bot account, so the autonomous session acts with the **bot's** scoped
+  populates these from a restricted bot identity, so the autonomous session acts with the **bot's** scoped
   tokens, never the rights of the authenticated user who configured the agent.
+
+  On TeamCity, `CLAUDE_GITHUB_TOKEN` is a build-scoped GitHub App token like any other, but issued under a
+  connection of its own. A build configuration issues exactly one token, so the agent's build configuration
+  *replaces* the connection and the parameter it would otherwise inherit from its repository, by setting
+  `AdditionalCiBuildConfiguration.GitHubAppToken`:
+
+  ```csharp
+  new PowershellAdditionalCiBuildConfiguration( "Claude", "Run Claude on Issue", ... )
+  {
+      GitHubAppToken = new GitHubAppTokenOverride( GitHubAppConnections.MetalamaAgent, "env.CLAUDE_GITHUB_TOKEN" )
+  }
+  ```
+
+  The parameter name is what makes this work end to end: the token lands in `CLAUDE_GITHUB_TOKEN` on the
+  agent, and the `CLAUDE_` forwarding above strips the prefix on the way into the container. The overriding
+  app is deliberately weaker than the one the ordinary builds use — it can open pull requests and comment on
+  issues, but holds no policy or ruleset bypass rights — so the agent cannot merge past the protections that
+  the build system itself is trusted to bypass. The connection must serve the same GitHub organization as the
+  repository; a token cannot reach across organizations.
 
 The effect is a tightly bounded autonomous session: sandboxed by the container, scoped by the bot's tokens,
 and with no human-approval escape hatch to the host.

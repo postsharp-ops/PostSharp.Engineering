@@ -167,4 +167,143 @@ public class GitHubAppBuildScopedTokenTests
             return writer.ToString();
         }
     }
+
+    private static string GenerateCode( GitHubAppBuildScopedTokenSettings settings )
+    {
+        var buildConfiguration = CreateBuildConfiguration( [] );
+        buildConfiguration.GitHubAppBuildScopedToken = settings;
+
+        var writer = new StringWriter();
+        buildConfiguration.GenerateTeamcityCode( writer );
+
+        return writer.ToString();
+    }
+
+    /// <summary>
+    /// A build configuration that does not override anything keeps the parameter every build step and build tool reads.
+    /// </summary>
+    [Fact]
+    public void ParameterName_DefaultsToTheOrdinaryGitHubToken()
+    {
+        Assert.Equal( "env.GITHUB_TOKEN", GitHubAppBuildScopedTokenSettings.DefaultParameterName );
+
+        Assert.Contains(
+            """
+            parameterName = "env.GITHUB_TOKEN"
+            """,
+            GenerateCode( new GitHubAppBuildScopedTokenSettings( GitHubAppConnections.Metalama, ["Metalama.Consolidated"] ) ),
+            StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// A build configuration that runs under an identity of its own issues its single token from another connection and
+    /// writes it to another parameter. Both must reach the generated Kotlin together.
+    /// </summary>
+    [Fact]
+    public void OverriddenConnectionAndParameter_AreBothEmitted()
+    {
+        var code = GenerateCode(
+            new GitHubAppBuildScopedTokenSettings(
+                GitHubAppConnections.MetalamaAgent,
+                ["Metalama.Consolidated"],
+                "env.CLAUDE_GITHUB_TOKEN" ) );
+
+        Assert.Contains(
+            """
+            gitHubAppBuildScopedToken {
+                        parameterName = "env.CLAUDE_GITHUB_TOKEN"
+                        connectionId = "%GITHUB_CONNECTION_METALAMA_AGENT%"
+                        targetRepositories = "Metalama.Consolidated"
+                    }
+            """,
+            code,
+            StringComparison.Ordinal );
+
+        // Exactly one token is issued, so the connection it replaces must not appear as well.
+        Assert.DoesNotContain( GitHubAppConnections.Metalama, code, StringComparison.Ordinal );
+        Assert.DoesNotContain( "env.GITHUB_TOKEN", code, StringComparison.Ordinal );
+    }
+
+    private static GitHubAppBuildScopedTokenSettings CreateSettings( TeamCityBuildConfiguration buildConfiguration )
+        => TeamCitySettingsFile.CreateBuildScopedTokenSettings(
+            new ConsoleHelper(),
+            (GitHubRepository) _consolidated.DependencyDefinition.VcsRepository,
+            _consolidated.DependencyDefinition.EffectiveGitHubAppConnectionId!,
+            buildConfiguration,
+            [] );
+
+    /// <summary>
+    /// A build configuration that declares no override inherits the connection of its repository and the ordinary
+    /// parameter.
+    /// </summary>
+    [Fact]
+    public void WithoutAnOverride_TheRepositoryConnectionAndDefaultParameterAreUsed()
+    {
+        var settings = CreateSettings( CreateBuildConfiguration( [] ) );
+
+        Assert.Equal( GitHubAppConnections.Metalama, settings.ConnectionId );
+        Assert.Equal( "env.GITHUB_TOKEN", settings.ParameterName );
+    }
+
+    /// <summary>
+    /// A build configuration that acts under an identity of its own replaces both the connection and the parameter.
+    /// </summary>
+    [Fact]
+    public void AnOverride_ReplacesTheConnectionAndTheParameter()
+    {
+        var buildConfiguration = CreateBuildConfiguration( [] );
+
+        buildConfiguration.GitHubAppTokenOverride =
+            new GitHubAppTokenOverride( GitHubAppConnections.MetalamaAgent, "env.CLAUDE_GITHUB_TOKEN" );
+
+        var settings = CreateSettings( buildConfiguration );
+
+        Assert.Equal( GitHubAppConnections.MetalamaAgent, settings.ConnectionId );
+        Assert.Equal( "env.CLAUDE_GITHUB_TOKEN", settings.ParameterName );
+    }
+
+    /// <summary>
+    /// The parameter is optional: an override that only changes the identity keeps the token in the variable that the
+    /// build steps and the build tools read.
+    /// </summary>
+    [Fact]
+    public void AnOverrideWithoutAParameter_KeepsTheDefaultParameter()
+    {
+        var buildConfiguration = CreateBuildConfiguration( [] );
+        buildConfiguration.GitHubAppTokenOverride = new GitHubAppTokenOverride( GitHubAppConnections.MetalamaAgent );
+
+        var settings = CreateSettings( buildConfiguration );
+
+        Assert.Equal( GitHubAppConnections.MetalamaAgent, settings.ConnectionId );
+        Assert.Equal( GitHubAppBuildScopedTokenSettings.DefaultParameterName, settings.ParameterName );
+    }
+
+    /// <summary>
+    /// The override substitutes the identity of the token but not its scope: the repositories the build reaches are
+    /// still derived from the connection of the repository, which serves the same organization as the overriding
+    /// connection. Deriving them from the override would compare it against the connection of every source dependency,
+    /// match none, and silently narrow the token to the owning repository.
+    /// </summary>
+    [Fact]
+    public void AnOverride_DoesNotNarrowTheTargetRepositories()
+    {
+        var buildConfiguration = CreateBuildConfiguration( new ProductProperties( _consolidated ).SourceDependencies );
+
+        buildConfiguration.GitHubAppTokenOverride =
+            new GitHubAppTokenOverride( GitHubAppConnections.MetalamaAgent, "env.CLAUDE_GITHUB_TOKEN" );
+
+        // The full set of source dependencies survives the override.
+        Assert.Contains( "Metalama.Compiler", CreateSettings( buildConfiguration ).TargetRepositories );
+
+        // Guards the reason: scoping by the overriding connection instead would strip everything but the repository.
+        var scopedByTheOverride = TeamCitySettingsFile.GetTargetRepositories(
+                new ConsoleHelper(),
+                (GitHubRepository) _consolidated.DependencyDefinition.VcsRepository,
+                GitHubAppConnections.MetalamaAgent,
+                buildConfiguration,
+                [] )
+            .ToArray();
+
+        Assert.Equal( ["Metalama.Consolidated"], scopedByTheOverride );
+    }
 }
