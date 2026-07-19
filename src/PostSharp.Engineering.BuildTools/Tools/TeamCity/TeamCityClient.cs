@@ -21,11 +21,18 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
     public class TeamCityClient : IDisposable
     {
         /// <summary>
-        /// Bounds a single REST call. Artifact downloads deliberately do not use it — see the constructor — so this
-        /// is what keeps a hung metadata call from blocking a build forever. It matches the former
-        /// <see cref="HttpClient.Timeout"/> default, so these calls behave exactly as they did.
+        /// Bounds a single REST call, i.e. every request issued through <see cref="TryGet(string,ConsoleHelper?,out
+        /// HttpResponseMessage,bool)"/> and <see cref="TryPost"/>. It is a last-resort guard against a call that
+        /// never answers, and is deliberately far longer than any healthy call needs, because a TeamCity instance
+        /// under load can take minutes to respond and failing early is worse than waiting.
         /// </summary>
-        private static readonly TimeSpan _requestTimeout = TimeSpan.FromSeconds( 100 );
+        /// <remarks>
+        /// This bounds the total duration of a call, which is the right shape for a request whose response is a
+        /// small buffered document -- including the calls that enumerate the artifact tree in
+        /// <see cref="TryDownloadArtifacts"/>. It is the wrong shape for streaming an artifact body, so that is
+        /// bounded by the idle timeout in <see cref="FileDownloader"/> instead.
+        /// </remarks>
+        private static readonly TimeSpan _requestTimeout = TimeSpan.FromMinutes( 10 );
 
         private readonly HttpClient _httpClient;
 
