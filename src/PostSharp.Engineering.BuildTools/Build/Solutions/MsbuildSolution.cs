@@ -92,23 +92,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
             if ( msbuildPath == null )
             {
-                var requestedVersion = this.MSBuildVersion ?? context.Product.MSBuildVersion;
-
-                var availableInstances = MSBuildHelper.GetMSBuildInstances( context, true )
-                    .Where( i => Directory.Exists( Path.Combine( i.Path, "MSBuild", "Current", "Bin" ) ) )
-                    .OrderByDescending( i => i.Version )
-                    .ToList();
-
-                var availableDescription = availableInstances.Count == 0
-                    ? "No Visual Studio installation with MSBuild was found on this machine."
-                    : "The following Visual Studio installations were found: "
-                      + string.Join( ", ", availableInstances.Select( i => $"{i.Name} (version {i.Version})" ) ) + ".";
-
-                context.Console.WriteError(
-                    $"Could not find msbuild.exe matching the required MSBuild version '{requestedVersion}'. {availableDescription} "
-                    + "Install the matching Visual Studio version (including the MSBuild component), "
-                    + $"or change the Product.{nameof(Product.MSBuildVersion)} property to match an installed version." );
-
+                // FindMSBuildExe has written an actionable error.
                 return false;
             }
 

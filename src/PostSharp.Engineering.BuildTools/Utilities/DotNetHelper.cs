@@ -21,9 +21,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string command,
             string arguments = "",
             bool addConfigurationFlag = false,
-            ToolInvocationOptions? options = null )
+            ToolInvocationOptions? options = null,
+            string? logName = null )
         {
-            var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag );
+            var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag, logName );
 
             options = AddSimulatedContinuousIntegrationEnvironmentVariables( settings, options );
 
@@ -44,9 +45,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             bool addConfigurationFlag,
             out int exitCode,
             out string output,
-            ToolInvocationOptions? options = null )
+            ToolInvocationOptions? options = null,
+            string? logName = null )
         {
-            var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag );
+            var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag, logName );
 
             options = AddSimulatedContinuousIntegrationEnvironmentVariables( settings, options );
 
@@ -84,7 +86,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string projectOrSolution,
             string command,
             string arguments,
-            bool addConfigurationFlag )
+            bool addConfigurationFlag,
+            string? logName )
         {
             var argsBuilder = new StringBuilder();
 
@@ -147,7 +150,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 var binaryLogFilePath = Path.Combine(
                     context.RepoDirectory,
                     context.Product.LogsDirectory,
-                    $"{Path.GetFileName( projectOrSolution )}.{command}.binlog" );
+                    $"{logName ?? Path.GetFileName( projectOrSolution )}.{command}.binlog" );
 
                 argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:\"{binaryLogFilePath}\"" );
             }

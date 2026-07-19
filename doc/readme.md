@@ -9,3 +9,4 @@ Design documentation for the PostSharp.Engineering build SDK. Read in the follow
 5. [One-Click Publishing](publish-button.md) - TeamCity "Publish All" configuration
 6. [Dependencies](dependencies.md) - Metalama dependency graph and management
 7. [DockerBuild.ps1](dockerbuild.md) - Containerized builds and Claude sandboxing
+8. [Scenario Solutions](scenario-solutions.md) - `ManyDotNetSolutions`, `ManyMSBuildSolutions` and `test.json`
