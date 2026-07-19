@@ -106,7 +106,7 @@ internal abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Updating dependencies.
         console.WriteImportantMessage( "Updating dependencies" );
 
-        if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true ) )
+        if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true, settings.CachedOnly ) )
         {
             return false;
         }

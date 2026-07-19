@@ -17,6 +17,17 @@ public class BaseDependenciesCommandSettings : CommonCommandSettings
     [Obsolete( "Use the BuildConfiguration property. " )]
     public BuildConfiguration? BuildConfiguration { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether a dependency whose artifacts are missing from the local cache must
+    /// fail the command instead of being downloaded. Note that this does not make the command work offline: the
+    /// build numbers are still resolved against TeamCity, and only the transfer of the artifacts is suppressed.
+    /// </summary>
+    [Description(
+        "Fails with an error if the artifacts of a dependency are not already in the local cache, instead of "
+        + "downloading them. Build numbers are still resolved from TeamCity." )]
+    [CommandOption( "--cached-only" )]
+    public bool CachedOnly { get; set; }
+
     public bool TryGetBuildConfiguration( BuildContext context, out BuildConfiguration configuration )
     {
 #pragma warning disable CS0618

@@ -27,7 +27,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, this.Update ) )
+            if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, this.Update, settings.CachedOnly ) )
             {
                 return false;
             }

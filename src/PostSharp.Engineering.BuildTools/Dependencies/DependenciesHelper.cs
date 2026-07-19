@@ -21,11 +21,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies;
 
 internal static class DependenciesHelper
 {
+    /// <param name="cachedOnly">When <c>true</c>, a dependency whose artifacts are missing from the local cache
+    /// throws <see cref="DependencyNotCachedException"/> instead of being downloaded.</param>
     public static bool UpdateOrFetchDependencies(
         BuildContext context,
         BuildConfiguration configuration,
         DependenciesConfigurationFile dependenciesConfigurationFile,
-        bool update )
+        bool update,
+        bool cachedOnly = false )
     {
         (DependencyDefinition? Definition, ParametrizedDependency? Parametrized) GetDependencyInfo( KeyValuePair<string, DependencySource> dependencyPair )
         {
@@ -87,7 +90,7 @@ internal static class DependenciesHelper
             }
 
             // Download build server dependencies.
-            if ( tc != null && !DownloadArtifacts( context, tc, iterationDependencies ) )
+            if ( tc != null && !DownloadArtifacts( context, tc, iterationDependencies, cachedOnly ) )
             {
                 return false;
             }
@@ -387,7 +390,8 @@ internal static class DependenciesHelper
     private static bool DownloadArtifacts(
         BuildContext context,
         TeamCityClient teamCity,
-        ImmutableDictionary<string, ResolvedDependency> dependencies )
+        ImmutableDictionary<string, ResolvedDependency> dependencies,
+        bool cachedOnly )
     {
         foreach ( var dependency in dependencies.Values )
         {
@@ -434,7 +438,8 @@ internal static class DependenciesHelper
                     buildId.BuildTypeId,
                     buildId.BuildNumber,
                     artifactsDirectory,
-                    dependency.IsAliased ? dependency : null ) )
+                    dependency.IsAliased ? dependency : null,
+                    cachedOnly ) )
             {
                 return false;
             }
@@ -579,6 +584,7 @@ internal static class DependenciesHelper
         string ciBuildTypeId,
         int buildNumber,
         string artifactsPath,
+        bool cachedOnly,
         out string restoreDirectory )
     {
         restoreDirectory = Path.Combine(
@@ -592,6 +598,16 @@ internal static class DependenciesHelper
 
         if ( !File.Exists( completedFile ) )
         {
+            // Checked before anything is deleted below: under --cached-only the cache must be left exactly as it
+            // was found, including a partial directory left behind by an interrupted download.
+            if ( cachedOnly )
+            {
+                throw new DependencyNotCachedException(
+                    $"The artifacts of '{dependencyName}' build #{buildNumber} of {ciBuildTypeId} are not in the local cache, "
+                    + $"and --cached-only forbids downloading them. Expected the marker file '{completedFile}'. "
+                    + "Run the command without --cached-only to populate the cache." );
+            }
+
             if ( Directory.Exists( restoreDirectory ) )
             {
                 Directory.Delete( restoreDirectory, true );
@@ -623,9 +639,10 @@ internal static class DependenciesHelper
         string ciBuildTypeId,
         int buildNumber,
         string artifactsPath,
-        ResolvedDependency? aliasedDependency )
+        ResolvedDependency? aliasedDependency,
+        bool cachedOnly )
     {
-        if ( !DownloadBuild( context, teamCity, dependencyName, ciBuildTypeId, buildNumber, artifactsPath, out var restoreDirectory ) )
+        if ( !DownloadBuild( context, teamCity, dependencyName, ciBuildTypeId, buildNumber, artifactsPath, cachedOnly, out var restoreDirectory ) )
         {
             return false;
         }
