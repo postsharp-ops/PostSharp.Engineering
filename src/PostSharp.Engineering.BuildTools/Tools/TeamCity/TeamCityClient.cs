@@ -13,12 +13,27 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
 {
     public class TeamCityClient : IDisposable
     {
+        /// <summary>
+        /// Bounds a single REST call, i.e. every request issued through <see cref="TryGet(string,ConsoleHelper?,out
+        /// HttpResponseMessage,bool)"/> and <see cref="TryPost"/>. It is a last-resort guard against a call that
+        /// never answers, and is deliberately far longer than any healthy call needs, because a TeamCity instance
+        /// under load can take minutes to respond and failing early is worse than waiting.
+        /// </summary>
+        /// <remarks>
+        /// This bounds the total duration of a call, which is the right shape for a request whose response is a
+        /// small buffered document -- including the calls that enumerate the artifact tree in
+        /// <see cref="TryDownloadArtifacts"/>. It is the wrong shape for streaming an artifact body, so that is
+        /// bounded by the idle timeout in <see cref="FileDownloader"/> instead.
+        /// </remarks>
+        private static readonly TimeSpan _requestTimeout = TimeSpan.FromMinutes( 10 );
+
         private readonly HttpClient _httpClient;
 
         public TeamCityClient( string baseAddress, string token )
@@ -26,6 +41,29 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
             this._httpClient = new HttpClient();
             this._httpClient.BaseAddress = new Uri( baseAddress );
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
+
+            // HttpClient.Timeout bounds a request only up to the response headers: reads from the response body
+            // stream are not covered by it at all (verified on .NET 8 -- a body that goes silent after the headers
+            // arrive hangs indefinitely rather than timing out). On this client, which also streams artifacts,
+            // that is the worst of both worlds. It fails a request whose headers are slow to arrive over a
+            // saturated link, while giving a stalled transfer no protection whatsoever.
+            // FileDownloader applies an idle timeout that does cover the body; the REST calls below bound
+            // themselves per request, which is where a total-duration limit is actually the right shape.
+            this._httpClient.Timeout = Timeout.InfiniteTimeSpan;
+        }
+
+        /// <summary>
+        /// Bounds one REST call while still honoring Ctrl-C. A response obtained with this token must be fully
+        /// buffered before the source is disposed, which holds for the calls below: they use the default
+        /// <see cref="HttpCompletionOption.ResponseContentRead"/>, so the body has already been read by the time
+        /// the call returns.
+        /// </summary>
+        private static CancellationTokenSource CreateRequestTimeoutSource()
+        {
+            var source = CancellationTokenSource.CreateLinkedTokenSource( ConsoleHelper.CancellationToken );
+            source.CancelAfter( _requestTimeout );
+
+            return source;
         }
 
         private static void ReportHttpErrorIfAny( HttpResponseMessage response, ConsoleHelper? console )
@@ -46,7 +84,8 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
 
         private bool TryGet( string path, ConsoleHelper? console, out HttpResponseMessage response, bool writeError = true )
         {
-            response = this._httpClient.GetAsync( path, ConsoleHelper.CancellationToken ).ConfigureAwait( false ).GetAwaiter().GetResult();
+            using var timeout = CreateRequestTimeoutSource();
+            response = this._httpClient.GetAsync( path, timeout.Token ).ConfigureAwait( false ).GetAwaiter().GetResult();
 
             if ( writeError )
             {
@@ -66,7 +105,9 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
         private bool TryPost( string path, string payload, ConsoleHelper console, out HttpResponseMessage response )
         {
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
-            response = this._httpClient.PostAsync( path, content, ConsoleHelper.CancellationToken ).ConfigureAwait( false ).GetAwaiter().GetResult();
+
+            using var timeout = CreateRequestTimeoutSource();
+            response = this._httpClient.PostAsync( path, content, timeout.Token ).ConfigureAwait( false ).GetAwaiter().GetResult();
 
             ReportHttpErrorIfAny( response, console );
 
