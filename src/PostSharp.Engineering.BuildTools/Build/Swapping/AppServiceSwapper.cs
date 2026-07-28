@@ -68,19 +68,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Swapping
                 return SuccessCode.Error;
             }
 
-            context.Console.WriteMessage( $"Swapping {this.SourceSlot} slot with {this.TargetSlot} slot of {this.AppServiceName} app service." );
-
-            var args =
-                $"webapp deployment slot swap --subscription {this.SubscriptionId} --resource-group {this.ResourceGroupName} --name {this.AppServiceName} --slot {this.SourceSlot} --target-slot {this.TargetSlot}";
-
-            if ( settings.Dry )
-            {
-                context.Console.WriteImportantMessage( $"Dry run: {args}." );
-
-                return SuccessCode.Success;
-            }
-
-            return AzHelper.Run( context, args, settings.Dry ) ? SuccessCode.Success : SuccessCode.Error;
+            return AppServiceHelper.Swap(
+                context,
+                this.SubscriptionId,
+                this.ResourceGroupName,
+                this.AppServiceName,
+                this.SourceSlot,
+                this.TargetSlot,
+                settings.Dry )
+                ? SuccessCode.Success
+                : SuccessCode.Error;
         }
 
         public override SuccessCode CleanUpAfterSwap(

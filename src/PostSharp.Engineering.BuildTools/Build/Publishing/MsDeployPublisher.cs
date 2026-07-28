@@ -22,6 +22,33 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
     {
         private readonly ImmutableArray<MsDeployConfiguration> _configurations;
 
+        /// <summary>
+        /// When set to <c>true</c>, every slot deployed to is swapped into production as soon as the
+        /// <see cref="ArtifactPublisher.Testers"/> have passed, in the same build. The default is <c>false</c>, which
+        /// leaves the promotion to a <see cref="Swapping.Swapper"/> and therefore to a separate build configuration.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The separate swap exists so that a human decides when users see a change, and it is worth its ceremony
+        /// wherever such a decision is actually taken. Where it is not, a slot nobody promotes is a build nobody
+        /// reads, and this turns the deployment back into one step without giving up the gate: the swap runs only
+        /// after every file published and every tester passed, so an unverified build stays in the slot and the build
+        /// goes red.
+        /// </para>
+        /// <para>
+        /// <b>Do not also declare a <see cref="Swapping.AppServiceSwapper"/> for the same site.</b> It would not add a
+        /// second gate; it would swap an already-swapped slot, which puts the previous build back into production.
+        /// </para>
+        /// </remarks>
+        public bool SwapAfterDeployment { get; init; }
+
+        /// <summary>
+        /// When set to <c>true</c>, the default, a slot swapped by <see cref="SwapAfterDeployment"/> is stopped
+        /// afterwards, as <see cref="Swapping.AppServiceSwapper"/> does: after the swap it runs what production was
+        /// running a moment ago, against production's data. Ignored when <see cref="SwapAfterDeployment"/> is false.
+        /// </summary>
+        public bool StopSlotAfterSwap { get; init; } = true;
+
         public MsDeployPublisher( IReadOnlyCollection<MsDeployConfiguration> configurations )
             : base( Pattern.Create( configurations.Select( c => c.PackageFileName ).ToArray() ) )
         {
@@ -88,13 +115,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildArguments buildArguments,
             BuildConfigurationInfo configuration )
         {
-            // Several configurations can target the same slot with different virtual directories.
-            var slots = this._configurations
-                .Where( c => c.StartSlotAfterDeployment )
-                .Select( c => (c.SubscriptionId, c.ResourceGroupName, c.SiteName, c.SlotName) )
-                .Distinct();
-
-            foreach ( var slot in slots )
+            foreach ( var slot in this.DistinctSlots( c => c.StartSlotAfterDeployment ) )
             {
                 if ( !AppServiceHelper.Start(
                         context,
@@ -110,6 +131,75 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
             return SuccessCode.Success;
         }
+
+        /// <summary>
+        /// Promotes what has just been deployed and verified. See <see cref="SwapAfterDeployment"/>.
+        /// </summary>
+        protected override SuccessCode OnPublishSucceeded(
+            BuildContext context,
+            PublishSettings settings,
+            (string Private, string Public) directories,
+            BuildArguments buildArguments,
+            BuildConfigurationInfo configuration )
+        {
+            if ( !this.SwapAfterDeployment )
+            {
+                return SuccessCode.Success;
+            }
+
+            foreach ( var slot in this.DistinctSlots( _ => true ) )
+            {
+                // A configuration that deploys straight to the site has nothing to swap, and 'slot swap --slot
+                // production' is a request to swap production with itself. Refused rather than skipped: the flag says
+                // the deployment ends in production, and silently not swapping would leave a build nobody promoted
+                // while the log said the deployment succeeded.
+                if ( AppServiceHelper.IsProductionSlot( slot.SlotName ) )
+                {
+                    context.Console.WriteError(
+                        $"Cannot swap '{slot.SiteName}': it is deployed to the production slot, so there is nothing to promote. "
+                        + $"Set {nameof(this.SwapAfterDeployment)} to false, or deploy to a staging slot." );
+
+                    return SuccessCode.Error;
+                }
+
+                if ( !AppServiceHelper.Swap(
+                        context,
+                        slot.SubscriptionId,
+                        slot.ResourceGroupName,
+                        slot.SiteName,
+                        slot.SlotName,
+                        AppServiceHelper.ProductionSlotName,
+                        settings.Dry ) )
+                {
+                    return SuccessCode.Error;
+                }
+
+                if ( this.StopSlotAfterSwap
+                     && !AppServiceHelper.Stop(
+                         context,
+                         slot.SubscriptionId,
+                         slot.ResourceGroupName,
+                         slot.SiteName,
+                         slot.SlotName,
+                         settings.Dry ) )
+                {
+                    return SuccessCode.Error;
+                }
+            }
+
+            return SuccessCode.Success;
+        }
+
+        /// <summary>
+        /// The slots this publisher deploys to, each once: several configurations can target the same slot with
+        /// different virtual directories, and starting, swapping or stopping one twice is at best noise.
+        /// </summary>
+        private IEnumerable<(string SubscriptionId, string ResourceGroupName, string SiteName, string SlotName)> DistinctSlots(
+            Func<MsDeployConfiguration, bool> predicate )
+            => this._configurations
+                .Where( predicate )
+                .Select( c => (c.SubscriptionId, c.ResourceGroupName, c.SiteName, c.SlotName) )
+                .Distinct();
 
         public override SuccessCode PublishFile(
             BuildContext context,
