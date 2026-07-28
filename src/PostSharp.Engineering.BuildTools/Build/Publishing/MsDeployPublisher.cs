@@ -34,8 +34,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             MsDeployConfiguration configuration,
             [MaybeNullWhen( false )] out PublishProfile publishProfile )
         {
-            var args =
-                $"webapp deployment list-publishing-profiles --subscription {configuration.SubscriptionId} --resource-group {configuration.ResourceGroupName} --name {configuration.SiteName} --slot {configuration.SlotName}";
+            // Through AppServiceHelper.CreateArgs rather than by string concatenation, because Azure addresses the
+            // production slot by the ABSENCE of --slot: passing '--slot production' looks for a deployment slot
+            // literally named "production" and fails. That rule already lives in AppServiceHelper (which is why
+            // starting and stopping a slotless site works), and this was the one place that did not use it, so a
+            // site deployed without a staging slot could not be published to at all.
+            var args = AppServiceHelper.CreateArgs(
+                "webapp deployment list-publishing-profiles",
+                configuration.SubscriptionId,
+                configuration.ResourceGroupName,
+                configuration.SiteName,
+                configuration.SlotName );
 
             if ( !AzHelper.Query( context, args, settings.Dry, out var profiles ) )
             {
