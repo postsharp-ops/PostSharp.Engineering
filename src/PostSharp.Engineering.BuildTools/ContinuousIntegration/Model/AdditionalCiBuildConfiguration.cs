@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Docker;
 using System.Collections.Generic;
 
@@ -48,6 +49,18 @@ public abstract class AdditionalCiBuildConfiguration
     public BuildAgentRequirements? BuildAgentRequirements { get; init; }
 
     public BuildConfigurationParameter[]? Parameters { get; init; }
+
+    /// <summary>
+    /// Gets the triggers that start this build configuration, or <c>null</c> for one that is only ever started by
+    /// hand. A <see cref="NightlyBuildTrigger"/> here is what turns an additional configuration from a button into
+    /// a scheduled job.
+    /// </summary>
+    /// <remarks>
+    /// Worth setting <see cref="ReuseLastSuccessfulBuild"/> alongside a schedule. A nightly build fires against
+    /// whatever the branch holds at the time, and without it the snapshot dependency demands a build of that exact
+    /// revision, so a quiet repository queues a fresh build of the dependency every night for nothing.
+    /// </remarks>
+    public IBuildTrigger[]? BuildTriggers { get; init; }
 
     public string? Dockerfile { get; init; }
 
