@@ -71,6 +71,37 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         }
 
         /// <summary>
+        /// Swaps <paramref name="sourceSlot"/> into <paramref name="targetSlot"/>, which defaults to the production
+        /// slot. Unlike the other operations here, this one names the target slot explicitly: <c>slot swap</c> takes
+        /// <c>--target-slot production</c> literally, where <c>webapp start</c> and friends require its absence.
+        /// </summary>
+        public static bool Swap(
+            BuildContext context,
+            string subscriptionId,
+            string resourceGroupName,
+            string siteName,
+            string sourceSlot,
+            string? targetSlot,
+            bool dry )
+        {
+            targetSlot ??= ProductionSlotName;
+
+            context.Console.WriteMessage(
+                $"Swapping the '{sourceSlot}' slot of the '{siteName}' app service into '{targetSlot}'." );
+
+            var args = CreateSwapArgs( subscriptionId, resourceGroupName, siteName, sourceSlot, targetSlot );
+
+            if ( dry )
+            {
+                context.Console.WriteImportantMessage( $"Dry run: {args}." );
+
+                return true;
+            }
+
+            return AzHelper.Run( context, args, dry );
+        }
+
+        /// <summary>
         /// Requests the root of the site until it returns any HTTP response, so that the caller does not pay the cold
         /// start. Any response, including a server error, means that the worker is up.
         /// </summary>
@@ -131,6 +162,21 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
         }
 
+        /// <summary>
+        /// Builds the arguments of a slot swap. Deliberately not <see cref="CreateArgs"/>: that one drops
+        /// <c>--slot</c> for the production slot, because <c>webapp start</c> and <c>webapp stop</c> address the site
+        /// itself by omission, whereas <c>slot swap</c> takes <c>--target-slot production</c> literally and is the one
+        /// command that names it.
+        /// </summary>
+        internal static string CreateSwapArgs(
+            string subscriptionId,
+            string resourceGroupName,
+            string siteName,
+            string sourceSlot,
+            string targetSlot )
+            => $"webapp deployment slot swap --subscription {subscriptionId} --resource-group {resourceGroupName} "
+               + $"--name {siteName} --slot {sourceSlot} --target-slot {targetSlot}";
+
         internal static string CreateArgs( string command, string subscriptionId, string resourceGroupName, string siteName, string? slotName )
         {
             var args = $"{command} --subscription {subscriptionId} --resource-group {resourceGroupName} --name {siteName}";
@@ -143,7 +189,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             return args;
         }
 
-        private static bool IsProductionSlot( string? slotName )
+        /// <summary>
+        /// Determines whether <paramref name="slotName"/> names the site itself rather than a deployment slot. Azure
+        /// addresses it by the absence of <c>--slot</c>, and it is the one slot that cannot be swapped.
+        /// </summary>
+        public static bool IsProductionSlot( string? slotName )
             => string.IsNullOrEmpty( slotName ) || string.Equals( slotName, ProductionSlotName, StringComparison.OrdinalIgnoreCase );
 
         private static string FormatSite( string siteName, string? slotName )

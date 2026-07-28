@@ -47,6 +47,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildConfigurationInfo configuration )
             => SuccessCode.Success;
 
+        /// <summary>
+        /// Called after all artifact files have been published <i>and</i> every one of the <see cref="Testers"/> has
+        /// passed. It is the hook for a step that must not run against an unverified deployment, such as swapping a
+        /// staging slot into production. It is not called when any file or any tester failed, and it is not called
+        /// when no file matched <see cref="Files"/>, because then nothing was deployed.
+        /// </summary>
+        protected virtual SuccessCode OnPublishSucceeded(
+            BuildContext context,
+            PublishSettings settings,
+            (string Private, string Public) directories,
+            BuildArguments buildArguments,
+            BuildConfigurationInfo configuration )
+            => SuccessCode.Success;
+
         protected override bool Publish(
             BuildContext context,
             PublishSettings settings,
@@ -131,6 +145,28 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
                     foreach ( var tester in this.Testers )
                     {
                         switch ( tester.Execute( context, directories.Private, buildArguments, settings.Dry ) )
+                        {
+                            case SuccessCode.Success:
+                                break;
+
+                            case SuccessCode.Error:
+                                success = false;
+
+                                break;
+
+                            case SuccessCode.Fatal:
+                                return false;
+
+                            default:
+                                throw new NotImplementedException();
+                        }
+                    }
+
+                    // Guarded by success rather than by the loop, so that a failed tester skips this even though the
+                    // loop itself runs to the end: the point of the hook is that it acts on a verified deployment.
+                    if ( success )
+                    {
+                        switch ( this.OnPublishSucceeded( context, settings, directories, buildArguments, configuration ) )
                         {
                             case SuccessCode.Success:
                                 break;
