@@ -14,6 +14,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         private static string? _cmdArgsFormat;
 
+        // `az login` persists its session for the whole process, so it needs to run only once even though every
+        // AzHelper.Query/Run calls Login first. Mirrors GitHelper._credentialsConfigured. Never reset: a process
+        // authenticates once and keeps that session for its lifetime.
+        private static bool _isLoggedIn;
+
         private static bool TryFormatCmdArgs( ConsoleHelper console, string args, [MaybeNullWhen( false )] out string cmdArgs )
         {
             if ( _cmdArgsFormat == null )
@@ -41,6 +46,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public static bool Login( BuildContext context, bool dry = false )
         {
+            // Already authenticated for the lifetime of this process; the az session is reused.
+            if ( _isLoggedIn )
+            {
+                return true;
+            }
+
             string azArgs;
 
             var console = context.Console;
@@ -74,6 +85,13 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     console.WriteImportantMessage(
                         $"{EnvironmentVariableNames.AzIdentityUserName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
 
+                    // There is no login command to run here; we rely on the ambient az session. Remember it (except
+                    // on a dry run) so this message is not repeated before every az command.
+                    if ( !dry )
+                    {
+                        _isLoggedIn = true;
+                    }
+
                     return true;
                 }
 
@@ -89,6 +107,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 console.WriteImportantMessage( $"Dry run: {_exe} {cmdArgs}" );
 
+                // A dry run does not authenticate, so it must not mark the process as logged in.
                 return true;
             }
             else
@@ -103,6 +122,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 }
 
                 console.WriteSuccess( "`az login` was successful." );
+
+                _isLoggedIn = true;
 
                 return true;
             }
