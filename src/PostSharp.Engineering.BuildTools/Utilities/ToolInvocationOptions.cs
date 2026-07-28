@@ -30,6 +30,53 @@ public record ToolInvocationOptions(
 
     public ImmutableArray<ReplacePattern> ReplacePatterns { get; init; } = ImmutableArray<ReplacePattern>.Empty;
 
+    /// <summary>
+    /// Literal values that must never reach the log: passwords, tokens, connection strings. Every line the tool
+    /// helper writes goes through <see cref="Redact"/> first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A tool that takes a secret on its command line leaks it twice, and neither place is output the child
+    /// produced, so no output filter catches them: once where the command line is echoed before the process
+    /// starts, and again in the "failed with exit code" message. Both survive into the CI build log, readable by
+    /// anyone with access to the build.
+    /// </para>
+    /// <para>
+    /// This is not hypothetical. <c>MsDeployPublisher</c> passes an App Service publish password this way, and it
+    /// was recovered in clear text from a TeamCity log. Its arguments are even assembled with a <c>$(Password)</c>
+    /// placeholder so that the dry run stays safe, which shows the leak was never intended, only unguarded.
+    /// </para>
+    /// <para>
+    /// <b>Where a tool accepts the secret by environment variable or file, prefer that over this</b>:
+    /// <see cref="EnvironmentVariables"/> is already kept out of the echoed command line. Use this when the tool
+    /// offers no alternative.
+    /// </para>
+    /// </remarks>
+    public ImmutableArray<string> Secrets { get; init; } = ImmutableArray<string>.Empty;
+
+    /// <summary>
+    /// Replaces every value in <see cref="Secrets"/> with <c>***</c>.
+    /// </summary>
+    public string Redact( string text )
+    {
+        if ( this.Secrets.IsDefaultOrEmpty || string.IsNullOrEmpty( text ) )
+        {
+            return text;
+        }
+
+        foreach ( var secret in this.Secrets )
+        {
+            // An empty secret matches at every position, which would replace the whole line with asterisks: that
+            // hides the message without protecting anything.
+            if ( !string.IsNullOrEmpty( secret ) )
+            {
+                text = text.Replace( secret, "***", StringComparison.Ordinal );
+            }
+        }
+
+        return text;
+    }
+
     public bool FilterOutput { get; init; } = true;
 
     /// <summary>

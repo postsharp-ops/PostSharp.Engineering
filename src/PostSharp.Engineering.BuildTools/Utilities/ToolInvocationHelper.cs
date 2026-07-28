@@ -38,6 +38,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string? workingDirectory = null,
             ToolInvocationOptions? options = null )
         {
+            options ??= ToolInvocationOptions.Default;
+
             if ( !InvokeTool(
                     console,
                     fileName,
@@ -50,7 +52,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
             else if ( exitCode != 0 )
             {
-                console.WriteError( $"The process `\"{fileName}\" {commandLine}` failed with exit code {exitCode}." );
+                // Redacted: this repeats the command line, so a secret passed as an argument would land in the log
+                // on every failure. See ToolInvocationOptions.Secrets.
+                console.WriteError(
+                    $"The process `\"{fileName}\" {options.Redact( commandLine )}` failed with exit code {exitCode}." );
 
                 return false;
             }
@@ -88,6 +93,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             void HandleErrorData( string s )
             {
+                // A tool that fails on a bad credential usually quotes the argument back at you, so the child's own
+                // output is a third way the secret reaches the log. msdeploy does exactly this.
+                s = options.Redact( s );
+
                 if ( options.FilterOutput )
                 {
                     if ( !string.IsNullOrWhiteSpace( s ) )
@@ -103,6 +112,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             void HandleOutputData( string s )
             {
+                s = options.Redact( s );
+
                 if ( options.FilterOutput )
                 {
                     if ( !string.IsNullOrWhiteSpace( s ) )
@@ -349,10 +360,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                     };
 
-                    // Log the command line, but not the one with expanded environment variables, so we don't expose secrets.
+                    // Log the command line, but not the one with expanded environment variables, so we don't expose
+                    // secrets. Environment variables are only half of it: a secret passed as an ARGUMENT is already
+                    // in commandLine, so it is redacted here too. See ToolInvocationOptions.Secrets.
                     if ( !options.Silent )
                     {
-                        console.WriteImportantMessage( "{0} {1}", process.StartInfo.FileName, commandLine );
+                        console.WriteImportantMessage( "{0} {1}", process.StartInfo.FileName, options.Redact( commandLine ) );
                     }
 
                     using ( process )

@@ -161,11 +161,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             }
             else
             {
+                // msdeploy takes the publish password as an argument and offers no environment-variable or file
+                // alternative, so it cannot be kept off the command line. Declaring it as a secret is what keeps it
+                // out of the log: the echoed command line, the "failed with exit code" message and msdeploy's own
+                // output all go through redaction. Before this it was recoverable in clear text from any CI build
+                // log, which is a credential that deploys arbitrary code to the app service.
+                var options = ToolInvocationOptions.Default with { Secrets = [publishProfile.Password] };
+
                 return ToolInvocationHelper.InvokeTool(
                     context.Console,
                     exe,
                     args.Replace( "$(Password)", publishProfile.Password, StringComparison.Ordinal ),
-                    Environment.CurrentDirectory )
+                    Environment.CurrentDirectory,
+                    options )
                     ? SuccessCode.Success
                     : SuccessCode.Error;
             }
