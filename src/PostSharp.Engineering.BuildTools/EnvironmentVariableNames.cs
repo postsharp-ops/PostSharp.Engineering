@@ -36,6 +36,15 @@ internal static class EnvironmentVariableNames
     [Secret] public const string GitHubReviewerToken = "GITHUB_REVIEWER_TOKEN";
     public const string GitHubAuthorEmail = "GITHUB_AUTHOR_EMAIL";
 
+    // GitHub App identity, read by GitHubAppCredentials and used by GitHubAppTokenSource to mint installation access
+    // tokens. Both are in All below, which is what makes DockerBuild.ps1 forward them into the build container, where
+    // the process that needs them runs. This is an addition to the TeamCity build-scoped token
+    // (GitHubAppTokenOverride), not a replacement for it: a build-scoped token cannot reach the repositories of another
+    // GitHub organization, because a token belongs to one installation and an installation to one account. The app id
+    // is not a secret; the key is, and it travels as the PEM text or as its base64 encoding.
+    public const string GitHubAppId = "GITHUB_APP_ID";
+    [Secret] public const string GitHubAppPrivateKey = "GITHUB_APP_PRIVATE_KEY";
+
     // VS Marketplace
     [Secret] public const string VsMarketplaceAccessToken = "VS_MARKETPLACE_ACCESS_TOKEN";
 
@@ -71,6 +80,8 @@ internal static class EnvironmentVariableNames
         AzureDevOpsToken,
         GitHubReviewerToken,
         GitHubAuthorEmail,
+        GitHubAppId,
+        GitHubAppPrivateKey,
         _gitUserEmail,
         _gitUserName,
         NuGetOrgApiKey,

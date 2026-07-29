@@ -16,6 +16,7 @@ using PostSharp.Engineering.BuildTools.DotNetTools;
 using PostSharp.Engineering.BuildTools.Tools;
 using PostSharp.Engineering.BuildTools.Tools.Csproj;
 using PostSharp.Engineering.BuildTools.Tools.Git;
+using PostSharp.Engineering.BuildTools.Tools.GitHub;
 using PostSharp.Engineering.BuildTools.Tools.NuGet;
 using PostSharp.Engineering.BuildTools.Tools.Processes;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -233,6 +234,13 @@ namespace PostSharp.Engineering.BuildTools
                         tools.AddCommand<WaitCommand>( "wait" )
                             .WithData( data )
                             .WithDescription( "Wait a given number of seconds. When used to test the behavior of the the --timeout argument." );
+
+                        tools.AddCommand<GetGitHubAppTokenCommand>( "github-app-token" )
+                            .WithData( data )
+                            .WithDescription(
+                                "Mints GitHub App installation access tokens, one per repository owner, and writes them to a file as NAME=VALUE lines. "
+                                + "Unlike the TeamCity build-scoped token, these can span several GitHub organizations. Requires GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY." )
+                            .WithExample( "--repository", "metalama/Metalama", "--repository", "postsharp/PostSharp" );
 
                         tools.AddBranch(
                             "csproj",
