@@ -70,4 +70,17 @@ public abstract class AdditionalCiBuildConfiguration
     /// substitutes the identity of the token rather than adding a second one.
     /// </summary>
     public GitHubAppTokenOverride? GitHubAppToken { get; init; }
+
+    /// <summary>
+    /// Gets the TeamCity artifact rules for this configuration, or <c>null</c> to publish nothing. One rule per
+    /// entry, such as <c>+:artifacts/preflight.log</c>.
+    /// </summary>
+    /// <remarks>
+    /// An additional configuration publishes nothing by default, which is right for one whose whole result is its
+    /// exit code and wrong for one that writes a file somebody will want afterwards. The case that prompted this is
+    /// a nightly job whose script transcribes itself to <c>artifacts/preflight.log</c> for the agent that runs next
+    /// in the same container: the file dies with the container, so when a run reported that transcript as empty
+    /// while the build log showed the opposite, there was no way to tell which of them was right.
+    /// </remarks>
+    public string[]? ArtifactRules { get; init; }
 }

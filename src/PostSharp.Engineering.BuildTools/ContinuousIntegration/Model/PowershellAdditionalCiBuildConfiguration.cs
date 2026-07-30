@@ -144,7 +144,11 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             },
             SnapshotDependencies = snapshotDependencies?.ToArray(),
             Parameters = this.Parameters,
-            BuildTriggers = this.BuildTriggers
+            BuildTriggers = this.BuildTriggers,
+
+            // Escaped rather than real newlines: the generator un-escapes them into the Kotlin triple-quoted
+            // string, so a rule list assembled with "\n" here would break out of it.
+            ArtifactRules = this.ArtifactRules == null ? null : string.Join( @"\n", this.ArtifactRules )
         };
 
         return downstreamMergeConfiguration;
