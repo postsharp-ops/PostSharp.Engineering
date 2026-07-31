@@ -188,9 +188,15 @@ public abstract class ManySolutions : Solution
         {
             var builder = ImmutableArray.CreateBuilder<TestableSolution>();
 
-            bool AddFiles( string directory, string searchPattern, BuildMethod testMethod = Model.BuildMethod.Test )
+            bool AddFiles( string directory, BuildMethod testMethod, params string[] searchPatterns )
             {
-                var projFiles = Directory.GetFiles( directory, searchPattern );
+                // Distinct because a single file can match more than one pattern: on a volume that keeps 8.3 short
+                // names, Directory.GetFiles with a three-character pattern extension such as "*.sln" also returns
+                // "*.slnx" files, which would otherwise be added twice.
+                var projFiles = searchPatterns
+                    .SelectMany( p => Directory.GetFiles( directory, p ) )
+                    .Distinct( StringComparer.OrdinalIgnoreCase )
+                    .ToArray();
 
                 if ( projFiles.Length > 0 )
                 {
@@ -205,11 +211,12 @@ public abstract class ManySolutions : Solution
             void ProcessDirectory( string directory )
             {
                 // Do not process recursively if we find a file we can build.
-                // The order of processing is significant.
-                if ( AddFiles( directory, "*.proj", Model.BuildMethod.Build )
-                     || AddFiles( directory, "*.sln" )
-                     || AddFiles( directory, "*.csproj" )
-                     || AddFiles( directory, "Program.cs" ) )
+                // The order of processing is significant. Both solution formats are treated together: .slnx is the
+                // newer XML solution file, and a directory may hold either.
+                if ( AddFiles( directory, Model.BuildMethod.Build, "*.proj" )
+                     || AddFiles( directory, Model.BuildMethod.Test, "*.sln", "*.slnx" )
+                     || AddFiles( directory, Model.BuildMethod.Test, "*.csproj" )
+                     || AddFiles( directory, Model.BuildMethod.Test, "Program.cs" ) )
                 {
                     return;
                 }
