@@ -29,7 +29,7 @@ public static class TemplateDependencies
     }
 
     public static ProductFamily Family { get; } =
-        new( "Template", "2023.0", DevelopmentDependencies.Family, MetalamaDependencies.V2025_1.Family )
+        new( "Template", "2023.0", DevelopmentDependencies.Family, MetalamaDependencies.V2026_1.Family )
         {
             GitHubAppConnectionId = GitHubAppConnections.PostSharp
         };

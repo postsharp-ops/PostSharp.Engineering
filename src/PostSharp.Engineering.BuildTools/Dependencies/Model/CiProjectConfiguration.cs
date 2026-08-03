@@ -13,6 +13,14 @@ public class CiProjectConfiguration
     /// </summary>
     public string VcsRootProjectId { get; }
 
+    /// <summary>
+    /// Gets the identifier of the VCS root, or <c>null</c> when it follows the default convention and is therefore
+    /// derived from <see cref="VcsRootProjectId"/> and the repository name by <see cref="Tools.TeamCity.TeamCityHelper.GetVcsId(DependencyDefinition)"/>.
+    /// This is set only for products whose VCS root does not follow that convention, typically because their family
+    /// has no per-product project level.
+    /// </summary>
+    public string? VcsRootId { get; }
+
     public ConfigurationSpecific<string> BuildTypes { get; }
 
     public string? PullRequestStatusCheckBuildType { get; }
@@ -36,10 +44,12 @@ public class CiProjectConfiguration
         string baseUrl,
         bool pullRequestRequiresStatusCheck = true,
         string? pullRequestStatusCheckBuildType = null,
-        string? vcsRootProjectId = null )
+        string? vcsRootProjectId = null,
+        string? vcsRootId = null )
     {
         this.ProjectId = projectId;
         this.VcsRootProjectId = vcsRootProjectId ?? projectId.ParentId;
+        this.VcsRootId = vcsRootId;
         this.BuildTypes = buildTypes;
         this.PullRequestStatusCheckBuildType = pullRequestRequiresStatusCheck ? pullRequestStatusCheckBuildType ?? $"{this.ProjectId}_DebugBuild" : null;
         this.DeploymentBuildType = deploymentBuildType;

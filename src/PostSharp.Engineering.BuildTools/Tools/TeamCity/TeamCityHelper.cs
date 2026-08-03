@@ -260,7 +260,8 @@ public static class TeamCityHelper
         bool hasVersionBump = true,
         bool pullRequestRequiresStatusCheck = true,
         string? pullRequestStatusCheckBuildType = null,
-        string? vcsRootProjectId = null )
+        string? vcsRootProjectId = null,
+        string? vcsRootId = null )
     {
         var buildTypes = new ConfigurationSpecific<string>(
             $"{teamCityProjectId}_DebugBuild",
@@ -288,7 +289,8 @@ public static class TeamCityHelper
             baseUrl,
             pullRequestRequiresStatusCheck,
             pullRequestStatusCheckBuildType,
-            vcsRootProjectId );
+            vcsRootProjectId,
+            vcsRootId );
     }
 
     private static string ReplaceDots( string input, string substitute = "" ) => input.Replace( ".", substitute, StringComparison.Ordinal );
@@ -304,6 +306,19 @@ public static class TeamCityHelper
         var projectId = parentProjectId == null ? subProjectId : $"{parentProjectId}_{subProjectId}";
 
         return new TeamCityProjectId( projectId, parentProjectId ?? "_Root" );
+    }
+
+    /// <summary>
+    /// Gets the <see cref="TeamCityProjectId"/> of a product that is alone in its family. Such a family has no
+    /// per-product project level: the version-level project (e.g. <c>MetalamaVsx_MetalamaVsx20261</c>) directly
+    /// contains the build configurations and is a direct child of the product project (e.g. <c>MetalamaVsx</c>),
+    /// which is also where the VCS root is stored.
+    /// </summary>
+    public static TeamCityProjectId GetSingleProductFamilyProjectId( string productName, string productFamilyVersion )
+    {
+        var productProjectId = GetProjectIdFromName( productName );
+
+        return new TeamCityProjectId( $"{productProjectId}_{productProjectId}{ReplaceDots( productFamilyVersion )}", productProjectId );
     }
 
     public static TeamCityProjectId GetProjectId( string projectName, string? parentProjectName = null, string? productFamilyVersion = null )
@@ -406,7 +421,8 @@ public static class TeamCityHelper
     }
 
     public static string GetVcsId( DependencyDefinition dependencyDefinition )
-        => GetVcsId( dependencyDefinition.VcsRepository, dependencyDefinition.CiConfiguration.VcsRootProjectId );
+        => dependencyDefinition.CiConfiguration.VcsRootId
+           ?? GetVcsId( dependencyDefinition.VcsRepository, dependencyDefinition.CiConfiguration.VcsRootProjectId );
 
     private static string GetVcsId( VcsRepository repository, string? projectId )
         => $"{projectId ?? "Root"}_{repository.Name.Replace( ".", "", StringComparison.Ordinal )}";
@@ -414,7 +430,10 @@ public static class TeamCityHelper
     private static bool TryCreateVcsRoot( TeamCityClient tc, BuildContext context, string? projectId, out string vcsRootId )
     {
         var repository = context.Product.DependencyDefinition.VcsRepository;
-        vcsRootId = GetVcsId( repository, projectId );
+
+        // The VCS root ID must match the one referenced by the generated settings.kts, so we honor the explicit
+        // ID of the product when it has one instead of deriving it from the repository name.
+        vcsRootId = context.Product.DependencyDefinition.CiConfiguration.VcsRootId ?? GetVcsId( repository, projectId );
 
         context.Console.WriteMessage( $"Retrieving VCS roots of '{projectId}' project." );
 

@@ -59,7 +59,7 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2026.0", DevelopmentDependencies.Family, PostSharpDependencies.V2026_0.Family )
         {
-            UpstreamProductFamily = V2025_1.Family,
+            // No UpstreamProductFamily - the 2025.1 family has been retired.
             ConsolidatedProjectName = "Metalama.Consolidated",
             GitHubAppConnectionId = GitHubAppConnections.Metalama
         };
