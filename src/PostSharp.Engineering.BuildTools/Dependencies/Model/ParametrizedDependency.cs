@@ -57,6 +57,27 @@ public record ParametrizedDependency
     /// </summary>
     public DependencyArtifactPickup ArtifactPickup { get; init; } = DependencyArtifactPickup.Snapshot;
 
+    /// <summary>
+    /// Gets a value indicating whether the public builds of this reference are looked up on
+    /// <see cref="DependencyDefinition.PublishingBranch"/> instead of <see cref="DependencyDefinition.Branch"/>.
+    /// </summary>
+    /// <remarks>
+    /// This is needed once a family is released: it keeps building its non-public configurations on the development
+    /// branch, but it produces public builds only on the release branch, so the newest public build left on the
+    /// development branch eventually gets old enough that the build server cleans up its artifacts. Only the public
+    /// configuration is redirected, because the other configurations are not built on the publishing branch at all.
+    /// </remarks>
+    public bool UsesPublishingBranch { get; init; }
+
+    /// <summary>
+    /// Gets the branch on which the builds of this reference are looked up for a given mapped
+    /// <paramref name="dependencyConfiguration"/>. See <see cref="UsesPublishingBranch"/>.
+    /// </summary>
+    public string GetBuildBranch( BuildConfiguration dependencyConfiguration )
+        => this.UsesPublishingBranch && dependencyConfiguration == BuildConfiguration.Public
+            ? this.Definition.PublishingBranch
+            : this.Definition.Branch;
+
     /// <summary></summary>
     public DependencyDefinition Definition { get; init; }
 
@@ -80,4 +101,12 @@ public static class ParametrizedDependencyExtensions
     /// </summary>
     public static ParametrizedDependency WithLastSuccessfulOnly( this ParametrizedDependency dependency )
         => dependency with { ArtifactPickup = DependencyArtifactPickup.LastSuccessful };
+
+    /// <summary>
+    /// Returns a copy of <paramref name="dependency"/> whose builds are looked up on
+    /// <see cref="DependencyDefinition.PublishingBranch"/> instead of <see cref="DependencyDefinition.Branch"/>.
+    /// See <see cref="ParametrizedDependency.UsesPublishingBranch"/>.
+    /// </summary>
+    public static ParametrizedDependency WithPublishingBranch( this ParametrizedDependency dependency )
+        => dependency with { UsesPublishingBranch = true };
 }

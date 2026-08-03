@@ -336,7 +336,13 @@ internal static class DependenciesHelper
                     var dependencyConfiguration = dependency.Parametrized.ConfigurationMapping[configuration];
 
                     ciBuildType = dependency.Dependency.CiConfiguration.BuildTypes[dependencyConfiguration];
-                    branchName = branch.Name;
+
+                    // The default branch is stored before the configuration is known, so a reference that reads its
+                    // public builds from the publishing branch is redirected here. A branch set explicitly by the
+                    // user is not overridden.
+                    branchName = dependency.Source.Origin == DependencyConfigurationOrigin.Default
+                        ? dependency.Parametrized.GetBuildBranch( dependencyConfiguration )
+                        : branch.Name;
                 }
                 else if ( buildId != null )
                 {
@@ -364,7 +370,9 @@ internal static class DependenciesHelper
                 else
                 {
                     ciBuildType = dependency.Dependency.CiConfiguration.BuildTypes[configuration];
-                    branchName = dependency.Dependency.Branch;
+
+                    // Transitive dependencies have no ParametrizedDependency, so they always use the development branch.
+                    branchName = dependency.Parametrized?.GetBuildBranch( configuration ) ?? dependency.Dependency.Branch;
                 }
 
                 if ( !TryGetLatestBuildId(

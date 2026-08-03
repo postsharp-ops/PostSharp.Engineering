@@ -133,6 +133,8 @@ public class VersionFile
             }
             else
             {
+                // The branch stored here cannot depend on the build configuration, which is not known at this point.
+                // ResolveBuildNumbersFromBranches substitutes the publishing branch where it applies.
                 dependencySource = DependencySource.CreateBuildServerSource(
                     new CiLatestBuildOfBranch( dependencyDefinition.Definition.Branch ),
                     DependencyConfigurationOrigin.Default );

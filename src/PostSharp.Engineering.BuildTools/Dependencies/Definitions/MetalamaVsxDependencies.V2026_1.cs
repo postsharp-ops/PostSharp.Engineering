@@ -33,6 +33,13 @@ public static partial class MetalamaVsxDependencies
         private static readonly TeamCityProjectId _teamCityProjectId =
             TeamCityHelper.GetSingleProductFamilyProjectId( _projectName, Family.Version );
 
+        /// <summary>
+        /// The configuration mapping shared by both Metalama dependencies: the last good build of Metalama in the
+        /// configuration matching the one of Metalama.Vsx.
+        /// </summary>
+        private static readonly ConfigurationSpecific<BuildConfiguration> _metalamaConfigurations =
+            new( BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public );
+
         public static DependencyDefinition MetalamaVsx { get; } = new(
             Family,
             _projectName,
@@ -47,15 +54,15 @@ public static partial class MetalamaVsxDependencies
             [
                 DevelopmentDependencies.PostSharpEngineering,
                 MetalamaDependencies.V2026_1.Metalama
-                    .ToDependency()
+                    .ToDependency( _metalamaConfigurations )
                     .WithLastSuccessfulOnly(),
+                // Metalama 2026.0 is released: it still builds daily on develop/2026.0, but it publishes only from
+                // release/2026.0, and the newest public build left on develop/2026.0 is old enough that TeamCity has
+                // cleaned up its artifacts. Look its builds up on the publishing branch instead.
                 MetalamaDependencies.V2026_0.Metalama
-                    .ToDependency(
-                        new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Public,
-                            BuildConfiguration.Public,
-                            BuildConfiguration.Public ) )
+                    .ToDependency( _metalamaConfigurations )
                     .WithAlias( "Metalama20260" )
+                    .WithPublishingBranch()
                     .WithLastSuccessfulOnly(),
                 PostSharpDependencies.V2026_0.PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
