@@ -44,7 +44,11 @@ public static class TeamCityHelper
         return ImmutableDictionary<string, string?>.Empty;
     }
 
-    public static bool TryConnectTeamCity( CiProjectConfiguration configuration, ConsoleHelper console, [NotNullWhen( true )] out TeamCityClient? client )
+    public static bool TryConnectTeamCity(
+        CiProjectConfiguration configuration,
+        ConsoleHelper console,
+        [NotNullWhen( true )] out TeamCityClient? client,
+        bool verbose = false )
     {
         var teamcityTokenVariable = configuration.TokenEnvironmentVariableName;
 
@@ -58,13 +62,13 @@ public static class TeamCityHelper
             return false;
         }
 
-        client = new TeamCityClient( configuration.BaseUrl, token );
+        client = new TeamCityClient( configuration.BaseUrl, token, verbose ? console : null );
 
         return true;
     }
 
     public static bool TryConnectTeamCity( BuildContext context, [NotNullWhen( true )] out TeamCityClient? client )
-        => TryConnectTeamCity( context.Product.DependencyDefinition.CiConfiguration, context.Console, out client );
+        => TryConnectTeamCity( context.Product.DependencyDefinition.CiConfiguration, context.Console, out client, context.Settings.Verbose );
 
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {

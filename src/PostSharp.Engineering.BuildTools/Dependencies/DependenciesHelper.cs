@@ -624,7 +624,18 @@ internal static class DependenciesHelper
             Directory.CreateDirectory( restoreDirectory );
             context.Console.WriteMessage( $"Downloading {dependencyName} build #{buildNumber} of {ciBuildTypeId}" );
 
-            if ( !teamCity.TryDownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsPath, restoreDirectory, !context.Settings.NoProgress ) )
+            // Verbose mode trades the progress bar for the trace: the live display of the progress bar would
+            // overwrite the trace lines, and the trace is what verbose mode was asked for.
+            var showProgress = !context.Settings.NoProgress && !context.Settings.Verbose;
+
+            if ( !teamCity.TryDownloadArtifacts(
+                    context.Console,
+                    ciBuildTypeId,
+                    buildNumber,
+                    artifactsPath,
+                    restoreDirectory,
+                    showProgress,
+                    context.Settings.Verbose ) )
             {
                 return false;
             }

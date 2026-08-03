@@ -3,6 +3,7 @@
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -31,17 +32,22 @@ internal class FileDownloader : IDisposable
     private readonly StringTrimmer _descriptionTrimmer;
     private readonly CancellationToken _cancellationToken;
     private readonly TimeSpan _stallTimeout;
+    private readonly bool _verbose;
 
     private bool _used;
 
     /// <param name="stallTimeout">Overrides <see cref="DefaultStallTimeout"/>. Only tests pass this, so that they do
     /// not have to wait out the production window.</param>
+    /// <param name="verbose">Traces the body transfer of every attempt. The HTTP trace stops at the response headers,
+    /// because an artifact is requested with <see cref="HttpCompletionOption.ResponseHeadersRead"/>, so how many bytes
+    /// actually arrive -- and how that compares to the announced length -- is only visible from here.</param>
     public static Task<bool> DownloadAsync(
         IEnumerable<DownloadedFile> files,
         HttpClient httpClient,
         ConsoleHelper console,
         bool showProgress,
-        TimeSpan? stallTimeout = null )
+        TimeSpan? stallTimeout = null,
+        bool verbose = false )
     {
         var cancellationToken = ConsoleHelper.CancellationToken;
         var effectiveStallTimeout = stallTimeout ?? DefaultStallTimeout;
@@ -58,12 +64,13 @@ internal class FileDownloader : IDisposable
                         new RemainingTimeColumn(),
                         new ElapsedTimeColumn(),
                         new SpinnerColumn() )
-                    .StartAsync( ctx => new FileDownloader( files, httpClient, ctx, console, cancellationToken, effectiveStallTimeout ).DownloadAsync() ),
+                    .StartAsync(
+                        ctx => new FileDownloader( files, httpClient, ctx, console, cancellationToken, effectiveStallTimeout, verbose ).DownloadAsync() ),
                 cancellationToken );
         }
         else
         {
-            return new FileDownloader( files, httpClient, null, console, cancellationToken, effectiveStallTimeout ).DownloadAsync();
+            return new FileDownloader( files, httpClient, null, console, cancellationToken, effectiveStallTimeout, verbose ).DownloadAsync();
         }
     }
 
@@ -73,7 +80,8 @@ internal class FileDownloader : IDisposable
         ProgressContext? progressContext,
         ConsoleHelper console,
         CancellationToken cancellationToken,
-        TimeSpan stallTimeout )
+        TimeSpan stallTimeout,
+        bool verbose )
     {
         this._files = files;
         this._httpClient = httpClient;
@@ -82,6 +90,7 @@ internal class FileDownloader : IDisposable
         this._descriptionTrimmer = new StringTrimmer( this._console.ConsoleWidth / 2 );
         this._cancellationToken = cancellationToken;
         this._stallTimeout = stallTimeout;
+        this._verbose = verbose;
     }
 
     private async Task<(bool Result, DownloadedFile File, Exception? Exception)> DownloadFileAsync(
@@ -130,6 +139,12 @@ internal class FileDownloader : IDisposable
                 }
                 catch ( Exception e )
                 {
+                    if ( this._verbose )
+                    {
+                        this._console.WriteMessage(
+                            FormattableString.Invariant( $"FAIL {file.Description} on attempt {attempt + 1} of {_maxRetries + 1}: {e.GetType().Name}: {e.Message}" ) );
+                    }
+
                     if ( attempt < _maxRetries && !this._cancellationToken.IsCancellationRequested )
                     {
                         attempt++;
@@ -196,14 +211,39 @@ internal class FileDownloader : IDisposable
 
             var buffer = new byte[4096];
             int bytesRead;
+            long totalBytesRead = 0;
+            var bodyStopwatch = Stopwatch.StartNew();
+            var timeToFirstByte = TimeSpan.Zero;
 
             while ( (bytesRead = await httpStream.ReadAsync( buffer, stallWatchdog.Token )) != 0 )
             {
                 // Data arrived, so restart the idle window before doing anything else with it.
                 stallWatchdog.CancelAfter( this._stallTimeout );
 
+                if ( totalBytesRead == 0 )
+                {
+                    timeToFirstByte = bodyStopwatch.Elapsed;
+                }
+
+                totalBytesRead += bytesRead;
+
                 await fileStream.WriteAsync( buffer.AsMemory( 0, bytesRead ), stallWatchdog.Token );
                 progress?.Increment( bytesRead );
+            }
+
+            if ( this._verbose )
+            {
+                var announced = response.Content.Headers.ContentLength;
+
+                // A body that stops short of what the response announced means the artifact is not really there,
+                // however healthy the headers looked, so it is called out rather than left to be inferred.
+                var truncation = announced != null && totalBytesRead != announced
+                    ? FormattableString.Invariant( $" -- SHORT by {announced - totalBytesRead} bytes of the announced {announced}" )
+                    : null;
+
+                this._console.WriteMessage(
+                    FormattableString.Invariant(
+                        $"BODY {file.Description}: {totalBytesRead} bytes in {bodyStopwatch.ElapsedMilliseconds} ms, first byte after {timeToFirstByte.TotalMilliseconds:F0} ms{truncation}" ) );
             }
         }
         catch ( OperationCanceledException ) when ( !this._cancellationToken.IsCancellationRequested )

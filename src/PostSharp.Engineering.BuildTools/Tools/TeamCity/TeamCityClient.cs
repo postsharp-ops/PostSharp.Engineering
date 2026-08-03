@@ -36,9 +36,18 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
 
         private readonly HttpClient _httpClient;
 
-        public TeamCityClient( string baseAddress, string token )
+        /// <param name="traceConsole">When not <c>null</c>, every request and response is traced to this console.
+        /// Only verbose mode passes it, because the download progress bar would overwrite the trace.</param>
+        public TeamCityClient( string baseAddress, string token, ConsoleHelper? traceConsole = null )
         {
-            this._httpClient = new HttpClient();
+            HttpMessageHandler handler = new HttpClientHandler();
+
+            if ( traceConsole != null )
+            {
+                handler = new HttpTraceHandler( traceConsole, handler );
+            }
+
+            this._httpClient = new HttpClient( handler );
             this._httpClient.BaseAddress = new Uri( baseAddress );
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
 
@@ -152,38 +161,62 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
             return true;
         }
 
+        /// <summary>
+        /// Gets the last successful build of a branch, whose name the build server may record either bare
+        /// (<c>release/2026.0</c>) or fully qualified (<c>refs/heads/release/2026.0</c>).
+        /// </summary>
+        /// <remarks>
+        /// Both spellings are queried and the newer build wins. Trying them in order and taking the first that
+        /// answers is not enough: reconfiguring a VCS root changes the spelling the server records from that point
+        /// on, which splits the history of a single branch between the two names, each locator returning only its
+        /// own side and neither of them empty. First-hit-wins then pins the branch to whichever side happens to be
+        /// tried first -- which is how a reconfigured branch kept resolving to the last build made *before* the
+        /// reconfiguration, long after newer ones existed, and how `dependencies update` stopped being able to move
+        /// off it: the artifacts of that stale build had meanwhile been cleaned up, so every download of it failed.
+        /// </remarks>
         public bool TryGetLatestBuildId( ConsoleHelper console, string buildTypeId, string branchName, out CiBuildId? buildId )
         {
-            var prefix = "refs/heads/";
+            const string prefix = "refs/heads/";
 
-            string nakedBranchName;
+            var nakedBranchName = branchName.StartsWith( prefix, StringComparison.Ordinal )
+                ? branchName.Substring( prefix.Length )
+                : branchName;
 
-            if ( branchName.StartsWith( prefix, StringComparison.Ordinal ) )
+            var foundNaked = this.TryGetLatestBuildIdCore( console, buildTypeId, nakedBranchName, out var nakedBuildId, out var nakedInternalId );
+
+            var foundPrefixed = this.TryGetLatestBuildIdCore(
+                console,
+                buildTypeId,
+                prefix + nakedBranchName,
+                out var prefixedBuildId,
+                out var prefixedInternalId );
+
+            if ( !foundNaked && !foundPrefixed )
             {
-                nakedBranchName = branchName.Substring( prefix.Length );
-            }
-            else
-            {
-                nakedBranchName = branchName;
+                console.WriteError( $"Cannot get the last build for build type '{buildTypeId}', branch '{branchName}': No build available." );
+                buildId = null;
+
+                return false;
             }
 
-            if ( this.TryGetLatestBuildIdCore( console, buildTypeId, nakedBranchName, out buildId ) )
-            {
-                return true;
-            }
+            // Compared on the internal identifier rather than the build number, because the number is only
+            // guaranteed to increase within one build configuration when its format is left alone, while the
+            // identifier always does.
+            var nakedWins = foundNaked && (!foundPrefixed || nakedInternalId > prefixedInternalId);
 
-            if ( this.TryGetLatestBuildIdCore( console, buildTypeId, prefix + nakedBranchName, out buildId ) )
-            {
-                return true;
-            }
+            buildId = nakedWins ? nakedBuildId : prefixedBuildId;
 
-            console.WriteError( $"Cannot get the last build for build type '{buildTypeId}', branch '{branchName}': No build available." );
-            
-            return false;
+            return true;
         }
 
-        private bool TryGetLatestBuildIdCore( ConsoleHelper console, string buildTypeId, string branchName, out CiBuildId? buildId )
+        private bool TryGetLatestBuildIdCore(
+            ConsoleHelper console,
+            string buildTypeId,
+            string branchName,
+            out CiBuildId? buildId,
+            out long internalId )
         {
+            internalId = -1;
             var path = $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchName}";
 
             if ( !this.TryGet( path, console, out var response ) )
@@ -207,6 +240,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
             else
             {
                 buildId = new CiBuildId( int.Parse( build.Attribute( "number" )!.Value, CultureInfo.InvariantCulture ), buildTypeId );
+                internalId = long.Parse( build.Attribute( "id" )!.Value, CultureInfo.InvariantCulture );
 
                 return true;
             }
@@ -218,7 +252,8 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
             int buildNumber,
             string artifactsPath,
             string restoreDirectory,
-            bool showProgress )
+            bool showProgress,
+            bool verbose = false )
         {
             IEnumerable<DownloadedFile> GetFiles( string urlOrPath, string targetDirectory )
             {
@@ -272,7 +307,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
 
             var files = GetFiles( basePath, baseTargetDirectory );
 
-            var success = FileDownloader.DownloadAsync( files, this._httpClient, console, showProgress )
+            var success = FileDownloader.DownloadAsync( files, this._httpClient, console, showProgress, verbose: verbose )
                 .GetAwaiter()
                 .GetResult();
 
