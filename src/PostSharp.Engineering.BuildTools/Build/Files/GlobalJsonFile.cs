@@ -15,6 +15,18 @@ internal static class GlobalJsonFile
     {
         var product = context.Product;
 
+        if ( !product.GenerateGlobalJson )
+        {
+            if ( overrideSdkVersion != null )
+            {
+                context.Console.WriteError( "The --sdk-version option was used, but the Product.GenerateGlobalJson property is false." );
+
+                return false;
+            }
+
+            return true;
+        }
+
         if ( product.DotNetSdkVersion == null )
         {
             if ( overrideSdkVersion != null )
