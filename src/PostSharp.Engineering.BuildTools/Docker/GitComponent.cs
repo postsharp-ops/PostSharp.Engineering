@@ -12,20 +12,33 @@ public class GitComponent : ContainerComponent
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
-        // Use full Git for Windows (not MinGit) to include bash.exe which is required by Claude Code
-        writer.WriteLine(
-            """
-            RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.50.0.windows.1/PortableGit-2.50.0-64-bit.7z.exe -OutFile PortableGit.exe; `
-                Start-Process -FilePath .\PortableGit.exe -ArgumentList '-o"C:\git"', '-y' -Wait; `
-                Remove-Item PortableGit.exe
+        if ( operatingSystem == ContainerOperatingSystem.Linux )
+        {
+            writer.WriteLine(
+                """
+                RUN apt-get update && apt-get install -y git \
+                    && rm -rf /var/lib/apt/lists/*
 
-            # Add git to PATH using ENV directive (persists across shell switches)
-            ENV PATH="C:\git\cmd;C:\git\bin;C:\git\usr\bin;${PATH}"
+                RUN git config --system core.longpaths true && git config --system core.autocrlf false
+                """ );
+        }
+        else
+        {
+            // Use full Git for Windows (not MinGit) to include bash.exe which is required by Claude Code
+            writer.WriteLine(
+                """
+                RUN Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.50.0.windows.1/PortableGit-2.50.0-64-bit.7z.exe -OutFile PortableGit.exe; `
+                    Start-Process -FilePath .\PortableGit.exe -ArgumentList '-o"C:\git"', '-y' -Wait; `
+                    Remove-Item PortableGit.exe
 
-            RUN git config --system core.longpaths true; git config --system core.autocrlf false
+                # Add git to PATH using ENV directive (persists across shell switches)
+                ENV PATH="C:\git\cmd;C:\git\bin;C:\git\usr\bin;${PATH}"
 
-            # Set CLAUDE_CODE_GIT_BASH_PATH for Claude Code
-            ENV CLAUDE_CODE_GIT_BASH_PATH=C:\git\bin\bash.exe
-            """ );
+                RUN git config --system core.longpaths true; git config --system core.autocrlf false
+
+                # Set CLAUDE_CODE_GIT_BASH_PATH for Claude Code
+                ENV CLAUDE_CODE_GIT_BASH_PATH=C:\git\bin\bash.exe
+                """ );
+        }
     }
 }

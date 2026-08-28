@@ -9,5 +9,11 @@ public enum ContainerHostKind
     Windows,
 
     [Obsolete]
-    Wsl
+    Wsl,
+
+    /// <summary>
+    /// A Linux container engine. Used by an image chain whose
+    /// <see cref="ContainerRequirements.OperatingSystem"/> is <see cref="ContainerOperatingSystem.Linux"/>.
+    /// </summary>
+    Linux
 }

@@ -26,6 +26,12 @@ internal static class ContainerHelper
             ],
 #pragma warning restore CS0612 // Type or member is obsolete
 
+            ContainerHostKind.Linux =>
+            [
+                new BuildAgentRequirement( "teamcity.agent.jvm.os.family", "Linux", RequirementComparisonType.Matches ),
+                new BuildAgentRequirement( "env.BuildAgentType", "docker-linux-x64-md" )
+            ],
+
             _ => throw new ArgumentOutOfRangeException( nameof(hostKind) )
         };
 }

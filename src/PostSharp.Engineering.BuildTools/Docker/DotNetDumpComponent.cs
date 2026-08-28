@@ -14,12 +14,21 @@ public sealed class DotNetDumpComponent : ContainerComponent
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
-        writer.WriteLine( "RUN dotnet tool install --global dotnet-dump;" );
+        if ( operatingSystem == ContainerOperatingSystem.Linux )
+        {
+            writer.WriteLine( "RUN dotnet tool install --global dotnet-dump" );
+            writer.WriteLine();
+            writer.WriteLine( """ENV PATH="/root/.dotnet/tools:${PATH}" """.TrimEnd() );
+        }
+        else
+        {
+            writer.WriteLine( "RUN dotnet tool install --global dotnet-dump;" );
 
-        // The `dotnet tool install --global` shim is placed in %USERPROFILE%\.dotnet\tools, which is
-        // not on PATH by default. Add it so the tool (and any other globally installed .NET tools)
-        // is callable by name during container runs.
-        writer.WriteLine();
-        writer.WriteLine( """ENV PATH="C:\Users\ContainerAdministrator\.dotnet\tools;${PATH}" """.TrimEnd() );
+            // The `dotnet tool install --global` shim is placed in %USERPROFILE%\.dotnet\tools, which is
+            // not on PATH by default. Add it so the tool (and any other globally installed .NET tools)
+            // is callable by name during container runs.
+            writer.WriteLine();
+            writer.WriteLine( """ENV PATH="C:\Users\ContainerAdministrator\.dotnet\tools;${PATH}" """.TrimEnd() );
+        }
     }
 }

@@ -33,6 +33,14 @@ public abstract class ContainerComponent : IComparable<ContainerComponent>
 
     public virtual bool Validate( BuildContext context, string contextDirectory ) => true;
 
+    /// <summary>
+    /// Gets the position of this component within its layer. Components are emitted in ascending order, and
+    /// components with an equal order keep their declaration order. The default derives from
+    /// <see cref="Kind"/>, leaving gaps so that a component defined outside this assembly -- whose kind cannot
+    /// be added to <see cref="ContainerComponentKind"/> -- can place itself between two standard components.
+    /// </summary>
+    public virtual int SortOrder => (int) this.Kind * 100;
+
     public virtual int CompareTo( ContainerComponent? other )
     {
         if ( ReferenceEquals( this, other ) )
@@ -45,7 +53,7 @@ public abstract class ContainerComponent : IComparable<ContainerComponent>
             return 1;
         }
 
-        return ((int) this.Kind).CompareTo( (int) other.Kind );
+        return this.SortOrder.CompareTo( other.SortOrder );
     }
 
     public virtual void PopulateContextDirectory( BuildContext context, string directory ) { }

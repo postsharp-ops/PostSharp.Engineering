@@ -14,12 +14,26 @@ public sealed class DotNetInstallerComponent : ContainerComponent
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
-        writer.WriteLine(
-            """
-            RUN Invoke-WebRequest -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+        if ( operatingSystem == ContainerOperatingSystem.Linux )
+        {
+            writer.WriteLine(
+                """
+                RUN curl -sSL https://dot.net/v1/dotnet-install.sh -o /usr/local/bin/dotnet-install.sh \
+                    && chmod +x /usr/local/bin/dotnet-install.sh
 
-            # Add .NET to PATH using ENV directive (persists across shell switches)
-            ENV PATH="C:\Program Files\dotnet;${PATH}"
-            """ );
+                ENV DOTNET_ROOT=/usr/share/dotnet
+                ENV PATH="${DOTNET_ROOT}:${PATH}"
+                """ );
+        }
+        else
+        {
+            writer.WriteLine(
+                """
+                RUN Invoke-WebRequest -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+
+                # Add .NET to PATH using ENV directive (persists across shell switches)
+                ENV PATH="C:\Program Files\dotnet;${PATH}"
+                """ );
+        }
     }
 }

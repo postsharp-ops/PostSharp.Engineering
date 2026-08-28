@@ -51,7 +51,13 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 // Generate a chain per additional Dockerfile.
                 foreach ( var additionalDockerfile in product.AdditionalDockerfiles )
                 {
-                    if ( !image.WriteDockerfiles( context, additionalDockerfile.Name, additionalDockerfile.Components, validateBuildComponents: false ) )
+                    var additionalImage = additionalDockerfile.Requirements ?? image;
+
+                    if ( !additionalImage.WriteDockerfiles(
+                            context,
+                            additionalDockerfile.Name,
+                            additionalDockerfile.Components,
+                            validateBuildComponents: false ) )
                     {
                         return false;
                     }

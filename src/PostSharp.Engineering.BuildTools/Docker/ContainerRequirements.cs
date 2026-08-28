@@ -22,6 +22,18 @@ public record ContainerRequirements : ContainerHostRequirements
 
     public string? ImageName { get; init; }
 
+    /// <summary>
+    /// Gets the operating system of the generated image chain. Each component emits the form appropriate to
+    /// this value, so a product can declare a Linux chain beside its Windows one.
+    /// </summary>
+    public ContainerOperatingSystem OperatingSystem { get; init; } = ContainerOperatingSystem.Windows2025;
+
+    /// <summary>
+    /// Gets the external base image of the chain root, e.g. <c>ubuntu:22.04</c>. When null, the default for
+    /// <see cref="OperatingSystem"/> is used.
+    /// </summary>
+    public string? BaseImage { get; init; }
+
     public override bool IsDockerized => true;
 
     /// <summary>
@@ -159,7 +171,9 @@ public record ContainerRequirements : ContainerHostRequirements
 
             // Prepend the layer's own prolog: a root prolog (FROM the OS base) when this layer has no active
             // ancestor, otherwise a stem prolog (FROM ${BASE_IMAGE} = the parent stem).
-            ContainerComponent prolog = parentStem == null ? new RootPrologComponent() : new ChildPrologComponent( parentStem );
+            ContainerComponent prolog = parentStem == null
+                ? new RootPrologComponent( this.BaseImage )
+                : new ChildPrologComponent( parentStem );
 
             var orderedComponents = layerComponents
                 .Prepend( prolog )
@@ -185,7 +199,7 @@ public record ContainerRequirements : ContainerHostRequirements
                 }
 
                 component.PopulateContextDirectory( context, perImageContext );
-                component.WriteDockerfile( dockerfileContent, ContainerOperatingSystem.Default );
+                component.WriteDockerfile( dockerfileContent, this.OperatingSystem );
             }
 
             TextFileHelper.WriteIfDifferent( Path.Combine( dockerfilesDir, $"{stem}.Dockerfile" ), dockerfileContent.ToString(), context );

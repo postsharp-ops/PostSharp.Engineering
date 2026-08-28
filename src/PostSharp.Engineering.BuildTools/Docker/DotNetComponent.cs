@@ -51,28 +51,48 @@ public sealed class DotNetComponent : ContainerComponent
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
-        // Run script directly since we're already in a PowerShell shell
-        if ( this.DotNetComponentKind == DotNetComponentKind.Sdk )
+        if ( operatingSystem == ContainerOperatingSystem.Linux )
         {
-            writer.WriteLine(
-                $"""
-                 RUN & .\dotnet-install.ps1 -Version {this.Version} -InstallDir 'C:\Program Files\dotnet'
-                 """ );
-        }
-        else
-        {
-            var runtime = this.DotNetComponentKind switch
+            // dotnet-install.sh detects the architecture itself.
+            var runtimeArgument = this.DotNetComponentKind switch
             {
-                DotNetComponentKind.DotNetRuntime => "dotnet",
-                DotNetComponentKind.WindowsDesktopRuntime => "windowsdesktop",
-                DotNetComponentKind.AspNetCoreRuntime => "aspnetcore",
-                _ => throw new InvalidOperationException()
+                DotNetComponentKind.Sdk => "",
+                DotNetComponentKind.DotNetRuntime => " --runtime dotnet",
+                DotNetComponentKind.AspNetCoreRuntime => " --runtime aspnetcore",
+                _ => throw new InvalidOperationException(
+                    $"'{this.DotNetComponentKind}' is not available on Linux." )
             };
 
             writer.WriteLine(
                 $"""
-                 RUN & .\dotnet-install.ps1 -Version {this.Version} -Runtime {runtime} -InstallDir 'C:\Program Files\dotnet'
+                 RUN /usr/local/bin/dotnet-install.sh --version {this.Version}{runtimeArgument} --install-dir $DOTNET_ROOT
                  """ );
+        }
+        else
+        {
+            // Run script directly since we're already in a PowerShell shell
+            if ( this.DotNetComponentKind == DotNetComponentKind.Sdk )
+            {
+                writer.WriteLine(
+                    $"""
+                     RUN & .\dotnet-install.ps1 -Version {this.Version} -InstallDir 'C:\Program Files\dotnet'
+                     """ );
+            }
+            else
+            {
+                var runtime = this.DotNetComponentKind switch
+                {
+                    DotNetComponentKind.DotNetRuntime => "dotnet",
+                    DotNetComponentKind.WindowsDesktopRuntime => "windowsdesktop",
+                    DotNetComponentKind.AspNetCoreRuntime => "aspnetcore",
+                    _ => throw new InvalidOperationException()
+                };
+
+                writer.WriteLine(
+                    $"""
+                     RUN & .\dotnet-install.ps1 -Version {this.Version} -Runtime {runtime} -InstallDir 'C:\Program Files\dotnet'
+                     """ );
+            }
         }
     }
 
