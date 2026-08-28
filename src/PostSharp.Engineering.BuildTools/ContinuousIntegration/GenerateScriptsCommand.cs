@@ -43,7 +43,11 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
                 // Generate the main image chain (build [+ vs17] + claude leaf).
-                if ( !image.WriteDockerfiles( context, additionalName: null, extraComponents: [], validateBuildComponents: true ) )
+                if ( !( image with { GenerateClaudeImage = true } ).WriteDockerfiles(
+                        context,
+                        additionalName: null,
+                        extraComponents: [],
+                        validateBuildComponents: true ) )
                 {
                     return false;
                 }

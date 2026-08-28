@@ -34,6 +34,13 @@ public record ContainerRequirements : ContainerHostRequirements
     /// </summary>
     public string? BaseImage { get; init; }
 
+    /// <summary>
+    /// Gets a value indicating whether the chain ends in the Claude layers. It is set for the product's own
+    /// image and is false elsewhere, so that an additional chain -- a Linux one, for instance -- carries only
+    /// the build image.
+    /// </summary>
+    public bool GenerateClaudeImage { get; init; }
+
     public override bool IsDockerized => true;
 
     /// <summary>
@@ -66,11 +73,17 @@ public record ContainerRequirements : ContainerHostRequirements
             => additionalName == null ? layerName : $"{additionalName.ToLowerInvariant()}-{layerName}";
 
         // Assemble components. The prolog is layer-specific and is prepended per layer below, so it is not here.
-        // The Claude layer is always part of the chain.
         var allComponents = new List<ContainerComponent>
         {
-            new PowershellComponent(), new GitComponent(), new EpilogueComponent(), new ClaudeComponent(), new ClaudeAddInsComponent()
+            new PowershellComponent(), new GitComponent(), new EpilogueComponent()
         };
+
+        // The Claude layers, and the claude-pre layer they require, are emitted only for the product's own image.
+        if ( this.GenerateClaudeImage )
+        {
+            allComponents.Add( new ClaudeComponent() );
+            allComponents.Add( new ClaudeAddInsComponent() );
+        }
 
         allComponents.AddRange( this.Components );
         allComponents.AddRange( extraComponents );
