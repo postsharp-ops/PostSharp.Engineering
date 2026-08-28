@@ -40,7 +40,13 @@ namespace PostSharp.Engineering.BuildTools.Tools.TeamCity
         /// Only verbose mode passes it, because the download progress bar would overwrite the trace.</param>
         public TeamCityClient( string baseAddress, string token, ConsoleHelper? traceConsole = null )
         {
-            HttpMessageHandler handler = new HttpClientHandler();
+            // Cookies are disabled because this client authenticates with a bearer token and must not acquire a
+            // session alongside it. TeamCity issues a session cookie on the first request, and once the handler
+            // stores one, a later POST is treated as a cookie-authenticated request and is rejected with
+            // "403 Forbidden: failed CSRF check", because no tc-csrf-token parameter or X-TC-CSRF-Token header
+            // accompanies it. Reads are unaffected, so the failure appears only on the commands that write, such as
+            // the creation of a project or of a VCS root.
+            HttpMessageHandler handler = new HttpClientHandler { UseCookies = false };
 
             if ( traceConsole != null )
             {
