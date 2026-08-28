@@ -63,7 +63,10 @@ public static partial class MetalamaVsxDependencies
                     .ToDependency( _metalamaConfigurations )
                     .WithAlias( "Metalama20261" )
                     .WithLastSuccessfulOnly(),
-                PostSharpDependencies.V2027_0.PostSharp.ToDependency(
+                // PostSharp 2026.0, not 2027.0. PostSharp 2027.0 has no branch and no build configuration yet, so a
+                // reference to it would resolve to a build that does not exist and the dependency could not be fetched.
+                // Move this to PostSharpDependencies.V2027_0 once that family produces a signed distribution.
+                PostSharpDependencies.V2026_0.PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
                             BuildConfiguration.Release,
                             BuildConfiguration.Release,
