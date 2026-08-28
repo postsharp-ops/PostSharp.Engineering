@@ -72,6 +72,15 @@ internal static class ConfigurationNeutralVersionFile
 
         context.Console.WriteMessage( $"Writing '{configurationNeutralVersionsFilePath}'." );
 
+        // The product definition project ('Build*.csproj') is the project whose restore decides which version of
+        // PostSharp.Engineering.BuildTools runs. It must therefore never see the generated version files: those pin the version
+        // chosen by a previous run, which would make the pin its own input -- bumping the version in Directory.Packages.props, or
+        // with 'dependencies update-eng', would have no effect until the generated files are deleted. Excluding the whole chain,
+        // rather than just the PostSharpEngineeringVersion property, also keeps the version files of the dependencies out: those
+        // carry the version of PostSharp.Engineering that the dependency was built with, and would win once the property below is
+        // no longer assigned. The same 'Build' prefix already excludes these projects from the VerifyProductDependencies target.
+        const string notProductDefinitionCondition = "!$(MSBuildProjectName.StartsWith('Build'))";
+
         string content;
 
         if ( context.Product.AddWslSupport )
@@ -88,9 +97,9 @@ internal static class ConfigurationNeutralVersionFile
         <EngineeringConfiguration>{buildConfiguration}</EngineeringConfiguration>
     </PropertyGroup>
     <!-- Load WSL version if running under Unix/WSL -->
-    <Import Project=""{wslVersionFilePathInWslFormat}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND '$([MSBuild]::IsOSPlatform(Linux))' == 'true' AND Exists('{wslVersionFilePathInWslFormat}')""/>
+    <Import Project=""{wslVersionFilePathInWslFormat}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {notProductDefinitionCondition} AND '$([MSBuild]::IsOSPlatform(Linux))' == 'true' AND Exists('{wslVersionFilePathInWslFormat}')""/>
     <!-- Load Windows version if running under Windows -->
-    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND '$([MSBuild]::IsOSPlatform(Windows))' == 'true' AND Exists('{configurationSpecificVersionFilePath}')""/>
+    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {notProductDefinitionCondition} AND '$([MSBuild]::IsOSPlatform(Windows))' == 'true' AND Exists('{configurationSpecificVersionFilePath}')""/>
 </Project>
 ";
         }
@@ -102,7 +111,7 @@ internal static class ConfigurationNeutralVersionFile
     <PropertyGroup>
         <EngineeringConfiguration>{buildConfiguration}</EngineeringConfiguration>
     </PropertyGroup>
-    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND Exists('{configurationSpecificVersionFilePath}')""/>
+    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {notProductDefinitionCondition} AND Exists('{configurationSpecificVersionFilePath}')""/>
 </Project>
 ";
         }

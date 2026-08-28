@@ -191,13 +191,33 @@ namespace PostSharp.Engineering.BuildTools.Build.Files
                     switch ( kind )
                     {
                         case DependencySourceKind.Feed:
-                            var version = item.Element( "Version" )?.Value;
+                            {
+                                var version = item.Element( "Version" )?.Value;
 
-                            // Note that the version can be null here. It means that the version should default to the version defined in Versions.props.
+                                // Note that the version can be null here. It means that the version should default to the version defined in Versions.props.
 
-                            file._dependencies[name] = DependencySource.CreateFeed( version, origin );
+                                // A Default origin means the dependency was never configured with the 'dependencies set' command, so the source code
+                                // is its only authoritative source -- and we have just loaded that value into file._dependencies. Restoring the version
+                                // stored in this generated file instead would make the file its own input: the value written by an earlier run would be
+                                // read back and written again indefinitely, so bumping the version in source code, or with 'dependencies update-eng',
+                                // would have no effect until the file is deleted.
+                                if ( origin == DependencyConfigurationOrigin.Default
+                                     && file._dependencies.TryGetValue( name, out var defaultSource )
+                                     && defaultSource.SourceKind == DependencySourceKind.Feed )
+                                {
+                                    if ( version != null && version != defaultSource.Version )
+                                    {
+                                        console.WriteMessage(
+                                            $"The version {version} of '{name}' stored in '{filePath}' is obsolete. Using the default version {defaultSource.Version}." );
+                                    }
 
-                            break;
+                                    break;
+                                }
+
+                                file._dependencies[name] = DependencySource.CreateFeed( version, origin );
+
+                                break;
+                            }
 
                         case DependencySourceKind.Local:
                             {

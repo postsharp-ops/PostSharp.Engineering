@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Files;
 using System;
 using System.IO;
 using System.Linq;
@@ -24,7 +25,7 @@ internal class UpdateEngineeringCommand : BaseCommand<UpdateEngineeringCommandSe
         {
             do
             {
-                var exitCode = this.ExecuteOnce( context );
+                var exitCode = this.ExecuteOnce( context, settings );
 
                 if ( exitCode == ExitCode.Success )
                 {
@@ -38,13 +39,13 @@ internal class UpdateEngineeringCommand : BaseCommand<UpdateEngineeringCommandSe
         }
         else
         {
-            context.ExitCode = this.ExecuteOnce( context );
+            context.ExitCode = this.ExecuteOnce( context, settings );
 
             return context.ExitCode == ExitCode.Success;
         }
     }
 
-    private ExitCode ExecuteOnce( BuildContext context )
+    private ExitCode ExecuteOnce( BuildContext context, UpdateEngineeringCommandSettings settings )
     {
         var httpClient = new HttpClient();
 
@@ -156,6 +157,8 @@ internal class UpdateEngineeringCommand : BaseCommand<UpdateEngineeringCommandSe
 
         if ( madeAnyChange )
         {
+            RefreshGeneratedDependencyFiles( context, settings );
+
             console.WriteSuccess( $"PostSharp.Engineering successfully updated to version {lastVersion}." );
 
             // Generate scripts.
@@ -168,6 +171,45 @@ internal class UpdateEngineeringCommand : BaseCommand<UpdateEngineeringCommandSe
             console.WriteWarning( $"PostSharp.Engineering was already of the latest version ({lastVersion})." );
 
             return ExitCode.NoChangeMade;
+        }
+    }
+
+    /// <summary>
+    /// Rewrites the already-generated <c>Versions.{Configuration}.g.props</c> files so that they pick up the version we have just
+    /// written to <c>global.json</c> and <c>Directory.Packages.props</c>.
+    /// </summary>
+    /// <remarks>
+    /// Without this, the update would appear to have no effect. Those files assign <c>PostSharpEngineeringVersion</c> unconditionally
+    /// and are imported before <c>Directory.Packages.props</c>, so as long as they hold the previous version, the next build of the
+    /// product definition restores the previous package and keeps running the previous version of this tool.
+    /// </remarks>
+    private static void RefreshGeneratedDependencyFiles( BuildContext context, UpdateEngineeringCommandSettings settings )
+    {
+        var console = context.Console;
+
+        foreach ( var configuration in Enum.GetValues<BuildConfiguration>() )
+        {
+            var path = DependenciesConfigurationFile.GetPath( context, settings, configuration );
+
+            if ( !File.Exists( path ) )
+            {
+                continue;
+            }
+
+            // A failure here is not worth failing the update for: the version has already been written to the files that source
+            // control tracks, and 'prepare' regenerates these ones anyway.
+            try
+            {
+                if ( !DependenciesConfigurationFile.TryLoad( context, settings, configuration, out var dependenciesConfigurationFile )
+                     || !dependenciesConfigurationFile.TryWrite( context ) )
+                {
+                    console.WriteWarning( $"Could not refresh '{path}'. Run './Build.ps1 prepare' to update it." );
+                }
+            }
+            catch ( Exception e )
+            {
+                console.WriteWarning( $"Could not refresh '{path}': {e.Message} Run './Build.ps1 prepare' to update it." );
+            }
         }
     }
 }

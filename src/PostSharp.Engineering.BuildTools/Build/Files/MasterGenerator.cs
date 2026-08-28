@@ -43,6 +43,8 @@ internal static class MasterGenerator
             return false;
         }
 
+        EngineeringVersionConsistencyCheck.Verify( context, dependenciesOverrideFile );
+
         // We always save the Versions.g.props because it may not exist, and it may have been changed by the previous step.
         dependenciesOverrideFile.LocalBuildFile = propsFilePath;
 
