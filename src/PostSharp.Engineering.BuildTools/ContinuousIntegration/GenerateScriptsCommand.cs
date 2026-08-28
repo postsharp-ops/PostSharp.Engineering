@@ -37,20 +37,24 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         {
             EmbeddedResourceHelper.ExtractScript( context, "DockerBuild.ps1", "" );
             EmbeddedResourceHelper.ExtractScript( context, "RunClaude.ps1", "eng" );
-            var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
-            // Generate the main image chain (build [+ vs17] + claude leaf).
-            if ( !image.WriteDockerfiles( context, additionalName: null, extraComponents: [], validateBuildComponents: true ) )
+            if ( product.GenerateDockerfiles )
             {
-                return false;
-            }
+                var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
-            // Generate a chain per additional Dockerfile.
-            foreach ( var additionalDockerfile in product.AdditionalDockerfiles )
-            {
-                if ( !image.WriteDockerfiles( context, additionalDockerfile.Name, additionalDockerfile.Components, validateBuildComponents: false ) )
+                // Generate the main image chain (build [+ vs17] + claude leaf).
+                if ( !image.WriteDockerfiles( context, additionalName: null, extraComponents: [], validateBuildComponents: true ) )
                 {
                     return false;
+                }
+
+                // Generate a chain per additional Dockerfile.
+                foreach ( var additionalDockerfile in product.AdditionalDockerfiles )
+                {
+                    if ( !image.WriteDockerfiles( context, additionalDockerfile.Name, additionalDockerfile.Components, validateBuildComponents: false ) )
+                    {
+                        return false;
+                    }
                 }
             }
 
