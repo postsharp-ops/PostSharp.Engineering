@@ -72,7 +72,11 @@ public class VersionFile
 
                     var s = property.EvaluatedValue.Trim();
 
-                    return (s, property.Xml.Location.File);
+                    // A property that comes from the environment or from the command line has no backing XML, so
+                    // Xml is null and only the value is available. This is a legitimate way to override a dependency
+                    // version, and dereferencing the location would fail the command with a NullReferenceException
+                    // that names neither the property nor the cause.
+                    return (s, property.Xml?.Location.File ?? "the environment or the command line");
                 } );
 
         ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
