@@ -93,7 +93,7 @@ internal static class MasterGenerator
         }
 
         // Generating the configuration-neutral Versions.g.props for the prepared configuration.
-        ConfigurationNeutralVersionFile.Write( context, settings, settings.BuildConfiguration );
+        ConfigurationNeutralVersionFile.Write( context, settings, settings.BuildConfiguration, dependenciesOverrideFile );
 
         return true;
     }

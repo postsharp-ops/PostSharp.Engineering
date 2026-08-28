@@ -2,6 +2,7 @@
 
 using Microsoft.Build.Evaluation;
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
+using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -62,10 +63,32 @@ internal static class ConfigurationNeutralVersionFile
         return path;
     }
 
+    /// <summary>
+    /// Returns the import file of a local PostSharp.Engineering dependency, or <c>null</c> when the dependency is not
+    /// consumed from a local build. The product definition project is excluded from the generated version files, so
+    /// this file is the only way an engineering override written by the <c>dependencies set local</c> command can
+    /// reach it.
+    /// </summary>
+    private static string? GetLocalEngineeringImportFile( BuildContext context, DependenciesConfigurationFile? dependenciesConfigurationFile )
+    {
+        var dependencyName = DevelopmentDependencies.PostSharpEngineering.Name;
+
+        if ( dependenciesConfigurationFile == null
+             || !dependenciesConfigurationFile.Dependencies.TryGetValue( dependencyName, out var dependencySource )
+             || dependencySource.SourceKind != DependencySourceKind.Local )
+        {
+            return null;
+        }
+
+        return Path.GetFullPath(
+            Path.Combine( dependencySource.GetResolvedLocalPath( context, dependencyName ), dependencyName + ".Import.props" ) );
+    }
+
     public static void Write(
         BuildContext context,
         CommonCommandSettings settings,
-        BuildConfiguration buildConfiguration )
+        BuildConfiguration buildConfiguration,
+        DependenciesConfigurationFile? dependenciesConfigurationFile = null )
     {
         var configurationNeutralVersionsFilePath = GetPath( context );
         var configurationSpecificVersionFilePath = DependenciesConfigurationFile.GetPath( context, settings, buildConfiguration );
@@ -79,7 +102,23 @@ internal static class ConfigurationNeutralVersionFile
         // rather than just the PostSharpEngineeringVersion property, also keeps the version files of the dependencies out: those
         // carry the version of PostSharp.Engineering that the dependency was built with, and would win once the property below is
         // no longer assigned. The same 'Build' prefix already excludes these projects from the VerifyProductDependencies target.
-        const string notProductDefinitionCondition = "!$(MSBuildProjectName.StartsWith('Build'))";
+        const string productDefinitionCondition = "$(MSBuildProjectName.StartsWith('Build'))";
+        const string notProductDefinitionCondition = "!" + productDefinitionCondition;
+
+        // The exclusion above keeps the pinned version away from the product definition project, but a local
+        // PostSharp.Engineering dependency has to reach it, because that project is precisely the one whose restore
+        // decides which build tool runs. Its import file assigns PostSharpEngineeringVersion and adds the local
+        // artifacts to RestoreAdditionalProjectSources, so without it the 'dependencies set local' command reports an
+        // override that has no effect and the product definition keeps running the version from the feed. The import
+        // is restricted to the product definition project because the other projects already receive it through the
+        // configuration-specific file.
+        var localEngineeringImportFile = GetLocalEngineeringImportFile( context, dependenciesConfigurationFile );
+
+        var localEngineeringImport = localEngineeringImportFile == null
+            ? ""
+            : $@"
+    <!-- Local PostSharp.Engineering build, imported by the product definition project only. -->
+    <Import Project=""{localEngineeringImportFile}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {productDefinitionCondition} AND Exists('{localEngineeringImportFile}')""/>";
 
         string content;
 
@@ -99,7 +138,7 @@ internal static class ConfigurationNeutralVersionFile
     <!-- Load WSL version if running under Unix/WSL -->
     <Import Project=""{wslVersionFilePathInWslFormat}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {notProductDefinitionCondition} AND '$([MSBuild]::IsOSPlatform(Linux))' == 'true' AND Exists('{wslVersionFilePathInWslFormat}')""/>
     <!-- Load Windows version if running under Windows -->
-    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {notProductDefinitionCondition} AND '$([MSBuild]::IsOSPlatform(Windows))' == 'true' AND Exists('{configurationSpecificVersionFilePath}')""/>
+    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {notProductDefinitionCondition} AND '$([MSBuild]::IsOSPlatform(Windows))' == 'true' AND Exists('{configurationSpecificVersionFilePath}')""/>{localEngineeringImport}
 </Project>
 ";
         }
@@ -111,7 +150,7 @@ internal static class ConfigurationNeutralVersionFile
     <PropertyGroup>
         <EngineeringConfiguration>{buildConfiguration}</EngineeringConfiguration>
     </PropertyGroup>
-    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {notProductDefinitionCondition} AND Exists('{configurationSpecificVersionFilePath}')""/>
+    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND {notProductDefinitionCondition} AND Exists('{configurationSpecificVersionFilePath}')""/>{localEngineeringImport}
 </Project>
 ";
         }

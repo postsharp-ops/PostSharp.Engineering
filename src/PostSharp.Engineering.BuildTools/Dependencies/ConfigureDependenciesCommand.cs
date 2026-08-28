@@ -118,7 +118,7 @@ internal abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Writing the configurations neutral file.
-        ConfigurationNeutralVersionFile.Write( context, settings, configuration );
+        ConfigurationNeutralVersionFile.Write( context, settings, configuration, dependenciesOverrideFile );
 
         // Generate nuget.config.
         if ( !NuGetConfigFile.TryWrite( context, dependenciesOverrideFile, configuration ) ||
