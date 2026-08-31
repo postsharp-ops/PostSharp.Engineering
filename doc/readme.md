@@ -10,3 +10,4 @@ Design documentation for the PostSharp.Engineering build SDK. Read in the follow
 6. [Dependencies](dependencies.md) - Metalama dependency graph and management
 7. [DockerBuild.ps1](dockerbuild.md) - Containerized builds and Claude sandboxing
 8. [Scenario Solutions](scenario-solutions.md) - `ManyDotNetSolutions`, `ManyMSBuildSolutions` and `test.json`
+9. [Opening a Version Line](open-version-line.md) - Creating a new `YYYY.N` of a product family, end to end
