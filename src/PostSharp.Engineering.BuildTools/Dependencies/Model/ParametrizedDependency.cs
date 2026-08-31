@@ -46,11 +46,68 @@ public record ParametrizedDependency
     public string Key => this.Alias ?? this.Definition.Name;
 
     /// <summary>
-    /// Gets <see cref="Key"/> with all dots removed, for use in MSBuild property names.
+    /// Gets <see cref="Key"/> with the dots and the underscores removed, for use in MSBuild property names.
     /// </summary>
+    /// <remarks>
+    /// Underscores are removed because the key of a transitive dependency that inherits an alias separates the
+    /// discriminator with one. See <see cref="GetAliasForTransitiveDependency"/>.
+    /// </remarks>
     public string KeyWithoutDot => this.Alias != null
-        ? this.Alias.Replace( ".", "", StringComparison.Ordinal )
+        ? this.Alias.Replace( ".", "", StringComparison.Ordinal ).Replace( "_", "", StringComparison.Ordinal )
         : this.Definition.NameWithoutDot;
+
+    /// <summary>
+    /// Returns the consumer-side alias that a transitive dependency defined by <paramref name="transitiveDefinition"/>
+    /// inherits when it is reached through this reference, or <c>null</c> when that transitive dependency keeps the name
+    /// of its own definition.
+    /// </summary>
+    /// <remarks>
+    /// A transitive dependency inherits an alias only when this reference is itself aliased and when the transitive
+    /// definition belongs to the same <see cref="Model.ProductFamily"/> as this reference. Both conditions together
+    /// describe the collision that the alias exists to solve: the consumer references two versions of the same product
+    /// family, and each version declares its own definition of the transitive dependency under the same
+    /// <see cref="DependencyDefinition.Name"/>. A transitive dependency of another family, such as
+    /// <c>PostSharp.Engineering</c>, is shared by both versions and must therefore keep a single entry.
+    /// </remarks>
+    public string? GetAliasForTransitiveDependency( DependencyDefinition transitiveDefinition )
+    {
+        if ( this.Alias == null || !ReferenceEquals( transitiveDefinition.ProductFamily, this.Definition.ProductFamily ) )
+        {
+            return null;
+        }
+
+        var discriminator = this.GetAliasDiscriminator();
+
+        if ( discriminator.Length == 0 )
+        {
+            // The alias is the definition name itself, so it distinguishes nothing and there is no discriminator to append.
+            return null;
+        }
+
+        // The transitive dependency keeps the name of its own definition and receives the discriminator of this reference,
+        // e.g. Metalama.Compiler under the alias Metalama20260 gives Metalama.Compiler_20260.
+        return transitiveDefinition.Name + "_" + discriminator;
+    }
+
+    /// <summary>
+    /// Gets the part of <see cref="Alias"/> that distinguishes it from <see cref="DependencyDefinition.Name"/>, for
+    /// instance <c>20260</c> for the alias <c>Metalama20260</c> of the definition named <c>Metalama</c>. Returns the
+    /// whole alias when the alias does not start with the definition name.
+    /// </summary>
+    /// <remarks>
+    /// The leading underscores are trimmed so that a key produced by <see cref="GetAliasForTransitiveDependency"/> yields
+    /// the same discriminator as the reference it was derived from. Without the trim, the alias
+    /// <c>Metalama.Compiler_20260</c> of the definition named <c>Metalama.Compiler</c> would give <c>_20260</c>, and its
+    /// own transitive dependencies would then be suffixed with two underscores.
+    /// </remarks>
+    private string GetAliasDiscriminator()
+    {
+        var definitionName = this.Definition.Name;
+
+        return this.Alias!.StartsWith( definitionName, StringComparison.Ordinal )
+            ? this.Alias.Substring( definitionName.Length ).TrimStart( '_' )
+            : this.Alias;
+    }
 
     /// <summary>
     /// Gets the artifact pickup mode for this reference. Defaults to <see cref="DependencyArtifactPickup.Snapshot"/>.

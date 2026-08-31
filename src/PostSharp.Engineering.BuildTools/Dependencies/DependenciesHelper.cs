@@ -140,11 +140,37 @@ internal static class DependenciesHelper
             // Item type uses KeyWithoutDot — for aliased deps the transform renamed `<MetalamaDependencies>` to `<Metalama20260Dependencies>`.
             var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == directDependency.KeyWithoutDot + "Dependencies" );
 
+            // Resolve the transitive dep's definition starting from the direct dep's product family. For aliased direct
+            // deps (e.g., Metalama 2026.0 aliased into a Metalama.Vsx 2026.1 build) this is essential — the consumer's
+            // family chain only includes the *current* version of the same logical product family (V2026_1), so a
+            // consumer-rooted lookup of "Metalama.Compiler" would find V2026_1.MetalamaCompiler whose CiConfiguration
+            // has 2026.1 build type IDs that don't match the 2026.0 buildId stored in the producer's version.props.
+            // For unaliased direct deps the direct dep's family is typically the same as (or relative-included by) the
+            // consumer's, so this preserves existing behavior.
+            bool TryResolveDefinition( string dependencyName, [NotNullWhen( true )] out DependencyDefinition? definition )
+                => directDependency.Dependency.ProductFamily.TryGetDependencyDefinition( dependencyName, out definition )
+                   || context.Product.TryGetDependencyDefinition( dependencyName, out definition );
+
             foreach ( var transitiveDependency in transitiveDependencies )
             {
                 var name = transitiveDependency.EvaluatedInclude;
 
-                if ( newDependenciesBuilder.ContainsKey( name ) )
+                // A transitive dependency reached through an aliased dependency inherits that alias, so that the two
+                // versions of the same product become two tracked dependencies instead of one. The key is derived before
+                // the deduplication checks below, because it is the key under which the dependency is tracked.
+                // The probe is skipped, and the definition therefore still resolved below, when nothing is aliased.
+                ParametrizedDependency? transitiveParametrizedDependency = null;
+
+                if ( directDependency.Parametrized is { Alias: not null } aliasedDirectDependency
+                     && TryResolveDefinition( name, out var probedDefinition )
+                     && aliasedDirectDependency.GetAliasForTransitiveDependency( probedDefinition ) is { } inheritedAlias )
+                {
+                    transitiveParametrizedDependency = probedDefinition.ToDependency() with { Alias = inheritedAlias };
+                }
+
+                var key = transitiveParametrizedDependency?.Key ?? name;
+
+                if ( newDependenciesBuilder.ContainsKey( key ) )
                 {
                     // This dependency is transitively included twice through different paths.
                     continue;
@@ -159,20 +185,12 @@ internal static class DependenciesHelper
                     continue;
                 }
 
-                if ( allDependencies.TryGetValue( name, out _ ) )
+                if ( allDependencies.TryGetValue( key, out _ ) )
                 {
                     continue;
                 }
 
-                // Resolve the transitive dep's definition starting from the direct dep's product family. For aliased direct
-                // deps (e.g., Metalama 2026.0 aliased into a Metalama.Vsx 2026.1 build) this is essential — the consumer's
-                // family chain only includes the *current* version of the same logical product family (V2026_1), so a
-                // consumer-rooted lookup of "Metalama.Compiler" would find V2026_1.MetalamaCompiler whose CiConfiguration
-                // has 2026.1 build type IDs that don't match the 2026.0 buildId stored in the producer's version.props.
-                // For unaliased direct deps the direct dep's family is typically the same as (or relative-included by) the
-                // consumer's, so this preserves existing behavior.
-                if ( !directDependency.Dependency.ProductFamily.TryGetDependencyDefinition( name, out var dependencyDefinition )
-                     && !context.Product.TryGetDependencyDefinition( name, out dependencyDefinition ) )
+                if ( !TryResolveDefinition( name, out var dependencyDefinition ) )
                 {
                     context.Console.WriteError(
                         $"Cannot find the dependency definition for '{name}' referenced by '{directDependency.Dependency.Name}'. The dependency must be defined in PostSharp.Engineering." );
@@ -269,10 +287,11 @@ internal static class DependenciesHelper
                         throw new InvalidOperationException();
                 }
 
-                // Transitive deps are not declared at the consumer's use site, so they have no ParametrizedDependency / alias.
-                var newDependency = new ResolvedDependency( dependencySource, dependencyDefinition, Parametrized: null );
+                // Transitive deps are not declared at the consumer's use site, so they have a ParametrizedDependency only
+                // when they inherit an alias from an aliased direct dependency.
+                var newDependency = new ResolvedDependency( dependencySource, dependencyDefinition, transitiveParametrizedDependency );
                 newDependenciesBuilder.Add( newDependency.Key, newDependency );
-                dependenciesConfigurationFile.Dependencies[name] = dependencySource;
+                dependenciesConfigurationFile.Dependencies[newDependency.Key] = dependencySource;
             }
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
@@ -324,8 +343,9 @@ internal static class DependenciesHelper
                     // CiLatestBuildOfBranch is only ever set for direct deps (transitives carry CiBuildId).
                     // Direct deps already have ResolvedDependency.Parametrized populated, so use it directly —
                     // a Name-based lookup would return the wrong ParametrizedDependency when the consumer has
-                    // multiple aliased refs to the same Definition.Name.
-                    if ( dependency.Parametrized == null )
+                    // multiple aliased refs to the same Definition.Name. A transitive dep that inherited an alias
+                    // also has a Parametrized, so the origin is what tells the two apart.
+                    if ( dependency.Parametrized == null || dependency.Source.Origin == DependencyConfigurationOrigin.Transitive )
                     {
                         context.Console.WriteError(
                             $"The source of the transitive dependency '{dependency.Dependency.Name}' is set to CiLatestBuildOfBranch. This is allowed only for direct dependencies." );
@@ -371,7 +391,9 @@ internal static class DependenciesHelper
                 {
                     ciBuildType = dependency.Dependency.CiConfiguration.BuildTypes[configuration];
 
-                    // Transitive dependencies have no ParametrizedDependency, so they always use the development branch.
+                    // This branch is reached only when the source has neither a CiBuildId nor a CiLatestBuildOfBranch.
+                    // A transitive dependency always carries the CiBuildId read from the producer's manifest, so it
+                    // never reaches this point and never has its build number re-resolved from a branch.
                     branchName = dependency.Parametrized?.GetBuildBranch( configuration ) ?? dependency.Dependency.Branch;
                 }
 
