@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -117,7 +118,7 @@ internal class GetGitHubAppTokenCommand : BaseCommand<GetGitHubAppTokenSettings>
             }
 
             var variableName = GetVariableName( owner );
-            lines.AppendLine( $"{variableName}={token.Token}" );
+            lines.AppendLine( CultureInfo.InvariantCulture, $"{variableName}={token.Token}" );
 
             console.WriteMessage(
                 $"{variableName} reaches {string.Join( ", ", names.Select( n => $"{owner}/{n}" ) )} until {token.ExpiresOn:u}." );

@@ -63,6 +63,10 @@ ENV PATH="C:\Program Files\dotnet;${PATH}"
 RUN & .\dotnet-install.ps1 -Version 9.0.310 -InstallDir 'C:\Program Files\dotnet'
 
 
+# Install .NET Sdk 10.0.102
+RUN & .\dotnet-install.ps1 -Version 10.0.102 -InstallDir 'C:\Program Files\dotnet'
+
+
 # .NET Dump Tool
 RUN dotnet tool install --global dotnet-dump;
 

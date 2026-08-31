@@ -80,7 +80,7 @@ public sealed record GitHubAppCredentials( string AppId, string PrivateKeyPem )
 
         // Only when there is no real line break, so that a well-formed key containing a literal backslash-n
         // sequence (which a PEM body cannot) is never rewritten.
-        if ( !key.Contains( '\n' ) )
+        if ( !key.Contains( '\n', StringComparison.Ordinal ) )
         {
             key = key.Replace( "\\n", "\n", StringComparison.Ordinal );
         }

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -144,7 +145,7 @@ public class DockerTimestampContextTests
 
             var path = Path.Combine( dockerfileDirectory, dockerfile );
             File.WriteAllText( path, body );
-            invocations.AppendLine( $"Copy-TimestampToContext '{path.Replace( "\\", "\\\\", StringComparison.Ordinal )}'" );
+            invocations.AppendLine( CultureInfo.InvariantCulture, $"Copy-TimestampToContext '{path.Replace( "\\", "\\\\", StringComparison.Ordinal )}'" );
         }
 
         var script = $"""

@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>Library</OutputType>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
         <AssemblyName>PostSharp.Engineering.BuildTools</AssemblyName>
         <GenerateDocumentationFile>false</GenerateDocumentationFile>
         <LangVersion>preview</LangVersion>
@@ -36,9 +36,7 @@
         <PackageReference Include="System.Data.SqlClient" /> <!-- Resolves vulnerability. -->
         <PackageReference Include="System.Formats.Asn1" /> <!-- Resolves vulnerability. -->
         <PackageReference Include="System.Management" />
-        <PackageReference Include="System.Net.Http" /> <!-- Resolves vulnerability. -->
         <PackageReference Include="System.Text.Json" /> <!-- Resolves vulnerability. -->
-        <PackageReference Include="System.Text.RegularExpressions" /> <!-- Resolves vulnerability. -->
         <PackageReference Include="Typesense" />
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <PackageReference Include="Octokit" />

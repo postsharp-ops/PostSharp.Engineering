@@ -39,23 +39,23 @@ public class SshDeploymentTests
         var command = TeamCitySettingsFile.GetDefaultBootstrapperCommand( "C:/Deploy/App", "App.*.zip" );
 
         const string prefix = "pwsh -NoProfile -ExecutionPolicy Bypass -EncodedCommand ";
-        Assert.StartsWith( prefix, command );
+        Assert.StartsWith( prefix, command, StringComparison.Ordinal );
 
         // The payload token must be pure base64: no $, quotes, or spaces, so no outer shell can mangle it.
         var encoded = command.Substring( prefix.Length );
         Assert.Matches( "^[A-Za-z0-9+/]+={0,2}$", encoded );
-        Assert.DoesNotContain( "$", command );
-        Assert.DoesNotContain( "\"", command );
-        Assert.DoesNotContain( " ", encoded );
+        Assert.DoesNotContain( "$", command, StringComparison.Ordinal );
+        Assert.DoesNotContain( "\"", command, StringComparison.Ordinal );
+        Assert.DoesNotContain( " ", encoded, StringComparison.Ordinal );
 
         // Decoding the UTF-16LE payload yields the real extract-and-run script, including the "no archive" guard.
         var script = Encoding.Unicode.GetString( Convert.FromBase64String( encoded ) );
-        Assert.Contains( "$ErrorActionPreference = 'Stop'", script );
-        Assert.Contains( "$directory = 'C:/Deploy/App'", script );
-        Assert.Contains( "-Filter 'App.*.zip'", script );
-        Assert.Contains( "if (-not $archive) { throw", script );
-        Assert.Contains( "Expand-Archive", script );
-        Assert.Contains( "deploy.ps1", script );
+        Assert.Contains( "$ErrorActionPreference = 'Stop'", script, StringComparison.Ordinal );
+        Assert.Contains( "$directory = 'C:/Deploy/App'", script, StringComparison.Ordinal );
+        Assert.Contains( "-Filter 'App.*.zip'", script, StringComparison.Ordinal );
+        Assert.Contains( "if (-not $archive) { throw", script, StringComparison.Ordinal );
+        Assert.Contains( "Expand-Archive", script, StringComparison.Ordinal );
+        Assert.Contains( "deploy.ps1", script, StringComparison.Ordinal );
     }
 
     [Fact]
@@ -71,15 +71,15 @@ public class SshDeploymentTests
 
         var code = step.GenerateTeamCityCode();
 
-        Assert.Contains( "sshUpload {", code );
-        Assert.Contains( "transportProtocol = SSHUpload.TransportProtocol.SCP", code );
-        Assert.Contains( "sourcePath = \"artifacts/publish/private/*.zip\"", code );
-        Assert.Contains( "targetUrl = \"deploy.example.com:C:/deploy/incoming\"", code );
-        Assert.Contains( "authMethod = sshAgent {", code );
-        Assert.Contains( "username = \"deployer\"", code );
+        Assert.Contains( "sshUpload {", code, StringComparison.Ordinal );
+        Assert.Contains( "transportProtocol = SSHUpload.TransportProtocol.SCP", code, StringComparison.Ordinal );
+        Assert.Contains( "sourcePath = \"artifacts/publish/private/*.zip\"", code, StringComparison.Ordinal );
+        Assert.Contains( "targetUrl = \"deploy.example.com:C:/deploy/incoming\"", code, StringComparison.Ordinal );
+        Assert.Contains( "authMethod = sshAgent {", code, StringComparison.Ordinal );
+        Assert.Contains( "username = \"deployer\"", code, StringComparison.Ordinal );
 
         // The default port must not be emitted.
-        Assert.DoesNotContain( "port =", code );
+        Assert.DoesNotContain( "port =", code, StringComparison.Ordinal );
     }
 
     [Fact]
@@ -95,13 +95,13 @@ public class SshDeploymentTests
 
         var code = step.GenerateTeamCityCode();
 
-        Assert.Contains( "sshExec {", code );
-        Assert.Contains( "targetUrl = \"deploy.example.com\"", code );
-        Assert.Contains( "authMethod = sshAgent {", code );
-        Assert.Contains( "username = \"deployer\"", code );
+        Assert.Contains( "sshExec {", code, StringComparison.Ordinal );
+        Assert.Contains( "targetUrl = \"deploy.example.com\"", code, StringComparison.Ordinal );
+        Assert.Contains( "authMethod = sshAgent {", code, StringComparison.Ordinal );
+        Assert.Contains( "username = \"deployer\"", code, StringComparison.Ordinal );
 
         // Double quotes inside the command must be escaped for the Kotlin string literal.
-        Assert.Contains( "commands = \"pwsh -NoProfile -Command \\\"Write-Host hello\\\"\"", code );
+        Assert.Contains( "commands = \"pwsh -NoProfile -Command \\\"Write-Host hello\\\"\"", code, StringComparison.Ordinal );
     }
 
     // Kotlin interpolates '$' in string literals, so a PowerShell '$variable' in the remote command must be emitted as
@@ -119,11 +119,11 @@ public class SshDeploymentTests
 
         var code = step.GenerateTeamCityCode();
 
-        Assert.Contains( "${'$'}ErrorActionPreference", code );
-        Assert.Contains( "${'$'}dest", code );
+        Assert.Contains( "${'$'}ErrorActionPreference", code, StringComparison.Ordinal );
+        Assert.Contains( "${'$'}dest", code, StringComparison.Ordinal );
 
         // No raw, unescaped PowerShell variable sigil must survive into the Kotlin literal.
-        Assert.DoesNotContain( "\"$ErrorActionPreference", code );
+        Assert.DoesNotContain( "\"$ErrorActionPreference", code, StringComparison.Ordinal );
     }
 
     [Fact]
@@ -132,8 +132,8 @@ public class SshDeploymentTests
         var upload = new SshUploadBuildStep( "ScpUpload_0", "u", "src", "host:dir", "deployer", 2222 );
         var exec = new SshExecBuildStep( "SshExec_0", "e", "cmd", "host", "deployer", 2222 );
 
-        Assert.Contains( "port = 2222", upload.GenerateTeamCityCode() );
-        Assert.Contains( "port = 2222", exec.GenerateTeamCityCode() );
+        Assert.Contains( "port = 2222", upload.GenerateTeamCityCode(), StringComparison.Ordinal );
+        Assert.Contains( "port = 2222", exec.GenerateTeamCityCode(), StringComparison.Ordinal );
     }
 
     // Exercises the whole deployment build-config emission: DEPLOYMENT type, the SSH Agent build feature with a custom
@@ -175,14 +175,14 @@ public class SshDeploymentTests
         configuration.GenerateTeamcityCode( writer );
         var code = writer.ToString();
 
-        Assert.Contains( "type = Type.DEPLOYMENT", code );
-        Assert.Contains( "sshAgent {", code );
-        Assert.Contains( "teamcitySshKey = \"MyDeployKey\"", code );
-        Assert.Contains( "sshUpload {", code );
-        Assert.Contains( "sshExec {", code );
-        Assert.Contains( "snapshot(PublicBuild)", code );
-        Assert.Contains( "artifacts(PublicBuild)", code );
-        Assert.Contains( "artifactRules = \"+:artifacts/publish/private/**/*=>artifacts/publish/private\"", code );
+        Assert.Contains( "type = Type.DEPLOYMENT", code, StringComparison.Ordinal );
+        Assert.Contains( "sshAgent {", code, StringComparison.Ordinal );
+        Assert.Contains( "teamcitySshKey = \"MyDeployKey\"", code, StringComparison.Ordinal );
+        Assert.Contains( "sshUpload {", code, StringComparison.Ordinal );
+        Assert.Contains( "sshExec {", code, StringComparison.Ordinal );
+        Assert.Contains( "snapshot(PublicBuild)", code, StringComparison.Ordinal );
+        Assert.Contains( "artifacts(PublicBuild)", code, StringComparison.Ordinal );
+        Assert.Contains( "artifactRules = \"+:artifacts/publish/private/**/*=>artifacts/publish/private\"", code, StringComparison.Ordinal );
     }
 
     // Without a custom key name, the conventional PostSharp.Engineering key is used (backward compatibility).
@@ -203,6 +203,6 @@ public class SshDeploymentTests
         var writer = new StringWriter();
         configuration.GenerateTeamcityCode( writer );
 
-        Assert.Contains( "teamcitySshKey = \"PostSharp.Engineering\"", writer.ToString() );
+        Assert.Contains( "teamcitySshKey = \"PostSharp.Engineering\"", writer.ToString(), StringComparison.Ordinal );
     }
 }

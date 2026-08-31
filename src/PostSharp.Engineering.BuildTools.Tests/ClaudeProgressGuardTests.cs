@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using System;
 using System.Collections.Generic;
@@ -139,7 +139,7 @@ public sealed class ClaudeProgressGuardTests : IDisposable
         Assert.Equal( expected ? "TRANSIENT" : "ORDINARY", RunPowerShell( script ).Last() );
     }
 
-    private string Fingerprint( string watched, params string[] extraLines )
+    private static string Fingerprint( string watched, params string[] extraLines )
     {
         var resource = ReadResource();
 
@@ -161,9 +161,9 @@ public sealed class ClaudeProgressGuardTests : IDisposable
     [Fact]
     public void AFileWrittenWhereTheBuildSaidItsWorkLandsIsProgress()
     {
-        var before = this.Fingerprint( this._directory );
+        var before = Fingerprint( this._directory );
 
-        var after = this.Fingerprint(
+        var after = Fingerprint(
             this._directory,
             $"Set-Content -Path '{Path.Combine( this._directory, "log-cluster.md" )}' -Value 'a log entry'" );
 
@@ -178,7 +178,7 @@ public sealed class ClaudeProgressGuardTests : IDisposable
     {
         File.WriteAllText( Path.Combine( this._directory, "existing.md" ), "unchanged" );
 
-        Assert.Equal( this.Fingerprint( this._directory ), this.Fingerprint( this._directory ) );
+        Assert.Equal( Fingerprint( this._directory ), Fingerprint( this._directory ) );
     }
 
     /// <summary>
@@ -192,9 +192,9 @@ public sealed class ClaudeProgressGuardTests : IDisposable
         var logs = Path.Combine( this._directory, "logs" );
         Directory.CreateDirectory( logs );
 
-        var before = this.Fingerprint( this._directory );
+        var before = Fingerprint( this._directory );
 
-        var after = this.Fingerprint(
+        var after = Fingerprint(
             this._directory,
             $"Set-Content -Path '{Path.Combine( logs, "claude-2026-07-30-104235.log.json" )}' -Value '[]'" );
 
