@@ -309,6 +309,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // issue is visible.
             dependency = this.ParametrizedDependencies.SingleOrDefault( d => d.Key == name );
 
+            if ( dependency == null )
+            {
+                // A transitive dependency reached through an aliased direct dependency has an alias-derived key that is
+                // not declared at the use site, so it is not in ParametrizedDependencies. Its reference is derived from
+                // the static dependency graph instead. The dictionary is empty when no direct dependency is aliased.
+                this.DependencyDefinition.AliasedTransitiveDependencies.TryGetValue( name, out dependency );
+            }
+
             return dependency != null;
         }
 
@@ -331,10 +339,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return true;
             }
-            else
+
+            // See TryGetDependency for why aliased transitive dependencies are resolved separately. This lookup comes
+            // before the product family so that an alias-derived key always wins over a definition of the same name.
+            if ( this.DependencyDefinition.AliasedTransitiveDependencies.TryGetValue( name, out var aliasedTransitiveDependency ) )
             {
-                return this.ProductFamily.TryGetDependencyDefinition( name, out dependencyDefinition );
+                dependencyDefinition = aliasedTransitiveDependency.Definition;
+
+                return true;
             }
+
+            return this.ProductFamily.TryGetDependencyDefinition( name, out dependencyDefinition );
         }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();

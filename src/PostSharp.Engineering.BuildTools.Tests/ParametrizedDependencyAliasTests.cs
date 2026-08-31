@@ -136,4 +136,128 @@ public class ParametrizedDependencyAliasTests
         Assert.Equal( first, second );
         Assert.Equal( first.GetHashCode(), second.GetHashCode() );
     }
+
+    [Fact]
+    public void GetAliasForTransitiveDependency_ReturnsNullWhenTheReferenceIsNotAliased()
+    {
+        var dependency = MetalamaDependencies.V2026_0.Metalama.ToDependency();
+
+        Assert.Null( dependency.GetAliasForTransitiveDependency( MetalamaDependencies.V2026_0.MetalamaCompiler ) );
+    }
+
+    [Fact]
+    public void GetAliasForTransitiveDependency_AppendsTheDiscriminatorOfTheAlias()
+    {
+        var dependency = MetalamaDependencies.V2026_0.Metalama.WithAlias( "Metalama20260" );
+
+        Assert.Equal( "Metalama.Compiler_20260", dependency.GetAliasForTransitiveDependency( MetalamaDependencies.V2026_0.MetalamaCompiler ) );
+    }
+
+    [Fact]
+    public void GetAliasForTransitiveDependency_UsesTheWholeAliasWhenItDoesNotStartWithTheDefinitionName()
+    {
+        var dependency = MetalamaDependencies.V2026_0.Metalama.WithAlias( "Legacy" );
+
+        Assert.Equal( "Metalama.Compiler_Legacy", dependency.GetAliasForTransitiveDependency( MetalamaDependencies.V2026_0.MetalamaCompiler ) );
+    }
+
+    [Fact]
+    public void GetAliasForTransitiveDependency_ReturnsNullWhenTheAliasIsTheDefinitionName()
+    {
+        // Such an alias distinguishes nothing, so there is no discriminator to append.
+        var dependency = MetalamaDependencies.V2026_0.Metalama.WithAlias( "Metalama" );
+
+        Assert.Null( dependency.GetAliasForTransitiveDependency( MetalamaDependencies.V2026_0.MetalamaCompiler ) );
+    }
+
+    [Fact]
+    public void GetAliasForTransitiveDependency_DoesNotRepeatTheUnderscoreAtTheSecondLevel()
+    {
+        // A key derived by this method is itself the alias of the reference used to reach the next level down. The
+        // discriminator must come back as 20260, not _20260, so that the next key gets a single separator.
+        var derivedDependency = MetalamaDependencies.V2026_0.MetalamaCompiler.WithAlias( "Metalama.Compiler_20260" );
+
+        Assert.Equal( "Metalama.Premium_20260", derivedDependency.GetAliasForTransitiveDependency( MetalamaDependencies.V2026_0.MetalamaPremium ) );
+    }
+
+    [Fact]
+    public void KeyWithoutDot_RemovesTheUnderscoreOfTheDiscriminator()
+    {
+        var dependency = MetalamaDependencies.V2026_0.MetalamaCompiler.WithAlias( "Metalama.Compiler_20260" );
+
+        Assert.Equal( "Metalama.Compiler_20260", dependency.Key );
+        Assert.Equal( "MetalamaCompiler20260", dependency.KeyWithoutDot );
+    }
+
+    [Fact]
+    public void GetAliasForTransitiveDependency_ReturnsNullForAnotherProductFamily()
+    {
+        // PostSharp.Engineering belongs to the development family, so both versions of Metalama share a single
+        // reference to it and it must not inherit the alias.
+        var dependency = MetalamaDependencies.V2026_0.Metalama.WithAlias( "Metalama20260" );
+
+        Assert.Null( dependency.GetAliasForTransitiveDependency( DevelopmentDependencies.PostSharpEngineering ) );
+    }
+
+    [Fact]
+    public void AliasedTransitiveDependencies_IsEmptyWhenNoDirectDependencyIsAliased()
+    {
+        Assert.Empty( MetalamaDependencies.V2026_1.Metalama.AliasedTransitiveDependencies );
+    }
+
+    [Fact]
+    public void AliasedTransitiveDependencies_ContainsTheTransitiveDependencyOfTheAliasedDirectDependency()
+    {
+        // Metalama.Vsx 2026.1 references Metalama 2026.1 directly and Metalama 2026.0 under the Metalama20260 alias.
+        var aliasedTransitiveDependencies = MetalamaVsxDependencies.V2026_1.MetalamaVsx.AliasedTransitiveDependencies;
+
+        var compiler = Assert.Contains( "Metalama.Compiler_20260", aliasedTransitiveDependencies );
+
+        Assert.Same( MetalamaDependencies.V2026_0.MetalamaCompiler, compiler.Definition );
+        Assert.Equal( "Metalama.Compiler_20260", compiler.Key );
+        Assert.Equal( "MetalamaCompiler20260", compiler.KeyWithoutDot );
+
+        // The transitive dependencies of the unaliased direct dependencies, and the dependencies of another family,
+        // keep the name of their own definition and are therefore absent from this dictionary.
+        Assert.DoesNotContain( "Metalama.Compiler", aliasedTransitiveDependencies.Keys );
+        Assert.DoesNotContain( "PostSharp.Engineering_20260", aliasedTransitiveDependencies.Keys );
+    }
+
+    [Fact]
+    public void GetAllDependencies_GivesTheTwoCompilersTwoDistinctKeys()
+    {
+        var dependencies = MetalamaVsxDependencies.V2026_1.MetalamaVsx.GetAllDependencies( BuildConfiguration.Debug );
+
+        var currentCompiler = Assert.Single( dependencies, d => ReferenceEquals( d.Definition, MetalamaDependencies.V2026_1.MetalamaCompiler ) );
+        var aliasedCompiler = Assert.Single( dependencies, d => ReferenceEquals( d.Definition, MetalamaDependencies.V2026_0.MetalamaCompiler ) );
+
+        Assert.Equal( "Metalama.Compiler", currentCompiler.Key );
+        Assert.Equal( "Metalama.Compiler_20260", aliasedCompiler.Key );
+        Assert.Equal( "MetalamaCompiler20260", aliasedCompiler.KeyWithoutDot );
+    }
+
+    [Fact]
+    public void GetAllDependencies_LeavesTheTransitiveDependenciesOfAnUnaliasedDependencyUnchanged()
+    {
+        // PostSharp.Engineering is a transitive dependency of every Metalama product, so it is reached both through
+        // aliased and unaliased paths. It belongs to another product family, so none of its entries is aliased. There
+        // is one entry per build configuration it is reached in, which the alias inheritance must not change.
+        var dependencies = MetalamaVsxDependencies.V2026_1.MetalamaVsx.GetAllDependencies( BuildConfiguration.Debug );
+
+        var engineeringDependencies = dependencies
+            .Where( d => ReferenceEquals( d.Definition, DevelopmentDependencies.PostSharpEngineering ) )
+            .ToList();
+
+        Assert.NotEmpty( engineeringDependencies );
+        Assert.All( engineeringDependencies, d => Assert.Equal( DevelopmentDependencies.PostSharpEngineering.Name, d.Key ) );
+    }
+
+    [Fact]
+    public void GetAllDependencies_OfAnUnaliasedProductAssignsNoAlias()
+    {
+        var dependencies = MetalamaDependencies.V2026_1.Metalama.GetAllDependencies( BuildConfiguration.Debug );
+
+        Assert.All( dependencies, d => Assert.Null( d.Parametrized?.Alias ) );
+        Assert.All( dependencies, d => Assert.Equal( d.Definition.Name, d.Key ) );
+    }
 }

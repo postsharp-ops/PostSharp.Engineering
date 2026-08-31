@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 
@@ -96,14 +97,70 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public ParametrizedDependency[] Dependencies { get; init; } = [];
 
+        private ImmutableDictionary<string, ParametrizedDependency>? _aliasedTransitiveDependencies;
+
+        /// <summary>
+        /// Gets the references to the transitive dependencies that inherit an alias from an aliased direct dependency,
+        /// indexed by <see cref="ParametrizedDependency.Key"/>. The dictionary is empty when no direct dependency is aliased.
+        /// </summary>
+        /// <remarks>
+        /// These references have no declaration at the consumer's use site, so they are not in <see cref="Dependencies"/>,
+        /// but their key is still needed to resolve them by name. See
+        /// <see cref="ParametrizedDependency.GetAliasForTransitiveDependency"/> for the rule that derives the alias.
+        /// </remarks>
+        public IReadOnlyDictionary<string, ParametrizedDependency> AliasedTransitiveDependencies
+            => this._aliasedTransitiveDependencies ??= this.GetAliasedTransitiveDependencies();
+
+        private ImmutableDictionary<string, ParametrizedDependency> GetAliasedTransitiveDependencies()
+        {
+            var builder = ImmutableDictionary.CreateBuilder<string, ParametrizedDependency>( StringComparer.Ordinal );
+
+            foreach ( var directDependency in this.Dependencies )
+            {
+                if ( directDependency.Alias != null )
+                {
+                    PopulateRecursive( directDependency );
+                }
+            }
+
+            return builder.ToImmutable();
+
+            void PopulateRecursive( ParametrizedDependency parent )
+            {
+                foreach ( var child in parent.Definition.Dependencies )
+                {
+                    var alias = parent.GetAliasForTransitiveDependency( child.Definition );
+
+                    if ( alias == null )
+                    {
+                        continue;
+                    }
+
+                    var aliasedChild = child with { Alias = alias };
+
+                    // TryAdd also terminates the recursion on a cycle or on a diamond in the dependency graph.
+                    if ( !builder.TryAdd( alias, aliasedChild ) )
+                    {
+                        continue;
+                    }
+
+                    PopulateRecursive( aliasedChild );
+                }
+            }
+        }
+
         public IReadOnlySet<DependencyConfiguration> GetAllDependencies( BuildConfiguration buildConfiguration )
         {
             HashSet<DependencyConfiguration> dependencies = new();
-            PopulateRecursive( this, buildConfiguration, ancestorIsLastSuccessful: false );
+            PopulateRecursive( parent: null, this, buildConfiguration, ancestorIsLastSuccessful: false );
 
             return dependencies;
 
-            void PopulateRecursive( DependencyDefinition dependency, BuildConfiguration configuration, bool ancestorIsLastSuccessful )
+            void PopulateRecursive(
+                ParametrizedDependency? parent,
+                DependencyDefinition dependency,
+                BuildConfiguration configuration,
+                bool ancestorIsLastSuccessful )
             {
                 foreach ( var child in dependency.Dependencies )
                 {
@@ -118,9 +175,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         ? DependencyArtifactPickup.LastSuccessful
                         : child.ArtifactPickup;
 
+                    // A transitive dependency reached through an aliased dependency inherits that alias, so that the
+                    // artifacts of the two versions of the same product are unpacked into two different directories.
+                    // parent is null for the direct dependencies of the consumer, which keep the reference as declared.
+                    var alias = parent?.GetAliasForTransitiveDependency( child.Definition );
+                    var effectiveChild = alias == null ? child : child with { Alias = alias };
+
                     var dependencyConfiguration = new DependencyConfiguration( child, childConfiguration )
                     {
-                        Parametrized = child, EffectiveArtifactPickup = effectivePickup
+                        Parametrized = effectiveChild, EffectiveArtifactPickup = effectivePickup
                     };
 
                     if ( !dependencies.Add( dependencyConfiguration ) )
@@ -128,7 +191,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         continue;
                     }
 
-                    PopulateRecursive( child, childConfiguration, childIsLastSuccessful );
+                    PopulateRecursive( effectiveChild, child, childConfiguration, childIsLastSuccessful );
                 }
             }
         }
