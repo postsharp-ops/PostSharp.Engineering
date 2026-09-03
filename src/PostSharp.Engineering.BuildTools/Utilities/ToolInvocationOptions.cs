@@ -15,8 +15,16 @@ public record ToolInvocationOptions(
     public static ToolInvocationOptions Default { get; } = new();
 
     // Some environment variables are set by the Microsoft.Build package and must not be passed to the child process.
+    // MSBuildExtensionsPath and MSBuildSDKsPath are also exported by the .NET command line interface, and they point to
+    // the SDK that was resolved when the current process started. That SDK is not necessarily the one that a child
+    // process resolves, because the prepare step generates global.json, and global.json pins another SDK than the
+    // highest installed one. A child process that inherits these variables therefore mixes two SDK feature bands in a
+    // single build. MSBuild imports NuGet.targets through MSBuildExtensionsPath, so a restore loads
+    // NuGet.Build.Tasks.dll of one feature band into the MSBuild engine of another one and fails with error MSB4062.
     public ImmutableArray<string> BlockedEnvironmentVariables { get; init; } =
-        BlockedEnvironmentVariables.IsDefault ? ["DOTNET_ROOT_X64", "MSBUILD_EXE_PATH", "MSBuildSDKsPath"] : BlockedEnvironmentVariables;
+        BlockedEnvironmentVariables.IsDefault
+            ? ["DOTNET_ROOT_X64", "MSBUILD_EXE_PATH", "MSBuildSDKsPath", "MSBuildExtensionsPath"]
+            : BlockedEnvironmentVariables;
 
     public ImmutableArray<Regex> ErrorPatterns { get; init; } = [new( @"\: error\b" )];
 
