@@ -42,7 +42,7 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
         writer.WriteLine(
             $$"""
               COPY {{this._version.ManifestFilename}} /{{this._version.ManifestFilename}}
-              RUN Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vs_buildtools.exe -OutFile vs_buildtools.exe; `
+              RUN Invoke-WebRequest -Uri {{this._version.BootstrapperUri}} -OutFile vs_buildtools.exe; `
                   $process = Start-Process .\vs_buildtools.exe -NoNewWindow -Wait -PassThru `
                       -ArgumentList  "--quiet", "--wait", "--norestart", "--nocache",  "--installPath", "C:\BuildTools", "--installChannelUri", "c:\{{this._version.ManifestFilename}}", "--installCatalogUri", "{{this._version.InstallCatalogueUri}}", "--productId", "Microsoft.VisualStudio.Product.BuildTools", {{components}}; `        
                   if ($process.ExitCode -ne 0) { `
