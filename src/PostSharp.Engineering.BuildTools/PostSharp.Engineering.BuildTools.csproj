@@ -18,14 +18,21 @@
         <PackageReference Include="Azure.Security.KeyVault.Secrets" />
         <PackageReference Include="JetBrains.Annotations" />
         <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" /> <!-- Resolves version ambiguity. -->
-        <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" /> <!-- Runtime assets excluded in favor of Microsoft.Build.Locator package. -->
-        <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" /> <!-- Runtime assets excluded in favor of Microsoft.Build.Locator package. -->
+        <!--
+            This assembly locates MSBuild at run time with Microsoft.Build.Locator, so every MSBuild assembly must come
+            from the registered instance. A copy next to the application wins over the registered instance in the
+            assembly loader, and MSBuild then runs against a mixture of versions, which fails with a
+            MissingMethodException. ExcludeAssets="runtime" therefore has to be set on every MSBuild package, both here
+            and, through the generated nuspec dependencies, in the output directory of every consumer of this package.
+        -->
+        <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" />
+        <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" />
         <PackageReference Include="Microsoft.Build.Locator" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
         <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" />
         <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
-        <PackageReference Include="Microsoft.NET.StringTools" />
+        <PackageReference Include="Microsoft.NET.StringTools" ExcludeAssets="runtime" /> <!-- Resolves version ambiguity. Runtime assets excluded, as explained above. -->
         <PackageReference Include="Microsoft.TeamFoundationServer.Client" />
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="HtmlAgilityPack" />
