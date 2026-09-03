@@ -23,6 +23,12 @@ public sealed class VisualStudioBuildToolsComponentVersion
     internal string Version { get; }
 
     /// <summary>
+    /// Gets the major version, e.g. <c>18</c>. It selects the container layer, because the Build Tools of one
+    /// major version are a separate installation from those of another.
+    /// </summary>
+    internal string MajorVersion => this.Version.Split( '.' )[0];
+
+    /// <summary>
     /// Gets the name of the embedded channel manifest resource.
     /// </summary>
     internal string ManifestFilename => $"VisualStudio.{this.Version}.Release.chman";

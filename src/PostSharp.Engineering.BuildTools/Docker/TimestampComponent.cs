@@ -19,7 +19,7 @@ public sealed class TimestampComponent : ContainerComponent
     public override ContainerComponentKind Kind => ContainerComponentKind.Timestamp;
 
     // The timestamp is the Claude image's daily cache-buster, so it lives on the Claude layer: a daily change
-    // must rebuild only the (cheap) Claude npm layer, not the heavy build/vs17 base images.
+    // must rebuild only the (cheap) Claude npm layer, not the heavy build and Visual Studio base images.
     public override string Layer => ContainerLayers.Claude;
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )

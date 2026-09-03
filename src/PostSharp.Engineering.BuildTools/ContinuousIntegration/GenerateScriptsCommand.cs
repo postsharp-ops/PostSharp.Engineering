@@ -42,7 +42,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
             {
                 var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
-                // Generate the main image chain (build [+ vs17] + claude leaf).
+                // Generate the main image chain (build [+ the Visual Studio layer] + claude leaf).
                 if ( !( image with { GenerateClaudeImage = true } ).WriteDockerfiles(
                         context,
                         additionalName: null,

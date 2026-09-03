@@ -22,7 +22,7 @@ public abstract class ContainerComponent : IComparable<ContainerComponent>
     /// <summary>
     /// Gets the name of the chained-image layer this component belongs to. Defaults to
     /// <see cref="ContainerLayers.Build"/>. Components on a non-default layer (e.g. VS Build Tools on
-    /// <see cref="ContainerLayers.Vs17"/>, Claude on <see cref="ContainerLayers.Claude"/>) cause that layer
+    /// the layer named by <see cref="ContainerLayers.VisualStudio"/>, Claude on <see cref="ContainerLayers.Claude"/>) cause that layer
     /// to be emitted as its own image in the chain.
     /// </summary>
     public virtual string Layer => ContainerLayers.Build;

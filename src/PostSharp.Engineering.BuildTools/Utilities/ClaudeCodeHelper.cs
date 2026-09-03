@@ -461,7 +461,7 @@ internal static class ClaudeCodeHelper
                 (preferably the current/HEAD version). They will be regenerated when the PR build runs.
                 - Build.ps1
                 - DockerBuild.ps1
-                - eng/docker/*.Dockerfile (chained images, e.g. *-vs17/*-build/*-claude)
+                - eng/docker/*.Dockerfile (chained images, e.g. *-vs18/*-build/*-claude)
                 - eng/docker-context/** (per-image build contexts)
                 - .teamcity/settings.kts
                 - .teamcity/pom.xml
