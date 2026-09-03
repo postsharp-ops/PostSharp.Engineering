@@ -61,7 +61,14 @@ public static partial class MetalamaDependencies
         {
             UpstreamProductFamily = V2026_1.Family,
             ConsolidatedProjectName = "Metalama.Consolidated",
-            GitHubAppConnectionId = GitHubAppConnections.Metalama
+            GitHubAppConnectionId = GitHubAppConnections.Metalama,
+
+            // This family pins Visual Studio 2026 18.9, which installs the .NET 10 SDK 10.0.400 through the
+            // Microsoft.NetCore.Component.SDK component. Two .NET 10 feature bands in the same build image make
+            // MSBuildSDKsPath and MSBuildExtensionsPath resolve to different SDK directories, so the family uses the
+            // version that Visual Studio ships instead of the default one. The families that are still on Visual
+            // Studio 2022 keep the default, because Visual Studio 2022 ships no .NET 10 SDK.
+            PreferredVersions = new PreferredDotNetVersions { DotNetSdk = new PreferredDotNetSdkVersions { V_10_0 = "10.0.400" } }
 
             // DownstreamProductFamily = V2027_1.Family
         };

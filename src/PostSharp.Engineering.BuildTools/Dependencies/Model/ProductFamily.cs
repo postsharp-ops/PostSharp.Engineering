@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System;
@@ -38,6 +39,13 @@ public class ProductFamily
     public string? GitHubAppConnectionId { get; init; }
 
     public BuildAgentRequirements DefaultBuildAgentRequirements { get; init; } = BuildAgentRequirements.Default;
+
+    /// <summary>
+    /// Gets the preferred versions of the .NET SDK and of the .NET runtime for the repositories of this family. A
+    /// repository is free to use another version, but sharing the versions inside a family increases the reuse of
+    /// Docker layers between the build images of the repositories of the family.
+    /// </summary>
+    public PreferredDotNetVersions PreferredVersions { get; init; } = PreferredDotNetVersions.Default;
 
     public bool HasConsolidatedProduct => this.ConsolidatedProjectName != null;
 

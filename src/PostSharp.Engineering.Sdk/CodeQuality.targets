@@ -18,4 +18,13 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     </PropertyGroup>
 
+    <!-- PSENG0001 reports a use of the obsolete PostSharp.Engineering.BuildTools.Build.PreferredVersions class, whose
+         versions moved to ProductFamily.PreferredVersions. The consuming repositories have not been migrated yet, and
+         TreatWarningsAsErrors above would turn the diagnostic into a broken build as soon as a repository updates
+         PostSharp.Engineering. It is kept as a warning so that it stays visible without stopping the build. Remove this
+         line once every consuming repository is migrated, so that a new use cannot be introduced silently. -->
+    <PropertyGroup Condition="'$(DisableCodeQuality)'!='True'">
+        <WarningsNotAsErrors>$(WarningsNotAsErrors);PSENG0001</WarningsNotAsErrors>
+    </PropertyGroup>
+
 </Project>

@@ -7,11 +7,13 @@ using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Docker;
 
+var preferredVersions = DevelopmentDependencies.Family.PreferredVersions;
+
 // The primary SDK, i.e. the one pinned in global.json and used to build the product.
-const string sdkVersion = PreferredVersions.DotNetSdk.V_10_0;
+var sdkVersion = preferredVersions.DotNetSdk.V_10_0;
 
 // Kept on the build agent so that .NET 9 remains a supported target framework.
-const string legacySdkVersion = PreferredVersions.DotNetSdk.V_9_0;
+var legacySdkVersion = preferredVersions.DotNetSdk.V_9_0;
 
 var product = new Product( DevelopmentDependencies.PostSharpEngineering )
 {
