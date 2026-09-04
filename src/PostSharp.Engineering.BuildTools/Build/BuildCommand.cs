@@ -265,11 +265,15 @@ namespace PostSharp.Engineering.BuildTools.Build
                 {
                     context.Console.WriteHeading( "Signing artifacts" );
 
-                    var signToolSecret = Environment.GetEnvironmentVariable( EnvironmentVariableNames.SignServerSecret );
+                    // SignClient now presents the build agent's own service principal rather than signing
+                    // in as a named user, so the credential it needs is the agent's, which is already in
+                    // the environment. SIGNSERVER_SECRET held the user account's password and is no
+                    // longer read by anything.
+                    var signToolSecret = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureClientSecret );
 
-                    if ( signToolSecret == null )
+                    if ( string.IsNullOrEmpty( signToolSecret ) )
                     {
-                        context.Console.WriteError( "The SIGNSERVER_SECRET environment variable is not defined." );
+                        context.Console.WriteError( "The AZURE_CLIENT_SECRET environment variable is not defined." );
 
                         return false;
                     }
