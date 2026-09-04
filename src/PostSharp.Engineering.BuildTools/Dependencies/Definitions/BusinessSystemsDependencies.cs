@@ -12,11 +12,15 @@ public static class BusinessSystemsDependencies
 {
     private class BusinessSystemsDependencyDefinition : DependencyDefinition
     {
-        public BusinessSystemsDependencyDefinition( string dependencyName, string? gitHubOwner = null, string? gitHubAppConnectionId = null )
+        public BusinessSystemsDependencyDefinition(
+            string dependencyName,
+            string? gitHubOwner = null,
+            string? gitHubAppConnectionId = null,
+            string branch = "master" )
             : base(
                 Family,
                 dependencyName,
-                "master",
+                branch,
                 null,
                 gitHubOwner != null
                     ? new GitHubRepository( dependencyName, gitHubOwner )
@@ -44,4 +48,14 @@ public static class BusinessSystemsDependencies
 
     public static DependencyDefinition WebIndexer { get; } =
         new BusinessSystemsDependencyDefinition( "WebIndexer", "postsharp-ops", GitHubAppConnections.PostSharpOps );
+
+    // The code signing service. Its default branch is "postsharp" rather than "master": the repository is a
+    // fork of dotnet/sign and the branch carries the fork's name, which predates this family and is referenced
+    // by the infrastructure documentation and by every existing clone.
+    public static DependencyDefinition SignService { get; } =
+        new BusinessSystemsDependencyDefinition(
+            "SignService",
+            "postsharp-ops",
+            GitHubAppConnections.PostSharpOps,
+            "postsharp" );
 }
