@@ -921,7 +921,78 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         return $bootTag
     }
 
-    # Ensure the image and its ancestors exist (parent first): use local, else pull, else build; queue a push
+    # Push one image to the registry in a background job, without waiting for it. The jobs are collected in
+    # $script:RegistryPushJobs and waited for at the end of the script, where a failed push fails the build.
+    function Start-AsyncPush([string]$tag)
+    {
+        if (-not $script:PushedTags.Add($tag))
+        {
+            return
+        }
+
+        Write-Host "  starting async push to registry" -ForegroundColor Cyan
+
+        # Copied to a local so that $using: captures it: $dockerConfigArg belongs to the enclosing scope.
+        $configArg = $dockerConfigArg
+
+        $pushJob = Start-Job -ScriptBlock {
+            docker @using:configArg push $using:tag 2>&1
+            $LASTEXITCODE
+        }
+
+        $script:RegistryPushJobs += [pscustomobject]@{ Tag = $tag; Job = $pushJob }
+    }
+
+    # Wait for ALL async registry push jobs to complete (each image pushed in its own job). A push that failed
+    # or timed out fails the script: an image missing from the registry is silently rebuilt from scratch by
+    # every later build, which costs far more than a red build here.
+    #
+    # Called on the normal path and again from the `finally` block, so that the failure of a later step never
+    # abandons a push in flight: the jobs die with the process, and a half-pushed image never becomes a tag in
+    # the registry. The job list is emptied here, so the second call is a no-op after a normal completion.
+    function Wait-ForRegistryPushes
+    {
+        if ($script:RegistryPushJobs.Count -eq 0)
+        {
+            return
+        }
+
+        Write-Host ""
+        Write-Host "Waiting for $( $script:RegistryPushJobs.Count ) registry push job(s) to complete..." -ForegroundColor Cyan
+
+        foreach ($entry in $script:RegistryPushJobs)
+        {
+            $completed = Wait-Job -Job $entry.Job -Timeout 1800  # 30 minute timeout per job
+            if ($completed)
+            {
+                $jobOutput = Receive-Job -Job $entry.Job
+                $exitCode = $jobOutput[-1]  # last item is the exit code
+                $output = if ($jobOutput.Count -gt 1) { $jobOutput[0..($jobOutput.Count - 2)] -join "`n" } else { "" }
+
+                if ($exitCode -eq 0)
+                {
+                    Write-Host "Registry push completed: $( $entry.Tag )" -ForegroundColor Green
+                }
+                else
+                {
+                    Write-Host "Registry push FAILED (exit $exitCode): $( $entry.Tag )" -ForegroundColor Red
+                    if ($output) { Write-Host "Push output: $output" -ForegroundColor Gray }
+                    $script:PushFailed = $true
+                }
+            }
+            else
+            {
+                Write-Host "Registry push TIMED OUT after 30 minutes: $( $entry.Tag )" -ForegroundColor Red
+                Stop-Job -Job $entry.Job
+                $script:PushFailed = $true
+            }
+            Remove-Job -Job $entry.Job -Force
+        }
+
+        $script:RegistryPushJobs = @()
+    }
+
+    # Ensure the image and its ancestors exist (parent first): use local, else pull, else build; start a push
     # when building in registry mode. Returns the image tag.
     function Ensure-Image([string]$dfPath)
     {
@@ -960,16 +1031,16 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             Build-OneImage $dfPath $tag $baseBuildArg
         }
 
-        # Queue an async push if the image isn't already in the registry. Pushes run in background jobs started
-        # after ALL builds (so a push never overlaps a host docker build) and are waited for at the end. The
-        # Claude leaf is excluded (see $isClaudeLeaf above): it is local-only and never enters the registry.
+        # Push the image as soon as it exists, if it isn't already in the registry: the push then overlaps the
+        # builds of the images above it in the chain instead of waiting for all of them. The job is waited for
+        # at the end of the script. The Claude leaf is excluded (see $isClaudeLeaf above): it is local-only and
+        # never enters the registry.
         if ($dockerRegistry -and -not $isClaudeLeaf)
         {
             docker @dockerConfigArg manifest inspect $tag *> $null
             if ($LASTEXITCODE -ne 0)
             {
-                Write-Host "  queued for async push to registry" -ForegroundColor Cyan
-                $script:ImagesToPush += $tag
+                Start-AsyncPush $tag
             }
         }
         return $tag
@@ -978,10 +1049,22 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     # Dictionary to track volume mounts with "writable wins" logic
     $script:VolumeMountDict = @{ }
 
-    # Async registry push: images are queued during chain resolution, pushed in background jobs started after
-    # ALL builds complete (so a push never overlaps a host docker build), and all waited for at the end.
-    $script:ImagesToPush = @()
+    # Async registry push: each image is pushed in its own background job, started by Ensure-Image as soon as
+    # the image exists, and waited for at the very end of the script. A push therefore overlaps the builds that
+    # follow it and the container run.
     $script:RegistryPushJobs = @()
+
+    # Set by Wait-ForRegistryPushes when any push failed, and read on both exit paths (normal completion and
+    # the `finally` block).
+    $script:PushFailed = $false
+
+    # The exit code the script has decided on, so that the `finally` block can tell a build that is failing for
+    # another reason from one that would otherwise have succeeded.
+    $script:ExitCode = 0
+
+    # Tags already handed to Start-AsyncPush, so that resolving the same image twice (the run step resolves the
+    # chain again) does not push it twice.
+    $script:PushedTags = [System.Collections.Generic.HashSet[string]]::new( [StringComparer]::Ordinal )
 
     # Tag of the local, run-specific boot image (set by New-BootImage); removed after the container exits.
     $script:BootImageTag = $null
@@ -1914,20 +1997,6 @@ $envVarAssignments$gitConfigCommands$postInitCommands
         $ImageTag = New-BootImage $ImageTag
     }
 
-    # Start the async registry pushes now - after every host build (chain + boot) is done, so a push never runs
-    # concurrently with a docker build. Each queued image pushes in its own background job; they overlap the
-    # container run and are all waited for at the end.
-    foreach ($pushTag in ($script:ImagesToPush | Select-Object -Unique))
-    {
-        Write-Host "Starting async push to registry: $pushTag" -ForegroundColor Cyan
-        $pushJob = Start-Job -ScriptBlock {
-            docker @using:dockerConfigArg push $using:pushTag 2>&1
-            $LASTEXITCODE
-        }
-        $script:RegistryPushJobs += [pscustomobject]@{ Tag = $pushTag; Job = $pushJob }
-    }
-
-
     # Run the build within the container
     if (-not $BuildImage)
     {
@@ -2192,39 +2261,7 @@ $envVarAssignments$gitConfigCommands$postInitCommands
         Write-Host "Skipping container run (BuildImage specified)." -ForegroundColor Yellow
     }
 
-    # Wait for ALL async registry push jobs to complete (each image pushed in its own job).
-    if ($script:RegistryPushJobs.Count -gt 0)
-    {
-        Write-Host ""
-        Write-Host "Waiting for $( $script:RegistryPushJobs.Count ) registry push job(s) to complete..." -ForegroundColor Cyan
-
-        foreach ($entry in $script:RegistryPushJobs)
-        {
-            $completed = Wait-Job -Job $entry.Job -Timeout 1800  # 30 minute timeout per job
-            if ($completed)
-            {
-                $jobOutput = Receive-Job -Job $entry.Job
-                $exitCode = $jobOutput[-1]  # last item is the exit code
-                $output = if ($jobOutput.Count -gt 1) { $jobOutput[0..($jobOutput.Count - 2)] -join "`n" } else { "" }
-
-                if ($exitCode -eq 0)
-                {
-                    Write-Host "Registry push completed: $( $entry.Tag )" -ForegroundColor Green
-                }
-                else
-                {
-                    Write-Host "Registry push FAILED (exit $exitCode): $( $entry.Tag )" -ForegroundColor Yellow
-                    if ($output) { Write-Host "Push output: $output" -ForegroundColor Gray }
-                }
-            }
-            else
-            {
-                Write-Host "Registry push timed out (still running in background): $( $entry.Tag )" -ForegroundColor Yellow
-                Stop-Job -Job $entry.Job
-            }
-            Remove-Job -Job $entry.Job -Force
-        }
-    }
+    Wait-ForRegistryPushes
 
     # Stop timing and display results
     $elapsed = $stopwatch.Elapsed
@@ -2232,10 +2269,30 @@ $envVarAssignments$gitConfigCommands$postInitCommands
     Write-Host "Total build time: $($elapsed.ToString('hh\:mm\:ss\.fff') )" -ForegroundColor Cyan
     Write-Host "Build completed at: $( Get-Date -Format 'yyyy-MM-dd HH:mm:ss' )" -ForegroundColor Cyan
 
-    exit $dockerExitCode
+    # The container's own exit code wins when both failed: it says more about what went wrong than the push does.
+    # $dockerExitCode is $null when the container was not run at all (-BuildImage).
+    if ($dockerExitCode)
+    {
+        $script:ExitCode = $dockerExitCode
+    }
+    elseif ($script:PushFailed)
+    {
+        Write-Host "The build failed because at least one registry push failed." -ForegroundColor Red
+        $script:ExitCode = 1
+    }
+
+    exit $script:ExitCode
 }
 finally
 {
+    # Never abandon a push that is still in flight. On the normal path the jobs have already been waited for
+    # (and the list emptied), so this only does something when a later step failed or was interrupted - exactly
+    # when the push would otherwise die with the process and leave the image out of the registry.
+    if ($script:RegistryPushJobs.Count -gt 0)
+    {
+        Wait-ForRegistryPushes
+    }
+
     # Safety-net rebalance on Ctrl+C or unexpected exit
     if ($isDynamicCpus)
     {
@@ -2255,4 +2312,12 @@ finally
 
     # Restore original location
     Pop-Location
+
+    # A failed push must fail the build even when the script is unwinding from another failure. A non-zero
+    # $script:ExitCode means the script already decided to fail, and that reason is the more informative one.
+    if ($script:PushFailed -and $script:ExitCode -eq 0)
+    {
+        Write-Host "The build failed because at least one registry push failed." -ForegroundColor Red
+        exit 1
+    }
 }
