@@ -1866,15 +1866,31 @@ $envVarAssignments$gitConfigCommands$postInitCommands
 
             $dockerPassword = $env:DOCKER_PASSWORD
             $dockerUsername = $env:DOCKER_USERNAME
-            if ($dockerPassword -and $dockerUsername)
+
+            # A configured registry we cannot authenticate to is a hard error, not a warning. Every image built
+            # afterwards is unpushable, so the expensive ancestors - a Visual Studio layer runs to tens of
+            # gigabytes - are rebuilt from scratch on every agent and every run. That is what exhausts the agents'
+            # disks and corrupts their layer stores, and it costs ~40 minutes before the build even starts. Stop
+            # here instead, so the registry gets fixed rather than silently bypassed.
+            if (-not $dockerPassword -or -not $dockerUsername)
             {
-                Write-Host "Authenticating to registry..." -ForegroundColor Gray
-                $dockerPassword | docker @dockerConfigArg login $dockerRegistry --username $dockerUsername --password-stdin 2> $null
-                if ($LASTEXITCODE -ne 0) { Write-Host "Warning: Registry authentication failed. Pull/push may fail." -ForegroundColor Yellow }
+                Write-Error "DOCKER_USERNAME and DOCKER_PASSWORD must both be set when a registry ('$dockerRegistry') is configured, otherwise no image can be pulled or pushed."
+                exit 1
             }
-            else
+
+            Write-Host "Authenticating to registry..." -ForegroundColor Gray
+
+            # Keep stderr: the reason for the failure - an untrusted self-signed certificate, a rejected
+            # password, an unresolvable host - is the entire diagnostic value, and discarding it leaves nothing
+            # to act on.
+            $loginOutput = $dockerPassword |
+                    docker @dockerConfigArg login $dockerRegistry --username $dockerUsername --password-stdin 2>&1 |
+                    Out-String
+
+            if ($LASTEXITCODE -ne 0)
             {
-                Write-Host "Warning: DOCKER_USERNAME/DOCKER_PASSWORD not set. Registry pull/push may fail." -ForegroundColor Yellow
+                Write-Error "Failed to authenticate to the Docker registry '$dockerRegistry' as '$dockerUsername'. $( $loginOutput.Trim() )"
+                exit 1
             }
         }
 
