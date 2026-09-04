@@ -65,7 +65,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 this.Product.GetPrivateArtifactsAbsoluteDirectory( this, configuration ),
                 $"{this.Product.ProductName}.version.props" );
 
-        private BuildContext(
+        // Internal, and not private, so that tests can build a context that is not bound to a git repository.
+        internal BuildContext(
             ConsoleHelper console,
             string repoDirectory,
             BaseCommandData commandData,

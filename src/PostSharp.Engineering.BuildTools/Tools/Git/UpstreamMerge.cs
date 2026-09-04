@@ -483,7 +483,18 @@ internal static class UpstreamMerge
                                 "generate-scripts",
                                 context.RepoDirectory ) )
                         {
+                            // A failure here means that a tracked generated file could not be written, so the merge must
+                            // not be committed with stale scripts. As in the branch below, the in-progress merge is left
+                            // in the working tree instead of being aborted, so that a human can complete it.
                             context.Console.WriteError( "Failed to regenerate scripts." );
+                            context.Console.WriteError( "" );
+                            context.Console.WriteError( "The conflicts are resolved, but the generated scripts are not up to date." );
+                            context.Console.WriteError( "The in-progress merge has been left in the working tree. Manual completion required:" );
+                            context.Console.WriteError( $"  1. Fix the cause of the failure of './Build.ps1 generate-scripts' in '{downstreamBranch}'" );
+                            context.Console.WriteError( "  2. Regenerate scripts: ./Build.ps1 generate-scripts" );
+                            context.Console.WriteError( "  3. Stage the result: git add -A" );
+                            context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
+                            context.Console.WriteError( "  5. Push: git push" );
 
                             return false;
                         }

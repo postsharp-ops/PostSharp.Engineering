@@ -100,6 +100,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             DependencyConfigurationOrigin origin )
         {
             var path = TeamCityHelper.GetRestoredDependencyVersionFile( context.RepoDirectory, key );
+
+            // The version file exists only after the dependency has been restored as a build server artifact. A command
+            // that does not consume the dependency itself can legitimately run in a checkout that has no 'dependencies'
+            // directory. Returning a source with no build identifier lets the callers report that the dependencies have
+            // not been fetched, which is the diagnostic they already implement, instead of failing on a missing file.
+            if ( !File.Exists( path ) )
+            {
+                return CreateRestoredDependency( null, origin );
+            }
+
             var document = XDocument.Load( path );
 
             var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{keyWithoutDot}BuildNumber" )?.Value;
