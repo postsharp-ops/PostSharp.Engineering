@@ -423,12 +423,14 @@ try
                 }
             }
             $envVariables["NUGET_PACKAGES"] = $nugetPackages
-    Assert-NuGetPackagesPathSafe ($envVariables["NUGET_PACKAGES"])
+            Assert-NuGetPackagesPathSafe ($envVariables["NUGET_PACKAGES"])
         }
 
         # Add secrets from the PostSharpBuildEnv key vault, on our development machines.
         # On CI agents, these environment variables are supposed to be set by the host.
-        if ($LoadEnvFromKeyVault -or ($env:IS_POSTSHARP_OWNED -and -not $env:IS_TEAMCITY_AGENT))
+        # -BuildImage only builds the image; the secrets below are for the container run, so do not
+        # require an Azure login in that case.
+        if ($LoadEnvFromKeyVault -or ($env:IS_POSTSHARP_OWNED -and -not $env:IS_TEAMCITY_AGENT -and -not $BuildImage))
         {
             $moduleName = "Az.KeyVault"
 
@@ -534,7 +536,7 @@ try
             }
         }
         $claudeEnv["NUGET_PACKAGES"] = $nugetPackages
-    Assert-NuGetPackagesPathSafe ($claudeEnv["NUGET_PACKAGES"])
+        Assert-NuGetPackagesPathSafe ($claudeEnv["NUGET_PACKAGES"])
 
         # Process additional environment variables from -Env parameter
         # Supports both "NAME" (read from host) and "NAME=VALUE" (literal value) forms
@@ -1864,15 +1866,25 @@ $envVarAssignments$gitConfigCommands$postInitCommands
 
             $dockerPassword = $env:DOCKER_PASSWORD
             $dockerUsername = $env:DOCKER_USERNAME
-            if ($dockerPassword -and $dockerUsername)
+
+            # Setting DOCKER_REGISTRY without credentials is a configuration error, not a request for anonymous
+            # access: continuing would silently rebuild every ancestor locally (no pull) and then fail the pushes
+            # at the end of the build anyway, after a long and misleading build.
+            $missingCredentials = @()
+            if (-not $dockerUsername) { $missingCredentials += "DOCKER_USERNAME" }
+            if (-not $dockerPassword) { $missingCredentials += "DOCKER_PASSWORD" }
+            if ($missingCredentials)
             {
-                Write-Host "Authenticating to registry..." -ForegroundColor Gray
-                $dockerPassword | docker @dockerConfigArg login $dockerRegistry --username $dockerUsername --password-stdin 2> $null
-                if ($LASTEXITCODE -ne 0) { Write-Host "Warning: Registry authentication failed. Pull/push may fail." -ForegroundColor Yellow }
+                Write-Error "DOCKER_REGISTRY is set to '$dockerRegistry' but $( $missingCredentials -join " and " ) $( if ($missingCredentials.Count -eq 1) { "is" } else { "are" } ) not set. Set the missing variable(s), or unset DOCKER_REGISTRY to build without a registry."
+                exit 1
             }
-            else
+
+            Write-Host "Authenticating to registry..." -ForegroundColor Gray
+            $loginOutput = $dockerPassword | docker @dockerConfigArg login $dockerRegistry --username $dockerUsername --password-stdin 2>&1
+            if ($LASTEXITCODE -ne 0)
             {
-                Write-Host "Warning: DOCKER_USERNAME/DOCKER_PASSWORD not set. Registry pull/push may fail." -ForegroundColor Yellow
+                Write-Error "Registry authentication to '$dockerRegistry' failed as user '$dockerUsername': $( $loginOutput -join [System.Environment]::NewLine )"
+                exit 1
             }
         }
 
