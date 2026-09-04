@@ -923,6 +923,32 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
 
     # Ensure the image and its ancestors exist (parent first): use local, else pull, else build; queue a push
     # when building in registry mode. Returns the image tag.
+    # True when $tag exists in the registry. A miss is the ordinary case (the image has not been pushed yet)
+    # and stays quiet, but any OTHER failure - experimental CLI gating, an untrusted certificate, a lost
+    # session, an unreachable host - is reported once. Silencing those made a broken registry look exactly like
+    # a cache miss, so every agent rebuilt the whole ancestor chain on every run and nobody could see why.
+    function Test-ImageInRegistry([string]$tag)
+    {
+        $output = (docker @dockerConfigArg manifest inspect $tag 2>&1 | Out-String).Trim()
+
+        if ($LASTEXITCODE -eq 0)
+        {
+            return $true
+        }
+
+        # A genuine "not in the registry" answer. Anything else is a configuration or connectivity fault.
+        if ($output -notmatch 'manifest unknown|no such manifest|not found|manifest for .* not found')
+        {
+            if (-not $script:RegistryProbeWarned)
+            {
+                $script:RegistryProbeWarned = $true
+                Write-Host "Warning: cannot query the registry for '$tag', so cached images cannot be reused and every layer will be rebuilt locally. $output" -ForegroundColor Yellow
+            }
+        }
+
+        return $false
+    }
+
     function Ensure-Image([string]$dfPath)
     {
         $baseBuildArg = @()
@@ -948,7 +974,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         {
             Write-Host "  found locally" -ForegroundColor Green
         }
-        elseif (-not $isClaudeLeaf -and $dockerRegistry -and (& { docker @dockerConfigArg manifest inspect $tag *> $null; $LASTEXITCODE -eq 0 }))
+        elseif (-not $isClaudeLeaf -and $dockerRegistry -and (Test-ImageInRegistry $tag))
         {
             Write-Host "  pulling from registry" -ForegroundColor Green
             docker @dockerConfigArg pull $tag 2>&1 | Out-Host
@@ -965,8 +991,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         # Claude leaf is excluded (see $isClaudeLeaf above): it is local-only and never enters the registry.
         if ($dockerRegistry -and -not $isClaudeLeaf)
         {
-            docker @dockerConfigArg manifest inspect $tag *> $null
-            if ($LASTEXITCODE -ne 0)
+            if (-not (Test-ImageInRegistry $tag))
             {
                 Write-Host "  queued for async push to registry" -ForegroundColor Cyan
                 $script:ImagesToPush += $tag
