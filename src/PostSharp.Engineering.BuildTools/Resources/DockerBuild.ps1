@@ -423,12 +423,14 @@ try
                 }
             }
             $envVariables["NUGET_PACKAGES"] = $nugetPackages
-    Assert-NuGetPackagesPathSafe ($envVariables["NUGET_PACKAGES"])
+            Assert-NuGetPackagesPathSafe ($envVariables["NUGET_PACKAGES"])
         }
 
         # Add secrets from the PostSharpBuildEnv key vault, on our development machines.
         # On CI agents, these environment variables are supposed to be set by the host.
-        if ($LoadEnvFromKeyVault -or ($env:IS_POSTSHARP_OWNED -and -not $env:IS_TEAMCITY_AGENT))
+        # -BuildImage only builds the image; the secrets below are for the container run, so do not
+        # require an Azure login in that case.
+        if ($LoadEnvFromKeyVault -or ($env:IS_POSTSHARP_OWNED -and -not $env:IS_TEAMCITY_AGENT -and -not $BuildImage))
         {
             $moduleName = "Az.KeyVault"
 
@@ -534,7 +536,7 @@ try
             }
         }
         $claudeEnv["NUGET_PACKAGES"] = $nugetPackages
-    Assert-NuGetPackagesPathSafe ($claudeEnv["NUGET_PACKAGES"])
+        Assert-NuGetPackagesPathSafe ($claudeEnv["NUGET_PACKAGES"])
 
         # Process additional environment variables from -Env parameter
         # Supports both "NAME" (read from host) and "NAME=VALUE" (literal value) forms
