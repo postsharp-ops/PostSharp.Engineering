@@ -34,6 +34,13 @@ public sealed class VisualStudioBuildToolsComponentVersion
     internal string ManifestFilename => $"VisualStudio.{this.Version}.Release.chman";
 
     /// <summary>
+    /// Gets the id of the update channel, e.g. <c>VisualStudio.18.Release</c>. It is the part of the channel
+    /// manifest's <c>info.id</c> that precedes the slash, and the installer requires it to identify the
+    /// instance in the <c>modify</c> operations that install the components.
+    /// </summary>
+    internal string ChannelId => $"VisualStudio.{this.MajorVersion}.Release";
+
+    /// <summary>
     /// Gets the URI of the <c>VisualStudio.vsman</c> installation catalogue.
     /// </summary>
     internal string InstallCatalogueUri { get; }

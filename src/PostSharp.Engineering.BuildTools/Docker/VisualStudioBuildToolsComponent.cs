@@ -12,6 +12,16 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 [PublicAPI]
 public sealed class VisualStudioBuildToolsComponent : ContainerComponent
 {
+    private const string _installPath = @"C:\BuildTools";
+    private const string _bootstrapperPath = @"C:\vs_buildtools.exe";
+    private const string _productId = "Microsoft.VisualStudio.Product.BuildTools";
+
+    /// <summary>
+    /// The number of VS components installed by a single invocation of the installer, i.e. by a single Docker
+    /// layer.
+    /// </summary>
+    private const int _componentsPerLayer = 3;
+
     private readonly VisualStudioBuildToolsComponentVersion _version;
 
     public string[] Components { get; }
@@ -38,24 +48,34 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
 
     public override void WriteDockerfile( TextWriter writer, ContainerOperatingSystem operatingSystem )
     {
-        var components = string.Join( ", ", this.Components.Select( x => $"\"--add\", \"{x}\"" ) );
+        writer.WriteLine( $"COPY {this._version.ManifestFilename} /{this._version.ManifestFilename}" );
 
-        writer.WriteLine(
-            $$"""
-              COPY {{this._version.ManifestFilename}} /{{this._version.ManifestFilename}}
-              RUN Invoke-WebRequest -Uri {{this._version.BootstrapperUri}} -OutFile vs_buildtools.exe; `
-                  $process = Start-Process .\vs_buildtools.exe -NoNewWindow -Wait -PassThru `
-                      -ArgumentList  "--quiet", "--wait", "--norestart", "--nocache",  "--installPath", "C:\BuildTools", "--installChannelUri", "c:\{{this._version.ManifestFilename}}", "--installCatalogUri", "{{this._version.InstallCatalogueUri}}", "--productId", "Microsoft.VisualStudio.Product.BuildTools", {{components}}; `        
-                  if ($process.ExitCode -ne 0) { `
-                   Get-ChildItem "$env:TEMP\dd_*.log" -ErrorAction SilentlyContinue | ForEach-Object { `
-                      Write-Host "=== Contents of $($_.Name) ==="; `
-                      Get-Content $_.FullName; `
-                      Write-Host "=== End of $($_.Name) ===" `
-                      }; `
-                   exit $process.ExitCode; `
-                   }; `
-                  Remove-Item C:\\vs_buildtools.exe;
-              """ );
+        // First layer: download the bootstrapper and let it lay down the VS Installer and a bare Build Tools
+        // instance, without any component. The bootstrapper and the channel manifest are deliberately left in
+        // the image, because every batch below is a separate process that needs both; a few megabytes against
+        // the tens of gigabytes of the Build Tools themselves.
+        writer.WriteLine( $"RUN Invoke-WebRequest -Uri {this._version.BootstrapperUri} -OutFile {_bootstrapperPath}" );
+
+        WriteInstallerRun(
+            writer,
+            $"""
+             "--quiet", "--wait", "--norestart", "--nocache", "--installPath", "{_installPath}", "--installChannelUri", "C:\{this._version.ManifestFilename}", "--installCatalogUri", "{this._version.InstallCatalogueUri}", "--productId", "{_productId}"
+             """ );
+
+        // Then one layer per batch of components. Installing everything in a single invocation produced one
+        // ~20 GB layer, which is slow to push and pull and lost in full whenever the installer fails.
+        // Batching alphabetically keeps the split independent of the order in which the product definition
+        // happens to list the components, so the same set of components always yields the same layers.
+        foreach ( var batch in this.Components.OrderBy( x => x, StringComparer.OrdinalIgnoreCase ).Chunk( _componentsPerLayer ) )
+        {
+            var components = string.Join( ", ", batch.Select( x => $"\"--add\", \"{x}\"" ) );
+
+            WriteInstallerRun(
+                writer,
+                $"""
+                 "modify", "--quiet", "--wait", "--norestart", "--nocache", "--installPath", "{_installPath}", "--channelId", "{this._version.ChannelId}", "--productId", "{_productId}", {components}
+                 """ );
+        }
 
         // Define VSINSTALLDIR
         writer.WriteLine( "ENV VSINSTALLDIR=C:\\BuildTools" );
@@ -72,6 +92,25 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
             RUN New-Item -ItemType Directory -Path 'C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages' -Force | Out-Null"; `
                 New-Item -ItemType Directory -Path 'C:\Program Files\dotnet\sdk\NuGetFallbackFolder' -Force | Out-Null
             """ );
+    }
+
+    // A single invocation of the installer, with the setup logs dumped into the build output when it fails:
+    // in quiet mode the installer itself reports nothing but an exit code.
+    private static void WriteInstallerRun( TextWriter writer, string arguments )
+    {
+        writer.WriteLine(
+            $$"""
+              RUN $process = Start-Process {{_bootstrapperPath}} -NoNewWindow -Wait -PassThru `
+                      -ArgumentList {{arguments}}; `
+                  if ($process.ExitCode -ne 0) { `
+                      Get-ChildItem "$env:TEMP\dd_*.log" -ErrorAction SilentlyContinue | ForEach-Object { `
+                          Write-Host "=== Contents of $($_.Name) ==="; `
+                          Get-Content $_.FullName; `
+                          Write-Host "=== End of $($_.Name) ===" `
+                      }; `
+                      exit $process.ExitCode; `
+                  }
+              """ );
     }
 
     public override void PopulateContextDirectory( BuildContext context, string directory )
