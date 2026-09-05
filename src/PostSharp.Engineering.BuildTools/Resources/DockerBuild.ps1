@@ -898,7 +898,12 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         Write-Host "Docker command: docker $( $cmd -join ' ' )" -ForegroundColor Cyan
         # Pipe docker output to the host so it does NOT become this function's return value (which would
         # otherwise pollute the tag string the caller folds into the next --build-arg BASE_IMAGE).
-        $content | & docker @cmd 2>&1 | Out-Host
+        #
+        # The config dir must be passed here too: `docker build` resolves the FROM itself, and when that is the
+        # OS mirror (or any other image in the private registry) it needs the credentials that the login wrote
+        # into the temporary config. Without it the build fails with "no basic auth credentials" on any agent
+        # whose default config is not already logged in.
+        $content | & docker @dockerConfigArg @cmd 2>&1 | Out-Host
         if ($LASTEXITCODE -ne 0) { Write-Host "Docker build failed for $tag (exit $LASTEXITCODE)" -ForegroundColor Red; exit $LASTEXITCODE }
         $script:builtNewImage = $true
     }
@@ -934,7 +939,9 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             if ($Memory -and $Isolation -ne 'process') { $cmd += "--memory=$Memory" }
             $cmd += @('--build-arg', "MOUNTPOINTS=$mountPointsAsString", '-f', '-', $bootCtx)
             Write-Host "Building boot image $bootTag (bind-mount dirs) over $baseTag" -ForegroundColor Green
-            $content | & docker @cmd 2>&1 | Out-Host
+            # Its FROM is the local chain leaf, so no credentials are needed - but the config dir is passed for
+            # consistency with Build-OneImage, and costs nothing when it is empty.
+            $content | & docker @dockerConfigArg @cmd 2>&1 | Out-Host
             if ($LASTEXITCODE -ne 0) { Write-Host "Boot image build failed for $bootTag (exit $LASTEXITCODE)" -ForegroundColor Red; exit $LASTEXITCODE }
         }
         finally { Remove-Item $bootCtx -Recurse -Force -ErrorAction SilentlyContinue }
@@ -1053,7 +1060,21 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         docker @dockerConfigArg manifest inspect $mirror.Reference *> $null
         if ($LASTEXITCODE -eq 0)
         {
+            # Pull it here, with the credentials from the temporary config, rather than leaving it to the FROM
+            # resolution inside `docker build`: the build only sees the credentials this script passes it, and
+            # an agent whose default config is not logged in would otherwise fail with "no basic auth
+            # credentials". Pulling it first also means the build never touches the registry at all.
             Write-Host "Building from the OS image mirrored at $( $mirror.Reference )" -ForegroundColor Green
+            docker @dockerConfigArg pull $mirror.Reference 2>&1 | Out-Host
+
+            if ($LASTEXITCODE -ne 0)
+            {
+                # The mirror is unusable on this agent; upstream still is. Not fatal.
+                Write-Host "Could not pull the mirrored OS image; building from $upstreamRef." -ForegroundColor Yellow
+                $script:OsImages[$upstreamRef] = $upstream
+                return $upstream
+            }
+
             $script:OsImages[$upstreamRef] = $mirror
             return $mirror
         }
