@@ -88,6 +88,35 @@ public static class GitHelper
         return true;
     }
 
+    /// <summary>
+    /// Pulls the given branch from origin into the current branch, merging any commit that has been pushed to the
+    /// remote in the meantime. The merge is forced to be a merge (and never a rebase), whatever the local
+    /// configuration of the build agent, because the local branch may already contain a merge commit.
+    /// </summary>
+    public static bool TryPull( BuildContext context, string branch )
+    {
+        if ( !TryConfigureCredentials( context ) )
+        {
+            return false;
+        }
+
+        if ( !TryAddOrigin( context.Console, context.RepoDirectory, branch ) )
+        {
+            return false;
+        }
+
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"pull --no-rebase origin {branch}",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     public static bool TryPullAndMergeAndPush( BuildContext context, BuildSettings settings, string targetBranch )
     {
         // We don't use context.Branch here in case the current branch has changed.

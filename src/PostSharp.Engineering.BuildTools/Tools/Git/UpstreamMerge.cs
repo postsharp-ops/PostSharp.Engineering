@@ -351,6 +351,12 @@ internal static class UpstreamMerge
     }
 
     /// <summary>
+    /// Number of times the pull-then-push sequence at the end of the merge is attempted. More than one attempt is
+    /// needed because a commit can be pushed to the downstream branch between our pull and our push.
+    /// </summary>
+    private const int _maxPushAttempts = 3;
+
+    /// <summary>
     /// Performs the actual git merge operation directly into the downstream branch.
     ///
     /// <para>
@@ -359,7 +365,10 @@ internal static class UpstreamMerge
     /// <list type="number">
     ///   <item>Merges the upstream branch into the (currently checked out) downstream branch using --no-commit --no-ff</item>
     ///   <item>Detects merge conflicts and invokes Claude Code to resolve them</item>
-    ///   <item>If Claude resolves them, regenerates scripts, commits the merge and pushes</item>
+    ///   <item>If Claude resolves them, regenerates scripts and commits the merge</item>
+    ///   <item>Pulls the downstream branch again, so any commit pushed while the merge was running is included,
+    ///     invoking Claude Code again if that pull conflicts</item>
+    ///   <item>Pushes the result, retrying the pull and the push if a commit is pushed in between</item>
     ///   <item>If Claude cannot resolve them, leaves the in-progress merge in the working tree and returns false</item>
     /// </list>
     /// </summary>
@@ -564,21 +573,136 @@ internal static class UpstreamMerge
             context.Console.WriteMessage( "No merge in progress - changes may have already been merged." );
         }
 
-        // Push the merge commit directly to the downstream branch
-        context.Console.WriteMessage( "" );
-        context.Console.WriteMessage( $"Pushing merge commit to '{downstreamBranch}'..." );
-
-        if ( !GitHelper.TryPush( context ) )
+        // The repository has been checked out from the snapshot taken by the build server when the build started, so
+        // another commit may have been pushed to the downstream branch in the meantime. Pull it before pushing,
+        // otherwise the push would be rejected as non-fast-forward. A single attempt does not close the window:
+        // yet another commit can be pushed between our pull and our push, so the whole sequence is retried.
+        for ( var attempt = 1; ; attempt++ )
         {
-            context.Console.WriteError( "Failed to push merge commit." );
-            areChangesPending = false;
+            context.Console.WriteMessage( "" );
 
-            return false;
+            context.Console.WriteMessage(
+                $"Pulling '{downstreamBranch}' to get any commit pushed in the meantime (attempt {attempt} of {_maxPushAttempts})..." );
+
+            if ( !TryPullDownstreamBranch( context, downstreamBranch ) )
+            {
+                // As everywhere else in this method, the working tree is left as-is so a human can complete the merge.
+                context.Console.WriteError( "" );
+                context.Console.WriteError( "The upstream merge has been committed locally but could not be reconciled with the remote branch." );
+                context.Console.WriteError( "The working tree has been left as-is. Manual completion required:" );
+                context.Console.WriteError( $"  1. Resolve the conflicts with 'origin/{downstreamBranch}' in your IDE" );
+                context.Console.WriteError( "  2. Stage the result: git add -A" );
+                context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 generate-scripts" );
+                context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
+                context.Console.WriteError( "  5. Push: git push" );
+
+                return false;
+            }
+
+            // Push the merge commit directly to the downstream branch
+            context.Console.WriteMessage( "" );
+            context.Console.WriteMessage( $"Pushing merge commit to '{downstreamBranch}'..." );
+
+            if ( GitHelper.TryPush( context ) )
+            {
+                break;
+            }
+
+            if ( attempt >= _maxPushAttempts )
+            {
+                context.Console.WriteError( $"Failed to push merge commit after {_maxPushAttempts} attempt(s)." );
+
+                return false;
+            }
+
+            context.Console.WriteWarning(
+                $"Failed to push merge commit. Another commit has probably been pushed to '{downstreamBranch}' in the meantime. Retrying..." );
         }
 
         context.Console.WriteMessage( "Merge pushed successfully." );
         context.Console.WriteImportantMessage( $"'{sourceBranch}' has been merged into '{downstreamBranch}'." );
         areChangesPending = true;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Pulls the downstream branch into the working tree, invoking Claude Code to resolve any conflict between the
+    /// upstream merge commit and the commits that have been pushed to the downstream branch in the meantime.
+    /// The working tree is left as-is when the conflicts cannot be resolved, so a human can complete the merge.
+    /// </summary>
+    private static bool TryPullDownstreamBranch( BuildContext context, string downstreamBranch )
+    {
+        if ( GitHelper.TryPull( context, downstreamBranch ) )
+        {
+            return true;
+        }
+
+        // Git returns a non-zero exit code both when the pull conflicts and when it fails for any other reason,
+        // so the state of the repository is what tells the two apart.
+        if ( !GitHelper.TryGetIsMergeInProgress( context, context.RepoDirectory, out var isMergeInProgress ) || !isMergeInProgress )
+        {
+            context.Console.WriteError( $"Failed to pull '{downstreamBranch}'." );
+
+            return false;
+        }
+
+        context.Console.WriteMessage( "" );
+        context.Console.WriteHeading( "Conflict Resolution with Claude Code" );
+
+        context.Console.WriteImportantMessage(
+            $"The commits pushed to '{downstreamBranch}' in the meantime conflict with the upstream merge. Invoking Claude Code to resolve them..." );
+
+        if ( !ClaudeCodeHelper.TryResolveMergeConflicts(
+                context.Console,
+                context.RepoDirectory,
+                $"origin/{downstreamBranch}",
+                downstreamBranch,
+                out _ ) )
+        {
+            context.Console.WriteError( $"Claude failed to resolve the conflicts of the pull of '{downstreamBranch}'." );
+
+            return false;
+        }
+
+        context.Console.WriteSuccess( "Claude successfully resolved all merge conflicts!" );
+
+        // The conflict resolution may have changed the inputs of the generated files, so they are regenerated before
+        // the merge is committed, as after the merge of the upstream branch.
+        context.Console.WriteMessage( "Regenerating scripts after conflict resolution..." );
+
+        if ( !ToolInvocationHelper.InvokePowershell(
+                context.Console,
+                "Build.ps1",
+                "generate-scripts",
+                context.RepoDirectory ) )
+        {
+            context.Console.WriteError( "Failed to regenerate scripts." );
+
+            return false;
+        }
+
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "add -A",
+                context.RepoDirectory ) )
+        {
+            context.Console.WriteError( "Failed to stage the resolved files." );
+
+            return false;
+        }
+
+        context.Console.WriteMessage( "Committing the merge..." );
+
+        if ( !GitHelper.TryCommitMerge( context ) )
+        {
+            context.Console.WriteError( $"Failed to commit the merge of '{downstreamBranch}'." );
+
+            return false;
+        }
+
+        context.Console.WriteMessage( "Merge committed successfully." );
 
         return true;
     }
