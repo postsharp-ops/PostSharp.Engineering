@@ -57,7 +57,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             var reuseBuilds = this.ReuseLastSuccessfulBuild ? ReuseBuilds.LastSuccessful : ReuseBuilds.Default;
 
             snapshotDependencies =
-                [new TeamCitySnapshotDependency( buildConfiguration.ObjectName, false, $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}", ReuseBuilds: reuseBuilds )];
+                [new TeamCitySnapshotDependency( buildConfiguration.ObjectName, false, this.DependencyArtifactRules ?? $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}", ReuseBuilds: reuseBuilds )];
 
             snapshotDependencies.AddRange(
                 dependencies.Select( d => new TeamCitySnapshotDependency(
@@ -114,6 +114,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                     : this.BuildAgentRequirements is ContainerHostRequirements containerHostRequirements
                         ? new DockerSpec(
                             $"{productProperties.Product.ProductNameWithoutDot}-{productProperties.Product.ProductFamily.Version}-{this.Id}".ToLowerInvariant(),
+                            Memory: this.ContainerMemoryInGigabytes,
                             Dockerfile: this.Dockerfile )
                         : null,
                 true )
@@ -144,6 +145,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             },
             SnapshotDependencies = snapshotDependencies?.ToArray(),
             Parameters = this.Parameters,
+            TimeoutInMinutes = this.TimeoutInMinutes,
             BuildTriggers = this.BuildTriggers,
 
             // Escaped rather than real newlines: the generator un-escapes them into the Kotlin triple-quoted

@@ -249,12 +249,38 @@ internal static class TeamCitySettingsFile
             teamCityBuildConfigurations.Add( upstreamMergeConfiguration );
         }
 
-        // Add product-defined.
+        // Add product-defined. Those naming a project folder are grouped into a sub-project of that name, so that
+        // a product with dozens of test cells does not present them as one flat list; the rest sit at the root.
+        var folderedConfigurations = new Dictionary<string, List<TeamCityBuildConfiguration>>( StringComparer.Ordinal );
+
         foreach ( var additional in product.AdditionalCiBuildConfigurations )
         {
             var configuration = additional.TeamCityBuildConfiguration( productProperties, teamCityBuildBuildConfigurations );
             configuration.GitHubAppTokenOverride = additional.GitHubAppToken;
-            teamCityBuildConfigurations.Add( configuration );
+
+            if ( additional.ProjectFolder == null )
+            {
+                teamCityBuildConfigurations.Add( configuration );
+            }
+            else
+            {
+                if ( !folderedConfigurations.TryGetValue( additional.ProjectFolder, out var configurationsInFolder ) )
+                {
+                    configurationsInFolder = [];
+                    folderedConfigurations.Add( additional.ProjectFolder, configurationsInFolder );
+                }
+
+                configurationsInFolder.Add( configuration );
+            }
+        }
+
+        foreach ( var folder in folderedConfigurations )
+        {
+            // The object name is the folder name with everything a Kotlin identifier cannot carry removed.
+            var objectName = new string( folder.Key.Where( char.IsLetterOrDigit ).ToArray() );
+
+            subProjects.Add( new TeamCityProject( objectName, folder.Key, folder.Value.ToArray(), [] ) );
+            subProjectConfigurations.AddRange( folder.Value );
         }
 
         // Add from extensions.

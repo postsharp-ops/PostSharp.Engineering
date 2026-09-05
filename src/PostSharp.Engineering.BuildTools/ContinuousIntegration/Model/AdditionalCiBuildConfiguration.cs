@@ -51,6 +51,36 @@ public abstract class AdditionalCiBuildConfiguration
     public BuildConfigurationParameter[]? Parameters { get; init; }
 
     /// <summary>
+    /// Gets the wall-clock limit of the build in minutes, or <c>null</c> for no limit. Without one a build that
+    /// hangs holds its agent indefinitely; with one that is too short a legitimately long build is killed.
+    /// </summary>
+    public int? TimeoutInMinutes { get; init; }
+
+    /// <summary>
+    /// Gets the memory limit of the container in gigabytes, or <c>null</c> for the default. Test cells differ:
+    /// the time-sensitive ones are given less so that several fit on one agent, while the build-heavy ones need
+    /// more, because a container that runs out of memory does not merely slow down -- it mis-sizes the build
+    /// parallelism and then fails with an out-of-memory error from an unrelated process.
+    /// </summary>
+    public int? ContainerMemoryInGigabytes { get; init; }
+
+    /// <summary>
+    /// Gets the artifact rule by which this configuration consumes the artifacts of its
+    /// <see cref="BuildSnapshotDependency"/>, or <c>null</c> to take the whole private artifact directory as it
+    /// is. A distribution test sets it, because what it needs is the content of the shipped archive rather than
+    /// the archive itself -- for example <c>PostSharp*.7z!**/* =&gt;</c>, where the <c>!</c> tells TeamCity to
+    /// extract rather than copy.
+    /// </summary>
+    public string? DependencyArtifactRules { get; init; }
+
+    /// <summary>
+    /// Gets the display name of the sub-project this configuration belongs to, or <c>null</c> to sit at the root
+    /// of the generated project. Configurations that share a folder are grouped into one TeamCity sub-project, so
+    /// that a product with dozens of test cells does not present them as one flat list.
+    /// </summary>
+    public string? ProjectFolder { get; init; }
+
+    /// <summary>
     /// Gets the triggers that start this build configuration, or <c>null</c> for one that is only ever started by
     /// hand. A <see cref="NightlyBuildTrigger"/> here is what turns an additional configuration from a button into
     /// a scheduled job.

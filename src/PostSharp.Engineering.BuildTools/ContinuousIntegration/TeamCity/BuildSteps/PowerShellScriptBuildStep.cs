@@ -42,7 +42,14 @@ internal class PowerShellScriptBuildStep : BuildStep
         {
             this.ScriptPath = "DockerBuild.ps1";
             var dockerfileArg = dockerSpec.Dockerfile != null ? $" -Dockerfile {dockerSpec.Dockerfile}" : "";
-            this.ScriptArguments = $"-Script {scriptPath} -ImageName {dockerSpec.ImageName}{dockerfileArg} -NoBuildImage -Label %system.teamcity.buildType.id%_%build.number% {scriptArguments} {buildParameterValue}";
+
+            // DockerBuild.ps1 expects a suffixed size, such as "8g". Without this the Memory of a DockerSpec was
+            // accepted and then silently dropped, so every container took the agent-wide default -- wrong in both
+            // directions: a time-sensitive cell got far more than it needs, a build-heavy one could get less.
+            var memoryArg = dockerSpec.Memory != null ? $" -Memory {dockerSpec.Memory}g" : "";
+
+            this.ScriptArguments =
+                $"-Script {scriptPath} -ImageName {dockerSpec.ImageName}{dockerfileArg}{memoryArg} -NoBuildImage -Label %system.teamcity.buildType.id%_%build.number% {scriptArguments} {buildParameterValue}";
         }
 
         if ( areCustomArgumentsAllowed )

@@ -40,6 +40,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 
         public string? ArtifactRules { get; init; }
 
+        /// <summary>
+        /// Gets the wall-clock limit of the build in minutes, or <c>null</c> for no limit. Without one a build that
+        /// hangs holds its agent indefinitely; with one that is too short a legitimately long build is killed, so
+        /// the value belongs to the product rather than to a default here.
+        /// </summary>
+        public int? TimeoutInMinutes { get; init; }
+
         public string[]? AdditionalArtifactRules { get; init; }
 
         public IBuildTrigger[]? BuildTriggers { get; init; }
@@ -244,6 +251,14 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 writer.WriteLine( @"    }" );
             }
 
+            if ( this.TimeoutInMinutes != null )
+            {
+                writer.WriteLine();
+                writer.WriteLine( "    failureConditions {" );
+                writer.WriteLine( $"        executionTimeoutMin = {this.TimeoutInMinutes.Value}" );
+                writer.WriteLine( "    }" );
+            }
+
             if ( !this.IsComposite && this.BuildAgentRequirements != null )
             {
                 writer.WriteLine();
@@ -255,6 +270,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                     {
                         RequirementComparisonType.Equals => "equals",
                         RequirementComparisonType.Matches => "matches",
+                        RequirementComparisonType.MoreThan => "moreThan",
+                        RequirementComparisonType.DoesNotContain => "doesNotContain",
                         _ => "equals"
                     };
 

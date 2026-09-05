@@ -9,7 +9,21 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 public enum RequirementComparisonType
 {
     Equals,
-    Matches
+    Matches,
+
+    /// <summary>
+    /// The parameter is numerically greater than the value. Used to keep a build off under-provisioned agents,
+    /// for example <c>teamcity.agent.hardware.memorySizeMb</c> greater than <c>8192</c>.
+    /// </summary>
+    MoreThan,
+
+    /// <summary>
+    /// The parameter does not contain the value. Needed where no positive match expresses the exclusion: the
+    /// TeamCity JVM on Windows-on-ARM runs under x64 emulation and therefore reports <c>os.arch=amd64</c>, so an
+    /// x64-only build is kept off that agent by requiring <c>env.PROCESSOR_IDENTIFIER</c> not to contain
+    /// <c>ARMv8</c>.
+    /// </summary>
+    DoesNotContain
 }
 
 public record BuildAgentRequirement( string Name, string Value, RequirementComparisonType ComparisonType = RequirementComparisonType.Equals );
