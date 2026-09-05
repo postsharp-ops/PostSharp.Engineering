@@ -12,7 +12,9 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 /// with a layer name (via <see cref="ContainerComponent.Layer"/>, default <see cref="Build"/>). When a layer
 /// has at least one component it is emitted as its own <c>&lt;stem&gt;.Dockerfile</c>, building
 /// <c>FROM ${BASE_IMAGE}</c> of its nearest active ancestor in the chain. The lowest active layer builds
-/// <c>FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION}</c> (the external <c>&lt;root/os&gt;</c> base).
+/// <c>FROM ${OS_IMAGE_REPOSITORY}:${WINDOWS_VERSION}</c> (the external <c>&lt;root/os&gt;</c> base, which
+/// defaults to <c>mcr.microsoft.com/windows/servercore</c> and is redirected to a registry-local mirror when
+/// one is configured).
 /// </summary>
 /// <remarks>
 /// The standard chain is <c>vs17|vs18 → build → claude</c> (root → leaf). Referencing any component on a layer

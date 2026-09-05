@@ -872,6 +872,26 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         {
             $cmd += @('--build-arg', "WINDOWS_VERSION=$windowsVersion")
         }
+
+        # Same for the OS image: only a root image declares it, and resolving it here (rather than up front)
+        # means the mirror is only consulted when a root image is genuinely being built. The Windows default
+        # root takes its tag from WINDOWS_VERSION and so declares a repository; every other root (Linux, and
+        # any product that pins its own base image) declares a complete reference.
+        if ($windowsVersion -and ($content -match 'ARG\s+OS_IMAGE_REPOSITORY=(\S+)'))
+        {
+            $cmd += @('--build-arg', "OS_IMAGE_REPOSITORY=$( (Get-OsImage $Matches[1] $windowsVersion).Repository )")
+        }
+        elseif ($content -match 'ARG\s+OS_IMAGE=(\S+)')
+        {
+            # Split the trailing tag off the reference; a ':' before the last '/' belongs to a registry port.
+            $ref = $Matches[1]
+            $slash = $ref.LastIndexOf('/')
+            $colon = $ref.LastIndexOf(':')
+            if ($colon -gt $slash) { $osRepository = $ref.Substring(0, $colon); $osTag = $ref.Substring($colon + 1) }
+            else { $osRepository = $ref; $osTag = 'latest' }
+
+            $cmd += @('--build-arg', "OS_IMAGE=$( (Get-OsImage $osRepository $osTag).Reference )")
+        }
         $cmd += $baseBuildArg
         $cmd += @('-f', '-', $ctxDir)
         Write-Host "Building $tag" -ForegroundColor Green
@@ -992,6 +1012,74 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         $script:RegistryPushJobs = @()
     }
 
+    # Resolve the OS image a root image is built FROM, mirroring it into the configured registry the first time
+    # it is needed. On a fresh agent the OS image is the most expensive download of the whole build, and the
+    # registry is on the LAN, so building from the mirror replaces an internet transfer with a local one.
+    # Agents that configure no registry (the cloud ones) go straight to the upstream registry, as before.
+    #
+    # Takes the upstream repository and tag, and returns an object with the Repository and the full Reference to
+    # build from - either the mirror or, when there is no registry (or the mirror cannot be created), upstream.
+    # Called only when a ROOT image is actually being built, so a run that pulls its whole chain never touches
+    # the mirror. Each distinct image is resolved once per run.
+    function Get-OsImage([string]$repository, [string]$tag)
+    {
+        $upstreamRef = "${repository}:${tag}"
+
+        if ($script:OsImages.ContainsKey($upstreamRef))
+        {
+            return $script:OsImages[$upstreamRef]
+        }
+
+        $upstream = [pscustomobject]@{ Repository = $repository; Reference = $upstreamRef }
+
+        if (-not $dockerRegistry)
+        {
+            $script:OsImages[$upstreamRef] = $upstream
+            return $upstream
+        }
+
+        # Flatten the upstream repository into a single product-neutral name, dropping the registry host:
+        # 'mcr.microsoft.com/windows/servercore' -> 'windows-servercore', 'ubuntu' -> 'ubuntu'. Every product
+        # using this registry then shares the one mirror.
+        $segments = $repository -split '/'
+        if ($segments.Length -gt 1 -and ($segments[0] -match '[.:]'))
+        {
+            $segments = $segments[1..($segments.Length - 1)]
+        }
+
+        $mirrorRepository = "$dockerRegistry/$( $segments -join '-' )"
+        $mirror = [pscustomobject]@{ Repository = $mirrorRepository; Reference = "${mirrorRepository}:${tag}" }
+
+        docker @dockerConfigArg manifest inspect $mirror.Reference *> $null
+        if ($LASTEXITCODE -eq 0)
+        {
+            Write-Host "Building from the OS image mirrored at $( $mirror.Reference )" -ForegroundColor Green
+            $script:OsImages[$upstreamRef] = $mirror
+            return $mirror
+        }
+
+        # Not mirrored yet: take it from upstream this once and mirror it, so that every later build on every
+        # agent gets it from the registry. The push is normally near-instant even though the image is gigabytes:
+        # those exact blobs already underlie every chain image pushed so far, so the registry mounts them across
+        # repositories instead of receiving them again.
+        Write-Host "The OS image is not mirrored yet; pulling $upstreamRef to mirror it" -ForegroundColor Cyan
+        docker pull $upstreamRef 2>&1 | Out-Host
+
+        if ($LASTEXITCODE -ne 0)
+        {
+            # Not fatal: the build below pulls the same image from upstream anyway, and reports its own error.
+            Write-Host "Could not pull the OS image; building from $upstreamRef." -ForegroundColor Yellow
+            $script:OsImages[$upstreamRef] = $upstream
+            return $upstream
+        }
+
+        docker tag $upstreamRef $mirror.Reference | Out-Null
+        Start-AsyncPush $mirror.Reference
+        $script:OsImages[$upstreamRef] = $mirror
+
+        return $mirror
+    }
+
     # Ensure the image and its ancestors exist (parent first): use local, else pull, else build; start a push
     # when building in registry mode. Returns the image tag.
     function Ensure-Image([string]$dfPath)
@@ -1061,6 +1149,10 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     # The exit code the script has decided on, so that the `finally` block can tell a build that is failing for
     # another reason from one that would otherwise have succeeded.
     $script:ExitCode = 0
+
+    # OS images the root images are built FROM, keyed by upstream reference and resolved on first use by
+    # Get-OsImage.
+    $script:OsImages = @{ }
 
     # Tags already handed to Start-AsyncPush, so that resolving the same image twice (the run step resolves the
     # chain again) does not push it twice.
