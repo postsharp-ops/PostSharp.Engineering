@@ -37,19 +37,33 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
         var buildSteps = new List<BuildStep>();
         List<TeamCitySnapshotDependency>? snapshotDependencies = null;
 
-        // Handle snapshot dependencies.
-        if ( this.BuildSnapshotDependency != null )
+        // Handle snapshot dependencies. The dependency is either one of the product build configurations or, for
+        // a product whose pipeline has intermediate stages, another additional configuration named by identifier.
+        // The artifact layout is the same either way, so everything below is unaffected by which one it is.
+        if ( this.BuildSnapshotDependency != null || this.BuildSnapshotDependencyId != null )
         {
-            if ( !teamCityBuildBuildConfigurations.TryGetValue( this.BuildSnapshotDependency.Value, out var buildConfiguration ) )
+            string dependencyObjectName;
+
+            if ( this.BuildSnapshotDependencyId != null )
+            {
+                dependencyObjectName = this.BuildSnapshotDependencyId;
+            }
+            else if ( teamCityBuildBuildConfigurations.TryGetValue( this.BuildSnapshotDependency!.Value, out var buildConfiguration ) )
+            {
+                dependencyObjectName = buildConfiguration.ObjectName;
+            }
+            else
             {
                 throw new KeyNotFoundException( $"Cannot find the TeamCity build configuration for '{this.BuildSnapshotDependency.Value}'." );
             }
 
-            var buildArtifactsDirectory = productProperties.Product.GetPrivateArtifactsRelativeDirectory( this.BuildSnapshotDependency.Value )
+            var artifactsConfiguration = this.BuildSnapshotDependency ?? BuildConfiguration.Public;
+
+            var buildArtifactsDirectory = productProperties.Product.GetPrivateArtifactsRelativeDirectory( artifactsConfiguration )
                 .Replace( "\\", "/", StringComparison.Ordinal );
 
             // Get all transitive dependencies for the build configuration
-            var dependencies = product.DependencyDefinition.GetAllDependencies( this.BuildSnapshotDependency.Value )
+            var dependencies = product.DependencyDefinition.GetAllDependencies( artifactsConfiguration )
                 .Where( d => d.Definition.GenerateSnapshotDependency )
                 .ToList();
 
@@ -57,7 +71,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             var reuseBuilds = this.ReuseLastSuccessfulBuild ? ReuseBuilds.LastSuccessful : ReuseBuilds.Default;
 
             snapshotDependencies =
-                [new TeamCitySnapshotDependency( buildConfiguration.ObjectName, false, this.DependencyArtifactRules ?? $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}", ReuseBuilds: reuseBuilds )];
+                [new TeamCitySnapshotDependency( dependencyObjectName, false, this.DependencyArtifactRules ?? $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}", ReuseBuilds: reuseBuilds )];
 
             snapshotDependencies.AddRange(
                 dependencies.Select( d => new TeamCitySnapshotDependency(

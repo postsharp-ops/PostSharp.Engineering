@@ -81,6 +81,27 @@ public abstract class AdditionalCiBuildConfiguration
     public string? ProjectFolder { get; init; }
 
     /// <summary>
+    /// Gets the identifier of another <see cref="AdditionalCiBuildConfiguration"/> whose artifacts this one
+    /// consumes, instead of one of the product build configurations named by <see cref="BuildSnapshotDependency"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A product whose pipeline has intermediate stages needs this. PostSharp builds artifacts, then assembles a
+    /// distribution from them, then signs it; the first two are far cheaper than the third, so a test that only
+    /// needs the artifacts must be able to depend on the stage that produced them rather than on the signed build
+    /// at the end of the chain. Without it every cell would wait for the most expensive stage, and a failure could
+    /// only be iterated on by re-running the whole pipeline.
+    /// </para>
+    /// <para>
+    /// This and <see cref="BuildSnapshotDependency"/> answer different questions and can be set together: this
+    /// one names the configuration to wait for, while <see cref="BuildSnapshotDependency"/> selects whose
+    /// artifact layout is read. Where only this one is set, the layout of the public configuration is assumed,
+    /// which is right for a product that produces nothing else.
+    /// </para>
+    /// </remarks>
+    public string? BuildSnapshotDependencyId { get; init; }
+
+    /// <summary>
     /// Gets the triggers that start this build configuration, or <c>null</c> for one that is only ever started by
     /// hand. A <see cref="NightlyBuildTrigger"/> here is what turns an additional configuration from a button into
     /// a scheduled job.

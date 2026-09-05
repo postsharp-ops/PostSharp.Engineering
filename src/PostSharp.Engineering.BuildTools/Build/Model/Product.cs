@@ -293,6 +293,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public AdditionalCiBuildConfiguration[] AdditionalCiBuildConfigurations { get; init; } = [];
 
+        /// <summary>
+        /// Gets a value indicating whether each generated TeamCity build configuration is written to its own file
+        /// under <c>.teamcity/buildTypes</c>, instead of all of them into <c>settings.kts</c>. The default is
+        /// <c>false</c>, which keeps the single-file layout every product has today.
+        /// </summary>
+        /// <remarks>
+        /// Worth turning on for a product with many build configurations. A settings file holding several dozen of
+        /// them runs to thousands of lines, so a change to one configuration reads in a diff as a change to the
+        /// whole build definition, and finding a configuration means searching the file rather than opening it.
+        /// </remarks>
+        public bool GenerateTeamCityBuildTypesInSeparateFiles { get; init; }
+
         public AdditionalDockerfile[] AdditionalDockerfiles { get; init; } = [];
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )

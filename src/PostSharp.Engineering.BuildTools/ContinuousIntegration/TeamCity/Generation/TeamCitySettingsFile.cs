@@ -325,7 +325,7 @@ internal static class TeamCitySettingsFile
         var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray(), [], subProjects.ToArray() );
 
         GeneratePom( context, product.DependencyDefinition.CiConfiguration.ProjectId.Id, product.DependencyDefinition.CiConfiguration.BaseUrl );
-        GenerateTeamCityConfiguration( context, teamCityProject );
+        GenerateTeamCityConfiguration( context, teamCityProject, product.GenerateTeamCityBuildTypesInSeparateFiles );
 
         return true;
     }
@@ -1017,13 +1017,91 @@ internal static class TeamCitySettingsFile
             context );
     }
 
-    private static void GenerateTeamCityConfiguration( BuildContext context, TeamCityProject project )
+    /// <summary>
+    /// Writes the settings file and one file per build configuration.
+    /// </summary>
+    /// <remarks>
+    /// A single settings file holding every configuration runs to thousands of lines, so a change to one build
+    /// configuration shows up in a diff as a change to the whole build definition, and finding a configuration
+    /// means searching rather than opening it. One file per configuration, named after it, restores both.
+    /// </remarks>
+    private static void GenerateTeamCityConfiguration( BuildContext context, TeamCityProject project, bool separateBuildTypeFiles )
     {
+        var teamCityDirectory = Path.Combine( context.RepoDirectory, ".teamcity" );
+
         var content = new StringWriter();
-        project.GenerateTeamcityCode( content );
+        project.GenerateTeamcityCode( content, separateBuildTypeFiles );
+        TextFileHelper.WriteIfDifferent( Path.Combine( teamCityDirectory, "settings.kts" ), content.ToString(), context );
 
-        var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
+        var buildTypesRoot = Path.Combine( teamCityDirectory, TeamCityProject.BuildTypesPackage );
 
-        TextFileHelper.WriteIfDifferent( filePath, content.ToString(), context );
+        if ( !separateBuildTypeFiles )
+        {
+            // The configurations are in the settings file. Remove a directory left by a previous generation that
+            // had the option on, so the two layouts cannot both be present and both be compiled.
+            if ( Directory.Exists( buildTypesRoot ) )
+            {
+                context.Console.WriteMessage( $"Deleting '{buildTypesRoot}': the build configurations are in settings.kts." );
+                Directory.Delete( buildTypesRoot, true );
+            }
+
+            return;
+        }
+
+        var generatedFiles = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
+
+        foreach ( var (packageName, configuration) in project.ConfigurationsByPackage )
+        {
+            // The directory mirrors the package, which mirrors the project tree.
+            var directory = Path.Combine( teamCityDirectory, Path.Combine( packageName.Split( '.' ) ) );
+            Directory.CreateDirectory( directory );
+
+            var configurationContent = new StringWriter();
+
+            configurationContent.WriteLine( TeamCityProject.GeneratedFileHeader );
+            configurationContent.WriteLine();
+            configurationContent.WriteLine( $"package {packageName}" );
+            configurationContent.WriteLine();
+            configurationContent.WriteLine( TeamCityProject.Imports );
+
+            // A configuration refers to the ones it depends on by their Kotlin identifier, and a dependency is
+            // often in another sub-project and therefore another package. Its own package resolves implicitly;
+            // every other one has to be imported, or the reference is unresolved and the whole dependency block
+            // fails to type-check.
+            foreach ( var otherPackage in project.BuildTypePackages.Where( p => p != packageName ) )
+            {
+                configurationContent.WriteLine( $"import {otherPackage}.*" );
+            }
+
+            configurationContent.WriteLine();
+            configuration.GenerateTeamcityCode( configurationContent );
+
+            var filePath = Path.Combine( directory, $"{configuration.ObjectName}.kt" );
+            generatedFiles.Add( filePath );
+
+            TextFileHelper.WriteIfDifferent( filePath, configurationContent.ToString(), context );
+        }
+
+        // A configuration removed from the product must not survive as a stale file: it would still be compiled,
+        // and would still create the build configuration it describes.
+        if ( Directory.Exists( buildTypesRoot ) )
+        {
+            foreach ( var existingFile in Directory.GetFiles( buildTypesRoot, "*.kt", SearchOption.AllDirectories ) )
+            {
+                if ( !generatedFiles.Contains( existingFile ) )
+                {
+                    context.Console.WriteMessage( $"Deleting '{existingFile}', which no longer corresponds to a build configuration." );
+                    File.Delete( existingFile );
+                }
+            }
+
+            foreach ( var directory in Directory.GetDirectories( buildTypesRoot, "*", SearchOption.AllDirectories ) )
+            {
+                if ( Directory.Exists( directory ) && !Directory.EnumerateFileSystemEntries( directory ).Any() )
+                {
+                    Directory.Delete( directory );
+                }
+            }
+        }
     }
 }
