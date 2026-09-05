@@ -8,7 +8,15 @@ internal record TeamCitySnapshotDependency(
     string? ArtifactRules = null,
     FailureAction FailureAction = FailureAction.FailToStart,
     ReuseBuilds ReuseBuilds = ReuseBuilds.Default,
-    string? Branch = null );
+    string? Branch = null,
+
+    /// <summary>
+    /// Whether TeamCity empties the destination of each artifact rule before downloading. It is right when the
+    /// destination is a directory of its own, and destructive when a rule unpacks into the checkout root: the
+    /// clean then removes the sources, and the build fails afterwards on a missing file with no indication that
+    /// the checkout was emptied.
+    /// </summary>
+    bool CleanDestination = true );
 
 internal enum FailureAction
 {

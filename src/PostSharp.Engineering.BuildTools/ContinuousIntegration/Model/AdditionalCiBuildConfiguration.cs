@@ -74,6 +74,14 @@ public abstract class AdditionalCiBuildConfiguration
     public string? DependencyArtifactRules { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether TeamCity empties the destination of each artifact rule before downloading.
+    /// The default is <c>true</c>. Set it to <c>false</c> where a rule unpacks an archive into the checkout root,
+    /// because the clean would then delete the sources; the build fails afterwards on a missing file, with
+    /// nothing to say that the checkout was emptied.
+    /// </summary>
+    public bool CleanDependencyDestination { get; init; } = true;
+
+    /// <summary>
     /// Gets the display name of the sub-project this configuration belongs to, or <c>null</c> to sit at the root
     /// of the generated project. Configurations that share a folder are grouped into one TeamCity sub-project, so
     /// that a product with dozens of test cells does not present them as one flat list.

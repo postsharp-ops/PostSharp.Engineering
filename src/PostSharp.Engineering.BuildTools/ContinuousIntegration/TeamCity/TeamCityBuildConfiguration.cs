@@ -439,7 +439,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                             $$"""
 
                                       artifacts({{objectName}}) { {{buildRule}}
-                                          cleanDestination = true
+                                          cleanDestination = {{(dependency.CleanDestination ? "true" : "false")}}
                                           artifactRules = "{{dependency.ArtifactRules}}"
                                       }
                               """ );
