@@ -15,32 +15,44 @@ namespace PostSharp.Engineering.BuildTools.Build.MSBuild;
 // ReSharper disable once InconsistentNaming
 internal static class MSBuildHelper
 {
+    // MSBuildLocator accepts one registration per process, and both the check and the registration below have to
+    // happen under the same lock. A command calls InitializeLocator on a single thread, but the tests call it
+    // directly from several classes, which xUnit runs in parallel. Without the lock two threads could both pass
+    // CanRegister before either registered, and the loser of that race failed. The whole method is locked rather
+    // than double-checked, because it runs once per process and contention costs nothing here.
+    private static readonly object _sync = new();
+
     private static bool _isInitialized;
 
     public static VisualStudioInstance? RegisteredInstance { get; private set; }
 
     public static void InitializeLocator()
     {
-        if ( !_isInitialized )
+        lock ( _sync )
         {
-            if ( MSBuildLocator.CanRegister )
+            // CanRegister is false once anything has registered a locator or loaded the MSBuild assemblies, in which
+            // case there is nothing to do and nothing to report.
+            if ( _isInitialized || !MSBuildLocator.CanRegister )
             {
-                try
-                {
-                    RegisteredInstance = MSBuildLocator.RegisterDefaults();
-
-                    _isInitialized = true;
-                }
-                catch ( Exception e )
-                {
-                    throw new InvalidOperationException(
-                        $"Cannot find a suitable version of MSBuild for "
-                        + $"{RuntimeInformation.FrameworkDescription} {RuntimeInformation.ProcessArchitecture}. "
-                        + "You should probably install an SDK for this .NET version."
-                        + "Try this: `winget install Microsoft.DotNet.Sdk.X`.",
-                        e );
-                }
+                return;
             }
+
+            try
+            {
+                RegisteredInstance = MSBuildLocator.RegisterDefaults();
+            }
+            catch ( Exception e )
+            {
+                throw new InvalidOperationException(
+                    "Cannot register a version of MSBuild for "
+                    + $"{RuntimeInformation.FrameworkDescription} {RuntimeInformation.ProcessArchitecture}. "
+                    + "The most frequent cause is that no SDK is installed for this .NET version. "
+                    + "Installing one, for instance with `winget install Microsoft.DotNet.SDK.10`, probably fixes it. "
+                    + "See the inner exception for what actually failed.",
+                    e );
+            }
+
+            _isInitialized = true;
         }
     }
 
