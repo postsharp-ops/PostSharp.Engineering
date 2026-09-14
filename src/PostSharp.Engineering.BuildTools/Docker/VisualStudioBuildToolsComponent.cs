@@ -37,8 +37,11 @@ public sealed class VisualStudioBuildToolsComponent : ContainerComponent
     // Dev17 to Dev18 builds a new base image instead of layering one product line over the other.
     public override string Layer => ContainerLayers.VisualStudio( this._version.MajorVersion );
 
+    // The version was Dev17 17.14.15 until this constructor was retargeted at LatestStable, which is a Dev18 build.
+    // The two differ by major version, so they resolve to different base images. No product used this overload at the
+    // time of the change: all of them name a version explicitly.
     [Obsolete( "Specify the VisualStudioBuildToolsComponentVersion/" )]
-    public VisualStudioBuildToolsComponent( string[] vsComponents ) : this( VisualStudioBuildToolsComponentVersion.v17_14_15, vsComponents ) { }
+    public VisualStudioBuildToolsComponent( string[] vsComponents ) : this( VisualStudioBuildToolsComponentVersion.LatestStable, vsComponents ) { }
 
     public VisualStudioBuildToolsComponent( VisualStudioBuildToolsComponentVersion version, string[] vsComponents )
     {
