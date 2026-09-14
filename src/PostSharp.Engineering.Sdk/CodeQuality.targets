@@ -27,4 +27,14 @@
         <WarningsNotAsErrors>$(WarningsNotAsErrors);PSENG0001</WarningsNotAsErrors>
     </PropertyGroup>
 
+    <!-- PSENG0002 reports a use of a VisualStudioBuildToolsComponentVersion build that Microsoft no longer services.
+         PSENG0003 reports a use of a build-specific field, such as v17_14_39, where the line property v17_14 would
+         follow a re-pin within that line on its own. Several consuming repositories still name a build, and TreatWarningsAsErrors above
+         would turn either diagnostic into a broken build as soon as one of them updates PostSharp.Engineering. Both are
+         kept as warnings so that they stay visible without stopping the build. Remove PSENG0002 once every consuming
+         repository is on a serviced build, and PSENG0003 once every one of them names a line. -->
+    <PropertyGroup Condition="'$(DisableCodeQuality)'!='True'">
+        <WarningsNotAsErrors>$(WarningsNotAsErrors);PSENG0002;PSENG0003</WarningsNotAsErrors>
+    </PropertyGroup>
+
 </Project>
