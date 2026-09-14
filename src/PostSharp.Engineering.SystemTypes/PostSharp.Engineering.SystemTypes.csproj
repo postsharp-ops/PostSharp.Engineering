@@ -1,11 +1,23 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <!-- See README.md -->
     <PropertyGroup>
-        <TargetFramework>net472</TargetFramework>
+        <!-- netstandard2.0 is the lowest target framework a consumer uses, and it declares neither ReadOnlySpan<T>
+             nor the nullable attributes, so it is the framework in which a reference to a type this repository never
+             sees can fail. net472 stays because it is the other legacy framework the assets are compiled into. -->
+        <TargetFrameworks>net472;netstandard2.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <DefineConstants>EMBED_SYSTEM_TYPES</DefineConstants>
         <IsPackable>false</IsPackable>
+
+        <!-- The compiler resolves a <see cref> only when it writes the documentation file, so without this the assets
+             compile here and still break a consumer that documents its API. CodeQuality.targets keeps CS1591 and its
+             siblings suppressed, so what remains is the unresolved references this project exists to catch. -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+        <!-- Unconditional, unlike the continuous integration default of CodeQuality.targets: a warning here is a
+             consumer's error, so it has to stop a developer's build too. -->
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     </PropertyGroup>
 </Project>
