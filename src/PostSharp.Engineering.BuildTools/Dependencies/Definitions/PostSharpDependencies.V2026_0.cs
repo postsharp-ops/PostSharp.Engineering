@@ -81,5 +81,30 @@ public static partial class PostSharpDependencies
                             BuildConfiguration.Public ) )
                 ]
             };
+
+        /// <summary>
+        /// The .NET SDK and platform compatibility harness: it generates a throwaway application from a stock
+        /// `dotnet new` template, builds it against this line's packages, and asserts the weaver ran. It ships
+        /// nothing, so it is not versioned, and it runs on GitHub Actions rather than TeamCity -- the matrix of
+        /// operating systems and SDK installation sources is the point, and that is what GitHub's hosted runners
+        /// provide. It still needs a CI configuration here, because that is where the name of the TeamCity token
+        /// and the address of the server are read from when it downloads the packages it tests.
+        /// </summary>
+        public static DependencyDefinition DotNetSdkTests { get; } =
+            new PostSharpDependencyDefinition( $"{_projectName}.Tests.DotNetSdk", isVersioned: false )
+            {
+                Dependencies =
+                [
+                    DevelopmentDependencies.PostSharpEngineering.ToDependency(),
+
+                    // As for the documentation, the only configuration PostSharp exports is the public one, and an
+                    // unpinned dependency would resolve the debug build type, which is never generated.
+                    PostSharp.ToDependency(
+                        new ConfigurationSpecific<BuildConfiguration>(
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public ) )
+                ]
+            };
     }
 }

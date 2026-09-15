@@ -107,8 +107,8 @@ namespace PostSharp.Engineering.BuildTools
                         .WithData( data )
                         .WithDescription( "Generates THIRD-PARTY-NOTICES.md" );
 
-                    // Only add upstream-merge command if the product family has an upstream sibling
-                    if ( product.ProductFamily.UpstreamProductFamily != null )
+                    // Only add upstream-merge command if the product has an upstream counterpart to merge from.
+                    if ( product.UpstreamProduct != null )
                     {
                         root.AddCommand<UpstreamMergeCommand>( "upstream-merge" )
                             .WithData( data )
