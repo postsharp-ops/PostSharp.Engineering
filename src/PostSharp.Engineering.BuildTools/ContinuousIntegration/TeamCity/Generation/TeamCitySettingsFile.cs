@@ -259,7 +259,7 @@ internal static class TeamCitySettingsFile
         }
 
         // Create a TeamCity configuration for upstream merge.
-        if ( product.ProductFamily.UpstreamProductFamily != null )
+        if ( product.UpstreamProduct != null )
         {
             var upstreamMergeConfiguration = CreateUpstreamMergeConfiguration( productProperties );
 
@@ -717,9 +717,9 @@ internal static class TeamCitySettingsFile
                 product.ParametrizedDependencies
                     .Where( d => d.ArtifactPickup == Dependencies.Model.DependencyArtifactPickup.Snapshot
                                  && d.Definition.GenerateSnapshotDependency
-                                 && d.Definition.ProductFamily.UpstreamProductFamily != null )
+                                 && d.Definition.UpstreamProduct != null )
                     .Select( d => d.Definition )
-                    .Concat( product.SourceDependencies.Where( d => d.GenerateSnapshotDependency && d.ProductFamily.UpstreamProductFamily != null ) )
+                    .Concat( product.SourceDependencies.Where( d => d.GenerateSnapshotDependency && d.UpstreamProduct != null ) )
                     .DistinctBy( d => d.CiConfiguration.UpstreamMergeBuildType )
                     .Select( d => new TeamCitySnapshotDependency(
                                  d.CiConfiguration.UpstreamMergeBuildType,
@@ -846,7 +846,7 @@ internal static class TeamCitySettingsFile
             configurationInfo.RequiresUpstreamCheck
 
             // There is upstream product to check.
-            && product.ProductFamily.UpstreamProductFamily != null
+            && product.UpstreamProduct != null
 
             // For products with the release branch, the check is done as part of the deployment preparation step.
             && product.DependencyDefinition.ReleaseBranch == null;
