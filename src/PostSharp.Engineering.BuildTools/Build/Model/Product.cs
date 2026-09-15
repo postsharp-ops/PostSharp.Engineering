@@ -59,6 +59,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
 
+        /// <inheritdoc cref="DependencyDefinition.UpstreamProduct"/>
+        public DependencyDefinition? UpstreamProduct => this.DependencyDefinition.UpstreamProduct;
+
         public string BuildExePath { get; }
 
         public string EngineeringDirectory => this.DependencyDefinition.EngineeringDirectory;

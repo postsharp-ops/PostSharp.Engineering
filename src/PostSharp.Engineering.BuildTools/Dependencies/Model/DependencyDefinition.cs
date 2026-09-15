@@ -32,6 +32,21 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public string NameWithoutDot => this.Name.Replace( ".", "", StringComparison.Ordinal );
 
         /// <summary>
+        /// Gets the same product in the upstream family, which is the product this one is merged from, or
+        /// <c>null</c> when there is none. Its <see cref="Branch"/> is the branch to merge from.
+        /// </summary>
+        /// <remarks>
+        /// A repository added to a line after the previous line was created has no counterpart in that line, even
+        /// though the family itself has an upstream family. The upstream merge command and its build configuration
+        /// must not be generated for such a product: they would resolve no branch and fail when run.
+        /// </remarks>
+        public DependencyDefinition? UpstreamProduct
+            => this.ProductFamily.UpstreamProductFamily is { } upstreamProductFamily
+               && upstreamProductFamily.TryGetDependencyDefinition( this.Name, out var upstreamProduct )
+                ? upstreamProduct
+                : null;
+
+        /// <summary>
         /// Gets the development branch for this product.
         /// </summary>
         /// <remarks>
