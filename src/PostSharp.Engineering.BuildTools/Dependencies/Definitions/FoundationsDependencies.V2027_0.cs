@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -42,8 +42,9 @@ public static partial class FoundationsDependencies
             PublishesFromReleaseBranch = true,
 
             // The packages carry the full name of the product, which differs from the name used by the build system,
-            // so the default patterns derived from the product name would not match them.
-            PackagePatterns = ["SharpCrafters.Foundations*"],
+            // so the default patterns derived from the product name would not match them. The packages that were
+            // extracted from the Metalama repository keep their historical names until they are renamed.
+            PackagePatterns = ["SharpCrafters.Foundations*", "Metalama.Backstage*", "Metalama.Testing.Hooks"],
             Dependencies = [DevelopmentDependencies.PostSharpEngineering]
         };
     }
