@@ -62,7 +62,7 @@ public static partial class MetalamaDependencies
             "2027.0",
             DevelopmentDependencies.Family,
             PostSharpDependencies.V2027_0.Family,
-            FoundationsDependencies.V2027_0.Family )
+            BackstageDependencies.V2027_0.Family )
         {
             UpstreamProductFamily = V2026_1.Family,
             ConsolidatedProjectName = "Metalama.Consolidated",
@@ -102,8 +102,8 @@ public static partial class MetalamaDependencies
             {
                 PackagePatterns =
                 [
-                    // Metalama.Backstage is not built here any more. It has been replaced by SharpCrafters.Foundations,
-                    // which is a product of its own family. See FoundationsDependencies.
+                    // Metalama.Backstage is not built here any more. It is a product customization of SharpCrafters.Backstage,
+                    // which is a product of its own family. See BackstageDependencies.
                     "Metalama.Framework*",
                     "Metalama.Extensions.DependencyInjection",
                     "Metalama.Extensions.DependencyInjection.ServiceLocator",
@@ -131,9 +131,9 @@ public static partial class MetalamaDependencies
                 [
                     DevelopmentDependencies.PostSharpEngineering,
 
-                    // A snapshot dependency, unlike the other cross-family references: Foundations is a core component
-                    // that Metalama is developed against continuously, so a Foundations build chains into this build.
-                    FoundationsDependencies.V2027_0.Foundations,
+                    // A snapshot dependency, unlike the other cross-family references: Backstage is a core component
+                    // that Metalama is developed against continuously, so a Backstage build chains into this build.
+                    BackstageDependencies.V2027_0.Backstage,
                     MetalamaCompiler.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>( BuildConfiguration.Release, BuildConfiguration.Release, BuildConfiguration.Public ) )
                 ]

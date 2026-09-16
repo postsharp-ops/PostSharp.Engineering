@@ -8,7 +8,7 @@ using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
-public static partial class FoundationsDependencies
+public static partial class BackstageDependencies
 {
     // ReSharper disable once InconsistentNaming
 
@@ -22,29 +22,29 @@ public static partial class FoundationsDependencies
         };
 
         /// <summary>
-        /// Foundations is the only product of its family, so the family has no per-product project level in TeamCity:
+        /// Backstage is the only product of its family, so the family has no per-product project level in TeamCity:
         /// the version-level project directly holds the build configurations, and its VCS root - which has the same
-        /// identifier - is stored in the <c>Foundations</c> project above it.
+        /// identifier - is stored in the <c>Backstage</c> project above it.
         /// </summary>
         private static readonly TeamCityProjectId _teamCityProjectId =
             TeamCityHelper.GetSingleProductFamilyProjectId( _projectName, Family.Version );
 
-        public static DependencyDefinition Foundations { get; } = new(
+        public static DependencyDefinition Backstage { get; } = new(
             Family,
             _projectName,
             $"develop/{Family.Version}",
             $"release/{Family.Version}",
-            new GitHubRepository( "SharpCrafters.Foundations", "postsharp-ops" ),
+            new GitHubRepository( "SharpCrafters.Backstage", "postsharp-ops" ),
             TeamCityHelper.CreateConfiguration( _teamCityProjectId, vcsRootId: _teamCityProjectId.Id ) )
         {
             // The family has no consolidated product, so without this the deployment would be performed from the
             // development branch.
             PublishesFromReleaseBranch = true,
 
-            // The packages carry the full name of the product, which differs from the name used by the build system,
-            // so the default patterns derived from the product name would not match them. The packages that were
-            // extracted from the Metalama repository keep their historical names until they are renamed.
-            PackagePatterns = ["SharpCrafters.Foundations*", "Metalama.Backstage*", "Metalama.Testing.Hooks"],
+            // The neutral packages carry the vendor prefix, the shared library carries no product name, and the product
+            // customizations carry the product name, so none of them matches the default patterns derived from the name
+            // used by the build system.
+            PackagePatterns = ["SharpCrafters.Backstage*", "SharpCrafters.Common*", "Metalama.Backstage*"],
             Dependencies = [DevelopmentDependencies.PostSharpEngineering]
         };
     }
