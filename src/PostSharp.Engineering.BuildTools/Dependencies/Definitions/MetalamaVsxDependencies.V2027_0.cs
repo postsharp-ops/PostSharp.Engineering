@@ -53,6 +53,10 @@ public static partial class MetalamaVsxDependencies
             Dependencies =
             [
                 DevelopmentDependencies.PostSharpEngineering,
+
+                // Metalama.Vsx merges the Backstage assemblies into Metalama.Repacked, so it needs the package source mapping
+                // and the version of Backstage in addition to those of Metalama.
+                BackstageDependencies.V2027_0.Backstage,
                 MetalamaDependencies.V2027_0.Metalama
                     .ToDependency( _metalamaConfigurations )
                     .WithLastSuccessfulOnly(),
