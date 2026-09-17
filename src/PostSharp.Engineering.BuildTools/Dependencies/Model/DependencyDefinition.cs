@@ -75,10 +75,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// consolidated product.
         /// </summary>
         /// <remarks>
-        /// Backstage is the case this exists for. It is alone in its family, so that family has no consolidated product,
-        /// but the product is released only as part of the Metalama and PostSharp lines, which both consolidate it.
-        /// Without this, the product would carry a version bump configuration of its own and would tag and merge its own
-        /// release branch while publishing, both of which belong to the consolidated product.
+        /// Backstage is the case this exists for. Its family declares no consolidated product, but the product is
+        /// released only as part of the Metalama and PostSharp lines, which both consolidate it. The flag is per product
+        /// rather than per family, because the family holds products that are released on their own -- the license
+        /// server is one. Without this, the product would carry a version bump configuration of its own and would tag
+        /// and merge its own release branch while publishing, both of which belong to the consolidated product.
         /// </remarks>
         public bool IsConsolidatedByAnotherFamily { get; init; }
 
