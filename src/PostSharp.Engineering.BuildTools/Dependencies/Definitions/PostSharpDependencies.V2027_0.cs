@@ -18,10 +18,15 @@ public static partial class PostSharpDependencies
     public static class V2027_0
     {
         public static ProductFamily Family { get; } =
-            new( _projectName, "2027.0", DevelopmentDependencies.Family )
+            new( _projectName, "2027.0", DevelopmentDependencies.Family, BackstageDependencies.V2027_0.Family )
             {
                 GitHubAppConnectionId = GitHubAppConnections.PostSharp,
-                UpstreamProductFamily = V2026_0.Family
+                UpstreamProductFamily = V2026_0.Family,
+
+                // This line is the first one of the product to have a consolidated product. Its repositories
+                // therefore bump their version and deploy together, and they publish from the release branch
+                // instead of the development branch.
+                ConsolidatedProjectName = "PostSharp.Consolidated"
             };
 
         /// <summary>
@@ -69,7 +74,11 @@ public static partial class PostSharpDependencies
         /// <summary>The compiler and the pattern libraries.</summary>
         public static DependencyDefinition PostSharp { get; } = new PostSharpDependencyDefinition( _projectName )
         {
-            GenerateSnapshotDependency = false,
+            // Unlike the previous lines, this one is consolidated, so its builds are chained: the consolidated build and
+            // the other repositories of the line take a TeamCity snapshot dependency on this build and restore its
+            // packages from its artifacts instead of from the package feed. Setting GenerateSnapshotDependency to false,
+            // as the 2024.0 and 2026.0 lines do, would leave the consolidated build unchained from the product it
+            // consolidates.
             Dependencies = [DevelopmentDependencies.PostSharpEngineering],
             PackagePatterns = ["PostSharp", "PostSharp.Redist", "PostSharp.Compiler.*", "PostSharp.Patterns.*", "PostSharp.Settings.*"],
             AutoUpdateVersion = false
@@ -113,6 +122,32 @@ public static partial class PostSharpDependencies
                             BuildConfiguration.Public,
                             BuildConfiguration.Public ) )
                 ]
+            };
+
+        /// <summary>
+        /// The consolidated product of the line. It builds no code of its own: it chains the builds of the
+        /// repositories it lists, bumps their version in one operation, and deploys them together. Backstage belongs
+        /// to another family, but this line is built and deployed against it, so it takes part in this build, as it
+        /// does in the consolidated build of the Metalama line.
+        /// </summary>
+        public static DependencyDefinition Consolidated { get; } =
+            new PostSharpDependencyDefinition( $"{_projectName}.Consolidated", isVersioned: false )
+            {
+                IsConsolidated = true,
+                Dependencies =
+                [
+                    DevelopmentDependencies.PostSharpEngineering.ToDependency(),
+                    BackstageDependencies.V2027_0.Backstage.ToDependency(),
+
+                    // As for the documentation and the SDK tests, PostSharp exports only its public build.
+                    PostSharp.ToDependency(
+                        new ConfigurationSpecific<BuildConfiguration>(
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public ) ),
+                    PostSharpDocumentation.ToDependency()
+                ],
+                SourceDependencies = [BackstageDependencies.V2027_0.Backstage, PostSharp, PostSharpDocumentation]
             };
     }
 }

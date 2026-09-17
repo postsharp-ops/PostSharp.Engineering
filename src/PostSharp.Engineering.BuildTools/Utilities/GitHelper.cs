@@ -768,7 +768,13 @@ public static class GitHelper
         return true;
     }
 
-    private static bool _credentialsConfigured;
+    /// <summary>
+    /// The environment variable that the git credentials currently point to, or <c>null</c> when they have not been
+    /// configured yet. The configuration below is global to the machine, and a process that works on repositories of
+    /// two GitHub organizations reads a different token for each of them, so a flag saying that the credentials were
+    /// configured once would leave the second repository authenticating with the token of the first one.
+    /// </summary>
+    private static string? _credentialsVariableName;
 
     public static bool TryConfigureCredentials( BuildContext context )
     {
@@ -777,13 +783,13 @@ public static class GitHelper
             return true;
         }
 
-        if ( _credentialsConfigured )
+        var console = context.Console;
+        var environmentVariableName = context.Product.DependencyDefinition.VcsRepository.TokenEnvironmentVariableName;
+
+        if ( string.Equals( _credentialsVariableName, environmentVariableName, StringComparison.Ordinal ) )
         {
             return true;
         }
-
-        var console = context.Console;
-        var environmentVariableName = context.Product.DependencyDefinition.VcsRepository.TokenEnvironmentVariableName;
 
         if ( RuntimeInformation.IsOSPlatform( OSPlatform.Windows ) )
         {
@@ -798,7 +804,8 @@ public static class GitHelper
                 return false;
             }
 
-            var tempFileName = Path.Combine( Path.GetTempPath(), "git-askpass.cmd" );
+            // Named after the variable, so that the script of one organization does not overwrite the one of another.
+            var tempFileName = Path.Combine( Path.GetTempPath(), $"git-askpass-{environmentVariableName}.cmd" );
             File.WriteAllText( tempFileName, $"@echo off\r\necho %{environmentVariableName}%" );
 
             if ( !ToolInvocationHelper.InvokeTool( console, "git", "config --global credential.helper \"\"" ) )
@@ -816,7 +823,7 @@ public static class GitHelper
             throw new PlatformNotSupportedException();
         }
 
-        _credentialsConfigured = true;
+        _credentialsVariableName = environmentVariableName;
 
         return true;
     }

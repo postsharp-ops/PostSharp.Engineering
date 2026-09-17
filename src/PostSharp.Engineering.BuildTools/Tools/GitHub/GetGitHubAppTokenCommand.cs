@@ -148,9 +148,8 @@ internal class GetGitHubAppTokenCommand : BaseCommand<GetGitHubAppTokenSettings>
     }
 
     /// <summary>
-    /// <c>GITHUB_TOKEN_&lt;OWNER&gt;</c>, with anything an environment variable name cannot hold replaced. GitHub
-    /// account names allow hyphens, which a shell would read as an operator in some of the places these are used.
+    /// <c>GITHUB_TOKEN_&lt;OWNER&gt;</c>. It is the same name that a build-scoped token of another organization arrives
+    /// under, so a script reads the token of an owner from one variable whichever of the two minted it.
     /// </summary>
-    internal static string GetVariableName( string owner )
-        => "GITHUB_TOKEN_" + new string( owner.Select( c => char.IsLetterOrDigit( c ) ? char.ToUpperInvariant( c ) : '_' ).ToArray() );
+    internal static string GetVariableName( string owner ) => GitHubRepository.GetTokenEnvironmentVariableName( owner );
 }

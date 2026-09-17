@@ -34,6 +34,13 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         EmbeddedResourceHelper.ExtractScript( context, "Build.ps1", "" );
         EmbeddedResourceHelper.ExtractScript( context, "build.sh", "" );
 
+        // The script that runs a command against every product of a consolidated build. Only a consolidated product has
+        // one: it is the only product that drives the build of other repositories.
+        if ( product.DependencyDefinition.IsConsolidated )
+        {
+            EmbeddedResourceHelper.ExtractScript( context, "Orchestrator.ps1", "" );
+        }
+
         // Docker.
         if ( product.UseDocker )
         {

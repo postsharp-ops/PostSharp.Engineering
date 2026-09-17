@@ -69,11 +69,30 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// </summary>
         public bool PublishesFromReleaseBranch { get; init; }
 
+        /// <summary>
+        /// Gets a value indicating whether a consolidated product of another product family builds, bumps and deploys
+        /// this product. Set it on a product that is never released on its own although its own family declares no
+        /// consolidated product.
+        /// </summary>
+        /// <remarks>
+        /// Backstage is the case this exists for. It is alone in its family, so that family has no consolidated product,
+        /// but the product is released only as part of the Metalama and PostSharp lines, which both consolidate it.
+        /// Without this, the product would carry a version bump configuration of its own and would tag and merge its own
+        /// release branch while publishing, both of which belong to the consolidated product.
+        /// </remarks>
+        public bool IsConsolidatedByAnotherFamily { get; init; }
+
+        /// <summary>
+        /// Gets a value indicating whether a consolidated product releases this product, whether that consolidated
+        /// product belongs to the family of this product or to another one.
+        /// </summary>
+        public bool IsPartOfConsolidatedBuild => this.ProductFamily.HasConsolidatedProduct || this.IsConsolidatedByAnotherFamily;
+
         // If the product is part of a consolidated build, pre-publishing takes place and the deployment is performed from the release branch.
         // If not, the deployment is performed from the default branch, and post-publishing is part of the publishing step.
         // Products with PublishesFromReleaseBranch = true also publish from the release branch even without a consolidated build.
         public string PublishingBranch
-            => this.ReleaseBranch != null && (this.ProductFamily.HasConsolidatedProduct || this.PublishesFromReleaseBranch)
+            => this.ReleaseBranch != null && (this.IsPartOfConsolidatedBuild || this.PublishesFromReleaseBranch)
                 ? this.ReleaseBranch
                 : this.Branch;
 

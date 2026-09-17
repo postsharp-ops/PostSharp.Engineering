@@ -239,7 +239,13 @@ public static class TeamCityHelper
                 break;
 
             case TeamCityBuildType.Bump:
-                ciBuildTypeId = dependencyDefinition.CiConfiguration.VersionBumpBuildType;
+
+                // A product that a consolidated product releases has no version bump configuration of its own: the
+                // consolidated product bumps it. Reporting that here names the product, where scheduling the
+                // configuration that the naming convention implies would fail on the server with a 404.
+                ciBuildTypeId = dependencyDefinition.IsPartOfConsolidatedBuild
+                    ? null
+                    : dependencyDefinition.CiConfiguration.VersionBumpBuildType;
 
                 break;
 

@@ -52,8 +52,8 @@ public class BackstageFamilyTests
     }
 
     /// <summary>
-    /// The family has no consolidated product, so the product publishes from the release branch only because it sets
-    /// PublishesFromReleaseBranch.
+    /// The family has no consolidated product of its own, so the product publishes from the release branch only because
+    /// consolidated products of other families release it.
     /// </summary>
     [Fact]
     public void Product_BuildsFromDevelopAndPublishesFromRelease()
@@ -63,6 +63,21 @@ public class BackstageFamilyTests
         Assert.Equal( "develop/2027.0", definition.Branch );
         Assert.Equal( "release/2027.0", definition.ReleaseBranch );
         Assert.Equal( "release/2027.0", definition.PublishingBranch );
+    }
+
+    /// <summary>
+    /// The product is released only by the consolidated products of the Metalama and the PostSharp lines, so it has no
+    /// version bump of its own. It stays versioned, because its version is what its consumers pin.
+    /// </summary>
+    [Fact]
+    public void Product_IsVersionedButHasNoVersionBumpOfItsOwn()
+    {
+        var definition = BackstageDependencies.V2027_0.Backstage;
+
+        Assert.True( definition.IsVersioned );
+        Assert.True( definition.IsConsolidatedByAnotherFamily );
+        Assert.True( definition.IsPartOfConsolidatedBuild );
+        Assert.Null( definition.CiConfiguration.VersionBumpBuildType );
     }
 
     [Fact]

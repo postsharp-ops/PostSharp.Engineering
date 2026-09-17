@@ -35,11 +35,12 @@ public static partial class BackstageDependencies
             $"develop/{Family.Version}",
             $"release/{Family.Version}",
             new GitHubRepository( "SharpCrafters.Backstage", "postsharp-ops" ),
-            TeamCityHelper.CreateConfiguration( _teamCityProjectId, vcsRootId: _teamCityProjectId.Id ) )
+            TeamCityHelper.CreateConfiguration( _teamCityProjectId, hasVersionBump: false, vcsRootId: _teamCityProjectId.Id ) )
         {
-            // The family has no consolidated product, so without this the deployment would be performed from the
-            // development branch.
-            PublishesFromReleaseBranch = true,
+            // The product is never released on its own: the consolidated products of the Metalama and the PostSharp
+            // 2027.0 lines both build, bump and deploy it. This is what removes its own version bump configuration and
+            // makes it deploy from the release branch, as the members of a consolidated family do.
+            IsConsolidatedByAnotherFamily = true,
 
             // The neutral packages carry the vendor prefix, the shared library carries no product name, and the product
             // customizations carry the product name, so none of them matches the default patterns derived from the name
