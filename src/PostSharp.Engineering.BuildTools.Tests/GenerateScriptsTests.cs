@@ -210,6 +210,71 @@ public class GenerateScriptsTests
         }
     }
 
+    /// <summary>
+    /// The token of an organization other than the one of the product reaches the build as an environment variable, and
+    /// the bump of a consolidated product runs in a container, so DockerBuild.ps1 has to forward it. Its name is not one
+    /// of EnvironmentVariableNames.All, because which organizations a product reaches is a property of the product, so
+    /// it is added to the forwarded list by the generator and a regression there would surface only during a release.
+    /// </summary>
+    [Fact]
+    public void DockerBuild_ForwardsTheTokenOfEveryOtherOrganizationOfAConsolidatedProduct()
+    {
+        // Backstage is in 'postsharp-ops', while the consolidated products are in 'metalama' and 'postsharp'.
+        AssertForwarded( MetalamaDependencies.V2027_0.Consolidated );
+        AssertForwarded( PostSharpDependencies.V2027_0.Consolidated );
+
+        static void AssertForwarded( DependencyDefinition consolidated )
+        {
+            var variables = GetForwardedEnvironmentVariables( consolidated );
+
+            Assert.Contains( "GITHUB_TOKEN_POSTSHARP_OPS", variables );
+
+            // The token of the organization of the product itself is still forwarded under the ordinary name.
+            Assert.Contains( "GITHUB_TOKEN", variables );
+        }
+    }
+
+    /// <summary>
+    /// A product that reaches a single GitHub organization receives a single token, so the forwarded list is not
+    /// widened for every product.
+    /// </summary>
+    [Fact]
+    public void DockerBuild_ForwardsNoExtraTokenForAProductOfASingleOrganization()
+    {
+        var variables = GetForwardedEnvironmentVariables( MetalamaDependencies.V2026_1.Metalama );
+
+        Assert.Contains( "GITHUB_TOKEN", variables );
+        Assert.DoesNotContain( variables, v => v.StartsWith( "GITHUB_TOKEN_", StringComparison.Ordinal ) );
+    }
+
+    /// <summary>
+    /// Generates the scripts of a product and returns the environment variables that the generated DockerBuild.ps1
+    /// forwards into the container.
+    /// </summary>
+    private static string[] GetForwardedEnvironmentVariables( DependencyDefinition definition )
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = new Product( definition )
+        {
+            GenerateTeamCitySettings = false,
+            GenerateDockerfiles = false,
+            OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows )
+        };
+
+        Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+
+        const string prefix = "$EnvironmentVariables = '";
+
+        var line = Assert.Single(
+            File.ReadAllLines( Path.Combine( directory.Path, "DockerBuild.ps1" ) ),
+            l => l.StartsWith( prefix, StringComparison.Ordinal ) );
+
+        return line[prefix.Length..line.LastIndexOf( '\'' )].Split( ',' );
+    }
+
     private static string NormalizeLineEndings( string text ) => text.Replace( "\r\n", "\n", StringComparison.Ordinal );
 
     [Fact]
