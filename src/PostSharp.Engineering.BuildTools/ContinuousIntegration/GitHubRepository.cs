@@ -3,7 +3,9 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -32,7 +34,38 @@ public class GitHubRepository : VcsRepository
 
     public override bool IsSshAgentRequired => false;
 
-    public override string TokenEnvironmentVariableName => EnvironmentVariableNames.GitHubToken;
+    /// <summary>
+    /// Gets the name of the environment variable that carries the token of this repository. It is the variable named
+    /// after the owner when that variable is set, and the ordinary <c>GITHUB_TOKEN</c> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// A build that writes to a single GitHub organization receives its token in <c>GITHUB_TOKEN</c>. A build that also
+    /// writes to another organization receives a second token, because a token belongs to one GitHub App installation
+    /// and an installation to one account, and that second token arrives in the variable named after its organization.
+    /// The environment is read here so that both cases go through the same code path: the variable named after the
+    /// owner exists only where a token was issued for that owner.
+    /// </remarks>
+    public override string TokenEnvironmentVariableName
+    {
+        get
+        {
+            var ownerVariableName = GetTokenEnvironmentVariableName( this.Owner );
+
+            return string.IsNullOrEmpty( Environment.GetEnvironmentVariable( ownerVariableName ) )
+                ? EnvironmentVariableNames.GitHubToken
+                : ownerVariableName;
+        }
+    }
+
+    /// <summary>
+    /// Gets the name of the environment variable that carries the token of <paramref name="owner"/>:
+    /// <c>GITHUB_TOKEN_&lt;OWNER&gt;</c>, with every character that an environment variable name cannot hold replaced
+    /// by an underscore. GitHub account names allow hyphens, which a shell would read as an operator.
+    /// </summary>
+    public static string GetTokenEnvironmentVariableName( string owner )
+        => EnvironmentVariableNames.GitHubToken
+           + "_"
+           + new string( owner.Select( c => char.IsLetterOrDigit( c ) ? char.ToUpperInvariant( c ) : '_' ).ToArray() );
 
     public GitHubRepository( string name, string owner, string? defaultBranchParameter = null )
     {

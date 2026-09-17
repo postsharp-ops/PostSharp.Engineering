@@ -426,7 +426,13 @@ internal static class ClaudeCodeHelper
 
             if ( value != null )
             {
-                builder[key] = secretNames.Contains( key ) ? "<redacted>" : value;
+                // The token of an organization other than the one of the product is named after that organization, so
+                // its name is not a constant of EnvironmentVariableNames and reflection cannot find it. See
+                // GitHubRepository.GetTokenEnvironmentVariableName.
+                var isSecret = secretNames.Contains( key )
+                               || key.StartsWith( EnvironmentVariableNames.GitHubToken + "_", StringComparison.Ordinal );
+
+                builder[key] = isSecret ? "<redacted>" : value;
             }
         }
 

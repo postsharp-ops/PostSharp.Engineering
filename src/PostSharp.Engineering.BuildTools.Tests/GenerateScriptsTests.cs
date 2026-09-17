@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Xunit;
@@ -49,6 +50,81 @@ public class GenerateScriptsTests
         // The git-ignored mount file has been skipped.
         Assert.False( File.Exists( Path.Combine( directory.Path, "eng", "DockerMounts.g.ps1" ) ) );
     }
+
+    /// <summary>
+    /// A consolidated product drives the build of the other repositories through Orchestrator.ps1, whose product list
+    /// used to be maintained by hand in the consolidated repository. A product missing from that list is never bumped
+    /// and never deployed, and nothing reports it, so the list is generated from the source dependencies instead.
+    /// </summary>
+    [Fact]
+    public void Orchestrator_ListsEverySourceDependencyThenTheRepositoryItself()
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = new Product( MetalamaDependencies.V2027_0.Consolidated )
+        {
+            GenerateTeamCitySettings = false,
+            GenerateDockerfiles = false,
+            OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows )
+        };
+
+        Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+
+        var orchestrator = Path.Combine( directory.Path, "Orchestrator.ps1" );
+        Assert.True( File.Exists( orchestrator ) );
+
+        // The line endings of the generated file are those of the embedded resource, which differ from the ones a
+        // literal in this file takes when it is checked out, so both sides are normalized before they are compared.
+        var text = NormalizeLineEndings( File.ReadAllText( orchestrator ) );
+
+        // Backstage comes first because it is declared first, which is the order the products have to be built in, and
+        // the repository of the consolidated product itself comes last.
+        var expectedProducts = string.Join(
+            "\n",
+            "$products = @(",
+            "    \"$repo/source-dependencies/Backstage\",",
+            "    \"$repo/source-dependencies/Metalama.Compiler\",",
+            "    \"$repo/source-dependencies/Metalama\",",
+            "    \"$repo/source-dependencies/Metalama.Community\",",
+            "    \"$repo/source-dependencies/Metalama.Premium\",",
+            "    \"$repo/source-dependencies/Metalama.Samples\",",
+            "    \"$repo/source-dependencies/Metalama.Documentation\",",
+            "    \"$repo/source-dependencies/Metalama.Tests.NopCommerce\",",
+            "    $repo",
+            ")" );
+
+        Assert.Contains( expectedProducts, text, StringComparison.Ordinal );
+
+        // The hand-written script ran the last product a second time when every product had succeeded, so the
+        // consolidated repository bumped, pre-published and post-published twice.
+        Assert.DoesNotContain( "& $fullPath @args\n    exit 0", text, StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// Only a consolidated product drives the build of other repositories, so no other product is given the script.
+    /// </summary>
+    [Fact]
+    public void Orchestrator_IsNotGeneratedForAnOrdinaryProduct()
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            GenerateTeamCitySettings = false,
+            GenerateDockerfiles = false,
+            OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows )
+        };
+
+        Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+
+        Assert.False( File.Exists( Path.Combine( directory.Path, "Orchestrator.ps1" ) ) );
+    }
+
+    private static string NormalizeLineEndings( string text ) => text.Replace( "\r\n", "\n", StringComparison.Ordinal );
 
     [Fact]
     public void GetUnfetchedDependencies_ReturnsTheDependenciesThatHaveNoVersionFile()

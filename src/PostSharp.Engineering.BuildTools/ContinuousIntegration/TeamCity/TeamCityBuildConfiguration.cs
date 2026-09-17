@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
@@ -62,11 +63,17 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         public bool RequiresCommitStatusPublisher { get; init; }
 
         /// <summary>
-        /// Gets or sets the settings of the build feature that issues a GitHub App installation token for the duration
-        /// of the build and exposes it as an environment variable, by default <c>GITHUB_TOKEN</c>. <c>null</c> when the
-        /// repository is not hosted on GitHub, or when its product family has no GitHub App connection.
+        /// Gets or sets the settings of the build features that issue GitHub App installation tokens for the duration of
+        /// the build and expose them as environment variables. Empty when the repository is not hosted on GitHub, or
+        /// when its product family has no GitHub App connection.
         /// </summary>
-        public GitHubAppBuildScopedTokenSettings? GitHubAppBuildScopedToken { get; set; }
+        /// <remarks>
+        /// There is one entry per GitHub organization the build writes to. The organization of the repository comes
+        /// first, and its token lands in <c>GITHUB_TOKEN</c>; every other organization the build checks out a source
+        /// dependency from adds an entry whose token lands in <c>GITHUB_TOKEN_&lt;OWNER&gt;</c>. A token belongs to one
+        /// GitHub App installation and an installation to one account, so one token cannot serve two organizations.
+        /// </remarks>
+        public ImmutableArray<GitHubAppBuildScopedTokenSettings> GitHubAppBuildScopedTokens { get; set; } = [];
 
         /// <summary>
         /// Gets or sets the connection and parameter that replace the ones this build configuration would inherit from
@@ -285,7 +292,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             var requiresSshAgent = this.IsSshAgentRequired;
 
             var requiresAnyFeatures =
-                requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher || this.GitHubAppBuildScopedToken != null;
+                requiresSwabra || requiresSshAgent || this.RequiresCommitStatusPublisher || !this.GitHubAppBuildScopedTokens.IsEmpty;
 
             // Features.
             if ( requiresAnyFeatures )
@@ -308,19 +315,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                           """ );
                 }
 
-                if ( this.GitHubAppBuildScopedToken != null )
+                foreach ( var buildScopedToken in this.GitHubAppBuildScopedTokens )
                 {
                     // Issue a GitHub App installation token for the duration of the build. It is the only credential
                     // that GitHub accepts for an app, and it is what the features and the build steps below read.
                     // targetRepositories takes a newline-separated list, and there is no token standing for all
                     // repositories, so the ones the build reaches are enumerated.
-                    var targetRepositories = string.Join( "\\n", this.GitHubAppBuildScopedToken.TargetRepositories );
+                    var targetRepositories = string.Join( "\\n", buildScopedToken.TargetRepositories );
 
                     writer.WriteLine(
                         $$"""
                                   gitHubAppBuildScopedToken {
-                                      parameterName = "{{this.GitHubAppBuildScopedToken.ParameterName}}"
-                                      connectionId = "{{this.GitHubAppBuildScopedToken.ConnectionId}}"
+                                      parameterName = "{{buildScopedToken.ParameterName}}"
+                                      connectionId = "{{buildScopedToken.ConnectionId}}"
                                       targetRepositories = "{{targetRepositories}}"
                                   }
                           """ );

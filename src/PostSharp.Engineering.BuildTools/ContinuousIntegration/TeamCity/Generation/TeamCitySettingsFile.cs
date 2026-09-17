@@ -246,7 +246,7 @@ internal static class TeamCitySettingsFile
         }
 
         // Only versioned products that don't have consolidated version bump can be bumped individually.
-        if ( !product.ProductFamily.HasConsolidatedProduct && product.DependencyDefinition.IsVersioned )
+        if ( !product.DependencyDefinition.IsPartOfConsolidatedBuild && product.DependencyDefinition.IsVersioned )
         {
             var dependencies = product.ParametrizedDependencies;
 
@@ -324,13 +324,13 @@ internal static class TeamCitySettingsFile
             }
         }
 
-        // A GitHub App has no long-lived credential, so every build configuration issues its own installation token.
+        // A GitHub App has no long-lived credential, so every build configuration issues its own installation tokens.
         if ( product.DependencyDefinition.VcsRepository is GitHubRepository gitHubRepository
              && product.DependencyDefinition.EffectiveGitHubAppConnectionId is { } gitHubAppConnectionId )
         {
             foreach ( var teamCityBuildConfiguration in allConfigurations )
             {
-                teamCityBuildConfiguration.GitHubAppBuildScopedToken = CreateBuildScopedTokenSettings(
+                teamCityBuildConfiguration.GitHubAppBuildScopedTokens = CreateBuildScopedTokenSettings(
                     context.Console,
                     gitHubRepository,
                     gitHubAppConnectionId,
@@ -348,18 +348,27 @@ internal static class TeamCitySettingsFile
     }
 
     /// <summary>
-    /// Creates the build-scoped token settings of a single build configuration. The connection and the parameter come
-    /// from <see cref="TeamCityBuildConfiguration.GitHubAppTokenOverride"/> when the build configuration acts under an
-    /// identity of its own, and from the repository otherwise. A build configuration issues exactly one token, so an
-    /// override substitutes for the repository's connection instead of adding a second token.
+    /// Creates the build-scoped tokens of a single build configuration, the token of the organization of the repository
+    /// first. The connection and the parameter of that first token come from
+    /// <see cref="TeamCityBuildConfiguration.GitHubAppTokenOverride"/> when the build configuration acts under an
+    /// identity of its own, and from the repository otherwise. An override substitutes for the repository's connection
+    /// instead of adding a token.
     /// </summary>
     /// <remarks>
-    /// The scope of the token is deliberately computed from <paramref name="connectionId"/>, the connection of the
+    /// <para>
+    /// A token is issued by a single GitHub App connection, and a connection serves a single GitHub organization, so one
+    /// token cannot reach the repositories of two of them. A build configuration that checks out a source dependency of
+    /// another organization therefore receives one more token per foreign organization, from the connection of that
+    /// organization. See <see cref="GetForeignOrganizationTokens"/>.
+    /// </para>
+    /// <para>
+    /// The scope of the first token is deliberately computed from <paramref name="connectionId"/>, the connection of the
     /// repository, and never from the override. <see cref="GetTargetRepositories"/> uses the connection as a proxy for
     /// the GitHub organization, and an overriding connection serves the same organization as the repository, so passing
-    /// it would match no source dependency, warn about each one, and silently narrow the token to the owning repository.
+    /// it would match no source dependency and silently narrow the token to the owning repository.
+    /// </para>
     /// </remarks>
-    internal static GitHubAppBuildScopedTokenSettings CreateBuildScopedTokenSettings(
+    internal static ImmutableArray<GitHubAppBuildScopedTokenSettings> CreateBuildScopedTokenSettings(
         ConsoleHelper console,
         GitHubRepository repository,
         string connectionId,
@@ -368,10 +377,84 @@ internal static class TeamCitySettingsFile
     {
         var tokenOverride = buildConfiguration.GitHubAppTokenOverride;
 
-        return new GitHubAppBuildScopedTokenSettings(
-            tokenOverride?.ConnectionId ?? connectionId,
-            GetTargetRepositories( console, repository, connectionId, buildConfiguration, additionalRepositories ),
-            tokenOverride?.EffectiveParameterName ?? GitHubAppBuildScopedTokenSettings.DefaultParameterName );
+        var tokens = ImmutableArray.CreateBuilder<GitHubAppBuildScopedTokenSettings>();
+
+        tokens.Add(
+            new GitHubAppBuildScopedTokenSettings(
+                tokenOverride?.ConnectionId ?? connectionId,
+                GetTargetRepositories( console, repository, connectionId, buildConfiguration, additionalRepositories ),
+                tokenOverride?.EffectiveParameterName ?? GitHubAppBuildScopedTokenSettings.DefaultParameterName ) );
+
+        tokens.AddRange( GetForeignOrganizationTokens( console, connectionId, buildConfiguration ) );
+
+        return tokens.ToImmutable();
+    }
+
+    /// <summary>
+    /// Gets one token for each GitHub organization that <paramref name="buildConfiguration"/> checks out a source
+    /// dependency from and that is not the organization of the repository owning the build. Each token is issued by the
+    /// connection of its own organization and lands in the variable named after that organization, so the build
+    /// authenticates against every repository it pushes to with a token that reaches it. See
+    /// <see cref="GitHubRepository.GetTokenEnvironmentVariableName"/>.
+    /// </summary>
+    /// <remarks>
+    /// The consolidated products are what this exists for: Backstage is in the <c>postsharp-ops</c> organization while
+    /// they are in <c>metalama</c> and <c>postsharp</c>, and their bump and publishing steps push to it. Which
+    /// repositories those steps visit is decided by the <c>Orchestrator.ps1</c> script of the consolidated repository,
+    /// not here, so a repository added to the source dependencies is reachable by a token only once that script visits
+    /// it too. A source dependency that declares no GitHub App connection is reported and skipped: no token can be
+    /// issued for it, so the build reads it through the credentials of its VCS root and cannot push to it.
+    /// </remarks>
+    private static IEnumerable<GitHubAppBuildScopedTokenSettings> GetForeignOrganizationTokens(
+        ConsoleHelper console,
+        string connectionId,
+        TeamCityBuildConfiguration buildConfiguration )
+    {
+        // Sorted, so that the generated settings do not change when the order of the source dependencies does.
+        var repositoriesByOwner = new SortedDictionary<string, SortedSet<string>>( StringComparer.OrdinalIgnoreCase );
+        var connectionsByOwner = new Dictionary<string, string>( StringComparer.OrdinalIgnoreCase );
+
+        foreach ( var sourceDependency in buildConfiguration.SourceDependencies ?? [] )
+        {
+            var definition = sourceDependency.Definition;
+
+            if ( definition.VcsRepository is not GitHubRepository sourceRepository )
+            {
+                // Not hosted on GitHub, so no GitHub App token can reach it anyway.
+                continue;
+            }
+
+            if ( definition.EffectiveGitHubAppConnectionId == connectionId )
+            {
+                // The organization of the build itself, which the first token already covers.
+                continue;
+            }
+
+            if ( definition.EffectiveGitHubAppConnectionId is not { } sourceConnectionId )
+            {
+                console.WriteWarning(
+                    $"The '{buildConfiguration.Name}' build configuration checks out '{definition.Name}', which belongs to the "
+                    + $"'{sourceRepository.Owner}' GitHub organization and declares no GitHub App connection. No token can be issued for it, so "
+                    + $"the build will not be able to push to '{sourceRepository.Owner}/{sourceRepository.Name}'." );
+
+                continue;
+            }
+
+            if ( !repositoriesByOwner.TryGetValue( sourceRepository.Owner, out var names ) )
+            {
+                names = new SortedSet<string>( StringComparer.OrdinalIgnoreCase );
+                repositoriesByOwner.Add( sourceRepository.Owner, names );
+                connectionsByOwner.Add( sourceRepository.Owner, sourceConnectionId );
+            }
+
+            names.Add( sourceRepository.Name );
+        }
+
+        return repositoriesByOwner.Select(
+            owner => new GitHubAppBuildScopedTokenSettings(
+                connectionsByOwner[owner.Key],
+                [..owner.Value],
+                "env." + GitHubRepository.GetTokenEnvironmentVariableName( owner.Key ) ) );
     }
 
     /// <summary>
@@ -384,10 +467,10 @@ internal static class TeamCitySettingsFile
     /// </summary>
     /// <remarks>
     /// A token is issued by a single GitHub App connection, and a connection only serves the repositories of its own
-    /// organization. A repository of another organization therefore cannot be covered by this token. For a source
-    /// dependency that is legitimate — the build only reads it, and the checkout authenticates through the VCS root of
-    /// the dependency, not through this token — so it is skipped with a warning instead of failing the generation. An
-    /// additional repository of another organization is a configuration mistake and is likewise skipped with a warning.
+    /// organization, so this token covers the organization of <paramref name="repository"/> and no other. A source
+    /// dependency of another organization is left to <see cref="GetForeignOrganizationTokens"/>, which gives it a token
+    /// of its own. An additional repository of another organization has no definition and therefore no connection to
+    /// issue one from, so it is a configuration mistake and is skipped with a warning.
     /// </remarks>
     internal static ImmutableArray<string> GetTargetRepositories(
         ConsoleHelper console,
@@ -419,12 +502,8 @@ internal static class TeamCitySettingsFile
 
             if ( definition.EffectiveGitHubAppConnectionId != connectionId )
             {
-                console.WriteWarning(
-                    $"The '{buildConfiguration.Name}' build configuration checks out '{definition.Name}', which is served by the "
-                    + $"'{definition.EffectiveGitHubAppConnectionId ?? "(none)"}' GitHub App connection, while the build issues its token from "
-                    + $"'{connectionId}'. A token cannot reach the repositories of another organization, so the build will not be able to "
-                    + $"push to '{sourceRepository.Owner}/{sourceRepository.Name}'." );
-
+                // Another organization, served by a token of its own. See GetForeignOrganizationTokens, which also
+                // reports the dependency that no connection can serve.
                 continue;
             }
 

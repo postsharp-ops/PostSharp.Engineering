@@ -7,10 +7,12 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using Xunit;
 using MetalamaDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.MetalamaDependencies;
+using PostSharpDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies;
 
 namespace PostSharp.Engineering.BuildTools.Tests;
 
@@ -76,11 +78,11 @@ public class GitHubAppBuildScopedTokenTests
 
     /// <summary>
     /// A token is issued by a single GitHub App connection, and a connection only serves the repositories of its own
-    /// organization. A source dependency of another organization cannot be covered, so it is left out rather than making
-    /// the whole token unissuable.
+    /// organization. A source dependency of another organization is therefore left out of this token; it is covered by
+    /// a token of its own, which <see cref="ForeignOrganization_GetsATokenOfItsOwn"/> asserts.
     /// </summary>
     [Fact]
-    public void SourceDependencyOfAnotherOrganization_IsLeftOut()
+    public void SourceDependencyOfAnotherOrganization_IsLeftOutOfTheTokenOfTheBuild()
     {
         // TimelessDotNetEngineer belongs to the Metalama family but to the 'postsharp' organization.
         var foreignDependency = MetalamaDependencies.V2026_1.TimelessDotNetEngineer;
@@ -157,9 +159,10 @@ public class GitHubAppBuildScopedTokenTests
         {
             var buildConfiguration = CreateBuildConfiguration( sourceDependencies );
 
-            buildConfiguration.GitHubAppBuildScopedToken = new GitHubAppBuildScopedTokenSettings(
-                GitHubAppConnections.Metalama,
-                [..GetTargetRepositories( buildConfiguration )] );
+            buildConfiguration.GitHubAppBuildScopedTokens =
+            [
+                new GitHubAppBuildScopedTokenSettings( GitHubAppConnections.Metalama, [..GetTargetRepositories( buildConfiguration )] )
+            ];
 
             var writer = new StringWriter();
             buildConfiguration.GenerateTeamcityCode( writer );
@@ -168,10 +171,10 @@ public class GitHubAppBuildScopedTokenTests
         }
     }
 
-    private static string GenerateCode( GitHubAppBuildScopedTokenSettings settings )
+    private static string GenerateCode( params GitHubAppBuildScopedTokenSettings[] settings )
     {
         var buildConfiguration = CreateBuildConfiguration( [] );
-        buildConfiguration.GitHubAppBuildScopedToken = settings;
+        buildConfiguration.GitHubAppBuildScopedTokens = [..settings];
 
         var writer = new StringWriter();
         buildConfiguration.GenerateTeamcityCode( writer );
@@ -239,12 +242,87 @@ public class GitHubAppBuildScopedTokenTests
     }
 
     private static GitHubAppBuildScopedTokenSettings CreateSettings( TeamCityBuildConfiguration buildConfiguration )
+        => CreateAllSettings( buildConfiguration )[0];
+
+    private static ImmutableArray<GitHubAppBuildScopedTokenSettings> CreateAllSettings( TeamCityBuildConfiguration buildConfiguration )
+        => CreateAllSettings( _consolidated, buildConfiguration );
+
+    private static ImmutableArray<GitHubAppBuildScopedTokenSettings> CreateAllSettings( Product product, TeamCityBuildConfiguration buildConfiguration )
         => TeamCitySettingsFile.CreateBuildScopedTokenSettings(
             new ConsoleHelper(),
-            (GitHubRepository) _consolidated.DependencyDefinition.VcsRepository,
-            _consolidated.DependencyDefinition.EffectiveGitHubAppConnectionId!,
+            (GitHubRepository) product.DependencyDefinition.VcsRepository,
+            product.DependencyDefinition.EffectiveGitHubAppConnectionId!,
             buildConfiguration,
             [] );
+
+    /// <summary>
+    /// The consolidated products of the 2027.0 lines check out Backstage, which is in the 'postsharp-ops' organization
+    /// while they are in 'metalama' and 'postsharp'. A token belongs to one installation and an installation to one
+    /// account, so the build receives a second token, issued by the connection of that organization and written to the
+    /// variable named after it. Without it, the version bump pushes to Backstage with a token that does not reach it.
+    /// </summary>
+    [Theory]
+    [InlineData( "Metalama" )]
+    [InlineData( "PostSharp" )]
+    public void ForeignOrganization_GetsATokenOfItsOwn( string line )
+    {
+        var product = new Product(
+            line == "Metalama" ? MetalamaDependencies.V2027_0.Consolidated : PostSharpDependencies.V2027_0.Consolidated );
+
+        var buildConfiguration = CreateBuildConfiguration( new ProductProperties( product ).SourceDependencies );
+
+        var settings = CreateAllSettings( product, buildConfiguration );
+
+        // The first token is the one of the organization of the build itself, and it does not reach Backstage.
+        Assert.Equal( product.DependencyDefinition.EffectiveGitHubAppConnectionId, settings[0].ConnectionId );
+        Assert.Equal( GitHubAppBuildScopedTokenSettings.DefaultParameterName, settings[0].ParameterName );
+        Assert.DoesNotContain( "SharpCrafters.Backstage", settings[0].TargetRepositories );
+
+        var backstageToken = Assert.Single( settings.Skip( 1 ) );
+
+        Assert.Equal( GitHubAppConnections.PostSharpOps, backstageToken.ConnectionId );
+        Assert.Equal( "env.GITHUB_TOKEN_POSTSHARP_OPS", backstageToken.ParameterName );
+        Assert.Equal( ["SharpCrafters.Backstage"], backstageToken.TargetRepositories.ToArray() );
+    }
+
+    /// <summary>
+    /// Both tokens reach the generated Kotlin, as two build features of the same kind.
+    /// </summary>
+    [Fact]
+    public void BothTokensAreEmitted()
+    {
+        var product = new Product( MetalamaDependencies.V2027_0.Consolidated );
+        var buildConfiguration = CreateBuildConfiguration( new ProductProperties( product ).SourceDependencies );
+
+        var code = GenerateCode( [..CreateAllSettings( product, buildConfiguration )] );
+
+        Assert.Equal( 2, code.Split( "gitHubAppBuildScopedToken {", StringSplitOptions.None ).Length - 1 );
+
+        Assert.Contains(
+            """
+            parameterName = "env.GITHUB_TOKEN_POSTSHARP_OPS"
+            """,
+            code,
+            StringComparison.Ordinal );
+
+        Assert.Contains(
+            """
+            targetRepositories = "SharpCrafters.Backstage"
+            """,
+            code,
+            StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// The name of the variable is the one that <c>get-github-app-token</c> writes, so a script reads the token of an
+    /// organization from a single variable whichever of the two mechanisms minted it.
+    /// </summary>
+    [Fact]
+    public void TokenVariableName_IsTheOneOfTheOwner()
+    {
+        Assert.Equal( "GITHUB_TOKEN_POSTSHARP_OPS", GitHubRepository.GetTokenEnvironmentVariableName( "postsharp-ops" ) );
+        Assert.Equal( "GITHUB_TOKEN_METALAMA", GitHubRepository.GetTokenEnvironmentVariableName( "metalama" ) );
+    }
 
     /// <summary>
     /// A build configuration that declares no override inherits the connection of its repository and the ordinary

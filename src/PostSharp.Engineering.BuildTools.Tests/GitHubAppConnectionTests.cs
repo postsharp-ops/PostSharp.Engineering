@@ -85,16 +85,17 @@ public class GitHubAppConnectionTests
     }
 
     /// <summary>
-    /// A build checks out its source dependencies and pushes to them, using the build-scoped token of its own
-    /// repository. A token is issued by a single GitHub App connection, and a connection only serves the repositories
-    /// of its own organization, so a source dependency of another organization could not be pushed to.
+    /// A build checks out its source dependencies and pushes to them. A token is issued by a single GitHub App
+    /// connection, and a connection only serves the repositories of its own organization, so a source dependency of
+    /// another organization needs a token from the connection of that organization. That connection is read from the
+    /// definition of the dependency, so a dependency that declares none cannot be pushed to at all.
     /// </summary>
     [Fact]
-    public void EverySourceDependency_SharesTheConnectionOfItsConsumer()
+    public void EverySourceDependency_DeclaresAConnectionThatCanIssueItsToken()
     {
         var checkedCount = 0;
 
-        foreach ( var (_, definition) in GetAllDependencyDefinitions() )
+        foreach ( var (name, definition) in GetAllDependencyDefinitions() )
         {
             foreach ( var sourceDependency in definition.SourceDependencies )
             {
@@ -103,7 +104,10 @@ public class GitHubAppConnectionTests
                     continue;
                 }
 
-                Assert.Equal( definition.EffectiveGitHubAppConnectionId, sourceDependency.EffectiveGitHubAppConnectionId );
+                Assert.True(
+                    sourceDependency.EffectiveGitHubAppConnectionId != null,
+                    $"'{name}' checks out '{sourceDependency.Name}', which declares no GitHub App connection." );
+
                 checkedCount++;
             }
         }

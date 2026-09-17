@@ -231,6 +231,10 @@ public static partial class MetalamaDependencies
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering,
+
+                    // Backstage belongs to another family, but every product of this line is built and deployed
+                    // against it, so it is bumped and deployed with them.
+                    BackstageDependencies.V2027_0.Backstage,
                     MetalamaCompiler.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>( BuildConfiguration.Release, BuildConfiguration.Release, BuildConfiguration.Public ) ),
                     Metalama,
@@ -241,6 +245,7 @@ public static partial class MetalamaDependencies
                 ],
                 SourceDependencies =
                 [
+                    BackstageDependencies.V2027_0.Backstage,
                     MetalamaCompiler,
                     Metalama,
                     MetalamaCommunity,
