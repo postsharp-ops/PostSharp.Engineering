@@ -1,6 +1,8 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System;
 using Xunit;
@@ -8,47 +10,69 @@ using Xunit;
 namespace PostSharp.Engineering.BuildTools.Tests;
 
 /// <summary>
-/// Backstage is alone in its family, its repository is named after the packages it produces rather than after the
-/// product, and Metalama resolves it across family boundaries. All three are resolved by name at run time rather than
-/// by the compiler, so a mistake surfaces as a missing build configuration or an unresolved dependency rather than as
-/// a build break.
+/// The repositories of this family are named after the packages they produce rather than after the product, the family
+/// is laid out flat on TeamCity, and Metalama resolves Backstage across family boundaries. All three are resolved by
+/// name at run time rather than by the compiler, so a mistake surfaces as a missing build configuration or an
+/// unresolved dependency rather than as a build break.
 /// </summary>
 public class BackstageFamilyTests
 {
     /// <summary>
-    /// The family has no per-product project level, so the version-level project holds the build configurations
-    /// directly and the product project is its parent.
+    /// The family has no project for the version line: every product owns a project named after itself and the
+    /// version directly beneath the family project, as the PostSharp 2024.0 and 2026.0 lines do. These identifiers
+    /// are the ones the TeamCity server carries, and every repository that depends on a product of this family
+    /// addresses its build configurations by them, so they are asserted literally.
     /// </summary>
     [Fact]
-    public void TeamCityProject_HasNoPerProductLevel()
+    public void TeamCityProjects_AreFlat()
     {
-        var ciConfiguration = BackstageDependencies.V2027_0.Backstage.CiConfiguration;
+        AssertProject( BackstageDependencies.V2027_0.Backstage, "Backstage_Backstage20270" );
+        AssertProject( BackstageDependencies.V2027_0.BackstageLicenseServer, "Backstage_BackstageLicenseServer20270" );
 
-        Assert.Equal( "Backstage_Backstage20270", ciConfiguration.ProjectId.Id );
-        Assert.Equal( "Backstage", ciConfiguration.ProjectId.ParentId );
-        Assert.Equal( "Backstage_Backstage20270_DebugBuild", ciConfiguration.BuildTypes.Debug );
+        static void AssertProject( DependencyDefinition definition, string expectedProjectId )
+        {
+            var ciConfiguration = definition.CiConfiguration;
+
+            Assert.Equal( expectedProjectId, ciConfiguration.ProjectId.Id );
+            Assert.Equal( "Backstage", ciConfiguration.ProjectId.ParentId );
+            Assert.Equal( $"{expectedProjectId}_DebugBuild", ciConfiguration.BuildTypes.Debug );
+        }
     }
 
     /// <summary>
-    /// The VCS root is stored in the product project, above the version project, and it carries the identifier of the
-    /// version project instead of the one derived from the repository name.
+    /// The VCS root of a product is stored in the family project, above the project of the product, and it carries the
+    /// identifier of that project instead of the one derived from the repository name. The repository holds one branch
+    /// per version line, so the identifier has to carry the version, which the derived one does not.
     /// </summary>
     [Fact]
-    public void VcsRoot_IsStoredInTheProductProject()
+    public void VcsRoot_IsStoredInTheFamilyProjectAndCarriesTheVersion()
     {
-        var definition = BackstageDependencies.V2027_0.Backstage;
+        AssertVcsRoot( BackstageDependencies.V2027_0.Backstage, "Backstage_Backstage20270" );
+        AssertVcsRoot( BackstageDependencies.V2027_0.BackstageLicenseServer, "Backstage_BackstageLicenseServer20270" );
 
-        Assert.Equal( "Backstage", definition.CiConfiguration.VcsRootProjectId );
-        Assert.Equal( "Backstage_Backstage20270", TeamCityHelper.GetVcsId( definition ) );
+        static void AssertVcsRoot( DependencyDefinition definition, string expectedVcsRootId )
+        {
+            Assert.Equal( "Backstage", definition.CiConfiguration.VcsRootProjectId );
+            Assert.Equal( expectedVcsRootId, TeamCityHelper.GetVcsId( definition ) );
+        }
     }
 
+    /// <summary>
+    /// The repositories carry the vendor prefix that the product name used by the build system omits, and they are all
+    /// in the organization the family declares its GitHub App connection for.
+    /// </summary>
     [Fact]
-    public void Repository_IsNamedAfterThePackages()
+    public void Repositories_AreNamedAfterThePackages()
     {
-        var repository = BackstageDependencies.V2027_0.Backstage.VcsRepository;
+        AssertRepository( BackstageDependencies.V2027_0.Backstage, "SharpCrafters.Backstage" );
+        AssertRepository( BackstageDependencies.V2027_0.BackstageLicenseServer, "SharpCrafters.Backstage.LicenseServer" );
 
-        Assert.Equal( "SharpCrafters.Backstage", repository.Name );
-        Assert.Equal( "https://github.com/postsharp-ops/SharpCrafters.Backstage.git", repository.HttpUrl );
+        static void AssertRepository( DependencyDefinition definition, string expectedName )
+        {
+            Assert.Equal( expectedName, definition.VcsRepository.Name );
+            Assert.Equal( $"https://github.com/postsharp-ops/{expectedName}.git", definition.VcsRepository.HttpUrl );
+            Assert.Equal( GitHubAppConnections.PostSharpOps, definition.EffectiveGitHubAppConnectionId );
+        }
     }
 
     /// <summary>
@@ -78,6 +102,76 @@ public class BackstageFamilyTests
         Assert.True( definition.IsConsolidatedByAnotherFamily );
         Assert.True( definition.IsPartOfConsolidatedBuild );
         Assert.Null( definition.CiConfiguration.VersionBumpBuildType );
+    }
+
+    /// <summary>
+    /// The license server is released on its own: no consolidated product lists it, so it keeps the version bump and
+    /// the publishing from the development branch that an ordinary product has. This is what separates it from
+    /// Backstage, which sits in the same family.
+    /// </summary>
+    [Fact]
+    public void LicenseServer_IsReleasedOnItsOwn()
+    {
+        var definition = BackstageDependencies.V2027_0.BackstageLicenseServer;
+
+        Assert.True( definition.IsVersioned );
+        Assert.False( definition.IsConsolidatedByAnotherFamily );
+        Assert.False( definition.IsPartOfConsolidatedBuild );
+        Assert.Equal( "Backstage_BackstageLicenseServer20270_VersionBump", definition.CiConfiguration.VersionBumpBuildType );
+
+        Assert.Equal( "develop/2027.0", definition.Branch );
+        Assert.Equal( "release/2027.0", definition.ReleaseBranch );
+        Assert.Equal( "develop/2027.0", definition.PublishingBranch );
+    }
+
+    /// <summary>
+    /// The license server is built against Backstage. The reference is what puts the Backstage version in its
+    /// dependency file and chains the two builds on TeamCity.
+    /// </summary>
+    [Fact]
+    public void LicenseServer_DependsOnBackstage()
+    {
+        Assert.Contains(
+            BackstageDependencies.V2027_0.BackstageLicenseServer.Dependencies,
+            d => ReferenceEquals( d.Definition, BackstageDependencies.V2027_0.Backstage ) );
+    }
+
+    /// <summary>
+    /// Both products of the family claim a pattern starting with "SharpCrafters.Backstage", so the pattern of the
+    /// license server has to be the longer one: package source mapping resolves by longest prefix, and a package of
+    /// the license server that also matched only the pattern of Backstage would be looked for in the artifacts of
+    /// Backstage, where it is not.
+    /// </summary>
+    [Fact]
+    public void LicenseServerPackages_AreMoreSpecificThanTheBackstageOnes()
+    {
+        var licenseServerPattern = Assert.Single( BackstageDependencies.V2027_0.BackstageLicenseServer.PackagePatterns );
+
+        Assert.Equal( "SharpCrafters.Backstage.LicenseServer*", licenseServerPattern );
+
+        var backstagePattern = Assert.Single(
+            BackstageDependencies.V2027_0.Backstage.PackagePatterns,
+            p => licenseServerPattern.StartsWith( p.TrimEnd( '*' ), StringComparison.Ordinal ) );
+
+        Assert.True(
+            licenseServerPattern.TrimEnd( '*' ).Length > backstagePattern.TrimEnd( '*' ).Length,
+            $"'{licenseServerPattern}' is not more specific than '{backstagePattern}'." );
+    }
+
+    /// <summary>
+    /// The family holds more than one product, so a product is resolved by its own name and not by the name of the
+    /// family, which happens to be the name of one of them.
+    /// </summary>
+    [Fact]
+    public void Products_AreResolvedByName()
+    {
+        Assert.True( BackstageDependencies.V2027_0.Family.TryGetDependencyDefinition( "Backstage", out var backstage ) );
+        Assert.Same( BackstageDependencies.V2027_0.Backstage, backstage );
+
+        Assert.True(
+            BackstageDependencies.V2027_0.Family.TryGetDependencyDefinition( "Backstage.LicenseServer", out var licenseServer ) );
+
+        Assert.Same( BackstageDependencies.V2027_0.BackstageLicenseServer, licenseServer );
     }
 
     [Fact]
