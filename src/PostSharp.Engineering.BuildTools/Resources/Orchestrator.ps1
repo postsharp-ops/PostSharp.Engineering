@@ -6,8 +6,9 @@
 # the Bump, Prepare Deployment and Finalize Deployment build configurations run, so a product missing from the list
 # below is never bumped and never deployed.
 #
-# The list is generated from the source dependencies of the consolidated product, in the order they are declared in
-# PostSharp.Engineering, followed by this repository itself. Add a product there rather than here.
+# The list is generated from the source dependencies of the consolidated product, ordered so that a product follows
+# every product it depends on, and followed by this repository itself. Add a product in PostSharp.Engineering rather
+# than here.
 
 $repo = $PSScriptRoot
 

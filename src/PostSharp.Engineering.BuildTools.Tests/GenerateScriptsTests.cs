@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Build.Model;
@@ -6,9 +6,11 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Xunit;
 
 namespace PostSharp.Engineering.BuildTools.Tests;
@@ -122,6 +124,90 @@ public class GenerateScriptsTests
         Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
 
         Assert.False( File.Exists( Path.Combine( directory.Path, "Orchestrator.ps1" ) ) );
+    }
+
+    /// <summary>
+    /// The order is a topological sort of the dependency graph. Declaration order only breaks ties between products
+    /// that no dependency relates, so that the generated script changes when the graph does and not otherwise.
+    /// </summary>
+    [Fact]
+    public void BuildOrder_FollowsTheDependencyGraph()
+    {
+        var ordered = EmbeddedResourceHelper.GetBuildOrder( MetalamaDependencies.V2027_0.Consolidated.SourceDependencies )
+            .Select( d => d.Name );
+
+        Assert.Equal(
+            [
+                "Backstage",
+                "Metalama.Compiler",
+                "Metalama",
+                "Metalama.Community",
+                "Metalama.Premium",
+                "Metalama.Samples",
+                "Metalama.Documentation",
+                "Metalama.Tests.NopCommerce"
+            ],
+            ordered );
+    }
+
+    /// <summary>
+    /// Every product follows the products it depends on, directly or through another product. This is the property the
+    /// order exists for: a product reads the versions of its dependencies, so a dependency bumped after its consumer
+    /// leaves the consumer pinned to the previous version. It is asserted on the reversed input as well, because an
+    /// order that merely echoed its input would satisfy the declared one by accident.
+    /// </summary>
+    [Fact]
+    public void BuildOrder_PutsEveryDependencyBeforeItsConsumer()
+    {
+        AssertBuildOrder( MetalamaDependencies.V2027_0.Consolidated );
+        AssertBuildOrder( PostSharpDependencies.V2027_0.Consolidated );
+
+        static void AssertBuildOrder( DependencyDefinition consolidated )
+        {
+            AssertOrderOf( consolidated, consolidated.SourceDependencies );
+            AssertOrderOf( consolidated, Enumerable.Reverse( consolidated.SourceDependencies ).ToArray() );
+        }
+
+        static void AssertOrderOf( DependencyDefinition consolidated, DependencyDefinition[] input )
+        {
+            var ordered = EmbeddedResourceHelper.GetBuildOrder( input );
+
+            Assert.Equal( input.Length, ordered.Length );
+
+            for ( var i = 0; i < ordered.Length; i++ )
+            {
+                var reachable = GetReachable( ordered[i] );
+
+                for ( var j = i + 1; j < ordered.Length; j++ )
+                {
+                    Assert.False(
+                        reachable.Contains( ordered[j] ),
+                        $"'{consolidated.Name}' builds '{ordered[i].Name}' before '{ordered[j].Name}', which it depends on." );
+                }
+            }
+        }
+
+        static HashSet<DependencyDefinition> GetReachable( DependencyDefinition definition )
+        {
+            var reachable = new HashSet<DependencyDefinition>();
+            var pending = new Stack<DependencyDefinition>();
+            pending.Push( definition );
+
+            while ( pending.Count > 0 )
+            {
+                var current = pending.Pop();
+
+                foreach ( var next in current.Dependencies.Select( d => d.Definition ).Concat( current.SourceDependencies ) )
+                {
+                    if ( reachable.Add( next ) )
+                    {
+                        pending.Push( next );
+                    }
+                }
+            }
+
+            return reachable;
+        }
     }
 
     private static string NormalizeLineEndings( string text ) => text.Replace( "\r\n", "\n", StringComparison.Ordinal );
