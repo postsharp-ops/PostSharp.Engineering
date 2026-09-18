@@ -68,6 +68,11 @@ public class GenerateScriptsTests
     /// not. Emitting it everywhere would put a script into repositories with nothing for it to run, where it would
     /// read as a suite that someone had forgotten to populate.
     /// </summary>
+    /// <remarks>
+    /// It goes into the engineering directory, beside the other generated scripts, rather than at the repository
+    /// root. The root of a product is crowded, and nothing about this script needs to be there: it resolves the
+    /// repository from its own location.
+    /// </remarks>
     [Fact]
     public void RunDockerTests_IsGeneratedOnlyForAProductThatDeclaresOne()
     {
@@ -78,6 +83,9 @@ public class GenerateScriptsTests
             var product = CreateProduct();
 
             Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+            Assert.False( File.Exists( Path.Combine( directory.Path, product.EngineeringDirectory, "RunDockerTests.ps1" ) ) );
+
+            // Nor at the root, which is where it used to go.
             Assert.False( File.Exists( Path.Combine( directory.Path, "RunDockerTests.ps1" ) ) );
         }
 
@@ -88,8 +96,11 @@ public class GenerateScriptsTests
 
             Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
 
-            var launcher = Path.Combine( directory.Path, "RunDockerTests.ps1" );
+            var launcher = Path.Combine( directory.Path, product.EngineeringDirectory, "RunDockerTests.ps1" );
             Assert.True( File.Exists( launcher ) );
+
+            // The root stays clear.
+            Assert.False( File.Exists( Path.Combine( directory.Path, "RunDockerTests.ps1" ) ) );
 
             // The declared directory reaches the launcher through generation rather than through the arguments of the
             // configuration, so this is what proves a product's choice is honoured.

@@ -72,6 +72,7 @@ if ($PSVersionTable.PSVersion -lt [Version]'7.5')
 # Where what the tests consume is, is not here at all: a test resolves that for itself, from where it lives. It is
 # a fact about the product, and this script has no opinion about it.
 $DockerTestsPath = '<DOCKER_TESTS_PATH>'
+$EngPath = '<ENG_PATH>'
 ####
 
 if (-not $Path)
@@ -213,6 +214,70 @@ function Read-TestManifest([string]$manifestPath)
     }
 }
 
+# Runs the product's own preparation, once, before any test.
+#
+# What a suite needs before it can run is not the same in every repository: packages may arrive as an archive
+# that has to be expanded, a fixture may have to be materialised, a tool may have to be fetched. That belongs to
+# the product, not here, so the launcher looks for one script at a known place and runs it if it is there.
+#
+# Once, not per test. A test's entry point runs for each test, so anything expensive done there is done again
+# for every one of them.
+function Invoke-ProductPreparation([string]$repositoryRoot)
+{
+    $script = Join-Path $repositoryRoot ( Join-Path $EngPath 'PrepareDockerTests.ps1' )
+
+    if (-not (Test-Path -LiteralPath $script))
+    {
+        return
+    }
+
+    Write-Host "Preparing the suite with '$script'." -ForegroundColor Green
+
+    $global:LASTEXITCODE = 0
+
+    try
+    {
+        & $script
+    }
+    catch
+    {
+        # Without this the run continued: an exception from the script left $LASTEXITCODE at whatever the last
+        # native command had set, which is 0 when there was none, so the check below passed and the suite went on
+        # to find no tests and report success.
+        throw "'$script' failed: $( $_.Exception.Message )"
+    }
+
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "'$script' failed with exit code $LASTEXITCODE."
+    }
+}
+
+# Fails unless the repository root has a NuGet configuration, which is what lets a test resolve the product from
+# the packages the build produced rather than from nuget.org.
+#
+# That distinction is the whole point. A Docker test consumes the product through a PackageReference, and the
+# version it asks for is often one that has been released, so nuget.org can satisfy it. Without a source for the
+# local packages and a packageSourceMapping sending the product's packages there, the restore would quietly
+# succeed against the public package and the test would report a pass having verified binaries that nobody just
+# built. A test that silently checks the wrong thing is worse than one that fails, so a missing configuration is
+# fatal rather than tolerated.
+#
+# This only checks, it does not write. Putting the file there is the harness's job and it already does it: a
+# configuration that has a build snapshot dependency is generated with a CopyNuGetConfig step that copies
+# nuget.restored.config -- published beside the packages -- to the root before this script runs. On a prepared
+# developer machine the root nuget.config that Build.ps1 writes is already there. Copying it again here would
+# only repeat what one of those two has done.
+function Assert-NuGetConfiguration([string]$repositoryRoot)
+{
+    $configuration = Join-Path $repositoryRoot 'nuget.config'
+
+    if (-not (Test-Path -LiteralPath $configuration))
+    {
+        throw "'$configuration' does not exist, so the packages these tests consume cannot be located and the restore would fall back to nuget.org. Prepare the repository, or copy artifacts/publish/private/nuget.restored.config to the root, before running the Docker tests."
+    }
+}
+
 # Kills a process and everything it started. Stop-Process alone does not: it terminates the one process, and the
 # children it spawned are reparented rather than killed.
 function Stop-ProcessTree([int]$processId)
@@ -252,9 +317,55 @@ function Remove-TestContainers([string]$runId)
     & docker rm --force @containers 2>&1 | Out-Null
 }
 
-# Runs one test to completion and returns its outcome. Output is redirected to files and replayed afterwards
-# rather than streamed, so that the whole of it can be attached to the test even when the test is killed on
-# its timeout.
+# Copies whatever has been appended to the redirected output files since the last call, so that a running test
+# is visible while it runs. FileShare.ReadWrite is required: the child process still holds these files open,
+# and opening them any other way would fail.
+function Copy-NewOutput([hashtable]$positions)
+{
+    foreach ($file in @($positions.Keys))
+    {
+        if (-not (Test-Path -LiteralPath $file))
+        {
+            continue
+        }
+
+        $stream = $null
+
+        try
+        {
+            $stream = [System.IO.File]::Open($file, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+
+            if ($stream.Length -gt $positions[$file])
+            {
+                $stream.Position = $positions[$file]
+                $reader = New-Object System.IO.StreamReader($stream)
+                $text = $reader.ReadToEnd()
+                $positions[$file] = $stream.Position
+
+                if ($text)
+                {
+                    Write-Host $text -NoNewline
+                }
+            }
+        }
+        catch
+        {
+            # A transient sharing failure only delays the output to the next pass, and must never fail the test.
+        }
+        finally
+        {
+            if ($stream)
+            {
+                $stream.Dispose()
+            }
+        }
+    }
+}
+
+# Runs one test to completion and returns its outcome. The output is redirected to files so that the whole of
+# it can be attached to the test even when the test is killed on its timeout, and is echoed as it arrives so
+# that a long test is not indistinguishable from a hung one. Pulling a Windows base image takes tens of
+# minutes, and a silent log for that long is a log nobody can act on.
 function Invoke-OneTest([string]$testDirectory, [int]$timeoutSeconds, [string]$platform)
 {
     $rootDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "dockertest-$( [System.Guid]::NewGuid().ToString('n') )"
@@ -297,10 +408,25 @@ function Invoke-OneTest([string]$testDirectory, [int]$timeoutSeconds, [string]$p
             -RedirectStandardError $stdErrFile
 
         $timedOut = $false
+        $positions = @{ $stdOutFile = [long]0; $stdErrFile = [long]0 }
+        $deadline = [DateTime]::UtcNow.AddSeconds($timeoutSeconds)
 
-        if (-not $process.WaitForExit($timeoutSeconds * 1000))
+        while (-not $process.HasExited)
         {
-            $timedOut = $true
+            if ([DateTime]::UtcNow -gt $deadline)
+            {
+                $timedOut = $true
+                break
+            }
+
+            Copy-NewOutput $positions
+            Start-Sleep -Milliseconds 500
+        }
+
+        Copy-NewOutput $positions
+
+        if ($timedOut)
+        {
             Write-Host "The test exceeded its timeout of $timeoutSeconds seconds and is being killed." -ForegroundColor Red
 
             # The whole tree: the test process is a pwsh that started another to run DockerBuild.ps1, and killing
@@ -349,7 +475,11 @@ function Invoke-OneTest([string]$testDirectory, [int]$timeoutSeconds, [string]$p
 Push-Location
 try
 {
-    Set-Location $PSScriptRoot
+    # This script lives in the engineering directory, not at the root, so everything it addresses relative to
+    # the repository is resolved from the parent.
+    $repositoryRoot = ( Resolve-Path ( Join-Path $PSScriptRoot '..' ) ).Path
+
+    Set-Location $repositoryRoot
 
     if (-not $env:TEAMCITY_VERSION)
     {
@@ -389,7 +519,10 @@ try
         exit 1
     }
 
-    $testDirectories = Get-ChildItem -LiteralPath $Path -Directory |
+    Invoke-ProductPreparation $repositoryRoot
+    Assert-NuGetConfiguration $repositoryRoot
+
+$testDirectories = Get-ChildItem -LiteralPath $Path -Directory |
             Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'test.psd1') } |
             Sort-Object Name
 
@@ -467,7 +600,8 @@ try
 
                 if ($result.Output)
                 {
-                    Write-Host $result.Output
+                    # Not written to the console again: it was echoed as the test produced it. Only the service
+                    # message is sent, so that the whole of the output is attached to the test in the report.
                     Write-ServiceMessage 'testStdOut' @{ name = $testName; out = $result.Output }
                 }
 
@@ -528,6 +662,17 @@ try
 
     Write-Host ""
     Write-Host "$Platform : $passed passed, $( $failed.Count ) failed, $ignored ignored." -ForegroundColor Cyan
+
+    # Nothing ran at all. That is not a pass: a suite reporting success without executing a test is worse than one
+    # that fails, because nobody looks at it again. It happens when the discovery found tests and every one of them
+    # was skipped by a fault rather than by a manifest, or when preparation left the suite unable to start.
+    if ($passed -eq 0 -and $failed.Count -eq 0 -and $ignored -eq 0 -and $testDirectories.Count -gt 0)
+    {
+        Write-Host "$( $testDirectories.Count ) test(s) were found and none of them ran." -ForegroundColor Red
+        Write-ServiceMessage 'buildProblem' @{ description = "$( $testDirectories.Count ) Docker test(s) were found and none of them ran." }
+
+        exit 1
+    }
 
     if ($failed.Count -gt 0)
     {

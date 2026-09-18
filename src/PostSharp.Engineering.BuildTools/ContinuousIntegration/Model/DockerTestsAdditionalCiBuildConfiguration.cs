@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using System;
 using System.Linq;
 
@@ -79,6 +80,14 @@ public class DockerTestsAdditionalCiBuildConfiguration : PowershellAdditionalCiB
 
         return [..configurations, composite];
     }
+
+    /// <summary>
+    /// The launcher is generated into the engineering directory rather than the repository root, so the step has to
+    /// look for it there. The directory is a property of the product, which a configuration does not know when it is
+    /// constructed, so the path is resolved here instead.
+    /// </summary>
+    internal override string GetScriptPath( ProductProperties productProperties )
+        => $"{productProperties.Product.EngineeringDirectory}/{this.Script}";
 
     public DockerTestPlatform Platform { get; }
 

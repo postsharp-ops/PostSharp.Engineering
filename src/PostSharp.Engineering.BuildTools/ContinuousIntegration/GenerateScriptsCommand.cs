@@ -41,7 +41,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         // one.
         if ( product.AdditionalCiBuildConfigurations.Any( c => c is DockerTestsAdditionalCiBuildConfiguration ) )
         {
-            EmbeddedResourceHelper.ExtractScript( context, "RunDockerTests.ps1", "" );
+            EmbeddedResourceHelper.ExtractScript( context, "RunDockerTests.ps1", product.EngineeringDirectory );
         }
 
         // The script that runs a command against every product of a consolidated build. Only a consolidated product has
