@@ -30,6 +30,12 @@
 .PARAMETER Test
     Runs only the test of this name. Without it, every test that applies to the platform is run.
 
+.NOTES
+    A test reports its outcome by its exit code: 0 passed, 4 skipped, anything else failed. The skip code is
+    for a scenario the test finds it cannot reproduce on this host, which is different from the manifest's Skip:
+    that one is known in advance, this one only once the test has looked. A skipping test should write a line
+    beginning with 'SKIPPED:', which becomes the reason reported.
+
 .PARAMETER NoTeamCity
     Writes plain text instead of TeamCity service messages. Implied when TEAMCITY_VERSION is not set.
 
@@ -74,6 +80,13 @@ if (-not $Path)
 }
 
 $DefaultTimeoutSeconds = 900
+
+# The exit code by which a test reports that it decided, at run time, that its scenario cannot occur on this
+# host, and that it therefore tested nothing. The manifest's Skip covers what is known before the test runs;
+# this covers what is only discoverable once it has looked -- an SDK that ships a pack the scenario needs
+# absent, a case-insensitive file system, a kernel without the facility under test. Reporting those as failures
+# would train people to ignore red, and reporting them as passes would claim coverage that does not exist.
+$SkipExitCode = 4
 
 # TeamCity reads a service message up to the first unescaped delimiter, and Docker output is full of brackets,
 # so an unescaped value silently truncates or corrupts the report. The vertical bar is replaced first: doing it
@@ -463,6 +476,27 @@ try
                     $message = "The test exceeded its timeout of $( $manifest.TimeoutSeconds ) seconds."
                     Write-ServiceMessage 'testFailed' @{ name = $testName; message = $message }
                     $failed += $testName
+                }
+                elseif ($result.ExitCode -eq $SkipExitCode)
+                {
+                    # The reason is taken from the last line the test wrote beginning with SKIPPED:, which is how
+                    # these tests already explain themselves. Without one the exit code still counts, because the
+                    # decision belongs to the test; only the explanation is missing.
+                    $skipLine = @( $result.Output -split "`n" | Where-Object { $_ -match '^\s*SKIPPED:' } ) |
+                            Select-Object -Last 1
+
+                    $message = if ($skipLine -match '^\s*SKIPPED:\s*(.+?)\s*$')
+                    {
+                        $Matches[1]
+                    }
+                    else
+                    {
+                        "The test reported exit code $SkipExitCode, meaning its scenario cannot occur on this host."
+                    }
+
+                    Write-Host "$testName : skipped -- $message" -ForegroundColor Yellow
+                    Write-ServiceMessage 'testIgnored' @{ name = $testName; message = $message }
+                    $ignored++
                 }
                 elseif ($result.ExitCode -ne 0)
                 {
