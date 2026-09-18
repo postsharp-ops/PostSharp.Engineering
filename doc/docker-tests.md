@@ -136,8 +136,42 @@ Invoke-PostSharpTestContainer `
 exit $LASTEXITCODE
 ```
 
-Exit code 0 means the test passed; any other exit code means it failed. Reserve exceptions for the harness
-failing, not for the code under test failing.
+### Outcomes
+
+| Exit code | Outcome | Meaning |
+|---|---|---|
+| `0` | passed | |
+| `4` | skipped | The test looked, and its scenario cannot occur on this host. |
+| anything else | failed | |
+
+Reserve exceptions for the harness failing, not for the code under test failing.
+
+The skip code is not the same as the manifest's `Skip`. `Skip` states something known before the test runs --
+a test disabled while an issue is open -- and applies on every platform. Exit code `4` is for what only the
+test can discover once it has looked: an SDK that ships a pack the scenario needs absent, a case-insensitive
+file system, a kernel without the facility under test. A test in that position has verified nothing, so
+reporting it green would claim coverage that does not exist, and reporting it red would train people to ignore
+a failing suite.
+
+A skipping test should say why, on a line beginning with `SKIPPED:`. The launcher takes the last such line as
+the reason and puts it in the TeamCity `testIgnored` message; without one the skip still counts, with a
+generic reason.
+
+```powershell
+if (Test-Path '/usr/share/dotnet/packs/NETStandard.Library.Ref')
+{
+    Write-Host 'SKIPPED: this SDK installs the pack, so the probe answers and the scenario cannot occur.'
+    exit 4
+}
+```
+
+In TeamCity the test is then reported as ignored rather than failed:
+
+```
+##teamcity[testStarted name='Issue109-MissingTargetingPack']
+##teamcity[testIgnored message='this SDK installs the pack, ...' name='Issue109-MissingTargetingPack']
+##teamcity[testFinished duration='762' name='Issue109-MissingTargetingPack']
+```
 
 ### Nothing is copied into the image
 
