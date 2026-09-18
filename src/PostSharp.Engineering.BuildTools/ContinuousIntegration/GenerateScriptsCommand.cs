@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
@@ -33,6 +34,15 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
 
         EmbeddedResourceHelper.ExtractScript( context, "Build.ps1", "" );
         EmbeddedResourceHelper.ExtractScript( context, "build.sh", "" );
+
+        // The launcher of the Docker-based tests. It is generated for a product that declares at least one
+        // configuration running them, rather than for every product that uses Docker: the two are unrelated,
+        // because the launcher executes on the agent and starts containers of its own instead of running inside
+        // one.
+        if ( product.AdditionalCiBuildConfigurations.Any( c => c is DockerTestsAdditionalCiBuildConfiguration ) )
+        {
+            EmbeddedResourceHelper.ExtractScript( context, "RunDockerTests.ps1", "" );
+        }
 
         // The script that runs a command against every product of a consolidated build. Only a consolidated product has
         // one: it is the only product that drives the build of other repositories.
