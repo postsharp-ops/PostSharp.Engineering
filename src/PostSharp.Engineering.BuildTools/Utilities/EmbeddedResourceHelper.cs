@@ -81,7 +81,12 @@ internal static class EmbeddedResourceHelper
                 + $"(found: {string.Join( ", ", paths )})." );
         }
 
-        replacements.Add( "<DOCKER_TESTS_PATH>", paths.FirstOrDefault() ?? DockerTestsAdditionalCiBuildConfiguration.DefaultPath );
+        // The value lands inside a single-quoted PowerShell literal, so an apostrophe has to be doubled. A
+        // repository path may legitimately contain one, and without this the generated script would not parse --
+        // or worse, would parse as something else.
+        var path = paths.FirstOrDefault() ?? DockerTestsAdditionalCiBuildConfiguration.DefaultPath;
+
+        replacements.Add( "<DOCKER_TESTS_PATH>", path.Replace( "'", "''", StringComparison.Ordinal ) );
     }
 
     /// <summary>

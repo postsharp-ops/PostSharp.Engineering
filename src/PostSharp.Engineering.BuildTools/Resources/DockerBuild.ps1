@@ -79,17 +79,22 @@
     Docker engine of the host's own architecture are all there.
 
 .PARAMETER Test
-    Runs an isolated Docker test container instead of the product build. Requires -Dockerfile and -Command.
+    Runs a Docker test container instead of the product build. Requires -Dockerfile and -Command.
     The image is built and cached exactly as a product image is, with the same content-hash tag and the same
-    registry push and pull, but no product image chain is resolved, no repository directory is mounted, and no
-    product environment variable is passed. Use it for a test that needs a container of its own.
+    registry push and pull. What differs is that no product image chain is resolved and no product environment
+    variable is passed: the container gets what -Env asks for and nothing else, so the product credentials stay
+    out of it. The mounts are those of an ordinary build -- the repository, the caches and the dependency
+    repositories -- and the command runs with the repository as its working directory, so a test addresses what
+    it needs by a path relative to the repository root. Use it for a test that needs a container of its own.
 
 .PARAMETER Context
     (-Test) The Docker build context directory. Defaults to the directory containing the Dockerfile.
 
 .PARAMETER Command
-    (-Test) The command line executed in the test container, instead of the build script. It runs through the
-    container's own shell, so the test image is not required to carry PowerShell. The container's exit code
+    (-Test) The command line executed in the test container, instead of the build script. Mutually exclusive
+    with -Script: -Script names a PowerShell file that the container runs through pwsh, which the image must
+    therefore carry, while -Command is a command line run through the container's own shell, which any image
+    has. -Test requires -Command; -Script belongs to an ordinary build. The container's exit code
     becomes the exit code of this script.
 
 .PARAMETER RegistryImage
@@ -261,6 +266,14 @@ $IsUnix = -not $IsWindows  # Covers both Linux and macOS
 # Converts a host path to the form WSL sees it under: C:\src\x becomes /mnt/c/src/x. Used only when this
 # script hands its own arguments to a copy of itself running inside WSL, where every path it was given names
 # a Windows location that the Linux side reaches through /mnt.
+# Quotes a value as a PowerShell single-quoted literal, doubling any apostrophe it contains. The WSL hop builds
+# a command line rather than passing arguments, so every value it forwards goes through here: a path holding an
+# apostrophe would otherwise end the literal early and have its remainder parsed as PowerShell.
+function ConvertTo-PowerShellLiteral([string]$value)
+{
+    return "'" + ( $value -replace "'", "''" ) + "'"
+}
+
 function ConvertTo-WslHostPath([string]$path)
 {
     if ($path -match '^([A-Za-z]):[\\/](.*)$')
@@ -418,17 +431,31 @@ if ($OS -ne $hostOs)
             $items += $text
         }
 
-        # One argument per parameter, with the values comma-separated. `pwsh -File` binds the arguments as
-        # PowerShell would, and a parameter given twice is an error there, so a collection cannot be passed by
-        # repeating its name.
-        $wslArguments += @("-$( $parameter.Key )", ( $items -join ',' ))
+        # A collection is written as an array literal, and a single value as a scalar. Joining with commas will
+        # not do: `pwsh -File` passes arguments as literal strings, so '-Mount a,b' arrives as the one element
+        # 'a,b' rather than as two mounts, and the second would silently become part of a path that does not
+        # exist. Repeating the parameter is not an option either -- `pwsh -File` rejects that outright -- so the
+        # hop goes through -Command, where an array literal means what it says.
+        if ($items.Count -gt 1)
+        {
+            $wslArguments += "-$( $parameter.Key ) @(" + ( ( $items | ForEach-Object { ConvertTo-PowerShellLiteral $_ } ) -join ',' ) + ")"
+        }
+        else
+        {
+            $wslArguments += "-$( $parameter.Key ) " + ( ConvertTo-PowerShellLiteral $items[0] )
+        }
     }
 
-    $wslArguments += $BuildArgs
+    foreach ($buildArg in $BuildArgs)
+    {
+        $wslArguments += ConvertTo-PowerShellLiteral ([string]$buildArg)
+    }
 
     Write-Host "Linux containers run on the Docker engine inside WSL; re-executing this script there." -ForegroundColor Cyan
 
-    & wsl.exe -- $wslPwsh -NoProfile -File ( ConvertTo-WslHostPath $PSCommandPath ) @wslArguments
+    $wslCommand = "& " + ( ConvertTo-PowerShellLiteral ( ConvertTo-WslHostPath $PSCommandPath ) ) + " " + ( $wslArguments -join ' ' )
+
+    & wsl.exe -- $wslPwsh -NoProfile -Command $wslCommand
 
     exit $LASTEXITCODE
 }
@@ -550,8 +577,11 @@ try
 
         # Init.g.ps1 is the only channel that carries the product environment variables into the container, so
         # suppressing it is what keeps SIGNSERVER_SECRET and the other credentials out of a test container.
+        #
+        # The NuGet cache is deliberately left alone. It is one of the ordinary build mounts, and a test that had
+        # to restore every package over the network would be slower and would fail differently when the network
+        # does. A caller wanting that isolation still has -NoNuGetCache.
         $NoInit = $true
-        $NoNuGetCache = $true
     }
 
     # Validate and parse -Cpus parameter
@@ -2274,7 +2304,15 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             $script:TimestampFile = Get-TimestampFile
         }
 
-        if ($Claude)
+        if ($Test)
+        {
+            # Nothing: a test container receives no product environment. Init.g.ps1 is the only channel that
+            # would carry it and -Test suppresses that, so collecting it here produces a result nobody reads --
+            # and on a TeamCity agent the git-identity check below would fail a test run that never needed
+            # GIT_USER_EMAIL or GIT_USER_NAME. Suppressing Init.g.ps1 alone does not skip this block, because it
+            # is guarded by -KeepInit rather than by -NoInit.
+        }
+        elseif ($Claude)
         {
             # Use Claude-specific environment variables (filtered and renamed)
             New-ClaudeEnvHashtable
@@ -2311,7 +2349,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         # The optional script mutates the hashtable in place (add / change / remove keys)
         # and receives the leaf Dockerfile name and the mode as context.
         $customizeEnvScript = Join-Path $EngPath 'CustomizeDockerEnvironment.ps1'
-        if (Test-Path $customizeEnvScript)
+        if (-not $Test -and (Test-Path $customizeEnvScript))
         {
             $dockerfileName = if ($Dockerfile) { Split-Path -Leaf $Dockerfile } else { '' }
             Write-Host "Customizing environment variables from $customizeEnvScript" -ForegroundColor Cyan
@@ -3119,8 +3157,33 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             $pwshArgs = $null
             $dockerArgs = @()
             $inlineScript = $null
-            $envArgs = @()
             $needsMcpCleanup = $false
+
+            # What -Env asks for, and nothing else. The product environment does not reach a test container, but
+            # a variable the caller named explicitly is not part of that: dropping it silently would let a test
+            # run without something it was told to have, and report a pass or a failure that means nothing.
+            $envArgs = @()
+
+            foreach ($envSpec in $Env)
+            {
+                if ($envSpec -match '^([^=]+)=(.*)$')
+                {
+                    $envArgs += @('-e', $envSpec)
+                }
+                else
+                {
+                    $value = [System.Environment]::GetEnvironmentVariable($envSpec)
+
+                    if ($null -ne $value)
+                    {
+                        $envArgs += @('-e', "$envSpec=$value")
+                    }
+                    else
+                    {
+                        Write-Host "The environment variable '$envSpec' is not set on the host and is not passed to the test container." -ForegroundColor Yellow
+                    }
+                }
+            }
         }
         elseif ($Claude)
         {
@@ -3348,6 +3411,13 @@ $envVarAssignments$gitConfigCommands$postInitCommands
 
             if ($Test)
             {
+                # The label the launcher removes by, when a test overruns its timeout. The container outlives the
+                # process that started it, so without this a timed-out test leaves it running on the agent.
+                if ($env:POSTSHARP_DOCKER_TEST_RUN_ID)
+                {
+                    $dockerCmd += @('--label', "postsharp.test-run=$( $env:POSTSHARP_DOCKER_TEST_RUN_ID )")
+                }
+
                 # The working directory was set above, to the mounted repository.
                 $dockerCmd += @($ImageTag) + $testCommandArgs
             }

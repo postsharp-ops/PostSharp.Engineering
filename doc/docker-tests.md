@@ -36,7 +36,8 @@ flowchart LR
 
 The host contract is PowerShell 7.5 and a container engine whose operating system and architecture match the
 platform. No .NET SDK, no MSBuild, no Visual Studio. What the build produced reaches the agent through a
-TeamCity artifact dependency, and each test resolves it from where the test itself lives.
+TeamCity artifact dependency, and each test addresses it by a path relative to the repository root, which
+`DockerBuild.ps1` mounts into the container.
 
 ## Layout
 
@@ -54,6 +55,40 @@ Tests/Docker/
 The platforms a test runs on are declared in its manifest, not encoded in its position in the tree, because
 most tests apply to more than one. The same Linux test should normally run on both `linux-x64` and
 `linux-arm64`, and a directory per platform would mean duplicating the test to get that coverage.
+
+### More than one operating system in one test
+
+The launcher has no opinion about the Dockerfile: it runs `RunTest.ps1`, and `RunTest.ps1` decides which
+Dockerfile to pass to `DockerBuild.ps1`. `Dockerfile` is therefore only a convention, and it holds for the
+common case of a test whose platforms share one base image -- the two Linux architectures being the usual
+example, since the same image manifest serves both.
+
+A test whose manifest spans operating systems needs one Dockerfile per operating system, because the base
+images have nothing in common. Name them `Dockerfile.linux` and `Dockerfile.windows` and select in
+`RunTest.ps1`, which already receives the platform:
+
+```
+Tests/Docker/
+  Issue22-CrossPlatform/
+    test.psd1              # Platforms = @( 'linux-x64', 'linux-arm64', 'win-x64' )
+    Dockerfile.linux
+    Dockerfile.windows
+    RunTest.ps1
+```
+
+```powershell
+$os = if ($Platform -like 'linux-*') { 'linux' } else { 'windows' }
+
+Invoke-PostSharpTestContainer `
+    -Platform $Platform `
+    -Dockerfile (Join-Path $PSScriptRoot "Dockerfile.$os") `
+    -Command '...'
+```
+
+Prefer this to splitting the test in two when the scenario is genuinely the same one, so that it cannot be
+fixed on one operating system and left broken on the other. Split it when the reproduction differs -- a
+different command, a different fixture, a different assertion -- because two tests sharing a name and nothing
+else are harder to read than two tests with two names.
 
 ### `test.psd1`
 
@@ -163,16 +198,22 @@ directory containing the Dockerfile, and an optional `-OS` covered in the next s
 
 Callers splat a **hashtable**, never an array. `& ./DockerBuild.ps1 @arguments` with an array does not bind
 these parameters: `-BuildArgs` takes the remaining arguments, every value lands there, and the script goes on
-to run an ordinary product build -- mounting the source tree and forwarding the product secrets -- instead of
-the test container. That failure is silent and its consequences are not, so the script refuses an argument
-that names one of its own parameters but was not bound to it. Compared with a normal run it does not build the product image chain or
-the boot image over it, does not mount the source tree, the caches, the source dependencies or the sibling
-repositories, and does not generate or run `Init.g.ps1`.
+to run an ordinary product build -- forwarding the product secrets -- instead of the test container. That
+failure is silent and its consequences are not, so the script refuses an argument that names one of its own
+parameters but was not bound to it.
 
-That last exclusion is the point. `Init.g.ps1` is the only channel that carries the product environment
+Compared with a normal run, `-Test` does not resolve the product image chain and does not generate or run
+`Init.g.ps1`. What it does **not** change is the mounts: the repository, the caches, the source dependencies
+and the sibling repositories are all mounted as they are for any build, and the command runs with the
+repository as its working directory. A test consuming a source dependency needs the same repositories the
+build needs, and a test that had to restore every package over the network would be slower and would fail
+differently when the network does.
+
+The `Init.g.ps1` exclusion is the point. `Init.g.ps1` is the only channel that carries the product environment
 variables into the container, and those include `SIGNSERVER_SECRET`, `GITHUB_APP_PRIVATE_KEY`,
 `AZURE_CLIENT_SECRET` and `NUGET_ORG_API_KEY`. A test container is built from a public base image and has no
-business holding any of them. The exclusions are implied by `-Test` rather than requested one flag at a time,
+business holding any of them. What a test does need, it names: `-Env FOO` is honoured and passed through, and
+only that. The exclusions are implied by `-Test` rather than requested one flag at a time,
 so that a test cannot acquire them by forgetting one, and `-Test` refuses to combine with `-Claude`,
 `-Interactive`, `-BuildImage`, `-StartVsmon`, `-PostInit`, `-KeepInit` and `-Script`.
 
@@ -235,8 +276,7 @@ private static DockerTestsAdditionalCiBuildConfiguration CreateDockerTestConfigu
         $"DockerTests{platform}",
         $"Docker Tests ({title})",
         platform,
-        "Tests/Core/DockerTests",
-        "Build" )
+        "Tests/Core/DockerTests" )
     {
         SnapshotDependencies = [ArtifactsStage],
         BuildSnapshotDependency = BuildConfiguration.Public,

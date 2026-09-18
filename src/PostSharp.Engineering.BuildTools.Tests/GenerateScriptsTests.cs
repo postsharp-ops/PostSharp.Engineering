@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
@@ -54,6 +55,71 @@ public class GenerateScriptsTests
     }
 
     /// <summary>
+    private static Product CreateProduct( params DockerTestsAdditionalCiBuildConfiguration[] configurations )
+        => new( MetalamaDependencies.V2026_1.Metalama )
+        {
+            GenerateTeamCitySettings = false,
+            GenerateDockerfiles = false,
+            AdditionalCiBuildConfigurations = [..configurations]
+        };
+
+    /// <summary>
+    /// The launcher is generated for a product that declares a Docker test configuration, and not for one that does
+    /// not. Emitting it everywhere would put a script into repositories with nothing for it to run, where it would
+    /// read as a suite that someone had forgotten to populate.
+    /// </summary>
+    [Fact]
+    public void RunDockerTests_IsGeneratedOnlyForAProductThatDeclaresOne()
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using ( var directory = new TempDirectory() )
+        {
+            var product = CreateProduct();
+
+            Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+            Assert.False( File.Exists( Path.Combine( directory.Path, "RunDockerTests.ps1" ) ) );
+        }
+
+        using ( var directory = new TempDirectory() )
+        {
+            var product = CreateProduct(
+                new DockerTestsAdditionalCiBuildConfiguration( "DockerTests", "Docker Tests", DockerTestPlatform.LinuxX64, "Tests/Containers" ) );
+
+            Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+
+            var launcher = Path.Combine( directory.Path, "RunDockerTests.ps1" );
+            Assert.True( File.Exists( launcher ) );
+
+            // The declared directory reaches the launcher through generation rather than through the arguments of the
+            // configuration, so this is what proves a product's choice is honoured.
+            Assert.Contains( "$DockerTestsPath = 'Tests/Containers'", File.ReadAllText( launcher ), StringComparison.Ordinal );
+        }
+    }
+
+    /// <summary>
+    /// One launcher is generated for the whole repository, so configurations that name different test directories
+    /// cannot both be honoured. Silently generating one of them would leave the other platform running a suite it
+    /// never declared.
+    /// </summary>
+    [Fact]
+    public void RunDockerTests_RefusesConfigurationsThatDisagreeAboutTheDirectory()
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = CreateProduct(
+            new DockerTestsAdditionalCiBuildConfiguration( "A", "A", DockerTestPlatform.LinuxX64, "Tests/One" ),
+            new DockerTestsAdditionalCiBuildConfiguration( "B", "B", DockerTestPlatform.WindowsX64, "Tests/Two" ) );
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+
+        Assert.Contains( "Tests/One", exception.Message, StringComparison.Ordinal );
+        Assert.Contains( "Tests/Two", exception.Message, StringComparison.Ordinal );
+    }
+
     /// A consolidated product drives the build of the other repositories through Orchestrator.ps1, whose product list
     /// used to be maintained by hand in the consolidated repository. A product missing from that list is never bumped
     /// and never deployed, and nothing reports it, so the list is generated from the source dependencies instead.

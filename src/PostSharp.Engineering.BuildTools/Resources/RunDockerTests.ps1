@@ -200,6 +200,45 @@ function Read-TestManifest([string]$manifestPath)
     }
 }
 
+# Kills a process and everything it started. Stop-Process alone does not: it terminates the one process, and the
+# children it spawned are reparented rather than killed.
+function Stop-ProcessTree([int]$processId)
+{
+    # Win32_Process is the only way to walk the tree on Windows. On Linux and macOS pgrep does the same job, and
+    # the container cleanup below is what actually matters there in any case.
+    $children = if ($IsWindows)
+    {
+        @( Get-CimInstance Win32_Process -Filter "ParentProcessId = $processId" -ErrorAction SilentlyContinue |
+                ForEach-Object { [int]$_.ProcessId } )
+    }
+    else
+    {
+        @( & pgrep -P $processId 2>$null | ForEach-Object { [int]$_ } )
+    }
+
+    foreach ($child in $children)
+    {
+        Stop-ProcessTree $child
+    }
+
+    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+}
+
+# Force-removes every container labelled with this test run. A container outlives the process that started it,
+# so a timeout that killed only the process would leave it running.
+function Remove-TestContainers([string]$runId)
+{
+    $containers = @(& docker ps --all --quiet --filter "label=postsharp.test-run=$runId" 2>$null)
+
+    if ($containers.Count -eq 0)
+    {
+        return
+    }
+
+    Write-Host "Removing $( $containers.Count ) container(s) left by the timed-out test." -ForegroundColor Yellow
+    & docker rm --force @containers 2>&1 | Out-Null
+}
+
 # Runs one test to completion and returns its outcome. Output is redirected to files and replayed afterwards
 # rather than streamed, so that the whole of it can be attached to the test even when the test is killed on
 # its timeout.
@@ -216,6 +255,14 @@ function Invoke-OneTest([string]$testDirectory, [int]$timeoutSeconds, [string]$p
 
     $stdOutFile = Join-Path $logDirectory 'stdout.log'
     $stdErrFile = Join-Path $logDirectory 'stderr.log'
+
+    # Every container this test starts is labelled with this, so that a timeout can remove them. Killing the
+    # test process is not enough: it is waiting on `docker run`, and the container is a child of the engine, not
+    # of the process tree. Left behind, it goes on holding CPU, memory and the image, and a later test that
+    # expects an idle machine -- or the same port, or the same mount -- fails for a reason that has nothing to
+    # do with it.
+    $runId = [System.Guid]::NewGuid().ToString('n')
+    $env:POSTSHARP_DOCKER_TEST_RUN_ID = $runId
 
     try
     {
@@ -242,8 +289,14 @@ function Invoke-OneTest([string]$testDirectory, [int]$timeoutSeconds, [string]$p
         {
             $timedOut = $true
             Write-Host "The test exceeded its timeout of $timeoutSeconds seconds and is being killed." -ForegroundColor Red
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+
+            # The whole tree: the test process is a pwsh that started another to run DockerBuild.ps1, and killing
+            # only the one that was waited on leaves the rest running.
+            Stop-ProcessTree $process.Id
+
             $process.WaitForExit(30 * 1000) | Out-Null
+
+            Remove-TestContainers $runId
         }
         else
         {
@@ -276,6 +329,7 @@ function Invoke-OneTest([string]$testDirectory, [int]$timeoutSeconds, [string]$p
     finally
     {
         Remove-Item -LiteralPath $rootDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item Env:\POSTSHARP_DOCKER_TEST_RUN_ID -ErrorAction SilentlyContinue
     }
 }
 
