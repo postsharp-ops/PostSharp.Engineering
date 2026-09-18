@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
@@ -43,6 +43,11 @@ public class DockerTestsAdditionalCiBuildConfiguration : PowershellAdditionalCiB
         this.Path = path;
         this.BuildAgentRequirements = GetDefaultBuildAgentRequirements( platform );
         this.ProjectFolder = DefaultProjectFolder;
+
+        // This configuration starts containers while running on the agent rather than inside one, so it has no
+        // image-preparation step and would otherwise miss the generated cleanup step. It needs that step more
+        // than a containerised configuration does: its containers are what write into the checkout as root.
+        this.StartsContainers = true;
     }
 
     /// <summary>
