@@ -3171,17 +3171,26 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             # runs; this moves to the same directory by the name the host uses, which is what -Script's own cd
             # arrives at. Without it a test would see a different working directory in each mode.
             #
-            # The path is deliberately not quoted. Quoting it produced "The filename, directory name, or volume
-            # label syntax is incorrect": the argument reaches cmd through docker's own command-line assembly,
-            # which does not preserve the inner quotes. Unquoted is also correct rather than merely lucky --
-            # cmd's CD takes the rest of the line as the directory name, so a path with spaces needs no quotes.
+            # The path is not quoted. Quoting it produced "The filename, directory name, or volume label syntax
+            # is incorrect": the argument reaches cmd through docker's own command-line assembly, which does not
+            # preserve the inner quotes. Spaces survive that unquoted, because cmd's CD takes the rest of the
+            # line as the directory name -- but the characters below do not, because cmd splits the line on them
+            # before CD is reached, so they are escaped with a caret instead.
+            #
+            # A percent sign is the one case left unhandled: cmd would expand %Name% against the environment,
+            # and the escape for that differs between the command line and a batch file. A directory named for a
+            # variable is rare enough to leave, and it fails visibly rather than silently.
             $testCommandArgs = if ($IsUnix)
             {
                 @('sh', '-c', $Command)
             }
             elseif ($substCommandsCmd)
             {
-                @('cmd', '/S', '/C', "$substCommandsCmd cd /d $SourceDirName && $Command")
+                # Windows permits & | < > ( ) ^ in a directory name. Escaped in one pass over the original, so
+                # that a caret this inserts is not itself escaped again.
+                $escapedSourceDir = $SourceDirName -replace '([&|<>()^])', '^$1'
+
+                @('cmd', '/S', '/C', "$substCommandsCmd cd /d $escapedSourceDir && $Command")
             }
             else
             {
