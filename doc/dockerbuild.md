@@ -17,7 +17,7 @@ Hyper-V isolation) and Linux containers (Docker Desktop / WSL2 backend).
 On each invocation the script:
 
 1. **Frees image disk space** if the Docker image store is over `DOCKER_MAX_IMAGE_SPACE` (100 GB by default),
-   by removing unused images, oldest first. See [Image-space cleanup](#image-space-cleanup).
+   by removing unused images, least recently used first. See [Image-space cleanup](#image-space-cleanup).
 2. **Resolves the image chain.** Dockerfiles declare their parent with `ARG BASE_IMAGE=<parent>.Dockerfile`.
    The resolver walks the chain, computes a content-hash tag per image, and builds/pulls each level
    parent-first.
@@ -68,7 +68,7 @@ flowchart LR
 | `-Update` | Force a full timestamp bump to invalidate the Docker cache (refreshes `@latest` Claude CLI / plugins). |
 | `-Isolation process\|hyperv` | Container isolation. Windows only. Auto-detected when omitted: `process` on Windows Server, `hyperv` on Windows Desktop. |
 | `-Memory <size>` / `-Cpus <n>\|dynamic` | Resource limits. Applied on Linux and macOS, and on Windows under Hyper-V isolation; Windows process isolation ignores them. `-Memory` is clamped to the memory the Docker engine reports. `dynamic` rebalances CPUs under any isolation. |
-| `-MaxImageSpace <GB>` | Budget for the Docker image store, in decimal GB. Unused images are removed oldest first, before the build, when the store exceeds it. Covers every image on the engine, not only this repository's. Defaults to `$env:DOCKER_MAX_IMAGE_SPACE` or 100; `0` disables it. |
+| `-MaxImageSpace <GB>` | Budget for the Docker image store, in decimal GB. When the store exceeds it, unused images are removed before the build, least recently used first, until the store is down to 70% of the budget. Covers every image on the engine, not only this repository's. Defaults to `$env:DOCKER_MAX_IMAGE_SPACE` or 100; `0` disables it. |
 | `-Mount <dir[:w]>` | Mount extra host directories (read-only by default, `:w` = writable; `*`/`**` globs supported). |
 | `-Env NAME[=VALUE]` | Pass extra environment variables (host value or literal). |
 | `-Ports <h:c>` | Publish container ports. |
@@ -249,8 +249,37 @@ place. A build agent therefore gains a whole chain of images each time a Dockerf
 On Windows a chain is tens of gigabytes, so the image store grows until the disk is full.
 
 Before it resolves the image chain, `DockerBuild.ps1` measures the image store. If the store is over budget,
-it removes unused images, oldest first, until the store is back within the budget. The budget is
-`-MaxImageSpace`, which defaults to `$env:DOCKER_MAX_IMAGE_SPACE` and, failing that, to 100 GB.
+it removes unused images, least recently used first, until the store is down to 70% of the budget. The budget
+is `-MaxImageSpace`, which defaults to `$env:DOCKER_MAX_IMAGE_SPACE` and, failing that, to 100 GB.
+
+The cleanup is triggered by the budget but aims at 70% of it, so that a store resting a little above the
+budget does not run a cleanup on every single build and free almost nothing each time. At the default budget
+a cleanup frees at least 30 GB, which is worth roughly thirty quiet builds.
+
+### How last use is recorded
+
+The Docker engine exposes no last-used time for an image: `docker system df -v` reports when an image was
+created and nothing else. `DockerBuild.ps1` therefore records the use itself. Once a run has resolved its
+image chain, it writes one small file per image it used — including the base OS image and its registry
+mirror — under:
+
+| Platform | Directory |
+|---|---|
+| Windows | `%LOCALAPPDATA%\PostSharp.Engineering\docker-image-usage\` |
+| Linux, macOS | `$HOME/.local/share/PostSharp.Engineering/docker-image-usage/` |
+
+This is the same directory that holds the weekly `update.timestamp`, and the one mounted into the container.
+Each file is named after the image identifier, and holds the UTC time of the last use followed by the
+references the image carried at that moment. Records of images that no longer exist are deleted by the next
+cleanup, so the directory stays about as large as the image store is long.
+
+An image with no record falls back to its creation date. Every image already on an agent is unrecorded, so
+the ordering starts out exactly as it was before this was introduced and sharpens into a true LRU as builds
+record what they use. Losing the directory costs the ordering, never a build.
+
+Why least recently used rather than oldest: a stable base image is built once and then reused by every build
+for months, which makes it simultaneously the oldest image on the agent and the most expensive one to lose.
+Evicting by age removed exactly the images worth keeping.
 
 ### What is measured
 
@@ -279,6 +308,8 @@ so the refusal of the unforced command is what keeps concurrent runs safe.
 - Any image created in the last two hours. This is what makes the cleanup safe against a concurrent run: a
   sibling run's freshly built image, and its boot image between `docker build` and `docker run`, belong to no
   container yet and appear in no other run's keep set.
+- Any image *used* in the last two hours. The same window applied to the recorded last use, which covers an
+  old image that a sibling run is using right now — a case a creation date cannot see at all.
 
 The age of an image is the creation date recorded in its manifest, which is not the date it arrived on this
 machine. An image that was built here minutes ago is new, because a build that adds a filesystem layer stamps
@@ -296,6 +327,9 @@ both the largest and the oldest one on the machine.
 | `-Interactive` reusing a running container | Skipped. Nothing is built or pulled, so there is no space to make room for. |
 | `-MaxImageSpace 0`, or `DOCKER_MAX_IMAGE_SPACE=0` | Disabled. |
 
+Usage is recorded in every mode that resolves an image chain, whether or not the cleanup runs, so that
+`-MaxImageSpace 0` on a machine still leaves useful records for a later run that has a budget.
+
 The cleanup never fails a build. If the store cannot be measured, or if nothing can be removed, it reports
 the reason and the build continues.
 
@@ -308,13 +342,17 @@ chain below the real capacity of the disk.
 On Linux with BuildKit, the build cache is a separate pool that this budget does not measure. Use
 `docker builder prune` for that.
 
-### Relation to Daily-Maintenance.ps1
+### The only image cleanup
 
-`scripts/build-agents/Daily-Maintenance.ps1` is the scheduled sweep on TeamCity agents: it runs once a day
-and prunes by age, with `docker image prune -a --filter until=...`. The cleanup described here is
-demand-driven instead, runs on developer machines as well as agents, and is the more conservative of the two,
-because it removes only what a measured overage requires and protects the images that a build is about to
-use. The two are complementary.
+There is no scheduled sweep any more: a nightly `docker image prune -a --filter until=...` used to run on the
+agents, and it was removed because it could only filter on the creation date. It had no way to spare a
+recently used image, so it removed the stable base images that every build reuses — exactly what the eviction
+order described above exists to protect.
+
+This cleanup is therefore the only thing that frees image space. It is demand-driven, runs on developer
+machines as well as agents, and removes only what a measured overage requires. An agent that never runs a
+build no longer frees anything on its own, which is the intended trade: an idle agent is not the one filling
+its disk.
 
 ## Generated companions
 

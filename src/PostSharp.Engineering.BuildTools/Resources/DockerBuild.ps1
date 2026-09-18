@@ -1,4 +1,4 @@
-# The original of this file is in <PostSharp.Engineering>/src/PostSharp.Engineering.BuildTools/Resources/DockerBuild.ps1.
+﻿# The original of this file is in <PostSharp.Engineering>/src/PostSharp.Engineering.BuildTools/Resources/DockerBuild.ps1.
 # You can generate this file using `./Build.ps1 generate-scripts`.
 # Documentation: https://raw.githubusercontent.com/postsharp/PostSharp.Engineering/HEAD/doc/dockerbuild.md
 
@@ -146,13 +146,16 @@
 
 .PARAMETER MaxImageSpace
     Budget for the Docker image store, in gigabytes. Before the image chain is built, if the image
-    store exceeds this budget, unused images are removed oldest first until the store is back within
-    the budget.
+    store exceeds this budget, unused images are removed LEAST RECENTLY USED first until the store
+    is down to 70% of the budget. The gap is deliberate: freeing only to the budget would run a
+    cleanup on every build once the store settled just above the line.
+    The last use of an image is recorded by this script, because the Docker engine exposes none; an
+    image that no run has recorded yet falls back to its creation date.
     The budget is compared to the size that `docker system df` reports for images, which counts a
     layer shared by several images only once.
     The removal covers every image on the Docker engine, not only the images of this repository.
     It never removes an image that this run needs, an image that any container references, or an
-    image created in the last two hours.
+    image created or used in the last two hours.
     Gigabytes are decimal (1 GB = 1e9 bytes), which is the unit `docker system df` prints.
     Set it to 0 to disable the cleanup.
     Defaults to $env:DOCKER_MAX_IMAGE_SPACE if set, otherwise 100.
@@ -214,7 +217,7 @@ param(
     [string[]]$Env, # Additional environment variables to pass from host to container.
     [string[]]$Ports, # Port mappings from host to container (e.g., "8080:80", "3000").
     [string]$Label, # Label to apply to the container (e.g., for identifying build containers for cleanup).
-    [string]$MaxImageSpace = $(if ($env:DOCKER_MAX_IMAGE_SPACE) { $env:DOCKER_MAX_IMAGE_SPACE } else { '100' }), # Budget for the Docker image store, in decimal GB. Unused images are removed oldest first before the build when the store exceeds it. 0 disables the cleanup. Defaults to $env:DOCKER_MAX_IMAGE_SPACE or 100.
+    [string]$MaxImageSpace = $(if ($env:DOCKER_MAX_IMAGE_SPACE) { $env:DOCKER_MAX_IMAGE_SPACE } else { '100' }), # Budget for the Docker image store, in decimal GB. Unused images are removed least recently used first, before the build, down to 70% of the budget when the store exceeds it. 0 disables the cleanup. Defaults to $env:DOCKER_MAX_IMAGE_SPACE or 100.
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$BuildArgs   # Arguments passed to `Build.ps1` within the container (or Claude prompt if -Claude is specified).
 )
@@ -632,6 +635,12 @@ try
     # image store has grown over weeks.
     $ImageCleanupGraceHours = 2
 
+    # Once the store is over budget, the cleanup frees down to this fraction of the budget rather than to just
+    # under the line. Without the gap, a store resting a little above the budget runs a cleanup on EVERY build
+    # and frees almost nothing each time - the measuring alone (`docker system df`) is the expensive part. At a
+    # budget of 100 GB this frees at least 30 GB, which buys roughly thirty quiet builds.
+    $ImageCleanupTargetFraction = 0.70
+
     # How many measure-and-remove passes the cleanup makes. Each pass costs one `docker system df`, which is
     # the expensive part, and each pass necessarily removes too little, because the size reported for an image
     # includes the layers it shares with images that survive. A chain therefore loses one level per pass. The
@@ -986,6 +995,19 @@ try
         }
     }
 
+    # The directory where this script keeps the state it must not lose between runs: the weekly timestamp file
+    # and the image-usage records. Mirrors PathHelper.GetEngineeringDataDirectory() in the build tools, and is
+    # the directory mounted into the container further down, so both sides of the mount agree on one location.
+    function Get-EngineeringDataDirectory
+    {
+        if ($IsUnix)
+        {
+            return (Join-Path $env:HOME ".local/share/PostSharp.Engineering")
+        }
+
+        return (Join-Path $env:LOCALAPPDATA "PostSharp.Engineering")
+    }
+
     function Get-TimestampFile
     {
         # Persists $script:DayStamp (the single source of truth, also mixed
@@ -993,14 +1015,7 @@ try
         # Dockerfile.claude can COPY it in and invalidate inner layers on
         # the same week boundary as the outer image tag.
 
-        $timestampDir = if ($IsUnix)
-        {
-            Join-Path $env:HOME ".local/share/PostSharp.Engineering"
-        }
-        else
-        {
-            Join-Path $env:LOCALAPPDATA "PostSharp.Engineering"
-        }
+        $timestampDir = Get-EngineeringDataDirectory
         $timestampFile = Join-Path $timestampDir "update.timestamp"
 
         # Ensure directory exists
@@ -1716,6 +1731,179 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         return "$( [Math]::Round($bytes / 1e9, 1) ) GB"
     }
 
+    # Where the image-usage records live: one file per image, named after the image identifier with the
+    # "sha256:" prefix stripped. The first line is the round-trip UTC time of the last use; the lines below it
+    # are the references the image carried at that moment, kept only so that the directory can be read by hand.
+    #
+    # Docker exposes no last-used time for an image - `docker system df -v` reports when an image was CREATED
+    # and nothing else - so recording the use as it happens is the only way for the cleanup to evict by
+    # recency. The records sit beside the weekly timestamp file rather than under the Docker root because they
+    # have to survive `docker system prune`, and because they describe how this build system uses the engine
+    # rather than any state of the engine itself.
+    #
+    # Deliberately pure: it computes the path and does not create the directory, so that the read paths can
+    # test for its existence instead of conjuring an empty one on a machine that has never recorded anything.
+    function Get-ImageUsageDirectory
+    {
+        return (Join-Path (Get-EngineeringDataDirectory) "docker-image-usage")
+    }
+
+    # Records that this run used the given image references.
+    #
+    # Keyed by image identifier, not by reference, because the identifier names the bits and is what
+    # Get-EvictionCandidates groups by. A tag here is a hash of the RECIPE - Get-ContentHash over the
+    # Dockerfile, its context and its parent - so the same tag points at a new image after any rebuild; and one
+    # image routinely carries several references, because an OS image mirrored into the registry keeps its
+    # upstream name as well. A record per reference would therefore write several records for one image and
+    # lose track of it the moment a tag moved. A reference is not a legal file name either, and escaping the
+    # '/' and ':' it contains would let two different references collide on one record.
+    #
+    # Best effort throughout: a record that cannot be written costs the LRU signal for one image, which the
+    # cleanup absorbs by falling back to that image's creation date. It must never cost the build.
+    function Touch-ImageUsage([string[]]$references)
+    {
+        $wanted = @($references | Where-Object { $_ -and "$_".Trim() -ne '' } | Select-Object -Unique)
+        if ($wanted.Count -eq 0)
+        {
+            return
+        }
+
+        try
+        {
+            # One call for the whole chain. The format makes every line self-describing - the identifier
+            # followed by that image's own tags - so no line has to be paired back up with the reference that
+            # produced it. A reference that does not resolve writes to stderr and sets a non-zero exit code
+            # while the lines for the others still arrive on stdout, which is why the exit code is ignored
+            # here: recording four images out of five is worth more than recording none.
+            $rows = @(docker image inspect --format '{{.Id}} {{join .RepoTags ","}}' @wanted 2>$null)
+
+            $directory = Get-ImageUsageDirectory
+            if (-not (Test-Path $directory))
+            {
+                New-Item -ItemType Directory -Path $directory -Force | Out-Null
+            }
+
+            # Round-trip ("o") so that the value reads back exactly, and UTC so that a record written either
+            # side of a daylight-saving change still orders correctly.
+            $now = (Get-Date).ToUniversalTime().ToString('o')
+            $written = [System.Collections.Generic.HashSet[string]]::new( [StringComparer]::OrdinalIgnoreCase )
+
+            foreach ($row in $rows)
+            {
+                $fields = "$row".Trim() -split ' ', 2
+                $id = ($fields[0] -replace '^sha256:', '').Trim()
+
+                # Two references that resolve to one image - the registry mirror and its upstream name -
+                # produce two identical rows. One image gets one record.
+                if ($id -notmatch '^[0-9a-f]{64}$' -or -not $written.Add($id))
+                {
+                    continue
+                }
+
+                $tags = if ($fields.Count -gt 1) { @("$( $fields[1] )" -split ',' | Where-Object { $_ }) } else { @() }
+
+                Set-Content -Path (Join-Path $directory $id) -Value (@($now) + $tags) -Force
+            }
+        }
+        catch
+        {
+            Write-Host "Could not record the Docker image usage: $( $_.Exception.Message )" -ForegroundColor Yellow
+        }
+    }
+
+    # The usage records, as a map from image identifier to the LOCAL time at which the image was last used.
+    #
+    # Local, because the caller compares the result against the creation dates that `docker image ls` prints in
+    # the host's own zone and against a cutoff derived from Get-Date. A UTC value here would make every record
+    # look one or two hours staler than it is on a European agent.
+    #
+    # A record that is missing, unreadable or malformed is simply absent from the map, and the caller falls
+    # back to the creation date for that image - which is exactly what the cleanup did before these records
+    # existed.
+    function Get-ImageUsageRecords
+    {
+        $usage = @{ }
+        $directory = Get-ImageUsageDirectory
+
+        if (-not (Test-Path $directory))
+        {
+            return $usage
+        }
+
+        try
+        {
+            foreach ($file in @(Get-ChildItem -Path $directory -File -ErrorAction SilentlyContinue))
+            {
+                $firstLine = "$( Get-Content -Path $file.FullName -TotalCount 1 -ErrorAction SilentlyContinue )".Trim()
+
+                $parsed = [datetime]::MinValue
+                if ($firstLine -and [datetime]::TryParse($firstLine, [cultureinfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsed))
+                {
+                    $usage[$file.Name] = $parsed.ToLocalTime()
+                }
+                else
+                {
+                    # The content is the signal, so that anything which rewrites modification times - a backup,
+                    # a file sync - cannot reorder the eviction. The modification time is only the fallback for
+                    # a record whose first line will not parse.
+                    $usage[$file.Name] = $file.LastWriteTime
+                }
+            }
+        }
+        catch
+        {
+            Write-Host "Could not read the Docker image usage records: $( $_.Exception.Message )" -ForegroundColor Yellow
+        }
+
+        return $usage
+    }
+
+    # Drops the records of images that are no longer on the engine. Called from the cleanup, which is already
+    # talking to Docker about every image anyway.
+    #
+    # There is no age cap: the number of records is bounded by the number of images, because every record whose
+    # image is gone is removed here. A record for an image that is still present is kept however old it is -
+    # "last used two hundred days ago" is precisely the signal the eviction order wants, and discarding it
+    # would send that image back to its creation date and make it look younger than it really is.
+    function Remove-StaleImageUsageRecords
+    {
+        $directory = Get-ImageUsageDirectory
+
+        if (-not (Test-Path $directory))
+        {
+            return
+        }
+
+        try
+        {
+            $ids = @(docker image ls --no-trunc --format '{{.ID}}' 2>$null)
+            if ($LASTEXITCODE -ne 0)
+            {
+                # Without a trustworthy list of what exists, removing anything risks discarding the usage of a
+                # live image. Leaving the records alone costs a few kilobytes.
+                return
+            }
+
+            $live = [System.Collections.Generic.HashSet[string]]::new( [StringComparer]::OrdinalIgnoreCase )
+            foreach ($id in $ids)
+            {
+                [void]$live.Add(("$id".Trim() -replace '^sha256:', ''))
+            }
+
+            foreach ($file in @(Get-ChildItem -Path $directory -File -ErrorAction SilentlyContinue))
+            {
+                if (-not $live.Contains($file.Name))
+                {
+                    Remove-Item -Path $file.FullName -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+        catch
+        {
+            Write-Host "Could not tidy the Docker image usage records: $( $_.Exception.Message )" -ForegroundColor Yellow
+        }
+    }
+
     # The size of the whole image store in bytes, or -1 when it cannot be determined.
     #
     # The Images row of `docker system df` reports what the image store occupies on disk, counting a layer
@@ -1837,7 +2025,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         return $keep
     }
 
-    # The images that may be removed, oldest first.
+    # The images that may be removed, least recently used first.
     #
     # Whatever Docker itself refuses to delete is left to Docker: `docker image rm` refuses to remove an image
     # that a container references, or that a descendant is built on, and this function does not try to reproduce
@@ -1872,6 +2060,9 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         # One row per TAG, so two rows can carry the same image identifier (the same image tagged both locally
         # and with the registry prefix). They are grouped by identifier because the size must be counted once,
         # and because removing only some of an image's tags frees nothing at all: only the last tag deletes it.
+        # Read once, before the loop: one directory listing serves the whole candidate set.
+        $usage = Get-ImageUsageRecords
+
         $byId = [ordered]@{ }
         $dateWarningIssued = $false
 
@@ -1914,10 +2105,17 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
 
                 $size = ConvertFrom-DockerSize $fields[4]
 
+                # The recorded time of the last use, falling back to the creation date for an image that no run
+                # has recorded yet. That fallback is what makes this safe to introduce: every image already on
+                # an agent is unrecorded, so the order starts out exactly as it was and sharpens into a true
+                # LRU as builds record what they use.
+                $lastUsed = if ($usage.Contains($id)) { [datetime]$usage[$id] } else { $created }
+
                 $byId[$id] = [pscustomobject]@{
                     Id = $id
                     References = [System.Collections.Generic.List[string]]::new()
                     Created = $created
+                    LastUsed = $lastUsed
                     Size = $( if ($size -lt 0) { [long]0 } else { $size } )   # an unreadable size contributes nothing to the target
                     Keep = $false
                     Removed = $false
@@ -1931,11 +2129,20 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             if ($tag -ne '<none>') { $byId[$id].References.Add($reference) }
         }
 
-        # Oldest first. The Docker API exposes no last-used time for an image, so age is the only signal
-        # available; the images this run is about to need are protected by the keep set instead.
+        # Least recently used first. The Docker engine exposes no last-used time of its own, so the order comes
+        # from the usage records this script writes as it runs, and an image that no run has recorded yet falls
+        # back to its creation date.
+        #
+        # Age alone was a poor proxy for value: a stable base image is built once and then reused by every
+        # build for months, which made it simultaneously the OLDEST image on the agent and the most expensive
+        # one to lose. The images this run is about to need are protected by the keep set either way.
+        #
+        # The grace window is applied to BOTH times. Against Created it spares a sibling run's freshly built
+        # image, which is what it has always done. Against LastUsed it spares an old image that a sibling run
+        # is using right now - a case a creation date cannot see at all.
         return @($byId.Values |
-                Where-Object { -not $_.Keep -and $_.Created -lt $graceCutoff } |
-                Sort-Object Created)
+                Where-Object { -not $_.Keep -and $_.Created -lt $graceCutoff -and $_.LastUsed -lt $graceCutoff } |
+                Sort-Object LastUsed)
     }
 
     # Frees image disk space when the image store is over budget. Best effort throughout: this frees disk, it
@@ -1958,7 +2165,11 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             return
         }
 
-        Write-Host "Docker image store is $( Format-Gigabytes $total ), over the $( Format-Gigabytes $budgetBytes ) budget; freeing space." -ForegroundColor Yellow
+        # Over budget: free down to the target rather than to just under the line, so that the next several
+        # dozen builds find the store under budget and skip the cleanup entirely.
+        $targetBytes = [long]($budgetBytes * $ImageCleanupTargetFraction)
+
+        Write-Host "Docker image store is $( Format-Gigabytes $total ), over the $( Format-Gigabytes $budgetBytes ) budget; freeing down to $( Format-Gigabytes $targetBytes )." -ForegroundColor Yellow
 
         $lock = Enter-ImageCleanupLock
         if (-not $lock)
@@ -2002,7 +2213,12 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             $keep = [System.Collections.Generic.HashSet[string]]::new( [string[]]($keepReferences ?? @()), [StringComparer]::OrdinalIgnoreCase )
             $candidates = Get-EvictionCandidates $keep $graceCutoff
 
-            for ($pass = 1; $pass -le $ImageCleanupMaxPasses -and $total -gt $budgetBytes; $pass++)
+            # Both the prune above and the removals below change what exists, so the records are tidied here,
+            # after the listing that Get-EvictionCandidates just made and before this run's own images are
+            # recorded. Nothing downstream reads the records again in this run.
+            Remove-StaleImageUsageRecords
+
+            for ($pass = 1; $pass -le $ImageCleanupMaxPasses -and $total -gt $targetBytes; $pass++)
             {
                 if ($started.Elapsed.TotalMinutes -ge $ImageCleanupTimeoutMinutes)
                 {
@@ -2015,7 +2231,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
                 # frees: the batch is guaranteed to free at most the overage, never more. That is the right
                 # direction to be wrong in, because it costs passes and not images, and it is why the true total
                 # is measured again after every pass instead of being tracked by subtraction.
-                $overage = $total - $budgetBytes
+                $overage = $total - $targetBytes
                 $batch = [System.Collections.Generic.List[object]]::new()
                 $accumulated = [long]0
 
@@ -2035,9 +2251,11 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
 
                 Write-Host "Pass $pass`: removing up to $( $batch.Count ) unused image(s) to reclaim $( Format-Gigabytes $overage )." -ForegroundColor Cyan
 
-                # Issue the removals NEWEST first, although the order of selection is oldest first: an image
-                # cannot be removed while a descendant is built on it, and within a chain the descendant is the
-                # younger image. Issuing them oldest first would fail on every parent. Repeat while anything is
+                # Issue the removals NEWEST first, although the batch was SELECTED least-recently-used first.
+                # Sorting on Created here is deliberate and is not the eviction policy: an image cannot be
+                # removed while a descendant is built on it, and within a chain the descendant is always the
+                # younger image, so this is the topological order in which Docker will accept the removals.
+                # Ordering this loop by LastUsed instead would fail on every parent. Repeat while anything is
                 # still coming off, so that a parent freed by the removal of its child also goes in this pass.
                 $removedInPass = 0
                 for ($attempt = 0; $attempt -lt 4; $attempt++)
@@ -2113,9 +2331,15 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             }
 
             $freed = $initial - $total
-            if ($total -le $budgetBytes)
+            if ($total -le $targetBytes)
             {
                 Write-Host "Freed $( Format-Gigabytes $freed ); the image store is now $( Format-Gigabytes $total ) of the $( Format-Gigabytes $budgetBytes ) budget." -ForegroundColor Green
+            }
+            elseif ($total -le $budgetBytes)
+            {
+                # Under budget but short of the target, so the next build will not run a cleanup and the one
+                # after a few more images may. Worth reporting, but it is not a failure.
+                Write-Host "Freed $( Format-Gigabytes $freed ); the image store is now $( Format-Gigabytes $total ), within the $( Format-Gigabytes $budgetBytes ) budget but short of the $( Format-Gigabytes $targetBytes ) target." -ForegroundColor Green
             }
             else
             {
@@ -2436,14 +2660,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     }
 
     # Mount PostSharp.Engineering data directory (for version counters)
-    $hostEngineeringDataDir = if ($IsUnix)
-    {
-        Join-Path $env:HOME ".local/share/PostSharp.Engineering"
-    }
-    else
-    {
-        Join-Path $env:LOCALAPPDATA "PostSharp.Engineering"
-    }
+    $hostEngineeringDataDir = Get-EngineeringDataDirectory
 
     if (-not (Test-Path $hostEngineeringDataDir))
     {
@@ -3102,6 +3319,13 @@ $envVarAssignments$gitConfigCommands$postInitCommands
     {
         Write-Host "Skipping image build (using pre-built registry image $ImageTag)." -ForegroundColor Yellow
     }
+
+    # Record the images this run just used, now that all three paths above have converged and every image in
+    # the chain is present locally. The keep set is exactly the right set to record: it is resolved without a
+    # single call to the Docker engine, and it already carries the base OS image and its registry mirror, which
+    # are the entries the eviction order most needs to know are in daily use. The per-run boot image built just
+    # below is deliberately not recorded - it is removed again when the container exits.
+    Touch-ImageUsage (Get-ImageChainKeepSet)
 
     # Build the local boot image over the resolved chain image (creates the bind-mount directories). The static
     # chain images stay pure and shareable; this thin layer carries the machine-specific mount set and is never
