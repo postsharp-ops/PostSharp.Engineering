@@ -2799,7 +2799,13 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     }
 
     # Handle path transformations (platform-specific)
+    #
+    # Two flavours of the same commands. $substCommandsInline is separated by "; " for the pwsh -Command that
+    # -Script and -Claude run. $substCommandsCmd is separated by "&&" for the container's own cmd, which is what
+    # -Test runs, because a test image is chosen for the tool chain under test and is not required to carry
+    # PowerShell 7. Both stay empty on Linux, and on Windows when everything already lives on C:.
     $substCommandsInline = ""
+    $substCommandsCmd = ""
 
     if ($IsWindows)
     {
@@ -2877,6 +2883,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         foreach ($letter in $driveLetters.Keys | Sort-Object)
         {
             $substCommandsInline += "C:\Windows\System32\subst.exe ${letter}: C:\$letter; "
+            $substCommandsCmd += "C:\Windows\System32\subst.exe ${letter}: C:\$letter && "
         }
         if ($driveLetters.Keys.Count -gt 0)
         {
@@ -3149,10 +3156,41 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             Write-Host "Running the test command in the container." -ForegroundColor Green
 
             # The command runs through the container's own shell rather than through pwsh, because a test image
-            # is chosen for the tool chain under test and is not required to carry PowerShell 7.
+            # is chosen for the tool chain under test and is not required to carry PowerShell 7. cmd is the
+            # assumption on Windows, as it already was, and subst.exe is a system binary of every servercore
+            # image, so the drive mapping below needs nothing the shell choice did not already require.
+            #
+            # A repository on a drive other than C: is mounted at C:\<letter>\... and the drive recreated inside
+            # the container with subst -- see where $substCommandsCmd is built. -Script and -Claude have always
+            # done this; -Test did not, so anything resolving an absolute host path inside a test container
+            # failed. The common case is the repository-root nuget.config, whose local sources are absolute:
+            # "error NU1301: The local source 'X:\...\artifacts\publish\private' doesn't exist."
+            #
+            # The cd that follows is what makes the two modes agree. -w has already put the container in the
+            # mounted repository by its C:\<letter>\... name, which is the only name that exists before subst
+            # runs; this moves to the same directory by the name the host uses, which is what -Script's own cd
+            # arrives at. Without it a test would see a different working directory in each mode.
+            #
+            # The path is not quoted. Quoting it produced "The filename, directory name, or volume label syntax
+            # is incorrect": the argument reaches cmd through docker's own command-line assembly, which does not
+            # preserve the inner quotes. Spaces survive that unquoted, because cmd's CD takes the rest of the
+            # line as the directory name -- but the characters below do not, because cmd splits the line on them
+            # before CD is reached, so they are escaped with a caret instead.
+            #
+            # A percent sign is the one case left unhandled: cmd would expand %Name% against the environment,
+            # and the escape for that differs between the command line and a batch file. A directory named for a
+            # variable is rare enough to leave, and it fails visibly rather than silently.
             $testCommandArgs = if ($IsUnix)
             {
                 @('sh', '-c', $Command)
+            }
+            elseif ($substCommandsCmd)
+            {
+                # Windows permits & | < > ( ) ^ in a directory name. Escaped in one pass over the original, so
+                # that a caret this inserts is not itself escaped again.
+                $escapedSourceDir = $SourceDirName -replace '([&|<>()^])', '^$1'
+
+                @('cmd', '/S', '/C', "$substCommandsCmd cd /d $escapedSourceDir && $Command")
             }
             else
             {
