@@ -63,6 +63,7 @@ flowchart LR
 | `-NoBuildImage` | Skip building; assume the image already exists (or will be pulled). |
 | `-RegistryImage <ref>` | Use a pre-built image from a registry directly, skipping all Dockerfile logic. |
 | `-Dockerfile <path>` | Use a custom Dockerfile instead of the `build`/`claude` leaf. |
+| `-Test` | Run a test container instead of the product build. Requires `-Dockerfile` and `-Command`; takes an optional `-Context`. No product image chain and no product environment variables, but the mounts are those of an ordinary build: the repository, the caches and the dependency repositories, with the repository as the working directory. See [Docker-Based Tests](docker-tests.md). |
 | `-Clean` | Delete `bin`/`obj` on the host before building. |
 | `-Update` | Force a full timestamp bump to invalidate the Docker cache (refreshes `@latest` Claude CLI / plugins). |
 | `-Isolation process\|hyperv` | Container isolation. Windows only. Auto-detected when omitted: `process` on Windows Server, `hyperv` on Windows Desktop. |

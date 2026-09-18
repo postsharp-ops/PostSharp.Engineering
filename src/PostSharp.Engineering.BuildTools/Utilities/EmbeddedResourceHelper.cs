@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 using System.Collections.Generic;
@@ -48,7 +49,44 @@ internal static class EmbeddedResourceHelper
         // ContainerRequirements.GetImagePrefix / the default DockerSpec.ImageName.
         replacements.Add( "<DOCKER_IMAGE_PREFIX>", $"{product.ProductNameWithoutDot}-{product.ProductFamily.Version}".ToLowerInvariant() );
 
+        AddDockerTestReplacements( product, replacements );
+
         ExtractResource( context, fileName, targetDirectory, replacements );
+    }
+
+    /// <summary>
+    /// Adds the directory that <c>RunDockerTests.ps1</c> carries: where the tests are, relative to the repository
+    /// root.
+    /// </summary>
+    /// <remarks>
+    /// That is a fact about the repository rather than a choice a caller makes, so the generated script holds it
+    /// instead of taking it as an argument from a build configuration. One script is generated per repository, so the
+    /// configurations cannot disagree about it, and a product that states two different values is refused rather than
+    /// silently generating one of them. Where what the tests consume is, is not here: a test resolves that from where
+    /// it lives, because it is a fact about the product rather than about this SDK.
+    /// </remarks>
+    private static void AddDockerTestReplacements( Product product, Dictionary<string, string> replacements )
+    {
+        var configurations = product.AdditionalCiBuildConfigurations
+            .OfType<DockerTestsAdditionalCiBuildConfiguration>()
+            .ToList();
+
+        var paths = configurations.Select( c => c.Path ).Distinct( StringComparer.Ordinal ).ToList();
+
+        if ( paths.Count > 1 )
+        {
+            throw new InvalidOperationException(
+                "The Docker test configurations of this product declare different test directories, but one "
+                + "RunDockerTests.ps1 is generated for the whole repository. Give every one of them the same path "
+                + $"(found: {string.Join( ", ", paths )})." );
+        }
+
+        // The value lands inside a single-quoted PowerShell literal, so an apostrophe has to be doubled. A
+        // repository path may legitimately contain one, and without this the generated script would not parse --
+        // or worse, would parse as something else.
+        var path = paths.FirstOrDefault() ?? DockerTestsAdditionalCiBuildConfiguration.DefaultPath;
+
+        replacements.Add( "<DOCKER_TESTS_PATH>", path.Replace( "'", "''", StringComparison.Ordinal ) );
     }
 
     /// <summary>
