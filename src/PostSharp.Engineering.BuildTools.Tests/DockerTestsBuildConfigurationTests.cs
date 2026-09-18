@@ -50,7 +50,7 @@ public sealed class DockerTestsBuildConfigurationTests
 
         // A step carrying a DockerSpec has its ScriptPath rewritten to DockerBuild.ps1, with the real script passed
         // to it as an argument. The launcher being the script path is therefore what says it runs on the agent.
-        Assert.Equal( "RunDockerTests.ps1", step.ScriptPath );
+        Assert.Equal( "eng/RunDockerTests.ps1", step.ScriptPath );
         Assert.DoesNotContain( "DockerBuild.ps1", step.ScriptArguments, StringComparison.Ordinal );
     }
 
@@ -67,6 +67,24 @@ public sealed class DockerTestsBuildConfigurationTests
         Assert.Contains( "-Platform win-x64", step.ScriptArguments, StringComparison.Ordinal );
         Assert.DoesNotContain( "-Path", step.ScriptArguments, StringComparison.Ordinal );
         Assert.DoesNotContain( "-InputDirectory", step.ScriptArguments, StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// The step has to name the launcher where generate-scripts puts it. The two are decided in different places --
+    /// the configuration builds the step, the generator writes the file -- so nothing but a test holds them together,
+    /// and when they disagreed the agent failed with "Cannot find PowerShell script by path specified in build
+    /// configuration settings" after the build had already been queued and an agent assigned.
+    /// </summary>
+    [Fact]
+    public void ScriptPathIsWhereTheLauncherIsGenerated()
+    {
+        var step = GetExecutionStep( DockerTestPlatform.LinuxX64 );
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama );
+
+        Assert.Equal( $"{product.EngineeringDirectory}/RunDockerTests.ps1", step.ScriptPath );
+
+        // Not at the root, which is where it used to be.
+        Assert.NotEqual( "RunDockerTests.ps1", step.ScriptPath );
     }
 
     // The obsolete platform is covered on purpose: the identifier it maps to must not drift while it is still

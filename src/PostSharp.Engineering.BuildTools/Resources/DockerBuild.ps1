@@ -575,12 +575,13 @@ try
 
         $script:TestContextDirectory = (Resolve-Path -LiteralPath $testContext).Path
 
-        # Init.g.ps1 is the only channel that carries the product environment variables into the container, so
-        # suppressing it is what keeps SIGNSERVER_SECRET and the other credentials out of a test container.
-        #
-        # The NuGet cache is deliberately left alone. It is one of the ordinary build mounts, and a test that had
-        # to restore every package over the network would be slower and would fail differently when the network
-        # does. A caller wanting that isolation still has -NoNuGetCache.
+        # Init.g.ps1 is not invoked in a test container, because a test image is chosen for the tool chain under
+        # test and is not required to carry PowerShell 7. That is the only reason. The environment it would have
+        # inlined reaches the container as -e arguments instead, so a test container is configured like a build
+        # container: this repository builds it from a Dockerfile it owns and runs it, and it is trusted the same
+        # way. Withholding the environment bought no isolation worth the cost, because NUGET_PACKAGES is in that
+        # set and without it NuGet falls back to $HOME/.nuget/packages and the host cache mapped below is never
+        # read -- every test restored over the network, the opposite of what the mount is for.
         $NoInit = $true
     }
 
@@ -1191,7 +1192,18 @@ try
 
         # OS discriminator so ltsc2025 / ltsc2022 produce distinct tags of the same image name. Propagates to
         # descendants through $baseFold.
-        $extra = "os=$windowsVersion|base=$baseFold"
+        #
+        # The architecture discriminates too, always, including amd64. The content hash is otherwise identical
+        # for the same Dockerfile built on x64 and on ARM64: both agents compute one tag, the first pushes an
+        # image of its own architecture, and the second pulls it and fails -- with "no matching manifest" if the
+        # registry rejects it, or, worse, with "exec /bin/sh: exec format error" once it has been pulled, which
+        # names neither the image nor the architecture.
+        #
+        # Folding it in only for non-amd64 was tried and is not enough: it gives a future ARM64 build its own
+        # tag, but leaves amd64 on the name an ARM64 build may already have pushed to, so the poisoning survives
+        # the fix. Including it everywhere changes every tag once, which is a rebuild, and is what actually
+        # abandons the bad ones.
+        $extra = "os=$windowsVersion|arch=$( Get-DockerArchitecture )|base=$baseFold"
 
         # Fold the weekly stamp only for images that bake the update.timestamp cache-buster (the Claude leaf), so
         # @latest npm installs of the Claude CLI and plug-ins refresh once per UTC week.
@@ -2304,15 +2316,8 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             $script:TimestampFile = Get-TimestampFile
         }
 
-        if ($Test)
-        {
-            # Nothing: a test container receives no product environment. Init.g.ps1 is the only channel that
-            # would carry it and -Test suppresses that, so collecting it here produces a result nobody reads --
-            # and on a TeamCity agent the git-identity check below would fail a test run that never needed
-            # GIT_USER_EMAIL or GIT_USER_NAME. Suppressing Init.g.ps1 alone does not skip this block, because it
-            # is guarded by -KeepInit rather than by -NoInit.
-        }
-        elseif ($Claude)
+        if ($Claude)
+
         {
             # Use Claude-specific environment variables (filtered and renamed)
             New-ClaudeEnvHashtable
@@ -2349,7 +2354,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         # The optional script mutates the hashtable in place (add / change / remove keys)
         # and receives the leaf Dockerfile name and the mode as context.
         $customizeEnvScript = Join-Path $EngPath 'CustomizeDockerEnvironment.ps1'
-        if (-not $Test -and (Test-Path $customizeEnvScript))
+        if (Test-Path $customizeEnvScript)
         {
             $dockerfileName = if ($Dockerfile) { Split-Path -Leaf $Dockerfile } else { '' }
             Write-Host "Customizing environment variables from $customizeEnvScript" -ForegroundColor Cyan
@@ -3159,29 +3164,16 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             $inlineScript = $null
             $needsMcpCleanup = $false
 
-            # What -Env asks for, and nothing else. The product environment does not reach a test container, but
-            # a variable the caller named explicitly is not part of that: dropping it silently would let a test
-            # run without something it was told to have, and report a pass or a failure that means nothing.
+            # The same environment a build container gets, as -e arguments rather than through Init.g.ps1: see
+            # where $NoInit is set for why that script cannot be invoked in a test image. What -Env named is
+            # already folded into this set by New-EnvHashtable, so an explicitly named variable is here too.
             $envArgs = @()
 
-            foreach ($envSpec in $Env)
+            if ($script:ContainerEnvironmentVariables)
             {
-                if ($envSpec -match '^([^=]+)=(.*)$')
+                foreach ($key in $script:ContainerEnvironmentVariables.Keys | Sort-Object)
                 {
-                    $envArgs += @('-e', $envSpec)
-                }
-                else
-                {
-                    $value = [System.Environment]::GetEnvironmentVariable($envSpec)
-
-                    if ($null -ne $value)
-                    {
-                        $envArgs += @('-e', "$envSpec=$value")
-                    }
-                    else
-                    {
-                        Write-Host "The environment variable '$envSpec' is not set on the host and is not passed to the test container." -ForegroundColor Yellow
-                    }
+                    $envArgs += @('-e', "$key=$( $script:ContainerEnvironmentVariables[$key] )")
                 }
             }
         }

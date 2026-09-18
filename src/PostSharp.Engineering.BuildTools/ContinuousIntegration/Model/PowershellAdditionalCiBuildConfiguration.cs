@@ -24,6 +24,13 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
 
     public string Script { get; }
 
+    /// <summary>
+    /// Gets the path of the script as the agent sees it, relative to the repository root. It is <see cref="Script"/>
+    /// itself unless a configuration generates its script somewhere other than the root, in which case the location
+    /// is only known once the product is known.
+    /// </summary>
+    internal virtual string GetScriptPath( ProductProperties productProperties ) => this.Script;
+
     public string Arguments { get; }
 
     public bool UseWsl { get; init; }
@@ -116,8 +123,8 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
         buildSteps.Add(
             new PowerShellScriptBuildStep(
                 "Exec",
-                $"Execute {this.Script}",
-                this.Script,
+                $"Execute {this.GetScriptPath( productProperties )}",
+                this.GetScriptPath( productProperties ),
                 this.Arguments,
                 this.BuildAgentRequirements == null
                     ? (this.Dockerfile != null && product.DockerSpec != null ? product.DockerSpec with { Dockerfile = this.Dockerfile } : product.DockerSpec)

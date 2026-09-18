@@ -9,4 +9,4 @@
 DockerBuild.ps1 text eol=lf
 Build.ps1 text eol=lf
 eng/RunClaude.ps1 text eol=lf
-RunDockerTests.ps1 text eol=lf
+eng/RunDockerTests.ps1 text eol=lf

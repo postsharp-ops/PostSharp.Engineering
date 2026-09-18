@@ -243,12 +243,17 @@ repository as its working directory. A test consuming a source dependency needs 
 build needs, and a test that had to restore every package over the network would be slower and would fail
 differently when the network does.
 
-The `Init.g.ps1` exclusion is the point. `Init.g.ps1` is the only channel that carries the product environment
-variables into the container, and those include `SIGNSERVER_SECRET`, `GITHUB_APP_PRIVATE_KEY`,
-`AZURE_CLIENT_SECRET` and `NUGET_ORG_API_KEY`. A test container is built from a public base image and has no
-business holding any of them. What a test does need, it names: `-Env FOO` is honoured and passed through, and
-only that. The exclusions are implied by `-Test` rather than requested one flag at a time,
-so that a test cannot acquire them by forgetting one, and `-Test` refuses to combine with `-Claude`,
+`Init.g.ps1` is not invoked, and that is the whole of the exclusion. A test image is chosen for the tool chain
+under test and is not required to carry PowerShell 7, so a `.ps1` cannot be the way it is configured. The
+environment that script would have inlined is passed to `docker run` as `-e` arguments instead, so a test
+container receives what a build container receives, including `NUGET_PACKAGES`, the licence variables and the
+git identity. A test container is one the repository builds from a Dockerfile it owns and then runs, so it is
+trusted the way the build container is.
+
+An earlier version withheld the environment. It bought no isolation worth the cost: `NUGET_PACKAGES` is in
+that set, and without it NuGet in the container fell back to `$HOME/.nuget/packages`, so the mounted host cache
+was never read and every test restored over the network -- the opposite of what the mount exists for.
+`-Env FOO` is still honoured, and is folded into the same set. `-Test` refuses to combine with `-Claude`,
 `-Interactive`, `-BuildImage`, `-StartVsmon`, `-PostInit`, `-KeepInit` and `-Script`.
 
 The command runs through the container's own shell (`sh -c` or `cmd /S /C`), so a test image is not required
@@ -319,7 +324,8 @@ private static DockerTestsAdditionalCiBuildConfiguration CreateDockerTestConfigu
 ```
 
 The configuration passes **only** `-Platform`. Where the tests are is a fact about the repository rather than a
-choice a configuration makes: the launcher is generated into the repository root, so it is fixed relative to it,
+choice a configuration makes: the launcher is generated into the engineering directory, so it is fixed relative
+to the repository, which the launcher resolves from its own location,
 and `generate-scripts` writes it into the file the way it writes `$EngPath` into `DockerBuild.ps1`.
 
 ```powershell
@@ -338,7 +344,8 @@ Where the build output is, is not here at all. That is a fact about the product 
 development layout under `Build`, another product's would read `artifacts` — so the tests hold it and this SDK
 has no opinion about it.
 
-Declaring a configuration is also what makes `generate-scripts` emit the launcher into the repository root. A
+Declaring a configuration is also what makes `generate-scripts` emit `eng/RunDockerTests.ps1`. It goes beside
+the other generated scripts rather than at the repository root, which is crowded enough. A
 product that declares none does not get the file.
 
 ### Grouping
