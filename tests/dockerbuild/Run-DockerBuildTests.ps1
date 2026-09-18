@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Integration test suite for the chained-Dockerfile resolver in DockerBuild.ps1.
 
@@ -125,6 +125,37 @@ function Initialize-Sandbox
 }
 
 # Runs the sandbox DockerBuild.ps1 with the given extra args. Returns @{ ExitCode; Output }.
+# The directory in which DockerBuild.ps1 records image usage for the LRU eviction order. Resolved exactly the
+# way the script resolves it, so that a change to one side fails these cases rather than passing silently.
+function Get-UsageDirectory
+{
+    if ($IsWindows)
+    {
+        return (Join-Path $env:LOCALAPPDATA 'PostSharp.Engineering\docker-image-usage')
+    }
+
+    return (Join-Path $env:HOME '.local/share/PostSharp.Engineering/docker-image-usage')
+}
+
+# The path of the usage record of an image repository, or $null when there is none. The repository is resolved
+# to an image identifier first, because the records are keyed by identifier and not by tag.
+function Get-UsageRecord([string]$repo)
+{
+    $id = @(docker images $repo --no-trunc --format '{{.ID}}' 2>$null | Where-Object { $_ -and $_.Trim() -ne '' })[0]
+    if (-not $id)
+    {
+        return $null
+    }
+
+    $path = Join-Path (Get-UsageDirectory) ("$id".Trim() -replace '^sha256:', '')
+    if (Test-Path $path)
+    {
+        return $path
+    }
+
+    return $null
+}
+
 function Invoke-DockerBuild([string[]]$Arguments)
 {
     $sandboxScript = Join-Path $sandbox 'DockerBuild.ps1'
@@ -195,6 +226,62 @@ try
     Test-Case "build leaf: root image '$imagePrefix-vs' built (parent-first)" (Test-ImageExists "$imagePrefix-vs")
     Test-Case "build leaf: '$imagePrefix-build' built" (Test-ImageExists "$imagePrefix-build")
     Test-Case "leaf selection: '$imagePrefix-claude' NOT built without -Claude" (-not (Test-ImageExists "$imagePrefix-claude"))
+
+    # === Image-usage records: the last-used signal the cleanup evicts by. ===
+    # The Docker engine exposes no last-used time, so the script records one itself. Without these records the
+    # eviction silently falls back to the creation date, which is what it used to do - and what removed the
+    # stable base images that every build reuses.
+    Write-Host "`n== Image-usage records ==" -ForegroundColor Magenta
+
+    $leafRecord = Get-UsageRecord "$imagePrefix-build"
+    Test-Case "usage: the built leaf has a record" ($null -ne $leafRecord)
+    Test-Case "usage: the chain root has a record" ($null -ne (Get-UsageRecord "$imagePrefix-vs"))
+
+    if ($leafRecord)
+    {
+        $recorded = @(Get-Content $leafRecord)
+        $parsed = [datetime]::MinValue
+        Test-Case "usage: the record opens with a round-trip UTC timestamp" (
+                $recorded.Count -ge 1 -and
+                        [datetime]::TryParse($recorded[0], [cultureinfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsed))
+        Test-Case "usage: the timestamp is recent" ($parsed -gt (Get-Date).ToUniversalTime().AddMinutes(-30))
+        Test-Case "usage: the record names the image it belongs to" (
+                (@($recorded | Select-Object -Skip 1) -join ' ') -match [regex]::Escape("$imagePrefix-build"))
+    }
+
+    Skip-Case "usage: the base OS image has a record" "the fixture roots declare no 'ARG OS_IMAGE'/'ARG OS_IMAGE_REPOSITORY', so Get-OsImageSpec returns nothing and the keep set - which is what gets recorded - holds no OS image; pinned instead by DockerImageLruTests.TheBaseOsImage_IsRecordedAsUsed and exercised by real product builds"
+
+    # Recording is not part of the cleanup: a machine that disabled the budget must still leave records behind,
+    # or it would never accumulate the history that a later run WITH a budget evicts by.
+    #
+    # The record is deliberately staled first, and the assertion is that the timestamp moved. Counting the
+    # files instead proves nothing here: the build above already wrote a record for every image of the chain,
+    # so the count is identical whether this run records anything or not, and the case would pass even with
+    # the recording skipped entirely.
+    if ($leafRecord)
+    {
+        Set-Content -Path $leafRecord -Force -Value @(
+            (Get-Date).ToUniversalTime().AddDays(-30).ToString('o')
+            'staled-by-Run-DockerBuildTests'
+        )
+
+        $r = Invoke-DockerBuild @('-MaxImageSpace', '0')
+        Test-Case "usage: -MaxImageSpace 0 exits 0" ($r.ExitCode -eq 0)
+
+        $refreshed = [datetime]::MinValue
+        $refreshedParsed = [datetime]::TryParse(
+                "$( @(Get-Content $leafRecord)[0] )".Trim(),
+                [cultureinfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::RoundtripKind,
+                [ref]$refreshed)
+
+        Test-Case "usage: -MaxImageSpace 0 still records the images it used" (
+                $refreshedParsed -and $refreshed -gt (Get-Date).ToUniversalTime().AddMinutes(-30))
+    }
+    else
+    {
+        Skip-Case "usage: -MaxImageSpace 0 still records the images it used" "the leaf has no record to stale"
+    }
 
     # === Case 2: content-hash caching - a second identical build is a no-op (image IDs unchanged).
     Write-Host "`n== Caching (rebuild is a no-op) ==" -ForegroundColor Magenta
