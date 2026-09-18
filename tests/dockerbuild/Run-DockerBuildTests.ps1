@@ -252,12 +252,36 @@ try
     Skip-Case "usage: the base OS image has a record" "the fixture roots declare no 'ARG OS_IMAGE'/'ARG OS_IMAGE_REPOSITORY', so Get-OsImageSpec returns nothing and the keep set - which is what gets recorded - holds no OS image; pinned instead by DockerImageLruTests.TheBaseOsImage_IsRecordedAsUsed and exercised by real product builds"
 
     # Recording is not part of the cleanup: a machine that disabled the budget must still leave records behind,
-    # or it would never accumulate the history a later run with a budget needs.
-    $usageBefore = @(Get-ChildItem (Get-UsageDirectory) -File -ErrorAction SilentlyContinue).Count
-    $r = Invoke-DockerBuild @('-MaxImageSpace', '0')
-    Test-Case "usage: -MaxImageSpace 0 exits 0" ($r.ExitCode -eq 0)
-    Test-Case "usage: -MaxImageSpace 0 still records the images it used" (
-            $usageBefore -gt 0 -and @(Get-ChildItem (Get-UsageDirectory) -File -ErrorAction SilentlyContinue).Count -ge $usageBefore)
+    # or it would never accumulate the history that a later run WITH a budget evicts by.
+    #
+    # The record is deliberately staled first, and the assertion is that the timestamp moved. Counting the
+    # files instead proves nothing here: the build above already wrote a record for every image of the chain,
+    # so the count is identical whether this run records anything or not, and the case would pass even with
+    # the recording skipped entirely.
+    if ($leafRecord)
+    {
+        Set-Content -Path $leafRecord -Force -Value @(
+            (Get-Date).ToUniversalTime().AddDays(-30).ToString('o')
+            'staled-by-Run-DockerBuildTests'
+        )
+
+        $r = Invoke-DockerBuild @('-MaxImageSpace', '0')
+        Test-Case "usage: -MaxImageSpace 0 exits 0" ($r.ExitCode -eq 0)
+
+        $refreshed = [datetime]::MinValue
+        $refreshedParsed = [datetime]::TryParse(
+                "$( @(Get-Content $leafRecord)[0] )".Trim(),
+                [cultureinfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::RoundtripKind,
+                [ref]$refreshed)
+
+        Test-Case "usage: -MaxImageSpace 0 still records the images it used" (
+                $refreshedParsed -and $refreshed -gt (Get-Date).ToUniversalTime().AddMinutes(-30))
+    }
+    else
+    {
+        Skip-Case "usage: -MaxImageSpace 0 still records the images it used" "the leaf has no record to stale"
+    }
 
     # === Case 2: content-hash caching - a second identical build is a no-op (image IDs unchanged).
     Write-Host "`n== Caching (rebuild is a no-op) ==" -ForegroundColor Magenta

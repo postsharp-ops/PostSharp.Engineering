@@ -354,6 +354,20 @@ machines as well as agents, and removes only what a measured overage requires. A
 build no longer frees anything on its own, which is the intended trade: an idle agent is not the one filling
 its disk.
 
+#### Retiring the scheduled task on an agent
+
+The sweep ran from a Windows scheduled task that `scripts/build-agents/Initialize.ps1` registered. Deleting
+those scripts does not unregister it, so an agent that ever ran `Initialize.ps1` still has a task pointing at
+a file that is no longer there: it fails at every startup and every night instead of quietly stopping. Remove
+it once per agent, as an administrator:
+
+```powershell
+Unregister-ScheduledTask -TaskName 'BuildAgent Daily Maintenance' -Confirm:$false
+```
+
+The task also cleared `Metalama*` and `PostSharp*` from the NuGet cache of the SYSTEM account, which nothing
+replaces. The generated TeamCity cache-cleanup step covers the same packages for the builds that declare it.
+
 ## Generated companions
 
 `DockerBuild.ps1` reads/writes several generated files (all under `eng/`, none committed):
