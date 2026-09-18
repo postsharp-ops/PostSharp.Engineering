@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using Azure.Core;
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
 using JetBrains.Annotations;
@@ -36,8 +37,18 @@ public static class TestLicenseKeyDownloader
         }
 
         var azureTenantId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureTenantId );
+        var azureClientId = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureClientId );
+        var azureClientSecret = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureClientSecret );
 
-        if ( !AzHelper.Login( context ) )
+        // A service principal in the environment authenticates through the SDK, which needs no Azure CLI. That is
+        // what a container has: the CLI is a large installation to carry in an image whose only use for it would be
+        // to log in, and the three variables that the login would read are already there. A machine without them
+        // falls back to the ambient session, which is what a developer has and what 'az login' establishes.
+        var hasServicePrincipal = !string.IsNullOrEmpty( azureTenantId )
+                                  && !string.IsNullOrEmpty( azureClientId )
+                                  && !string.IsNullOrEmpty( azureClientSecret );
+
+        if ( !hasServicePrincipal && !AzHelper.Login( context ) )
         {
             if ( context.IsContinuousIntegrationBuild )
             {
@@ -55,13 +66,26 @@ public static class TestLicenseKeyDownloader
         context.Console.WriteHeading( "Fetching test license keys." );
         context.Console.WriteMessage( "This operation can be lengthy, but its result is cached, and next time it won't need to be performed." );
 
-        var o = new DefaultAzureCredentialOptions()
-        {
-            // We se the tenant explicitly, to avoid issues where the user is logged in to various tenants at the same time. 
-            VisualStudioTenantId = azureTenantId
-        };
+        TokenCredential credential;
 
-        var keyVault = new SecretClient( new Uri( keyVaultUri ), new DefaultAzureCredential( o ) );
+        if ( hasServicePrincipal )
+        {
+            // Named explicitly rather than left to the chain of DefaultAzureCredential, so that the container fails
+            // with the error of this credential instead of the last of a dozen.
+            credential = new ClientSecretCredential( azureTenantId, azureClientId, azureClientSecret );
+        }
+        else
+        {
+            var o = new DefaultAzureCredentialOptions()
+            {
+                // We se the tenant explicitly, to avoid issues where the user is logged in to various tenants at the same time. 
+                VisualStudioTenantId = azureTenantId
+            };
+
+            credential = new DefaultAzureCredential( o );
+        }
+
+        var keyVault = new SecretClient( new Uri( keyVaultUri ), credential );
 
         var lines = new List<string>();
 

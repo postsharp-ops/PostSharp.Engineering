@@ -7,6 +7,25 @@ using System.Globalization;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
 {
+    /// <summary>
+    /// Runs the Azure CLI. Everything here goes through <c>cmd /c az.cmd</c> and is therefore Windows only.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// That is deliberate rather than an oversight. What is left here is publishing and deployment -
+    /// <see cref="AppServiceHelper"/>, <c>AzureDevOpsHelper</c> and <c>MsDeployPublisher</c> - which run on Windows
+    /// agents and which need the command line tool, because they issue real commands rather than merely
+    /// authenticate. The one caller that had to work elsewhere was <see cref="TestLicenseKeyDownloader"/>, which runs
+    /// in a Linux container and now authenticates through the Azure SDK instead, so that the image does not have to
+    /// carry the command line tool for the sake of a login.
+    /// </para>
+    /// <para>
+    /// Porting this to Linux would mean more than calling <c>az</c> instead of <c>cmd</c>. The service principal
+    /// login below passes the secret as <c>%AZURE_CLIENT_SECRET%</c>, which is expanded by cmd and therefore keeps
+    /// the secret out of the argument list; there is no equivalent that does not either name the secret in the
+    /// command line or introduce a shell. Do it when something actually needs it.
+    /// </para>
+    /// </remarks>
     public static class AzHelper
     {
         private const string _exe = "cmd";

@@ -1,4 +1,4 @@
-# The original of this file is in <PostSharp.Engineering>/src/PostSharp.Engineering.BuildTools/Resources/DockerBuild.ps1.
+﻿# The original of this file is in <PostSharp.Engineering>/src/PostSharp.Engineering.BuildTools/Resources/DockerBuild.ps1.
 # You can generate this file using `./Build.ps1 generate-scripts`.
 # Documentation: https://raw.githubusercontent.com/postsharp/PostSharp.Engineering/HEAD/doc/dockerbuild.md
 
@@ -81,11 +81,11 @@
 .PARAMETER Test
     Runs a Docker test container instead of the product build. Requires -Dockerfile and -Command.
     The image is built and cached exactly as a product image is, with the same content-hash tag and the same
-    registry push and pull. What differs is that no product image chain is resolved and no product environment
-    variable is passed: the container gets what -Env asks for and nothing else, so the product credentials stay
-    out of it. The mounts are those of an ordinary build -- the repository, the caches and the dependency
-    repositories -- and the command runs with the repository as its working directory, so a test addresses what
-    it needs by a path relative to the repository root. Use it for a test that needs a container of its own.
+    registry push and pull. What differs is that no product image chain is resolved. The container receives the
+    product environment as an ordinary build does, plus whatever -Env names, because a test container runs a test
+    script of this repository and is trusted accordingly. The mounts are those of an ordinary build -- the
+    repository, the caches and the dependency repositories -- and the command runs with the repository as its
+    working directory, so a test addresses what it needs by a path relative to the repository root. Use it for a test that needs a container of its own.
 
 .PARAMETER Context
     (-Test) The Docker build context directory. Defaults to the directory containing the Dockerfile.
@@ -201,7 +201,7 @@ param(
     [string]$Dockerfile, # Path to custom Dockerfile (defaults to Dockerfile or Dockerfile.claude based on -Claude).
     [ValidateSet('windows', 'linux')]
     [string]$OS, # The operating system of the containers. Defaults to the host's. On a Windows development machine, 'linux' re-executes this script inside WSL.
-    [switch]$Test, # Run an isolated Docker test container. Requires -Dockerfile and -Command. Builds no product image chain, mounts no repository directory, and passes no product environment variable.
+    [switch]$Test, # Run an isolated Docker test container. Requires -Dockerfile and -Command. Builds no product image chain and mounts no repository directory. Receives the product environment, as an ordinary build does.
     [string]$Context, # (-Test) The Docker build context directory. Defaults to the directory containing the Dockerfile.
     [string]$Command, # (-Test) The command line executed in the test container, instead of the build script.
     [string]$RegistryImage, # Use a pre-built image from a registry, skipping Dockerfile build entirely.
@@ -2306,11 +2306,11 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
 
         if ($Test)
         {
-            # Nothing: a test container receives no product environment. Init.g.ps1 is the only channel that
-            # would carry it and -Test suppresses that, so collecting it here produces a result nobody reads --
-            # and on a TeamCity agent the git-identity check below would fail a test run that never needed
-            # GIT_USER_EMAIL or GIT_USER_NAME. Suppressing Init.g.ps1 alone does not skip this block, because it
-            # is guarded by -KeepInit rather than by -NoInit.
+            # Nothing here: a test container does receive the product environment, but through 'docker run -e' where
+            # the run is assembled, not through Init.g.ps1. Collecting it here would produce a result nobody reads,
+            # because -Test suppresses that file -- and on a TeamCity agent the git-identity check below would fail a
+            # test run that never needed GIT_USER_EMAIL or GIT_USER_NAME. Suppressing Init.g.ps1 alone does not skip
+            # this block, because it is guarded by -KeepInit rather than by -NoInit.
         }
         elseif ($Claude)
         {
@@ -3159,11 +3159,30 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             $inlineScript = $null
             $needsMcpCleanup = $false
 
-            # What -Env asks for, and nothing else. The product environment does not reach a test container, but
-            # a variable the caller named explicitly is not part of that: dropping it silently would let a test
-            # run without something it was told to have, and report a pass or a failure that means nothing.
+            # The product environment, as an ordinary build receives it, followed by what -Env asks for. A test
+            # container is trusted in a way an agentic one is not: it runs a test script of this repository rather
+            # than a model, so there is no reason to give it less than the build it stands for, and a test that comes
+            # to need a credential should not need this list widened first.
+            #
+            # These go through 'docker run -e' rather than through Init.g.ps1, which is how a product build receives
+            # them: a test run passes -NoInit, so that file is not generated and would carry nothing.
             $envArgs = @()
 
+            $productEnvVarNames = $EnvironmentVariables -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+
+            foreach ($envVarName in $productEnvVarNames)
+            {
+                $value = [System.Environment]::GetEnvironmentVariable($envVarName)
+
+                if (-not [string]::IsNullOrEmpty($value))
+                {
+                    $envArgs += @('-e', "$envVarName=$value")
+                }
+            }
+
+            # What -Env asks for comes last, so that a variable the caller named explicitly beats the same variable
+            # taken from the host. Dropping it silently would let a test run without something it was told to have,
+            # and report a pass or a failure that means nothing.
             foreach ($envSpec in $Env)
             {
                 if ($envSpec -match '^([^=]+)=(.*)$')
