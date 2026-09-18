@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
@@ -87,6 +87,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         /// the NuGet cache is inserted in front of all other build steps. This prevents stale packages from a previous
         /// build from leaking into this build.
         /// </summary>
+        /// <summary>
+        /// Gets or sets a value indicating whether this configuration starts containers without running in one,
+        /// which is what a Docker test configuration does. Such a configuration has no
+        /// <see cref="EngineeringPrepareImageBuildStep"/>, so it would otherwise miss the cleanup step that
+        /// every containerised configuration gets.
+        /// </summary>
+        public bool StartsContainers { get; set; }
         public string[]? NuGetCachePackagePrefixes { get; set; }
 
         public TeamCityBuildConfiguration(
@@ -171,14 +178,33 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                         null ) );
             }
 
-            // If any step uses Docker, add a cleanup step that always runs to remove orphaned containers.
-            if ( allBuildSteps.OfType<EngineeringPrepareImageBuildStep>().Any() )
+            // If any step uses Docker, add a cleanup step that always runs: it removes the containers this
+            // build started, and then gives the agent a chance to undo what those containers did to the
+            // working directory.
+            //
+            // The second part exists because a container runs as root while the agent does not, and the
+            // repository is a bind mount, so whatever the build wrote into it is owned by root on the host.
+            // The agent user cannot unlink those files, and a checkout directory belongs to a VCS root rather
+            // than to one build configuration, so the next build OF ANY KIND on that agent fails at checkout
+            // with "Error while applying patch" and thousands of "failed to remove ...: Permission denied".
+            // Swabra detects them, logs "unable to delete" for each and continues, so nothing catches it
+            // earlier.
+            //
+            // It belongs here rather than in DockerBuild.ps1. A build step runs after checkout, so anything
+            // placed at the start of a build is already too late for the build that fails: the damage has to
+            // be undone at the end of the build that caused it, which is what ExecutionMode.Always gives.
+            // The containers are removed first, so nothing is still writing when the agent's command runs.
+            //
+            // What that command is, is the agent's business. BUILDAGENT_CLEANUP_SCRIPT names it -- typically
+            // "sudo /opt/buildAgent/bin/chown-all.sh" on the Linux agents -- and unset means no command,
+            // which is every Windows agent, where the question does not arise.
+            if ( this.StartsContainers || allBuildSteps.OfType<EngineeringPrepareImageBuildStep>().Any() )
             {
                 allBuildSteps.Add(
                     new PowerShellCommandBuildStep(
                         "DockerCleanup",
                         "Cleanup Docker containers",
-                        "$label = \"%system.teamcity.buildType.id%_%build.number%\"; $ids = docker ps -a -q --filter \"label=postsharp.build=$label\"; if ($ids) { docker rm -f $ids 2>&1 | Out-Null }",
+                        "$label = \"%system.teamcity.buildType.id%_%build.number%\"; $ids = docker ps -a -q --filter \"label=postsharp.build=$label\"; if ($ids) { docker rm -f $ids 2>&1 | Out-Null }; if ($env:BUILDAGENT_CLEANUP_SCRIPT) { Write-Host \"Running the agent cleanup script: $($env:BUILDAGENT_CLEANUP_SCRIPT)\"; try { Invoke-Expression $env:BUILDAGENT_CLEANUP_SCRIPT; if ($LASTEXITCODE -ne 0) { Write-Host \"The agent cleanup script exited with code $LASTEXITCODE.\" } } catch { Write-Host \"The agent cleanup script failed: $_\" } }",
                         null )
                     {
                         ExecutionMode = BuildStepExecutionMode.Always

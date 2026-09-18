@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
@@ -35,6 +35,12 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
 
     public bool UseWsl { get; init; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether this configuration starts containers without running inside
+    /// one. Such a configuration has no image-preparation step, so it would otherwise miss the cleanup step
+    /// that runs the agent's BUILDAGENT_CLEANUP_SCRIPT. A Docker test configuration sets it.
+    /// </summary>
+    public bool StartsContainers { get; init; }
     internal override TeamCityBuildConfiguration TeamCityBuildConfiguration(
         ProductProperties productProperties,
         IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations )
@@ -151,6 +157,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
         {
             BuildSteps = buildSteps.ToArray(),
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh,
+            StartsContainers = this.StartsContainers,
             SourceDependencies = this.SourceDependenciesRequirements switch
             {
                 SourceDependenciesRequirements.None => [],
