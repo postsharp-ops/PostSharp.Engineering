@@ -1188,6 +1188,12 @@ try
         {
             return @"
 ARG MOUNTPOINTS
+# The RUN below is PowerShell, so the shell has to be declared. A Windows image inherits whatever SHELL its base
+# declares, and that differs between the images this script is pointed at: the .NET Framework SDK images declare
+# PowerShell, while the .NET SDK images leave the Docker default of cmd, which fails on the first brace. The
+# product build image happens to declare PowerShell, which is why this only surfaced once a test container -- on
+# an arbitrary base image -- was given mounts and therefore a boot image.
+SHELL ["powershell", "-Command", "`$ErrorActionPreference = 'Stop';"]
 RUN if (`$env:MOUNTPOINTS) { ``
         `$mounts = `$env:MOUNTPOINTS -split ';'; ``
         foreach (`$dir in `$mounts) { ``
