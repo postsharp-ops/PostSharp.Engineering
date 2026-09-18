@@ -917,7 +917,10 @@ try
         $hash = Get-ContentHash -DockerfilePath $dfPath -ContextDirectory (Get-ContextDirFor $dfPath) -DayStamp $hashDayStamp -ExtraInput $extra
         # The image NAME carries the product/version prefix ($DockerImagePrefix); the Dockerfile file stem does
         # not. e.g. stem 'build' -> image '<prefix>-build'. ARG BASE_IMAGE references stems (prefix-free).
-        $imageName = "$DockerImagePrefix-$( Get-DockerfileStem $dfPath )"
+        # Lower-cased because a Docker repository name must be lower case, while the stem is the file name as
+        # written: a custom -Dockerfile named 'Dockerfile', which is the conventional name and the one the
+        # container tests use, would otherwise produce an invalid tag and fail the build.
+        $imageName = "$DockerImagePrefix-$( Get-DockerfileStem $dfPath )".ToLowerInvariant()
         $tag = if ($dockerRegistry) { "${dockerRegistry}/${imageName}:${hash}" } else { "${imageName}:${hash}" }
         $script:resolvedTags[$key] = $tag
         return $tag
