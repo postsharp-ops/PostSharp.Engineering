@@ -188,6 +188,61 @@ public sealed class SnapshotDependencyTests
             GenerateCode( new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" ) ),
             StringComparison.Ordinal );
 
+    /// <summary>
+    /// The first stage of a pipeline compiles the product, so it needs the artifacts of the products the product is
+    /// built against, although it waits for no stage of its own product.
+    /// </summary>
+    /// <remarks>
+    /// The two kinds of dependency used to be emitted together, so a first stage received neither and compiled
+    /// against whatever the package feeds held. For a dependency that is published to no feed, that is nothing.
+    /// </remarks>
+    [Fact]
+    public void AStageThatBuildsTheProductTakesTheArtifactsOfItsDependencies()
+    {
+        var code = GenerateCode(
+            new PowershellAdditionalCiBuildConfiguration( "Build", "Build the product", "Build.ps1", "build" )
+            {
+                ConsumesProductDependencies = true
+            } );
+
+        Assert.Contains( "=>dependencies/Metalama.Compiler", code, StringComparison.Ordinal );
+
+        // Both generated steps read a file that a stage of this product publishes, and this configuration waits for
+        // no such stage. The build it runs writes both files itself.
+        Assert.DoesNotContain( "CopyNuGetConfig", code, StringComparison.Ordinal );
+        Assert.DoesNotContain( "CreateVersionsFile", code, StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// The artifacts of the products this product depends on are not taken by default. A configuration that neither
+    /// builds nor tests the product would otherwise wait for a full build of every dependency and use none of it.
+    /// </summary>
+    [Fact]
+    public void AConfigurationThatAsksForNothingGetsNoProductDependency()
+        => Assert.DoesNotContain(
+            "=>dependencies/",
+            GenerateCode( new PowershellAdditionalCiBuildConfiguration( "Bump", "Version bump", "Build.ps1", "bump" ) ),
+            StringComparison.Ordinal );
+
+    /// <summary>
+    /// A configuration that continues a stage of its own product keeps taking the artifacts of the products the
+    /// product is built against, and keeps the two steps that prepare its checkout.
+    /// </summary>
+    [Fact]
+    public void AConfigurationThatContinuesAStageTakesBothKindsOfDependency()
+    {
+        var code = GenerateCode(
+            new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "make.ps1", "test" )
+            {
+                SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" )]
+            } );
+
+        Assert.Contains( "snapshot(BuildArtifacts)", code, StringComparison.Ordinal );
+        Assert.Contains( "=>dependencies/Metalama.Compiler", code, StringComparison.Ordinal );
+        Assert.Contains( "CopyNuGetConfig", code, StringComparison.Ordinal );
+        Assert.Contains( "CreateVersionsFile", code, StringComparison.Ordinal );
+    }
+
     [Fact]
     public void SettingBothSpellingsIsRejected()
     {

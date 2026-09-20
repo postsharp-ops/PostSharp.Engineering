@@ -41,6 +41,20 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
     /// that runs the agent's BUILDAGENT_CLEANUP_SCRIPT. A Docker test configuration sets it.
     /// </summary>
     public bool StartsContainers { get; init; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this configuration consumes the artifacts of the products this
+    /// product depends on, as the build configurations of the product itself do.
+    /// </summary>
+    /// <remarks>
+    /// A configuration that depends on a stage of its own product consumes them in any case, so this is for a
+    /// configuration that depends on no such stage: the first stage of a pipeline, which compiles the product and
+    /// therefore needs what the product is compiled against. It cannot be the default, because an additional
+    /// configuration that neither builds nor tests the product, such as a version bump or a downstream merge, would
+    /// then wait for a full build of every dependency and use none of it.
+    /// </remarks>
+    public bool ConsumesProductDependencies { get; init; }
+
     internal override TeamCityBuildConfiguration TeamCityBuildConfiguration(
         ProductProperties productProperties,
         IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations )
@@ -55,17 +69,23 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
         // identifier. The artifact layout is the same either way, so everything below is unaffected by which it is.
         var declaredSnapshotDependencies = this.GetSnapshotDependencies();
 
-        if ( declaredSnapshotDependencies.Length > 0 )
+        // The products this product is built against, which is a separate question from the dependencies within the
+        // product. A configuration that consumes a stage of its own product takes them, because it continues a
+        // checkout that was built against them. A configuration that consumes no such stage takes them only when it
+        // sets ConsumesProductDependencies, which is what the first stage of a pipeline does: it compiles the product
+        // and therefore needs what the product is compiled against.
+        var productDependencies = declaredSnapshotDependencies.Length > 0 || this.ConsumesProductDependencies
+            ? product.DependencyDefinition.GetAllDependencies( this.EffectiveArtifactsConfiguration )
+                .Where( d => d.Definition.GenerateSnapshotDependency )
+                .ToList()
+            : [];
+
+        if ( declaredSnapshotDependencies.Length > 0 || productDependencies.Count > 0 )
         {
             var artifactsConfiguration = this.EffectiveArtifactsConfiguration;
 
-            var buildArtifactsDirectory = productProperties.Product.GetPrivateArtifactsRelativeDirectory( artifactsConfiguration )
+            var buildArtifactsDirectory = product.GetPrivateArtifactsRelativeDirectory( artifactsConfiguration )
                 .Replace( "\\", "/", StringComparison.Ordinal );
-
-            // Get all transitive dependencies for the build configuration
-            var dependencies = product.DependencyDefinition.GetAllDependencies( artifactsConfiguration )
-                .Where( d => d.Definition.GenerateSnapshotDependency )
-                .ToList();
 
             // Create snapshot dependencies for all transitive dependencies
             var reuseBuilds = this.ReuseLastSuccessfulBuild ? ReuseBuilds.LastSuccessful : ReuseBuilds.Default;
@@ -83,46 +103,55 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                 .ToList();
 
             snapshotDependencies.AddRange(
-                dependencies.Select( d => new TeamCitySnapshotDependency(
-                                         d.Definition.CiConfiguration.BuildTypes[d.Configuration],
-                                         true,
-                                         $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
-                                         ReuseBuilds: reuseBuilds ) ) );
+                productDependencies.Select(
+                    d => new TeamCitySnapshotDependency(
+                        d.Definition.CiConfiguration.BuildTypes[d.Configuration],
+                        true,
+                        $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
+                        ReuseBuilds: reuseBuilds ) ) );
 
-            // If we have a build snapshot dependency, copy nuget.restored.config to nuget.config
-            var copyNuGetConfigCommand = $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.config"" -Force;";
-
-            if ( product.AddWslSupport )
+            // Both steps below read a file that a stage of this product published, so they belong to a configuration
+            // that waits for such a stage. A configuration that takes only the artifacts of other products has no
+            // such directory, and it builds the product from source, which writes both files itself.
+            if ( declaredSnapshotDependencies.Length > 0 )
             {
-                copyNuGetConfigCommand += $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.wsl.config"" -Force;";
+                // If we have a build snapshot dependency, copy nuget.restored.config to nuget.config
+                var copyNuGetConfigCommand =
+                    $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.config"" -Force;";
+
+                if ( product.AddWslSupport )
+                {
+                    copyNuGetConfigCommand +=
+                        $@"Copy-Item -Path ""{buildArtifactsDirectory}/nuget.restored.config"" -Destination ""nuget.wsl.config"" -Force;";
+                }
+
+                buildSteps.Add(
+                    new PowerShellCommandBuildStep(
+                        "CopyNuGetConfig",
+                        "Copy nuget.restored.config to nuget.config",
+                        copyNuGetConfigCommand,
+                        null ) );
+
+                // Create an MSBuild project that imports the restored version props file and all dependency version props
+                // Paths are relative to eng/Versions.g.props, so need ../ prefix
+                var versionImports = $"<Import Project=`\"../{buildArtifactsDirectory}/{product.ProductName}.version.props`\" />";
+
+                foreach ( var dependency in productDependencies )
+                {
+                    versionImports +=
+                        $"<Import Project=`\"../dependencies/{dependency.Key}/{dependency.Key}.version.props`\" />";
+                }
+
+                var createVersionsFileCommand =
+                    $@"New-Item -Path ""{product.EngineeringDirectory}/Versions.g.props"" -ItemType File -Force -Value ""<Project>{versionImports}</Project>"" | Out-Null;";
+
+                buildSteps.Add(
+                    new PowerShellCommandBuildStep(
+                        "CreateVersionsFile",
+                        "Create eng/Versions.g.props",
+                        createVersionsFileCommand,
+                        null ) );
             }
-
-            buildSteps.Add(
-                new PowerShellCommandBuildStep(
-                    "CopyNuGetConfig",
-                    "Copy nuget.restored.config to nuget.config",
-                    copyNuGetConfigCommand,
-                    null ) );
-
-            // Create an MSBuild project that imports the restored version props file and all dependency version props
-            // Paths are relative to eng/Versions.g.props, so need ../ prefix
-            var versionImports = $"<Import Project=`\"../{buildArtifactsDirectory}/{product.ProductName}.version.props`\" />";
-
-            foreach ( var dependency in dependencies )
-            {
-                versionImports +=
-                    $"<Import Project=`\"../dependencies/{dependency.Key}/{dependency.Key}.version.props`\" />";
-            }
-
-            var createVersionsFileCommand =
-                $@"New-Item -Path ""{product.EngineeringDirectory}/Versions.g.props"" -ItemType File -Force -Value ""<Project>{versionImports}</Project>"" | Out-Null;";
-
-            buildSteps.Add(
-                new PowerShellCommandBuildStep(
-                    "CreateVersionsFile",
-                    "Create eng/Versions.g.props",
-                    createVersionsFileCommand,
-                    null ) );
         }
 
         // Add the main execution step
