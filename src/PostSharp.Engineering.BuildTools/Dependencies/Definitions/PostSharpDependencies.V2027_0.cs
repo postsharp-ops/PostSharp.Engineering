@@ -79,7 +79,14 @@ public static partial class PostSharpDependencies
             // packages from its artifacts instead of from the package feed. Setting GenerateSnapshotDependency to false,
             // as the 2024.0 and 2026.0 lines do, would leave the consolidated build unchained from the product it
             // consolidates.
-            Dependencies = [DevelopmentDependencies.PostSharpEngineering],
+            //
+            // Backstage is the shared licensing, telemetry and configuration library that the compiler is built
+            // on since 2027.0. It belongs to another family, which is why the family of this line declares it as a
+            // related family; listing it here is what gives the PostSharp build a TeamCity snapshot dependency on
+            // the Backstage build and what puts the Backstage artifacts among the package sources of the generated
+            // nuget.config, so that the compiler restores the packages of the build it was chained to rather than
+            // from a feed they are not published to.
+            Dependencies = [DevelopmentDependencies.PostSharpEngineering, BackstageDependencies.V2027_0.Backstage],
             PackagePatterns = ["PostSharp", "PostSharp.Redist", "PostSharp.Compiler.*", "PostSharp.Patterns.*", "PostSharp.Settings.*"],
             AutoUpdateVersion = false
         };

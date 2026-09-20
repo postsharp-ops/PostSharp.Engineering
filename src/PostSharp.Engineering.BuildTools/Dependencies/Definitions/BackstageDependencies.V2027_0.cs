@@ -72,7 +72,16 @@ public static partial class BackstageDependencies
                 // The neutral packages carry the vendor prefix, the shared library carries no product name, and the product
                 // customizations carry the product name, so none of them matches the default patterns derived from the name
                 // used by the build system.
-                PackagePatterns = ["SharpCrafters.Backstage*", "SharpCrafters.Common*", "Metalama.Backstage*"],
+                PackagePatterns =
+                [
+                    "SharpCrafters.Backstage*", "SharpCrafters.Common*",
+
+                    // The product customizations, one package family per product built on this library. They carry the
+                    // name of the product they customize and not the one of this one, so neither the default patterns
+                    // of this product nor those of the consuming product match them: without these two entries the
+                    // package source mapping of a consumer sends them to the public feed, which does not have them.
+                    "Metalama.Backstage*", "PostSharp.Backstage*"
+                ],
                 Dependencies = [DevelopmentDependencies.PostSharpEngineering]
             };
 
