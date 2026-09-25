@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -43,6 +44,39 @@ public abstract class TestableSolution : Solution
     /// no test results, and reporting an empty result set to TeamCity would be noise.
     /// </summary>
     protected virtual bool ProducesTestResults => false;
+
+    private readonly List<string> _testResultFiles = [];
+
+    /// <summary>
+    /// Records a test result file, by a path relative to the root of the repository, that is complete and closed and
+    /// can therefore be imported into TeamCity.
+    /// </summary>
+    /// <remarks>
+    /// The files are named one by one rather than matched by a pattern over the results directory. The entries of a
+    /// <see cref="ManySolutions"/> run in parallel and write to one directory, so a pattern expanded by TeamCity at
+    /// the moment it processes the message covers the files of every other scenario, including ones that are still
+    /// being written.
+    /// </remarks>
+    protected void AddTestResultFile( string path )
+    {
+        lock ( this._testResultFiles )
+        {
+            this._testResultFiles.Add( path );
+        }
+    }
+
+    /// <summary>
+    /// Gets the files recorded by <see cref="AddTestResultFile"/>. One instance is used by one thread today, because
+    /// <see cref="ManySolutions"/> gives each scenario a task of its own, but nothing in the contract of
+    /// <see cref="Invoke"/> says that a single scenario may not run its own entries concurrently one day.
+    /// </summary>
+    private ImmutableArray<string> GetTestResultFiles()
+    {
+        lock ( this._testResultFiles )
+        {
+            return [..this._testResultFiles];
+        }
+    }
 
     /// <summary>
     /// Builds the command line of the build engine and executes it. This is the only difference between the
@@ -135,12 +169,15 @@ public abstract class TestableSolution : Solution
         if ( test && this.ProducesTestResults && context.IsContinuousIntegrationBuild )
         {
             // Export test result files to TeamCity. This happens once per scenario rather than once per matrix entry,
-            // because the message imports a glob over the whole results directory, which every entry has written to.
-            TeamCityHelper.SendImportDataMessage(
-                "vstest",
-                Path.Combine( context.Product.TestResultsDirectory, "*.trx" ).Replace( Path.DirectorySeparatorChar, '/' ),
-                Path.GetFileName( projectOrSolution ),
-                false );
+            // because a scenario is one flow as far as TeamCity is concerned.
+            foreach ( var file in this.GetTestResultFiles() )
+            {
+                TeamCityHelper.SendImportDataMessage(
+                    "vstest",
+                    file.Replace( Path.DirectorySeparatorChar, '/' ),
+                    Path.GetFileName( projectOrSolution ),
+                    false );
+            }
         }
 
         return success;
