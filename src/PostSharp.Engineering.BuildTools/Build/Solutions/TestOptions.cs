@@ -33,8 +33,9 @@ public class TestOptions
     public bool BuildOnly { get; set; }
 
     /// <summary>
-    /// Gets or sets the MSBuild target. Only honored by engines that support target selection, i.e. by
-    /// <see cref="ManyMSBuildSolutions"/>.
+    /// Gets or sets the MSBuild target. It is honored by <see cref="MSBuildProjectSolution"/> and
+    /// <see cref="ManyMSBuildSolutions"/>, and by <see cref="DotNetSolution"/> when the scenario is built rather
+    /// than tested.
     /// </summary>
     public string? Target { get; set; }
 

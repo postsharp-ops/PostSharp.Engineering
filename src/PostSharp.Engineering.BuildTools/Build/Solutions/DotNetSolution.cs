@@ -15,6 +15,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public bool IsSingleFile => Path.GetExtension( this.SolutionPath ).Equals( ".cs", StringComparison.OrdinalIgnoreCase );
 
+        /// <summary>
+        /// Gets a value indicating whether the scenario is a <c>*.proj</c> file, i.e. a hand-written MSBuild project
+        /// as opposed to a solution or an SDK project.
+        /// </summary>
+        private bool IsMSBuildProjectFile => Path.GetExtension( this.SolutionPath ).Equals( ".proj", StringComparison.OrdinalIgnoreCase );
+
+        /// <summary>
+        /// Gets the MSBuild target used to build a <c>*.proj</c> scenario. It can be overridden per scenario, and per
+        /// matrix entry, by the <see cref="TestOptions.Target"/> property of <c>test.json</c>.
+        /// </summary>
+        public string DefaultTarget { get; init; } = "Build";
+
         protected override bool ProducesTestResults => true;
 
         public override bool Pack( BuildContext context, BuildSettings settings )
@@ -67,7 +79,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             else
             {
                 verb = "build";
-                args = "";
+
+                // Without `-t:`, MSBuild runs the default targets of the project. A `*.proj` scenario declares no
+                // `DefaultTargets` attribute, so the default is the first target in evaluation order, and an
+                // `<Import>` is expanded at its position: a scenario that imports `Directory.Build.props` before it
+                // declares its own `Build` target therefore builds whatever target the import chain contributed
+                // first. In Metalama that is `VerifyProductDependencies`, so four scenarios compiled nothing and
+                // reported success. Naming the target removes that dependency on evaluation order.
+                //
+                // Solutions and SDK projects keep the default, whose first target is `Build` in either case, so
+                // that this does not change how the great majority of the scenarios are built.
+                var target = options.Target ?? (this.IsMSBuildProjectFile ? this.DefaultTarget : null);
+
+                args = target == null ? "" : $"-t:{target}";
             }
 
             var invocationOptions = this.CreateInvocationOptions();
