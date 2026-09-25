@@ -78,4 +78,109 @@ public sealed class MSBuildHelperTests
 
         Assert.Same( first, MSBuildHelper.RegisteredInstance );
     }
+
+    /// <summary>
+    /// The installations of the machine on which the error of issue #142 was observed, ordered by descending version
+    /// the way <see cref="MSBuildHelper.FindMSBuildExe"/> orders them. Visual Studio had updated itself from the
+    /// pinned 18.9 to 18.10 and then to 18.11, and had removed 18.9.
+    /// </summary>
+    private static readonly MSBuildInstance[] _installations =
+    [
+        new( "SQL Server Management Studio 22", new Version( 22, 10, 12201, 205 ), "22.10.12201.205", @"C:\Ssms", "VisualStudio" ),
+        new( "Visual Studio Professional 2026", new Version( 18, 11, 12202, 211 ), "18.11.12202.211", @"C:\Vs2026.11", "VisualStudio" ),
+        new( "Visual Studio Professional 2026", new Version( 18, 10, 12210, 168 ), "18.10.12210.168", @"C:\Vs2026.10", "VisualStudio" ),
+        new( "Visual Studio Professional 2022", new Version( 17, 14, 37710, 0 ), "17.14.37710.0", @"C:\Vs2022", "VisualStudio" )
+    ];
+
+    /// <summary>
+    /// An installation of the pinned version is used whenever there is one, and reported as an exact match, whether
+    /// or not a newer one is allowed.
+    /// </summary>
+    [Theory]
+    [InlineData( true )]
+    [InlineData( false )]
+    public void ThePinnedVersionIsPreferredOverANewerOne( bool allowNewer )
+    {
+        var instance = MSBuildHelper.SelectInstance( _installations, new Version( 18, 10 ), allowNewer, out var isNewer );
+
+        Assert.Equal( @"C:\Vs2026.10", instance?.Path );
+        Assert.False( isNewer );
+    }
+
+    /// <summary>
+    /// The regression. Visual Studio updated past the pinned 18.9 and removed it, which stopped every local build
+    /// until the product definition of each repository was edited.
+    /// </summary>
+    [Fact]
+    public void ANewerVersionIsAcceptedWhenThePinnedOneIsGone()
+    {
+        var instance = MSBuildHelper.SelectInstance( _installations, new Version( 18, 9 ), allowNewer: true, out var isNewer );
+
+        // The newest installation that is at least the pinned version, not merely the first one above it.
+        Assert.Equal( @"C:\Vs2026.11", instance?.Path );
+        Assert.True( isNewer );
+    }
+
+    /// <summary>
+    /// Continuous integration keeps the exact match. The container has exactly one installation, and the pin is what
+    /// makes a local build comparable to it, so a silent substitution there would defeat the pin.
+    /// </summary>
+    [Fact]
+    public void ANewerVersionIsRefusedWhenNewerIsNotAllowed()
+    {
+        var instance = MSBuildHelper.SelectInstance( _installations, new Version( 18, 9 ), allowNewer: false, out var isNewer );
+
+        Assert.Null( instance );
+        Assert.False( isNewer );
+    }
+
+    /// <summary>
+    /// An older installation is never a substitute, because the build would run on an engine that does not have what
+    /// the pin was raised for.
+    /// </summary>
+    [Fact]
+    public void AnOlderVersionIsNeverSubstituted()
+    {
+        Assert.Null( MSBuildHelper.SelectInstance( _installations, new Version( 18, 12 ), allowNewer: true, out var isNewer ) );
+        Assert.False( isNewer );
+    }
+
+    /// <summary>
+    /// The substitution stops at the major version. SQL Server Management Studio 22 carries an MSBuild whose version
+    /// is numerically above every Visual Studio one, so a fallback that only compared versions would build the
+    /// product with it as soon as Visual Studio moved from 18.9 to 18.10.
+    /// </summary>
+    [Fact]
+    public void AnInstallationOfAnotherVersionLineIsNeverSubstituted()
+    {
+        // No 19.x is installed. 22.10 is numerically above 19.0, and must not be chosen for it.
+        Assert.Null( MSBuildHelper.SelectInstance( _installations, new Version( 19, 0 ), allowNewer: true, out var isNewer ) );
+        Assert.False( isNewer );
+    }
+
+    /// <summary>
+    /// The substitution is not specific to the most recent version line: a repository pinned to an older line gets
+    /// the newest installation of that line.
+    /// </summary>
+    [Fact]
+    public void TheSubstituteComesFromThePinnedVersionLine()
+    {
+        var instance = MSBuildHelper.SelectInstance( _installations, new Version( 17, 0 ), allowNewer: true, out var isNewer );
+
+        Assert.Equal( @"C:\Vs2022", instance?.Path );
+        Assert.True( isNewer );
+    }
+
+    /// <summary>
+    /// A component that the pin leaves out matches anything, which is what makes a pin of '18.9' accept the build
+    /// number that Visual Studio actually installs.
+    /// </summary>
+    [Fact]
+    public void AnOmittedVersionComponentMatchesAnything()
+    {
+        var instance = MSBuildHelper.SelectInstance( _installations, new Version( 18, 11 ), allowNewer: false, out var isNewer );
+
+        Assert.Equal( @"C:\Vs2026.11", instance?.Path );
+        Assert.False( isNewer );
+    }
 }
