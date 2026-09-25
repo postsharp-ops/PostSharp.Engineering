@@ -80,7 +80,7 @@ internal sealed class ParsedPackageVersion : IComparable<ParsedPackageVersion>
             var labels = remainder.Substring( dashIndex + 1 ).Split( '.' );
             remainder = remainder.Substring( 0, dashIndex );
 
-            if ( !labels.All( IsValidIdentifier ) )
+            if ( !labels.All( IsValidReleaseLabel ) )
             {
                 return false;
             }
@@ -116,7 +116,8 @@ internal sealed class ParsedPackageVersion : IComparable<ParsedPackageVersion>
     /// lower bound.
     /// </summary>
     /// <param name="value">A bare version, which means a minimum inclusive version, or an interval such as
-    /// <c>[1.0,2.0)</c>.</param>
+    /// <c>[1.0,2.0)</c>. Floating versions such as <c>1.*</c> are rejected, although NuGet accepts them: a nuspec in
+    /// a built package never contains one, because <c>pack</c> writes the resolved lower bound.</param>
     /// <param name="minimum">The lower bound, or <c>null</c> when the range has no lower bound.</param>
     /// <returns><c>true</c> if <paramref name="value"/> is a valid range.</returns>
     public static bool TryParseRangeMinimum( string? value, out ParsedPackageVersion? minimum )
@@ -147,7 +148,22 @@ internal sealed class ParsedPackageVersion : IComparable<ParsedPackageVersion>
             return false;
         }
 
+        var isMinInclusive = range[0] == '[';
+        var isMaxInclusive = range[^1] == ']';
         var bounds = range.Substring( 1, range.Length - 2 ).Split( ',' );
+
+        if ( bounds.Length == 1 )
+        {
+            // A single bound is an exact version, which NuGet accepts only in the inclusive form '[1.0]'.
+            if ( !isMinInclusive || !isMaxInclusive || !TryParse( bounds[0], out var exactVersion ) )
+            {
+                return false;
+            }
+
+            minimum = exactVersion;
+
+            return true;
+        }
 
         if ( bounds.Length > 2 )
         {
@@ -155,22 +171,31 @@ internal sealed class ParsedPackageVersion : IComparable<ParsedPackageVersion>
         }
 
         var lowerBound = bounds[0].Trim();
-        var upperBound = bounds.Length == 2 ? bounds[1].Trim() : null;
+        var upperBound = bounds[1].Trim();
+        ParsedPackageVersion? lowerVersion = null;
+        ParsedPackageVersion? upperVersion = null;
 
-        if ( upperBound is { Length: > 0 } && !TryParse( upperBound, out _ ) )
+        if ( lowerBound.Length == 0 && upperBound.Length == 0 )
         {
             return false;
         }
 
-        if ( lowerBound.Length == 0 )
-        {
-            // An exact-version range such as '[1.0]' must name a version.
-            return bounds.Length == 2;
-        }
-
-        if ( !TryParse( lowerBound, out var lowerVersion ) )
+        if ( (lowerBound.Length > 0 && !TryParse( lowerBound, out lowerVersion ))
+             || (upperBound.Length > 0 && !TryParse( upperBound, out upperVersion )) )
         {
             return false;
+        }
+
+        if ( lowerVersion != null && upperVersion != null )
+        {
+            // NuGet rejects reversed bounds, and equal bounds with one inclusive end and one exclusive end. It accepts
+            // equal bounds that are both exclusive, such as '(1.0,1.0)'.
+            var comparison = lowerVersion.CompareTo( upperVersion );
+
+            if ( comparison > 0 || (comparison == 0 && isMinInclusive != isMaxInclusive) )
+            {
+                return false;
+            }
         }
 
         minimum = lowerVersion;
@@ -263,12 +288,13 @@ internal sealed class ParsedPackageVersion : IComparable<ParsedPackageVersion>
 
     public static bool operator >=( ParsedPackageVersion left, ParsedPackageVersion right ) => left.CompareTo( right ) >= 0;
 
-    // Numeric labels compare numerically and are lower than alphanumeric labels. Alphanumeric labels compare
-    // ordinally without regard to case, as NuGet does.
+    // Numeric labels compare numerically and are lower than alphanumeric labels. Other labels compare ordinally
+    // without regard to case. As in NuGet, a label is numeric only when it fits in an Int32: a longer run of digits
+    // compares as a string, so 1.0.0-2147483648 is greater than 1.0.0-10000000000.
     private static int CompareReleaseLabels( string left, string right )
     {
-        var leftIsNumeric = long.TryParse( left, NumberStyles.None, CultureInfo.InvariantCulture, out var leftNumber );
-        var rightIsNumeric = long.TryParse( right, NumberStyles.None, CultureInfo.InvariantCulture, out var rightNumber );
+        var leftIsNumeric = int.TryParse( left, NumberStyles.None, CultureInfo.InvariantCulture, out var leftNumber );
+        var rightIsNumeric = int.TryParse( right, NumberStyles.None, CultureInfo.InvariantCulture, out var rightNumber );
 
         return (leftIsNumeric, rightIsNumeric) switch
         {
@@ -280,4 +306,9 @@ internal sealed class ParsedPackageVersion : IComparable<ParsedPackageVersion>
     }
 
     private static bool IsValidIdentifier( string identifier ) => identifier.Length > 0 && identifier.All( c => char.IsAsciiLetterOrDigit( c ) || c == '-' );
+
+    // NuGet rejects a numeric release label with a leading zero, such as the '01' of 1.0.0-beta.01, but accepts an
+    // alphanumeric one such as '00a'. Numeric version components and metadata may have leading zeros.
+    private static bool IsValidReleaseLabel( string label )
+        => IsValidIdentifier( label ) && !(label.Length > 1 && label[0] == '0' && label.All( char.IsAsciiDigit ));
 }
