@@ -348,7 +348,7 @@ if ($OS -ne $hostOs)
         exit 1
     }
 
-    $wslPwsh = (& wsl.exe -- sh -c 'command -v pwsh' 2>&1 | Out-String).Trim()
+    $wslPwsh = (& wsl.exe --exec sh -c 'command -v pwsh' 2>&1 | Out-String).Trim()
 
     if ($LASTEXITCODE -ne 0 -or -not $wslPwsh)
     {
@@ -357,7 +357,7 @@ if ($OS -ne $hostOs)
         exit 1
     }
 
-    $wslEngineOs = (& wsl.exe -- docker version --format '{{.Server.Os}}' 2>&1 | Out-String).Trim()
+    $wslEngineOs = (& wsl.exe --exec docker version --format '{{.Server.Os}}' 2>&1 | Out-String).Trim()
 
     if ($LASTEXITCODE -ne 0 -or $wslEngineOs -ne 'linux')
     {
@@ -368,7 +368,7 @@ if ($OS -ne $hostOs)
 
     # An engine of another architecture would build images this machine cannot run, and the failure would come
     # much later and name something else, so it is checked here.
-    $wslEngineArch = (& wsl.exe -- docker version --format '{{.Server.Arch}}' 2>&1 | Out-String).Trim()
+    $wslEngineArch = (& wsl.exe --exec docker version --format '{{.Server.Arch}}' 2>&1 | Out-String).Trim()
 
     $hostArch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)
     {
@@ -456,9 +456,21 @@ if ($OS -ne $hostOs)
 
     Write-Host "Linux containers run on the Docker engine inside WSL; re-executing this script there." -ForegroundColor Cyan
 
-    $wslCommand = "& " + ( ConvertTo-PowerShellLiteral ( ConvertTo-WslHostPath $PSCommandPath ) ) + " " + ( $wslArguments -join ' ' )
+    # The trailing `exit $LASTEXITCODE` is what carries the exit code of the container back across the hop, and it
+    # is not redundant. With -Command, PowerShell takes the exit code of the process from the success of the last
+    # statement, which is 0 or 1, so every exit code other than 0 or 1 arrived here as 1. RunDockerTests.ps1 reads
+    # exit code 4 as "this test skipped", so a test that skips on Linux was reported as failed whenever it was run
+    # from a Windows development machine. A Linux build agent runs the engine natively, makes no hop, and never
+    # showed it.
+    $wslCommand = "& " + ( ConvertTo-PowerShellLiteral ( ConvertTo-WslHostPath $PSCommandPath ) ) + " " +
+                  ( $wslArguments -join ' ' ) + '; exit $LASTEXITCODE'
 
-    & wsl.exe -- $wslPwsh -NoProfile -Command $wslCommand
+    # --exec, never --. With `--`, wsl.exe hands the command line to the default shell of the distribution, and that
+    # shell expands every `$` in it before pwsh ever sees it. The quoting done above is PowerShell quoting, which
+    # does not protect against it. A test command ending in `exit $?` reached the container as `exit 0`, so a Docker
+    # test that failed was reported as passed, and the `exit $LASTEXITCODE` appended above would have been eaten the
+    # same way. --exec runs the program directly, with no shell in between.
+    & wsl.exe --exec $wslPwsh -NoProfile -Command $wslCommand
 
     exit $LASTEXITCODE
 }

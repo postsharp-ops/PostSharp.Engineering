@@ -54,6 +54,22 @@ internal static class DockerBuildScript
     }
 
     /// <summary>
+    /// Extracts a <c>function</c> block declared at the top level of the script, i.e. one that is not indented and is
+    /// closed by a brace in the first column. <see cref="ExtractFunction"/> handles the ones nested in a block.
+    /// </summary>
+    public static string ExtractTopLevelFunction( string name )
+    {
+        var match = Regex.Match(
+            Text,
+            @"^function\s+" + Regex.Escape( name ) + @"\b.*?^\}",
+            RegexOptions.Multiline | RegexOptions.Singleline );
+
+        Assert.True( match.Success, $"Could not extract the top-level '{name}' function from DockerBuild.ps1." );
+
+        return match.Value;
+    }
+
+    /// <summary>
     /// Returns the PowerShell executable to run the extracted functions with, or <c>null</c> when the host has none.
     /// A test that gets <c>null</c> reports success rather than failing a machine that cannot run PowerShell at all.
     /// </summary>
