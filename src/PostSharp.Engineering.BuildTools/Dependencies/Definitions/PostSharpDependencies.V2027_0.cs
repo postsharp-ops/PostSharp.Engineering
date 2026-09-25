@@ -87,7 +87,9 @@ public static partial class PostSharpDependencies
             // nuget.config, so that the compiler restores the packages of the build it was chained to rather than
             // from a feed they are not published to.
             Dependencies = [DevelopmentDependencies.PostSharpEngineering, BackstageDependencies.V2027_0.Backstage],
-            PackagePatterns = ["PostSharp", "PostSharp.Redist", "PostSharp.Compiler.*", "PostSharp.Patterns.*", "PostSharp.Settings.*"],
+            // Since 2027.0, PostSharp.Sdk holds the reference assemblies that add-ins compile against, and the
+            // PostSharp.Compiler.* packages only depend on it.
+            PackagePatterns = ["PostSharp", "PostSharp.Redist", "PostSharp.Sdk", "PostSharp.Compiler.*", "PostSharp.Patterns.*", "PostSharp.Settings.*"],
             AutoUpdateVersion = false
         };
 
