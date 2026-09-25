@@ -153,8 +153,8 @@ function Get-EnginePlatform([string]$requestedOs)
             exit 1
         }
 
-        $engineOs = (& wsl.exe -- docker version --format '{{.Server.Os}}' 2>&1 | Out-String).Trim()
-        $engineArchRaw = (& wsl.exe -- docker version --format '{{.Server.Arch}}' 2>&1 | Out-String).Trim()
+        $engineOs = (& wsl.exe --exec docker version --format '{{.Server.Os}}' 2>&1 | Out-String).Trim()
+        $engineArchRaw = (& wsl.exe --exec docker version --format '{{.Server.Arch}}' 2>&1 | Out-String).Trim()
     }
     else
     {
@@ -332,7 +332,7 @@ function Invoke-EngineDocker([string]$os, [string[]]$arguments)
 {
     if (Test-UsesWslEngine $os)
     {
-        & wsl.exe -- docker @arguments
+        & wsl.exe --exec docker @arguments
     }
     else
     {
