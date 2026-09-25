@@ -46,6 +46,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
             string verb;
             string args;
+            string? stagingDirectory = null;
+            string? runKey = null;
 
             if ( this.IsSingleFile )
             {
@@ -54,10 +56,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             }
             else if ( command == SolutionCommand.Test )
             {
-                var resultsDirectory = Path.Combine( context.RepoDirectory, context.Product.TestResultsDirectory );
+                // The results are written to a staging directory and renamed into the results directory once the test
+                // process has exited. TeamCity parses a `.trx` file as soon as it is told about one, the scenarios of
+                // a `ManySolutions` run in parallel, and the parser opens the file without sharing, so a parser
+                // reading the results of one scenario used to fail on the file that another `dotnet test` was still
+                // writing. One rename within the same volume is atomic, so nothing partially written is ever visible
+                // under the results directory.
+                runKey = TestResultsStaging.GetRunKey( Path.GetRelativePath( context.RepoDirectory, projectOrSolution ), logName );
+                stagingDirectory = TestResultsStaging.GetStagingDirectory( context.RepoDirectory, context.Product.TestResultsDirectory, runKey );
 
                 verb = "test";
-                args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory \"{resultsDirectory}\"";
+                args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory \"{stagingDirectory}\"";
 
                 if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
                 {
@@ -72,15 +81,41 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
             var invocationOptions = this.CreateInvocationOptions();
 
-            if ( !captureOutput )
+            try
             {
-                exitCode = 0;
-                output = "";
+                if ( !captureOutput )
+                {
+                    exitCode = 0;
+                    output = "";
 
-                return DotNetHelper.Run( context, settings, projectOrSolution, verb, args, true, invocationOptions, logName );
+                    return DotNetHelper.Run( context, settings, projectOrSolution, verb, args, true, invocationOptions, logName );
+                }
+
+                return DotNetHelper.Run( context, settings, projectOrSolution, verb, args, true, out exitCode, out output, invocationOptions, logName );
             }
+            finally
+            {
+                if ( stagingDirectory != null )
+                {
+                    // Also on failure: a run that failed still produced the results of the tests that did run, and
+                    // those are the ones worth reading.
+                    this.PublishTestResults( context, stagingDirectory, runKey! );
+                }
+            }
+        }
 
-            return DotNetHelper.Run( context, settings, projectOrSolution, verb, args, true, out exitCode, out output, invocationOptions, logName );
+        /// <summary>
+        /// Moves the results of one completed run out of its staging directory, and records them so that they are
+        /// imported into TeamCity by name.
+        /// </summary>
+        private void PublishTestResults( BuildContext context, string stagingDirectory, string runKey )
+        {
+            var resultsDirectory = Path.Combine( context.RepoDirectory, context.Product.TestResultsDirectory );
+
+            foreach ( var file in TestResultsStaging.Publish( context.Console, stagingDirectory, resultsDirectory, runKey ) )
+            {
+                this.AddTestResultFile( Path.GetRelativePath( context.RepoDirectory, file ) );
+            }
         }
     }
 }
