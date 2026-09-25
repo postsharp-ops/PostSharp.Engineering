@@ -60,7 +60,13 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
         File.WriteAllText( Path.Combine( dumpDirectory, ".empty" ), "This file is intentionally empty." );
 
         // Execute the event.
-        product.OnPrepareCompleted( new PrepareCompletedEventArgs( context, settings ) );
+        var eventArgs = new PrepareCompletedEventArgs( context, settings );
+        product.OnPrepareCompleted( eventArgs );
+
+        if ( eventArgs.IsFailed )
+        {
+            return false;
+        }
 
         if ( !ArtifactManifestFile.TryRead( context, settings.BuildConfiguration, out var artifactManifestVersionInfo ) )
         {
