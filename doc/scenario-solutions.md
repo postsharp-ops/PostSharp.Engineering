@@ -53,6 +53,16 @@ Desktop MSBuild cannot restore .NET SDK projects reliably, so restore always run
 build then passes `-p:RestorePackages=false` so that the restore graph is not silently re-evaluated by a different
 engine.
 
+### The target of a `*.proj` scenario
+
+Both engines name the target they build, rather than letting MSBuild choose the default targets of the project.
+A `*.proj` scenario usually declares no `DefaultTargets` attribute, so the default is the first target in
+evaluation order, and an `<Import>` is expanded at its position. A scenario that imports `Directory.Build.props`
+before it declares its own `Build` target would therefore build whatever target the import chain contributed
+first, succeed, and report success although it had compiled nothing.
+
+Solutions and SDK projects keep the default target, whose first target is `Build` in either case.
+
 ## `test.json`
 
 A `test.json` file placed next to a scenario asserts on the *diagnostics* of the build, not just on its exit code.
@@ -79,7 +89,7 @@ behaves identically under both engines.
 | `ForbiddenDiagnosticsRegexes` | No diagnostic may match any of these patterns. |
 | `FailOnUnexpectedDiagnostics` | Fails on any diagnostic not matched by `ExpectedDiagnosticsRegexes`. |
 | `ErrorRegexes` | Fails if the whole output matches, when the build otherwise succeeded. |
-| `Target` | The MSBuild target. Honored by `ManyMSBuildSolutions` only. Defaults to `Build`. |
+| `Target` | The MSBuild target. Honored by `ManyMSBuildSolutions`, `MSBuildProjectSolution`, and by the `dotnet` engine when it builds a `*.proj` scenario. Defaults to `Build`. |
 | `Properties` | MSBuild properties passed to every run. |
 | `Matrix` | See below. |
 
