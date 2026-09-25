@@ -253,6 +253,12 @@ function Assert-NuGetPackagesPathSafe([string]$path)
 $EngPath = '<ENG_PATH>'
 $EnvironmentVariables = '<ENVIRONMENT_VARIABLES>'
 $DockerImagePrefix = '<DOCKER_IMAGE_PREFIX>'
+# The NuGet package directories a container deletes from the mounted cache before it restores anything: the
+# packages this product produces, and those of the whole closure of its dependencies. Every continuous-integration
+# build of a product carries the same public version, and NuGet never extracts a version that is already in the
+# global packages folder, so a container that does not delete them restores whatever an earlier build left in the
+# cache instead of the artifacts under test - and a test that passes then proves nothing.
+$NuGetCachePackagePatterns = @(<NUGET_CACHE_PACKAGE_PATTERNS>)
 $OvercommitRatio = 1.0
 ####
 
@@ -285,6 +291,97 @@ function ConvertTo-WslHostPath([string]$path)
     }
 
     return $path -replace '\\', '/'
+}
+
+# The removal of the stale product packages from the mounted NuGet cache, as the PowerShell that goes into
+# Init.g.ps1 - see where that script is written, and the generated pattern list above for why it has to happen.
+#
+# The container is what does it, rather than a step on the agent, because on a Unix agent it is the only thing that
+# can: a container runs as root while the agent does not, the cache is a bind mount, and so the agent user cannot
+# unlink what a container of an earlier build extracted there. Init.g.ps1 is also the right moment - the container
+# executes it before the build it was started for, hence before anything restores.
+#
+# A removal that fails aborts the container. Restoring a stale package is worse than not building at all: it reports
+# a pass for code that was never tested.
+function New-NuGetCacheCleanupScript
+{
+    if ($NuGetCachePackagePatterns.Count -eq 0)
+    {
+        return ""
+    }
+
+    $patterns = ( $NuGetCachePackagePatterns | ForEach-Object { ConvertTo-PowerShellLiteral $_ } ) -join ', '
+
+    # A single-quoted here-string: every variable below belongs to the container that runs this text, not to the
+    # host that writes it, so nothing here may be expanded now. The pattern list is the one thing substituted.
+    $body = @'
+# Remove the stale packages of this product from the NuGet cache before anything restores.
+$nugetCachePackagePatterns = @(__PATTERNS__)
+$nugetCacheDirectory = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $HOME '.nuget' 'packages' }
+
+if (Test-Path -LiteralPath $nugetCacheDirectory)
+{
+    $nugetCacheFailures = @()
+
+    foreach ($nugetCachePattern in $nugetCachePackagePatterns)
+    {
+        foreach ($nugetCacheDirectoryToRemove in @(Get-ChildItem -LiteralPath $nugetCacheDirectory -Directory -Filter $nugetCachePattern -ErrorAction SilentlyContinue))
+        {
+            Write-Host "Removing the stale NuGet cache directory: $( $nugetCacheDirectoryToRemove.FullName )" -ForegroundColor Cyan
+
+            try
+            {
+                Remove-Item -LiteralPath $nugetCacheDirectoryToRemove.FullName -Recurse -Force -ErrorAction Stop
+            }
+            catch
+            {
+                $nugetCacheFailures += "$( $nugetCacheDirectoryToRemove.FullName ): $( $_.Exception.Message )"
+                continue
+            }
+
+            if (Test-Path -LiteralPath $nugetCacheDirectoryToRemove.FullName)
+            {
+                $nugetCacheFailures += "$( $nugetCacheDirectoryToRemove.FullName ): the directory is still present after the removal."
+            }
+        }
+    }
+
+    if ($nugetCacheFailures.Count -gt 0)
+    {
+        Write-Host "Stale packages could not be removed from the NuGet cache, so this build would restore them:" -ForegroundColor Red
+        $nugetCacheFailures | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+        exit 1
+    }
+}
+
+'@
+
+    return $body.Replace('__PATTERNS__', $patterns)
+}
+
+# The same removal for a test container, as a POSIX shell command to put in front of the test command.
+#
+# A test container does not run Init.g.ps1 - a test image is chosen for the tool chain under test and is not
+# required to carry PowerShell 7, see where $NoInit is set - so the removal rides in the shell the container already
+# runs the test command with. A Docker test configuration starts no build container at all, which makes this the
+# only cleanup those configurations get.
+#
+# `rm -rf` has exactly the wanted semantics: a pattern matching nothing is silently fine, and a directory it cannot
+# remove makes it exit non-zero, so the test command never runs and the failure is reported rather than absorbed.
+# The directory is quoted and the pattern is not, which is what leaves the pattern for the shell to expand;
+# NuGetCachePatterns in the SDK refuses a pattern holding anything but a package identifier and the '*' wildcard.
+function New-NuGetCacheCleanupShellCommand([string]$nugetCacheDirectory)
+{
+    if ($NuGetCachePackagePatterns.Count -eq 0 -or [string]::IsNullOrEmpty($nugetCacheDirectory))
+    {
+        return ""
+    }
+
+    # The POSIX way to put an apostrophe in a single-quoted word: end the quoting, escape the apostrophe, resume.
+    $quotedDirectory = "'" + ( $nugetCacheDirectory -replace "'", "'\''" ) + "'"
+    $words = $NuGetCachePackagePatterns | ForEach-Object { "$quotedDirectory/$_" }
+
+    return "rm -rf " + ( $words -join ' ' ) + " && "
 }
 
 # A caller that splats an ARRAY -- `& ./DockerBuild.ps1 @arguments` where $arguments is @('-Test', ...) -- does not
@@ -3203,10 +3300,21 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             $postInitCommands += "if (`$postInitExitCode -and `$postInitExitCode -ne 0) { Write-Host `"PostInit script failed with exit code `$postInitExitCode.`" -ForegroundColor Red; exit `$postInitExitCode }`n"
         }
 
+        # After the environment variables, because the removal reads NUGET_PACKAGES from the environment those
+        # assignments establish, and before everything else, because nothing this container does may restore first.
+        $nugetCacheCleanup = if ($NoNuGetCache)
+        {
+            ""
+        }
+        else
+        {
+            New-NuGetCacheCleanupScript
+        }
+
         $initScriptContent = @"
 # Auto-generated initialization script for container startup
 
-$envVarAssignments$gitConfigCommands$postInitCommands
+$envVarAssignments$nugetCacheCleanup$gitConfigCommands$postInitCommands
 "@
 
         # Write a test file with GUID first to check git tracking
@@ -3371,9 +3479,14 @@ $envVarAssignments$gitConfigCommands$postInitCommands
         # Init.g.ps1 is in the mounted source directory, not baked into the image
         # Init.g.ps1 is in $EngPath/.g/ (outside docker-context), accessed via mounted source directory
         $containerInitScript = "$ContainerSourceDir/$EngPath/.g/Init.g.ps1"
+        # A non-zero exit from Init.g.ps1 stops the container before the build runs. `exit` inside a script invoked
+        # with `&` ends that script only, so without the check the caller carried on regardless: the NuGet cache
+        # clean-up could report that it had left a stale package behind and the build would restore it anyway, and
+        # the exit code of a -PostInit script was discarded in the same way. $LASTEXITCODE is zeroed first because a
+        # script that ends without `exit` leaves whatever the last native command set - the subst calls above, here.
         $initCall = if (-not $NoInit)
         {
-            "& '$containerInitScript'; "
+            "`$LASTEXITCODE = 0; & '$containerInitScript'; if ( `$LASTEXITCODE -ne 0 ) { exit `$LASTEXITCODE }; "
         }
         else
         {
@@ -3416,9 +3529,22 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             # A percent sign is the one case left unhandled: cmd would expand %Name% against the environment,
             # and the escape for that differs between the command line and a batch file. A directory named for a
             # variable is rare enough to leave, and it fails visibly rather than silently.
+            # The stale packages of this product go before the test command, in the same shell, because a test image
+            # cannot be relied on to run Init.g.ps1: see New-NuGetCacheCleanupShellCommand. A Windows test container
+            # gets nothing here - there the agent's own step removes them, because a Windows container leaves what it
+            # writes into a bind mount deletable by the account the agent runs as.
+            $testNuGetCacheCleanup = if ($IsUnix -and -not $NoNuGetCache)
+            {
+                New-NuGetCacheCleanupShellCommand $nugetCacheDir
+            }
+            else
+            {
+                ""
+            }
+
             $testCommandArgs = if ($IsUnix)
             {
-                @('sh', '-c', $Command)
+                @('sh', '-c', "$testNuGetCacheCleanup$Command")
             }
             elseif ($substCommandsCmd)
             {

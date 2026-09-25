@@ -191,6 +191,13 @@ container, not what the container can see: the repository, the caches and the de
 `DockerMounts.g.ps1` are all mounted, because a test that consumes a source dependency needs the same
 repositories the build needs.
 
+The NuGet cache is one of those mounts, and the container deletes this product's packages from it before the test
+command runs — `rm -rf … && <command>`, in the shell the test command already goes through, because a test image
+need not carry PowerShell 7 and so does not run `Init.g.ps1`. Without it a test restores whatever an earlier build
+left in the cache rather than the artifacts under test, since every CI build carries the same package version. A
+removal that fails means the test command never runs. See
+[dockerbuild.md](dockerbuild.md#clearing-the-stale-product-packages-from-the-nuget-cache).
+
 ### Two consequences to respect
 
 **The repository's MSBuild configuration applies.** A project built inside the mount inherits every

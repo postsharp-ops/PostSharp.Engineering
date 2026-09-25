@@ -49,6 +49,15 @@ internal static class EmbeddedResourceHelper
         // ContainerRequirements.GetImagePrefix / the default DockerSpec.ImageName.
         replacements.Add( "<DOCKER_IMAGE_PREFIX>", $"{product.ProductNameWithoutDot}-{product.ProductFamily.Version}".ToLowerInvariant() );
 
+        // The package directories a container deletes from the mounted NuGet cache before it restores. The list is
+        // baked into the script rather than passed to it, because it is a fact about the product and not a choice a
+        // caller makes, and because the TeamCity step that cleans what the agent itself can delete has to name exactly
+        // the same directories -- both read it from NuGetCachePatterns. The value lands inside @( ... ) as PowerShell
+        // single-quoted literals; an empty product yields an empty array.
+        replacements.Add(
+            "<NUGET_CACHE_PACKAGE_PATTERNS>",
+            string.Join( ", ", NuGetCachePatterns.GetPatterns( product ).Select( p => $"'{p}'" ) ) );
+
         AddDockerTestReplacements( product, replacements );
 
         ExtractResource( context, fileName, targetDirectory, replacements );

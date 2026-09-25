@@ -314,13 +314,13 @@ internal static class TeamCitySettingsFile
 
         // Insert, in front of every build configuration, a step that cleans the NuGet cache of all packages produced by
         // the current repo and by the whole closure of its dependencies, so stale packages cannot leak into the build.
-        var nugetCachePackagePrefixes = GetNuGetCachePackagePrefixes( product );
+        var nugetCachePackagePatterns = NuGetCachePatterns.GetPatterns( product );
 
-        if ( nugetCachePackagePrefixes.Length > 0 )
+        if ( nugetCachePackagePatterns.Length > 0 )
         {
             foreach ( var teamCityBuildConfiguration in allConfigurations )
             {
-                teamCityBuildConfiguration.NuGetCachePackagePrefixes = nugetCachePackagePrefixes;
+                teamCityBuildConfiguration.NuGetCachePackagePatterns = nugetCachePackagePatterns;
             }
         }
 
@@ -1066,29 +1066,6 @@ internal static class TeamCitySettingsFile
         };
 
         return teamCityBuildConfiguration;
-    }
-
-    /// <summary>
-    /// Gets the distinct, ordered set of package ID patterns (the <c>*</c> wildcard is allowed) to delete from the NuGet
-    /// cache before each build: the packages produced by the <paramref name="product"/> itself, plus those produced by
-    /// the whole closure of its dependencies, across all build configurations. These are the "namespace prefixes" used
-    /// to clean the NuGet cache before each build.
-    /// </summary>
-    private static string[] GetNuGetCachePackagePrefixes( Product product )
-    {
-        var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
-
-        var dependencyPatterns = configurations
-            .SelectMany( c => product.DependencyDefinition.GetAllDependencies( c ) )
-            .SelectMany( d => d.Definition.PackagePatterns );
-
-        // Include the packages produced by the current repo itself, not just its dependencies, so that stale packages
-        // from a previous build of this repo cannot leak into the build either.
-        return product.DependencyDefinition.PackagePatterns
-            .Concat( dependencyPatterns )
-            .Distinct( StringComparer.OrdinalIgnoreCase )
-            .OrderBy( p => p, StringComparer.OrdinalIgnoreCase )
-            .ToArray();
     }
 
     private static void GeneratePom( BuildContext context, string projectObjectName, string tcUrl )

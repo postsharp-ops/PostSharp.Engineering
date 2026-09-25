@@ -433,6 +433,42 @@ Nor does it cover a build that is cancelled or killed outright, where the step m
 
 The durable answer is a **rootless daemon** on the agents, where container root maps to the agent user and
 nothing is produced that needs reclaiming. This step is what keeps the agents usable until then.
+
+## Clearing the stale product packages from the NuGet cache
+
+Every CI build of a product carries the same public package version -- `2027.0.0-preview` for PostSharp 2027.0 --
+and NuGet never extracts a version that is already in the global packages folder. The containers mount that folder,
+so a build that does not delete the previous copy first restores **that** copy instead of the artifacts it depends
+on. A test then passes against code that no longer exists anywhere: one build restored a package whose MSBuild task
+still ran the lock code of a Backstage the artifacts build could not possibly have been compiled against.
+
+`generate-scripts` bakes the list of directories to delete into `DockerBuild.ps1`
+(`$NuGetCachePackagePatterns`): the packages the product produces, plus the closure of its dependencies. The same
+list goes into the generated TeamCity step, both from `NuGetCachePatterns` in the SDK, so the two cannot disagree.
+
+**The container does the deleting**, because on a Unix agent it is the only thing that can -- the same ownership
+problem as the section above. Two paths, because they are two kinds of container:
+
+| Container | Where the removal is | Why there |
+|---|---|---|
+| Build, `-Script`, `-Claude` | In `Init.g.ps1`, which the container runs before the build | It is the first thing the container does, hence before anything restores |
+| `-Test` | In front of the test command, in the container's own shell (`rm -rf … && …`) | A test image is chosen for the tool chain under test and need not carry PowerShell 7, so `Init.g.ps1` is not invoked there -- and a Docker test configuration starts no build container at all |
+
+**A removal that fails stops the build.** In the build container a non-zero exit from `Init.g.ps1` now ends the
+container before the build runs; in a test container the `&&` means the test command never starts. Restoring a
+stale package is worse than not building: it reports a pass for code that was never tested. Finding nothing to
+delete is success -- an empty cache is the normal state of a freshly cleaned agent.
+
+The generated agent-side step is what covers a build that runs no container at all. It deletes what it can and
+fails the build on a directory that survives -- except one belonging to another account, which it names and leaves
+to the container that restores it next, since no error handling on the agent can unlink what a container extracted.
+Before this, that step passed `-ErrorAction SilentlyContinue`: on `vanocka-ubuntu-1` it found some thirty
+directories, removed none, printed `Removed 0 package directory(ies)` and exited 0, on **every** Linux
+configuration of the farm. The macOS agent never had the problem, because Colima's `virtiofs` mount maps what the
+container writes back to the host user.
+
+`-NoNuGetCache` mounts no cache, and then neither path runs.
+
 ## Customizing the container environment (product repos)
 
 A product repo can adjust the environment variables passed to the container by committing an

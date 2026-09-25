@@ -94,7 +94,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         /// every containerised configuration gets.
         /// </summary>
         public bool StartsContainers { get; set; }
-        public string[]? NuGetCachePackagePrefixes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the NuGet package directories to delete before the build restores anything. See
+        /// <see cref="NuGetCachePatterns"/>.
+        /// </summary>
+        public string[]? NuGetCachePackagePatterns { get; set; }
 
         public TeamCityBuildConfiguration(
             string objectName,
@@ -167,14 +172,14 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             // Insert, in front of all other build steps, a step that deletes from the NuGet cache all packages produced
             // by the product itself and by the whole closure of its dependencies. Composite builds have no build steps,
             // so they are skipped.
-            if ( this.NuGetCachePackagePrefixes is { Length: > 0 } && allBuildSteps.Count > 0 )
+            if ( this.NuGetCachePackagePatterns is { Length: > 0 } && allBuildSteps.Count > 0 )
             {
                 allBuildSteps.Insert(
                     0,
                     new PowerShellCommandBuildStep(
                         "CleanNuGetCache",
                         "Clean NuGet cache of produced and dependency packages",
-                        GenerateNuGetCacheCleanupCommand( this.NuGetCachePackagePrefixes ),
+                        GenerateNuGetCacheCleanupCommand( this.NuGetCachePackagePatterns ),
                         null ) );
             }
 
@@ -490,33 +495,138 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         }
 
         /// <summary>
-        /// Generates a single-line PowerShell command that deletes, from the NuGet global packages folder, all package
-        /// directories whose name matches one of the given <paramref name="packagePrefixes"/>. The command honors the
-        /// <c>NUGET_PACKAGES</c> environment variable and otherwise falls back to the default location in the user profile
-        /// (<c>$HOME/.nuget/packages</c>). It logs each removed directory with its file count and prints a summary of how
-        /// many directories and files were deleted.
+        /// Generates the PowerShell script of the step that deletes, from the NuGet global packages folder of the agent,
+        /// every package directory matching one of the given <paramref name="packagePatterns"/>. The script honours the
+        /// <c>NUGET_PACKAGES</c> environment variable and otherwise falls back to the default location in the user
+        /// profile (<c>$HOME/.nuget/packages</c>).
         /// </summary>
-        private static string GenerateNuGetCacheCleanupCommand( IEnumerable<string> packagePrefixes )
+        /// <remarks>
+        /// <para>
+        /// A directory that survives fails the build. What this replaced passed <c>-ErrorAction SilentlyContinue</c> and
+        /// reported how much it had removed while never reporting what it could not: on a Linux agent it found some
+        /// thirty directories, removed none of them and exited 0, so every build there restored whatever an earlier
+        /// build had left in the cache. Finding nothing to delete is still success -- an empty cache is the normal state
+        /// of an agent that has just been cleaned.
+        /// </para>
+        /// <para>
+        /// The one survivor that is not a defect is a directory another account owns. A container runs as root while the
+        /// agent does not, and the cache is a bind mount, so what a container of an earlier build extracted cannot be
+        /// unlinked here at all -- no error handling changes that. Those are named and left to the container that is
+        /// about to restore them, which runs as root and does fail the build when it cannot remove them: see
+        /// <c>New-NuGetCacheCleanupScript</c> in <c>DockerBuild.ps1</c>. Failing here instead would mean no build could
+        /// ever run again on such an agent, since the cache is shared by every build configuration.
+        /// </para>
+        /// <para>
+        /// Internal rather than private because the tests run the script this returns, in PowerShell, against a
+        /// directory laid out like a NuGet cache. Asserting on its text would say nothing about the defect it replaced,
+        /// whose text read correctly.
+        /// </para>
+        /// </remarks>
+        internal static string GenerateNuGetCacheCleanupCommand( IEnumerable<string> packagePatterns )
         {
-            // NuGet stores packages in lower-case directories, so the match patterns are lower-cased here. Single quotes
-            // are doubled to remain valid inside a PowerShell single-quoted string literal.
-            var patterns = string.Join(
-                ", ",
-                packagePrefixes.Select( p => "'" + p.Replace( "'", "''", StringComparison.Ordinal ).ToLowerInvariant() + "'" ) );
+            // NuGetCachePatterns.GetPatterns has already lower-cased these and rejected anything that is not a package
+            // identifier or the '*' wildcard, so quoting them is all that is left to do here.
+            var patterns = string.Join( ", ", packagePatterns.Select( p => $"'{p}'" ) );
 
+            // Line endings are normalized because the script is escaped into a Kotlin string literal, and because the
+            // agent that runs it may be Unix.
             return
-                "$nugetPackages = if ( $env:NUGET_PACKAGES ) { $env:NUGET_PACKAGES } else { Join-Path $HOME '.nuget' 'packages' }; "
-                + "$removedDirs = 0; $removedFiles = 0; "
-                + "if ( Test-Path -LiteralPath $nugetPackages ) { "
-                + "foreach ( $pattern in @(" + patterns + ") ) { "
-                + "Get-ChildItem -LiteralPath $nugetPackages -Directory -Filter $pattern -ErrorAction SilentlyContinue | "
-                + "ForEach-Object { "
-                + "$files = @( Get-ChildItem -LiteralPath $_.FullName -Recurse -File -ErrorAction SilentlyContinue ).Count; "
-                + "Write-Host \"Removing NuGet cache directory: $($_.FullName) ($files file(s))\"; "
-                + "Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue; "
-                + "if ( -not ( Test-Path -LiteralPath $_.FullName ) ) { $removedDirs++; $removedFiles += $files } } "
-                + "} Write-Host \"Removed $removedDirs package directory(ies) and $removedFiles file(s) from the NuGet cache.\"; "
-                + "} else { Write-Host \"NuGet packages folder not found: $nugetPackages\" }";
+                $$"""
+                  $patterns = @({{patterns}})
+
+                  $nugetPackages = if ( $env:NUGET_PACKAGES ) { $env:NUGET_PACKAGES } else { Join-Path $HOME '.nuget' 'packages' }
+
+                  if ( -not ( Test-Path -LiteralPath $nugetPackages ) )
+                  {
+                      Write-Host "NuGet packages folder not found: $nugetPackages"
+                      exit 0
+                  }
+
+                  # The identifier of the account this step runs as, on Unix only, where it decides whether a directory
+                  # that cannot be removed is a defect or a directory belonging to root that a container will remove. A
+                  # Unix without `id` gets the Windows treatment, where every survivor is a defect.
+                  $ownUserId = $null
+
+                  if ( -not $IsWindows )
+                  {
+                      try { $ownUserId = [int](& id -u) } catch { $ownUserId = $null }
+                  }
+
+                  $removedDirectories = 0
+                  $removedFiles = 0
+                  $failures = @()
+                  $ownedByAnotherAccount = @()
+
+                  foreach ( $pattern in $patterns )
+                  {
+                      foreach ( $directory in @( Get-ChildItem -LiteralPath $nugetPackages -Directory -Filter $pattern -ErrorAction SilentlyContinue ) )
+                      {
+                          $path = $directory.FullName
+                          $files = @( Get-ChildItem -LiteralPath $path -Recurse -File -ErrorAction SilentlyContinue ).Count
+                          Write-Host "Removing NuGet cache directory: $path ($files file(s))"
+
+                          $failure = $null
+
+                          try
+                          {
+                              Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
+                          }
+                          catch
+                          {
+                              $failure = $_.Exception.Message
+                          }
+
+                          if ( -not ( Test-Path -LiteralPath $path ) )
+                          {
+                              $removedDirectories++
+                              $removedFiles += $files
+                              continue
+                          }
+
+                          if ( -not $failure )
+                          {
+                              $failure = 'the directory is still present after the removal'
+                          }
+
+                          # Everything still there is tested, not the directory itself: NuGet creates the directory of a
+                          # package the first time anything restores it, so the agent may well own that while the version
+                          # directory a container extracted underneath it belongs to root.
+                          $ownedElsewhere = @()
+
+                          if ( $null -ne $ownUserId )
+                          {
+                              $entries = @( Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue ) +
+                                  @( Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue )
+
+                              $ownedElsewhere = @( $entries | Where-Object { $_.UnixStat.UserId -ne $ownUserId } )
+                          }
+
+                          if ( $ownedElsewhere.Count -gt 0 )
+                          {
+                              $ownedByAnotherAccount += $path
+                          }
+                          else
+                          {
+                              $failures += "${path}: $failure"
+                          }
+                      }
+                  }
+
+                  Write-Host "Removed $removedDirectories package directory(ies) and $removedFiles file(s) from the NuGet cache."
+
+                  if ( $ownedByAnotherAccount.Count -gt 0 )
+                  {
+                      Write-Host "$($ownedByAnotherAccount.Count) directory(ies) belong to another account, having been extracted by a container of an earlier build. The container that restores them next deletes them, and fails the build if it cannot:"
+                      $ownedByAnotherAccount | ForEach-Object { Write-Host "  $_" }
+                  }
+
+                  if ( $failures.Count -gt 0 )
+                  {
+                      Write-Host "The NuGet cache could not be cleaned, so this build would restore stale packages:" -ForegroundColor Red
+                      $failures | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                      exit 1
+                  }
+                  """.ReplaceLineEndings( "\n" );
         }
     }
 }

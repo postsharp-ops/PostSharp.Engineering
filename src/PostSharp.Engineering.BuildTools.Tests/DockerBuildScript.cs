@@ -57,16 +57,59 @@ internal static class DockerBuildScript
     /// Extracts a <c>function</c> block declared at the top level of the script, i.e. one that is not indented and is
     /// closed by a brace in the first column. <see cref="ExtractFunction"/> handles the ones nested in a block.
     /// </summary>
+    /// <remarks>
+    /// The end of the function is found by reading lines rather than with one expression, because a function that
+    /// builds PowerShell for the container to run holds that text in a here-string, and the braces of the text inside
+    /// it sit in the first column too. A pattern ending at the first such brace cut the function in half and left the
+    /// here-string unterminated, which fails as a parse error in the harness rather than as a wrong assertion.
+    /// </remarks>
     public static string ExtractTopLevelFunction( string name )
     {
-        var match = Regex.Match(
-            Text,
-            @"^function\s+" + Regex.Escape( name ) + @"\b.*?^\}",
-            RegexOptions.Multiline | RegexOptions.Singleline );
+        var lines = Text.ReplaceLineEndings( "\n" ).Split( '\n' );
+        var header = $"function {name}";
 
-        Assert.True( match.Success, $"Could not extract the top-level '{name}' function from DockerBuild.ps1." );
+        var start = Array.FindIndex(
+            lines,
+            l => l.StartsWith( header, StringComparison.Ordinal )
+                 && (l.Length == header.Length || !(char.IsLetterOrDigit( l[header.Length] ) || l[header.Length] == '-')) );
 
-        return match.Value;
+        Assert.True( start >= 0, $"Could not find the top-level '{name}' function in DockerBuild.ps1." );
+
+        // The terminator of the here-string that is open, or null outside one. A here-string opens at the end of a line
+        // and its terminator is the first thing on a line, which is what makes this readable one line at a time.
+        string? hereStringTerminator = null;
+
+        for ( var i = start + 1; i < lines.Length; i++ )
+        {
+            var line = lines[i];
+
+            if ( hereStringTerminator != null )
+            {
+                if ( line.StartsWith( hereStringTerminator, StringComparison.Ordinal ) )
+                {
+                    hereStringTerminator = null;
+                }
+
+                continue;
+            }
+
+            var trimmed = line.TrimEnd();
+
+            if ( trimmed.EndsWith( "@'", StringComparison.Ordinal ) )
+            {
+                hereStringTerminator = "'@";
+            }
+            else if ( trimmed.EndsWith( "@\"", StringComparison.Ordinal ) )
+            {
+                hereStringTerminator = "\"@";
+            }
+            else if ( line == "}" )
+            {
+                return string.Join( "\n", lines[start..(i + 1)] );
+            }
+        }
+
+        throw new InvalidOperationException( $"The top-level '{name}' function of DockerBuild.ps1 is not closed." );
     }
 
     /// <summary>
@@ -113,6 +156,19 @@ internal static class DockerBuildScript
     /// </summary>
     public static string Run( string executable, string script )
     {
+        var (exitCode, output) = TryRun( executable, script );
+
+        Assert.True( exitCode == 0, $"PowerShell exited with {exitCode}:\n{output}" );
+
+        return output;
+    }
+
+    /// <summary>
+    /// Runs a script through PowerShell and returns its exit code along with everything it wrote, for a test whose
+    /// subject is the exit code -- a clean-up that must fail the build rather than report what it could not do.
+    /// </summary>
+    public static (int ExitCode, string Output) TryRun( string executable, string script )
+    {
         var scriptFile = Path.Combine( Path.GetTempPath(), $"dockerbuild-test-{Guid.NewGuid():N}.ps1" );
         File.WriteAllText( scriptFile, script, new UTF8Encoding( false ) );
 
@@ -127,9 +183,7 @@ internal static class DockerBuildScript
             var output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
             process.WaitForExit( 120_000 );
 
-            Assert.True( process.ExitCode == 0, $"PowerShell exited with {process.ExitCode}:\n{output}" );
-
-            return output;
+            return (process.ExitCode, output);
         }
         finally
         {
