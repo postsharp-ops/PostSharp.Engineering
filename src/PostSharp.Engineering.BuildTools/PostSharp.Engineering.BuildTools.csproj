@@ -36,7 +36,6 @@
         <PackageReference Include="Microsoft.TeamFoundationServer.Client" />
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="HtmlAgilityPack" />
-        <PackageReference Include="NuGet.Versioning" />
         <PackageReference Include="Spectre.Console" />
         <PackageReference Include="Spectre.Console.Cli" />
         <PackageReference Include="System.Configuration.ConfigurationManager" />

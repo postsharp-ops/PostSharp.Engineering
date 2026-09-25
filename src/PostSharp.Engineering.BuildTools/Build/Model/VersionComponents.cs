@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using Microsoft.Build.Evaluation;
-using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -305,7 +304,7 @@ internal record VersionComponents
 
             var versionString = mainDependencySource.Version;
 
-            if ( !NuGetVersion.TryParse( versionString, out var mainFullVersion ) )
+            if ( !ParsedPackageVersion.TryParse( versionString, out var mainFullVersion ) )
             {
                 context.Console.WriteError( $"Could not parse the version '{versionString}'." );
 
@@ -314,7 +313,7 @@ internal record VersionComponents
                 return false;
             }
 
-            mainVersion = new NuGetVersion( mainFullVersion.Major, mainFullVersion.Minor, mainFullVersion.Patch ).ToString();
+            mainVersion = $"{mainFullVersion.Major}.{mainFullVersion.Minor}.{mainFullVersion.Patch}";
         }
         else
         {

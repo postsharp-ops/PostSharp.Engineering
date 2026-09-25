@@ -1,6 +1,5 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -51,7 +50,7 @@ internal abstract class ResharperCommand : BaseCommand<ResharperCommandSettings>
                     out var sdkVersionString,
                     ToolInvocationOptions.Default with { Silent = true } );
 
-                if ( !NuGetVersion.TryParse( sdkVersionString, out var sdkVersion ) )
+                if ( !ParsedPackageVersion.TryParse( sdkVersionString, out var sdkVersion ) )
                 {
                     context.Console.WriteError( $"Cannot parse Sdk version '{sdkVersionString}'." );
 

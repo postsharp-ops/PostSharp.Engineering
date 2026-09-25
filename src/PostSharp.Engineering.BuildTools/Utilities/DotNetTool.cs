@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Immutable;
@@ -116,9 +115,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 }
                 else
                 {
-                    var installedVersion = NuGetVersion.Parse( installedVersionString );
+                    var installedVersion = ParsedPackageVersion.Parse( installedVersionString );
 
-                    if ( installedVersion < NuGetVersion.Parse( this.Version ) )
+                    if ( installedVersion < ParsedPackageVersion.Parse( this.Version ) )
                     {
                         installVerb = "update";
                     }
