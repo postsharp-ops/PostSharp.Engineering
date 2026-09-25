@@ -310,6 +310,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// The highest version that matches the specified version components of this property is chosen. If this property is not set,
         /// MSBuild cannot be used.
         /// </summary>
+        /// <remarks>
+        /// Outside continuous integration, where no installation matches, the highest installation of the same major version that is
+        /// above this one is used instead, and a warning names both versions. Visual Studio updates on its own schedule and removes
+        /// the version it replaces, so an exact match would stop every local build on the day the machine moved past this property,
+        /// and the remedy would be a commit in every product repository. Continuous integration keeps the exact match, because a
+        /// build whose result is published must use the version that the product declares.
+        /// </remarks>
         public Version? MSBuildVersion { get; init; }
 
         public AdditionalCiBuildConfiguration[] AdditionalCiBuildConfigurations { get; init; } = [];

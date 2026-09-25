@@ -122,8 +122,8 @@ public sealed class MSBuildHelperTests
     }
 
     /// <summary>
-    /// Continuous integration keeps the exact match. The container has exactly one installation, and the pin is what
-    /// makes a local build comparable to it, so a silent substitution there would defeat the pin.
+    /// Continuous integration keeps the exact match. A build whose result is published must use the version that the
+    /// product declares, so a silent substitution there would defeat the pin.
     /// </summary>
     [Fact]
     public void ANewerVersionIsRefusedWhenNewerIsNotAllowed()

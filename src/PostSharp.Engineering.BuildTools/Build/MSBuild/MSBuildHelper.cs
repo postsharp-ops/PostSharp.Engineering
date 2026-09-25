@@ -110,9 +110,9 @@ internal static class MSBuildHelper
         {
             context.Console.WriteWarning(
                 $"No MSBuild of the pinned version '{requestedVersion}' is installed, so '{instance!.Name}' "
-                + $"(version {instance.Version}) is used instead. The build container uses the pinned version, so a "
-                + "difference in behavior between this build and a continuous integration build is possible. Change the "
-                + $"Product.{nameof(Product.MSBuildVersion)} property to stop this warning." );
+                + $"(version {instance.Version}) is used instead. This build therefore does not use the MSBuild version "
+                + $"that the product declares. Change the Product.{nameof(Product.MSBuildVersion)} property to the "
+                + "installed version to stop this warning." );
         }
 
         if ( instance == null )
@@ -144,11 +144,10 @@ internal static class MSBuildHelper
     /// <remarks>
     /// Visual Studio updates on its own schedule and removes the version it replaces, so an exact match stops every
     /// local build of a repository on the day the machine moves past the pinned version, through no action of the
-    /// developer. The remedy is a commit in every product repository, and that commit also changes the build
-    /// container, which is a change to make deliberately and on its own. Outside continuous integration the pinned
-    /// version is therefore a minimum, and the substitution is reported so that a difference between the local build
-    /// and the container is never silent. Continuous integration keeps the exact match: the container has exactly one
-    /// installation, and the pin is what makes a local build comparable to it.
+    /// developer, and the remedy is a commit in every product repository. Outside continuous integration the pinned
+    /// version is therefore a minimum, and the substitution is reported so that a build on an engine other than the
+    /// declared one is never silent. Continuous integration keeps the exact match, because a build whose result is
+    /// published must use the version that the product declares, and the build agent is provisioned to have it.
     /// </remarks>
     /// <param name="instances">The candidate installations, ordered by descending version.</param>
     internal static MSBuildInstance? SelectInstance(
