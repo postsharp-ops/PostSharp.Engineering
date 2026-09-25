@@ -63,8 +63,9 @@ internal static class MSBuildHelper
 
     /// <summary>
     /// Finds the desktop (.NET Framework) <c>MSBuild.exe</c>. When a version is requested, either by
-    /// <paramref name="msbuildVersion"/> or by <see cref="Product.MSBuildVersion"/>, only an installation matching that
-    /// version is accepted. Otherwise, the latest installation is used.
+    /// <paramref name="msbuildVersion"/> or by <see cref="Product.MSBuildVersion"/>, an installation of exactly that
+    /// version is preferred. Outside continuous integration, a newer installation is accepted as a fallback, and the
+    /// substitution is reported as a warning. Otherwise, the latest installation is used.
     /// </summary>
     /// <param name="explicitPath">An explicit path that takes precedence over any discovery, or <c>null</c>. When
     /// <c>null</c>, the <c>ENG_MSBUILD_EXE</c> environment variable is used instead.</param>
@@ -103,13 +104,16 @@ internal static class MSBuildHelper
             return FindLatestMSBuildExe( context, instances );
         }
 
-        var instance = instances
-            .FirstOrDefault( i => MatchVersionComponent( requestedVersion.Major, i.Version.Major )
-                                  && MatchVersionComponent( requestedVersion.Minor, i.Version.Minor )
-                                  && MatchVersionComponent( requestedVersion.Build, i.Version.Build )
-                                  && MatchVersionComponent( requestedVersion.Revision, i.Version.Revision ) );
+        var instance = SelectInstance( instances, requestedVersion, allowNewer: !context.IsContinuousIntegrationBuild, out var isNewerThanRequested );
 
-        static bool MatchVersionComponent( int requested, int supplied ) => requested < 0 || requested == supplied;
+        if ( isNewerThanRequested )
+        {
+            context.Console.WriteWarning(
+                $"No MSBuild of the pinned version '{requestedVersion}' is installed, so '{instance!.Name}' "
+                + $"(version {instance.Version}) is used instead. This build therefore does not use the MSBuild version "
+                + $"that the product declares. Change the Product.{nameof(Product.MSBuildVersion)} property to the "
+                + "installed version to stop this warning." );
+        }
 
         if ( instance == null )
         {
@@ -121,12 +125,65 @@ internal static class MSBuildHelper
             context.Console.WriteError(
                 $"Could not find msbuild.exe matching the required MSBuild version '{requestedVersion}'. {availableDescription} "
                 + "Install the matching Visual Studio version (including the MSBuild component), "
-                + $"or change the Product.{nameof(Product.MSBuildVersion)} property to match an installed version." );
+                + $"change the Product.{nameof(Product.MSBuildVersion)} property to match an installed version, "
+                + $"or set the {MSBuildExeEnvironmentVariable} environment variable to the full path of MSBuild.exe." );
 
             return null;
         }
 
         return Path.Combine( instance.Path, "MSBuild", "Current", "Bin", "msbuild.exe" );
+    }
+
+    /// <summary>
+    /// Chooses the installation that satisfies a pinned version. An installation whose version is equal to
+    /// <paramref name="requestedVersion"/>, component by component, is always preferred. When
+    /// <paramref name="allowNewer"/> is <c>true</c> and there is none, the newest installation that is at least the
+    /// pinned version and has the same major version is returned instead, and <paramref name="isNewerThanRequested"/>
+    /// is set.
+    /// </summary>
+    /// <remarks>
+    /// Visual Studio updates on its own schedule and removes the version it replaces, so an exact match stops every
+    /// local build of a repository on the day the machine moves past the pinned version, through no action of the
+    /// developer, and the remedy is a commit in every product repository. Outside continuous integration the pinned
+    /// version is therefore a minimum, and the substitution is reported so that a build on an engine other than the
+    /// declared one is never silent. Continuous integration keeps the exact match, because a build whose result is
+    /// published must use the version that the product declares, and the build agent is provisioned to have it.
+    /// </remarks>
+    /// <param name="instances">The candidate installations, ordered by descending version.</param>
+    internal static MSBuildInstance? SelectInstance(
+        IReadOnlyList<MSBuildInstance> instances,
+        Version requestedVersion,
+        bool allowNewer,
+        out bool isNewerThanRequested )
+    {
+        isNewerThanRequested = false;
+
+        // A component that the pin leaves out is -1, which matches anything. A pin of '18.9' therefore accepts
+        // 18.9.12210.168 but not 18.10.
+        var exactMatch = instances
+            .FirstOrDefault( i => MatchVersionComponent( requestedVersion.Major, i.Version.Major )
+                                  && MatchVersionComponent( requestedVersion.Minor, i.Version.Minor )
+                                  && MatchVersionComponent( requestedVersion.Build, i.Version.Build )
+                                  && MatchVersionComponent( requestedVersion.Revision, i.Version.Revision ) );
+
+        static bool MatchVersionComponent( int requested, int supplied ) => requested < 0 || requested == supplied;
+
+        if ( exactMatch != null || !allowNewer )
+        {
+            return exactMatch;
+        }
+
+        // The major version is the boundary of the substitution, and not a detail. Installations of unrelated
+        // products are listed here as well: SQL Server Management Studio 22 carries an MSBuild whose version is
+        // numerically above every Visual Studio one, and building with it because Visual Studio 2026 moved from 18.9
+        // to 18.10 would be a far larger change than the one being worked around. A new major version of Visual
+        // Studio therefore still fails, which is correct: that is a deliberate event, not an update that arrives
+        // unannounced.
+        var newer = instances.FirstOrDefault( i => i.Version.Major == requestedVersion.Major && i.Version >= requestedVersion );
+
+        isNewerThanRequested = newer != null;
+
+        return newer;
     }
 
     /// <summary>
