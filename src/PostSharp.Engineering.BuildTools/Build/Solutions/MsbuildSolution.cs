@@ -122,6 +122,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 argsBuilder.Append( " -p:ContinuousIntegrationBuild=True" );
             }
 
+            if ( settings.NoSign )
+            {
+                argsBuilder.Append( " -p:DoNotSign=True" );
+            }
+
             if ( !string.IsNullOrWhiteSpace( arguments ) )
             {
                 argsBuilder.Append( " " + arguments.Trim() );
