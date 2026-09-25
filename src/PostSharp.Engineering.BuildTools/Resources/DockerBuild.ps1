@@ -88,7 +88,9 @@
     it needs by a path relative to the repository root. Use it for a test that needs a container of its own.
 
 .PARAMETER Context
-    (-Test) The Docker build context directory. Defaults to the directory containing the Dockerfile.
+    (-Test) The Docker build context directory. Defaults to the directory containing the Dockerfile, or, for a
+    Dockerfile of the repository's image chain (eng/docker), to the context of that image in the chain, so that the
+    test reuses the image the chain built or published.
 
 .PARAMETER Command
     (-Test) The command line executed in the test container, instead of the build script. Mutually exclusive
@@ -204,8 +206,8 @@ param(
     [string]$Dockerfile, # Path to custom Dockerfile (defaults to Dockerfile or Dockerfile.claude based on -Claude).
     [ValidateSet('windows', 'linux')]
     [string]$OS, # The operating system of the containers. Defaults to the host's. On a Windows development machine, 'linux' re-executes this script inside WSL.
-    [switch]$Test, # Run an isolated Docker test container. Requires -Dockerfile and -Command. Builds no product image chain, mounts no repository directory, and passes no product environment variable.
-    [string]$Context, # (-Test) The Docker build context directory. Defaults to the directory containing the Dockerfile.
+    [switch]$Test, # Run an isolated Docker test container. Requires -Dockerfile and -Command. Resolves the product image chain only when -Dockerfile names one of its Dockerfiles.
+    [string]$Context, # (-Test) The Docker build context directory. Defaults to the directory containing the Dockerfile, or to the chain context of a Dockerfile of the image chain.
     [string]$Command, # (-Test) The command line executed in the test container, instead of the build script.
     [string]$RegistryImage, # Use a pre-built image from a registry, skipping Dockerfile build entirely.
     [switch]$NoRegistry, # Ignore DOCKER_REGISTRY and its credentials; build locally without pulling or pushing.
@@ -580,7 +582,30 @@ try
             }
         }
 
-        $testContext = if ($Context) { $Context } else { Split-Path -Parent $Dockerfile }
+        # The full path, resolved as the image chain resolves the Dockerfile later, so that Get-ContextDirFor can tell
+        # the test's own Dockerfile from the ancestors it names through ARG BASE_IMAGE.
+        $testDockerfilePath = if ([System.IO.Path]::IsPathRooted($Dockerfile)) { $Dockerfile } else { Join-Path $PSScriptRoot $Dockerfile }
+        $script:TestDockerfilePath = [System.IO.Path]::GetFullPath($testDockerfilePath)
+
+        # A test may run in an image of the repository's chain, typically the build image, so that it reuses an
+        # image that is already built or published instead of building one of its own. Such an image takes the
+        # context of the chain by default: any other context gives it another content hash, hence another tag, and
+        # the image would be built again.
+        $chainDirectory = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "$EngPath/docker"))
+        $isChainDockerfile = [string]::Equals(
+            [System.IO.Path]::GetDirectoryName($script:TestDockerfilePath).TrimEnd('\', '/'),
+            $chainDirectory.TrimEnd('\', '/'),
+            [System.StringComparison]::OrdinalIgnoreCase)
+
+        $testContext = if ($Context) { $Context }
+        elseif ($isChainDockerfile) { Join-Path $PSScriptRoot "$EngPath/docker-context/$([System.IO.Path]::GetFileNameWithoutExtension($script:TestDockerfilePath))" }
+        else { Split-Path -Parent $Dockerfile }
+
+        # The chain treats a missing context directory as an empty one, and creates it before building.
+        if ($isChainDockerfile -and -not $Context -and -not (Test-Path -LiteralPath $testContext))
+        {
+            New-Item -ItemType Directory -Path $testContext -Force | Out-Null
+        }
 
         if (-not (Test-Path -LiteralPath $testContext -PathType Container))
         {
@@ -1139,8 +1164,10 @@ try
     function Get-ContextDirFor([string]$dfPath)
     {
         # A test image takes its context from the test's own directory. The test owns the files its Dockerfile
-        # copies, and it is not part of the repository's image chain.
-        if ($Test)
+        # copies, and it is not part of the repository's image chain. The ancestors it names through ARG BASE_IMAGE
+        # are, and keep the context of the chain: with the test's context they would get another tag than the one
+        # the chain built or published, and would be built again.
+        if ($Test -and [string]::Equals([System.IO.Path]::GetFullPath($dfPath), $script:TestDockerfilePath, [System.StringComparison]::OrdinalIgnoreCase))
         {
             return $script:TestContextDirectory
         }
