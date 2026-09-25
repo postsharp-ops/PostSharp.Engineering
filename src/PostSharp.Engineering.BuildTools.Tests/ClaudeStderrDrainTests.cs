@@ -29,7 +29,10 @@ namespace PostSharp.Engineering.BuildTools.Tests;
 /// </remarks>
 public sealed class ClaudeStderrDrainTests : IDisposable
 {
-    private readonly string _directory = Path.Combine( Path.GetTempPath(), $"stderr-drain-{Guid.NewGuid():N}" );
+    // The apostrophe is deliberate. Every path below is interpolated into a single-quoted PowerShell literal, and a
+    // user profile such as `O'Connor` puts one in the temporary path of a real machine. Keeping one here means the
+    // escaping is exercised on every run rather than on the machine that happens to have such a profile.
+    private readonly string _directory = Path.Combine( Path.GetTempPath(), $"stderr-drain-o'brien-{Guid.NewGuid():N}" );
 
     public ClaudeStderrDrainTests()
     {
@@ -147,9 +150,9 @@ public sealed class ClaudeStderrDrainTests : IDisposable
 
                           $script:ClaudeExe = 'pwsh'
                           $result = Invoke-ClaudeOnce `
-                              -Arguments '-NoProfile -NonInteractive -File "{{childFile}}"' `
+                              -Arguments '-NoProfile -NonInteractive -File "{{DockerBuildScript.Escape( childFile )}}"' `
                               -StdinContent '' `
-                              -LogFile '{{logFile}}'
+                              -LogFile '{{DockerBuildScript.Escape( logFile )}}'
                           "EXIT=$($result.ExitCode) SENTINEL=$($result.Sentinel) SESSION=$($result.SessionId)"
 
                           """;
