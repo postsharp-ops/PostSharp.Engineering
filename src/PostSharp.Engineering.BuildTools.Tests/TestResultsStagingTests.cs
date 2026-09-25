@@ -32,14 +32,16 @@ public sealed class TestResultsStagingTests : IDisposable
 
     private static string CreateStagedFile( string stagingDirectory, string fileName, string content = "content" )
     {
-        Directory.CreateDirectory( Path.GetDirectoryName( Path.Combine( stagingDirectory, fileName ) )! );
-        File.WriteAllText( Path.Combine( stagingDirectory, fileName ), content );
+        var path = Path.Combine( stagingDirectory, fileName );
 
-        return Path.Combine( stagingDirectory, fileName );
+        Directory.CreateDirectory( Path.GetDirectoryName( path )! );
+        File.WriteAllText( path, content );
+
+        return path;
     }
 
-    private string GetStagingDirectory( string logName = "Scenario" )
-        => TestResultsStaging.GetStagingDirectory( this._directory, Path.Combine( "artifacts", "testResults" ), logName );
+    private string GetStagingDirectory( string runKey )
+        => TestResultsStaging.GetStagingDirectory( this._directory, Path.Combine( "artifacts", "testResults" ), runKey );
 
     /// <summary>
     /// The staging directory must not be inside the results directory. A subdirectory would be published as a build
@@ -49,7 +51,7 @@ public sealed class TestResultsStagingTests : IDisposable
     [Fact]
     public void TheStagingDirectoryIsOutsideTheResultsDirectory()
     {
-        var staging = this.GetStagingDirectory();
+        var staging = this.GetStagingDirectory( "Scenario" );
 
         Assert.False(
             staging.StartsWith( this._results + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase ),
@@ -57,13 +59,39 @@ public sealed class TestResultsStagingTests : IDisposable
     }
 
     /// <summary>
-    /// Two runs of one scenario, and two scenarios, must never share a staging directory, or one would move the
-    /// half-written results of the other.
+    /// The regression behind the run key. <c>Solution.Name</c> is only the file name of the project, so the log name
+    /// of two scenarios in different directories is the same. Sharing a staging directory would let two parallel
+    /// runs publish or delete each other's files.
     /// </summary>
     [Fact]
-    public void EachRunGetsItsOwnStagingDirectory()
+    public void TwoScenariosWithTheSameFileNameGetDifferentKeys()
     {
-        Assert.NotEqual( this.GetStagingDirectory( "Scenario" ), this.GetStagingDirectory( "Scenario.matrix-entry" ) );
+        Assert.NotEqual(
+            TestResultsStaging.GetRunKey( Path.Combine( "a", "Tests.csproj" ), "Tests.csproj" ),
+            TestResultsStaging.GetRunKey( Path.Combine( "b", "Tests.csproj" ), "Tests.csproj" ) );
+    }
+
+    /// <summary>
+    /// The key must not depend on the separator of the platform, or the results of a Windows agent and of a Linux
+    /// agent would land in differently named directories for the same scenario.
+    /// </summary>
+    [Fact]
+    public void TheRunKeyIsIndependentOfThePathSeparator()
+    {
+        Assert.Equal(
+            TestResultsStaging.GetRunKey( "a/b/Tests.csproj", "Tests.csproj" ),
+            TestResultsStaging.GetRunKey( @"a\b\Tests.csproj", "Tests.csproj" ) );
+    }
+
+    /// <summary>
+    /// Two entries of the matrix of one scenario are two runs, and each writes its own results.
+    /// </summary>
+    [Fact]
+    public void EachMatrixEntryGetsItsOwnKey()
+    {
+        Assert.NotEqual(
+            TestResultsStaging.GetRunKey( "a/Tests.csproj", "Tests.csproj" ),
+            TestResultsStaging.GetRunKey( "a/Tests.csproj", "Tests.csproj.net8.0" ) );
     }
 
     /// <summary>
@@ -73,60 +101,77 @@ public sealed class TestResultsStagingTests : IDisposable
     [Fact]
     public void AStagingDirectoryNameIsAValidFileName()
     {
-        var staging = this.GetStagingDirectory( "Scenario:net8.0/net9.0" );
+        var staging = this.GetStagingDirectory( TestResultsStaging.GetRunKey( "a/Tests.csproj", "Scenario:net8.0/net9.0" ) );
 
         Assert.DoesNotContain( Path.GetFileName( staging ), c => Path.GetInvalidFileNameChars().Contains( c ) );
     }
 
     [Fact]
-    public void PublishMovesTheFilesAndRemovesTheStagingDirectory()
+    public void PublishMovesTheResultsAndRemovesTheStagingDirectory()
     {
-        var staging = this.GetStagingDirectory();
+        var staging = this.GetStagingDirectory( "run" );
         CreateStagedFile( staging, "results.trx" );
 
-        var published = TestResultsStaging.Publish( this._console, staging, this._results );
+        var published = TestResultsStaging.Publish( this._console, staging, this._results, "run" );
 
-        Assert.Equal( Path.Combine( this._results, "results.trx" ), Assert.Single( published ) );
-        Assert.True( File.Exists( Path.Combine( this._results, "results.trx" ) ) );
+        Assert.Equal( Path.Combine( this._results, "run", "results.trx" ), Assert.Single( published ) );
         Assert.False( Directory.Exists( staging ) );
     }
 
     /// <summary>
-    /// A <c>.trx</c> names its attachments, so a parser that reads it the moment it appears must find them already
-    /// there.
+    /// A <c>.trx</c> names its attachments by a path relative to itself, so flattening the directory that
+    /// <c>dotnet test</c> produced would leave those references pointing at nothing, and would merge same-named
+    /// attachments of different tests.
     /// </summary>
     [Fact]
-    public void AttachmentsAreMovedBeforeTheTrxThatNamesThem()
+    public void TheLayoutOfTheAttachmentsIsPreserved()
     {
-        var staging = this.GetStagingDirectory();
+        var staging = this.GetStagingDirectory( "run" );
+        CreateStagedFile( staging, "results.trx" );
+        CreateStagedFile( staging, Path.Combine( "results", "first", "attachment.log" ), "first" );
+        CreateStagedFile( staging, Path.Combine( "results", "second", "attachment.log" ), "second" );
+
+        TestResultsStaging.Publish( this._console, staging, this._results, "run" );
+
+        Assert.Equal( "first", File.ReadAllText( Path.Combine( this._results, "run", "results", "first", "attachment.log" ) ) );
+        Assert.Equal( "second", File.ReadAllText( Path.Combine( this._results, "run", "results", "second", "attachment.log" ) ) );
+    }
+
+    /// <summary>
+    /// Only a <c>.trx</c> is a test report. Reporting an attachment as one makes TeamCity parse a log or a dump as an
+    /// XML test report.
+    /// </summary>
+    [Fact]
+    public void OnlyTheTrxFilesAreReported()
+    {
+        var staging = this.GetStagingDirectory( "run" );
         CreateStagedFile( staging, "results.trx" );
         CreateStagedFile( staging, Path.Combine( "results", "attachment.log" ) );
         CreateStagedFile( staging, Path.Combine( "results", "dump.txt" ) );
 
-        var published = TestResultsStaging.Publish( this._console, staging, this._results );
+        var published = TestResultsStaging.Publish( this._console, staging, this._results, "run" );
 
-        Assert.Equal( 3, published.Count );
-        Assert.EndsWith( ".trx", published.Last(), StringComparison.Ordinal );
+        Assert.EndsWith( ".trx", Assert.Single( published ), StringComparison.Ordinal );
     }
 
     /// <summary>
-    /// <c>dotnet test</c> names a <c>.trx</c> after the machine and a timestamp of one-second resolution, so two runs
-    /// can propose the same name. Overwriting would discard the results of one of them.
+    /// A run key is unique within a build, but the results of a previous build may still be there, and overwriting
+    /// them would discard results the build is about to publish.
     /// </summary>
     [Fact]
-    public void ACollidingNameIsMadeDistinctInsteadOfOverwriting()
+    public void ATakenDestinationIsNotOverwritten()
     {
-        var first = this.GetStagingDirectory( "First" );
-        CreateStagedFile( first, "host_2026-09-25.trx", "first" );
-        TestResultsStaging.Publish( this._console, first, this._results );
+        var first = this.GetStagingDirectory( "run" );
+        CreateStagedFile( first, "results.trx", "first" );
+        TestResultsStaging.Publish( this._console, first, this._results, "run" );
 
-        var second = this.GetStagingDirectory( "Second" );
-        CreateStagedFile( second, "host_2026-09-25.trx", "second" );
-        var published = TestResultsStaging.Publish( this._console, second, this._results );
+        var second = this.GetStagingDirectory( "run" );
+        CreateStagedFile( second, "results.trx", "second" );
+        var published = TestResultsStaging.Publish( this._console, second, this._results, "run" );
 
-        Assert.Equal( Path.Combine( this._results, "host_2026-09-25.1.trx" ), Assert.Single( published ) );
-        Assert.Equal( "first", File.ReadAllText( Path.Combine( this._results, "host_2026-09-25.trx" ) ) );
-        Assert.Equal( "second", File.ReadAllText( Path.Combine( this._results, "host_2026-09-25.1.trx" ) ) );
+        Assert.Equal( Path.Combine( this._results, "run.1", "results.trx" ), Assert.Single( published ) );
+        Assert.Equal( "first", File.ReadAllText( Path.Combine( this._results, "run", "results.trx" ) ) );
+        Assert.Equal( "second", File.ReadAllText( Path.Combine( this._results, "run.1", "results.trx" ) ) );
     }
 
     /// <summary>
@@ -135,7 +180,7 @@ public sealed class TestResultsStagingTests : IDisposable
     [Fact]
     public void PublishOfAnAbsentStagingDirectoryPublishesNothing()
     {
-        Assert.Empty( TestResultsStaging.Publish( this._console, this.GetStagingDirectory(), this._results ) );
+        Assert.Empty( TestResultsStaging.Publish( this._console, this.GetStagingDirectory( "run" ), this._results, "run" ) );
     }
 
     public void Dispose()

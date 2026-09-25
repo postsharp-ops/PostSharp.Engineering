@@ -108,7 +108,9 @@ internal class TestCommand : BaseCommand<BuildSettings>
             Directory.CreateDirectory( testResultsDirectory );
         }
 
-        if ( !Directory.GetFiles( testResultsDirectory ).Any() )
+        // Recursively, because the results of a run live in a directory of their own under this one, named after the
+        // run. A non-recursive check would see an empty directory and add the placeholder next to real results.
+        if ( !Directory.EnumerateFiles( testResultsDirectory, "*", SearchOption.AllDirectories ).Any() )
         {
             // We have to create an empty file, otherwise TeamCity will complain that
             // artifacts are missing.

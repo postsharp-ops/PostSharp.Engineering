@@ -3,8 +3,10 @@
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
-using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PostSharp.Engineering.BuildTools.Build.Solutions;
 
@@ -19,11 +21,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions;
 /// and the build failed with "The process cannot access the file because it is being used by another process".
 /// </para>
 /// <para>
-/// Each run therefore writes into a staging directory of its own, and its files are moved into the results directory
-/// once the test process has exited. A move within one volume is a rename, so a file appears in the watched
-/// directory only when it is complete and closed. This is also why the staging directory is a sibling of the results
-/// directory and not a subdirectory of it: a subdirectory would be on the same volume, but it would also be
-/// published as a build artifact and matched by anything scanning the results directory recursively.
+/// Each run therefore writes into a staging directory of its own, which is a sibling of the results directory and
+/// not a subdirectory of it, and that whole directory is renamed into the results directory once the test process
+/// has exited. One rename within one volume is atomic, so nothing partially written is ever visible under the
+/// results directory, whatever moment TeamCity chooses to read it. Renaming the directory rather than its files one
+/// by one also keeps the layout that <c>dotnet test</c> produced, which matters because a <c>.trx</c> names its
+/// attachments by a path relative to itself.
 /// </para>
 /// </remarks>
 internal static class TestResultsStaging
@@ -34,86 +37,89 @@ internal static class TestResultsStaging
     public const string DirectorySuffix = ".staging";
 
     /// <summary>
-    /// Gets the directory that <c>dotnet test</c> writes the results of one run to.
+    /// The number of names tried when the destination of the rename is taken. It is only ever above one when a
+    /// previous build left its results behind, because a run key is unique within a build.
     /// </summary>
-    /// <param name="logName">A name that identifies the run. Every run needs a staging directory of its own,
-    /// because the runs of one scenario are sequential but the scenarios are not.</param>
-    public static string GetStagingDirectory( string repoDirectory, string testResultsDirectory, string logName )
-        => Path.Combine(
-            repoDirectory,
-            testResultsDirectory + DirectorySuffix,
-            string.Join( "_", logName.Split( Path.GetInvalidFileNameChars() ) ) );
+    private const int _maxAttempts = 100;
 
     /// <summary>
-    /// Moves everything in <paramref name="stagingDirectory"/> into <paramref name="resultsDirectory"/> and deletes
-    /// the staging directory.
+    /// Gets the name that identifies one run of one scenario, and therefore its staging directory and the directory
+    /// its results end up in.
     /// </summary>
-    /// <returns>The full path of each file that was moved, in the order in which it was moved.</returns>
-    public static IReadOnlyList<string> Publish( ConsoleHelper console, string stagingDirectory, string resultsDirectory )
+    /// <remarks>
+    /// The log name alone is not enough. It is built from <see cref="Model.Solution.Name"/>, which is only the file
+    /// name of the project, so two scenarios such as <c>a/Tests.csproj</c> and <c>b/Tests.csproj</c> would share a
+    /// directory and, running in parallel, publish or delete each other's files. The hash of the path of the project
+    /// separates them without making the name as long as the path.
+    /// </remarks>
+    /// <param name="solutionPath">The path of the project or solution, relative to the root of the repository.</param>
+    /// <param name="logName">The name that identifies the run within the scenario, i.e. the matrix entry.</param>
+    public static string GetRunKey( string solutionPath, string logName )
     {
-        var published = new List<string>();
+        var normalized = solutionPath.Replace( '\\', '/' );
+        var hash = SHA256.HashData( Encoding.UTF8.GetBytes( normalized ) );
 
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{SanitizeFileName( logName )}-{Convert.ToHexString( hash )[..8].ToLowerInvariant()}" );
+    }
+
+    /// <summary>
+    /// Gets the directory that <c>dotnet test</c> writes the results of one run to.
+    /// </summary>
+    public static string GetStagingDirectory( string repoDirectory, string testResultsDirectory, string runKey )
+        => Path.Combine( repoDirectory, testResultsDirectory + DirectorySuffix, SanitizeFileName( runKey ) );
+
+    /// <summary>
+    /// Renames the staging directory of one run into the results directory.
+    /// </summary>
+    /// <returns>The full path of each <c>.trx</c> file now under the results directory. Attachments are moved with
+    /// them but are not returned, because only a <c>.trx</c> is a test report: telling TeamCity to import anything
+    /// else as one makes it parse a log or a dump as XML.</returns>
+    public static IReadOnlyList<string> Publish( ConsoleHelper console, string stagingDirectory, string resultsDirectory, string runKey )
+    {
         if ( !Directory.Exists( stagingDirectory ) )
         {
-            return published;
+            return [];
         }
 
         Directory.CreateDirectory( resultsDirectory );
 
-        // Attachments are moved before the `.trx` files that reference them, so that a parser reading a `.trx` the
-        // moment it appears finds everything that it names.
-        var files = Directory.GetFiles( stagingDirectory, "*", SearchOption.AllDirectories )
-            .OrderBy( f => IsTestResultFile( f ) ? 1 : 0 )
-            .ThenBy( f => f, StringComparer.Ordinal );
-
-        foreach ( var file in files )
+        for ( var attempt = 0; attempt < _maxAttempts; attempt++ )
         {
-            var destination = GetUnusedPath( resultsDirectory, Path.GetFileName( file ) );
+            var name = attempt == 0 ? runKey : string.Create( CultureInfo.InvariantCulture, $"{runKey}.{attempt}" );
+            var destination = Path.Combine( resultsDirectory, SanitizeFileName( name ) );
 
-            try
+            if ( Directory.Exists( destination ) )
             {
-                File.Move( file, destination );
-            }
-            catch ( Exception e ) when ( e is IOException or UnauthorizedAccessException )
-            {
-                // Losing a result file must not fail a build whose tests have already reported their verdict.
-                console.WriteWarning( $"Cannot move the test result file '{file}' to '{destination}': {e.Message}" );
-
                 continue;
             }
 
-            published.Add( destination );
+            try
+            {
+                Directory.Move( stagingDirectory, destination );
+            }
+            catch ( IOException )
+            {
+                // The destination was taken between the check and the rename. Nothing is lost and nothing has moved,
+                // so the next name is tried. This is why the check above is not an assertion.
+                continue;
+            }
+            catch ( UnauthorizedAccessException e )
+            {
+                // Losing a result file must not fail a build whose tests have already reported their verdict.
+                console.WriteWarning( $"Cannot move the test results of '{runKey}' to '{destination}': {e.Message}" );
+
+                return [];
+            }
+
+            return Directory.GetFiles( destination, "*.trx", SearchOption.AllDirectories );
         }
 
-        try
-        {
-            Directory.Delete( stagingDirectory, true );
-        }
-        catch ( Exception e ) when ( e is IOException or UnauthorizedAccessException )
-        {
-            // A directory left behind is not worth a warning. It is emptied by the moves above and deleted by the
-            // next `Build.ps1 prepare`.
-        }
+        console.WriteWarning( $"Cannot move the test results of '{runKey}': no unused name was available under '{resultsDirectory}'." );
 
-        return published;
+        return [];
     }
 
-    private static bool IsTestResultFile( string path ) => Path.GetExtension( path ).Equals( ".trx", StringComparison.OrdinalIgnoreCase );
-
-    /// <summary>
-    /// Gets a path in <paramref name="directory"/> that no file occupies. The name that <c>dotnet test</c> gives a
-    /// <c>.trx</c> file is built from the machine name and a timestamp of one-second resolution, so two runs can
-    /// propose the same one.
-    /// </summary>
-    private static string GetUnusedPath( string directory, string fileName )
-    {
-        var candidate = Path.Combine( directory, fileName );
-
-        for ( var i = 1; File.Exists( candidate ); i++ )
-        {
-            candidate = Path.Combine( directory, $"{Path.GetFileNameWithoutExtension( fileName )}.{i}{Path.GetExtension( fileName )}" );
-        }
-
-        return candidate;
-    }
+    private static string SanitizeFileName( string name ) => string.Join( "_", name.Split( Path.GetInvalidFileNameChars() ) );
 }
