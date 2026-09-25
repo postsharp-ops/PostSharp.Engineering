@@ -191,6 +191,15 @@ function Invoke-ClaudeOnce {
 
     $process = [System.Diagnostics.Process]::Start($psi)
 
+    # Start draining stderr before the stdout loop below, and never between the loop and this line. The stderr
+    # pipe holds a fixed buffer, 4 KB on Windows and 64 KB on Linux. Reading stdout to the end while stderr is
+    # left unread deadlocks as soon as the child fills that buffer: the child blocks on its next write to
+    # stderr, so it produces no more stdout, and the parent blocks for ever on ReadLine. Node deprecation
+    # warnings, the start-up chatter of several MCP servers and an unhandled stack trace all go to stderr and
+    # none of them are bounded. The failure is unrecoverable here, because every protection of this script -
+    # the wall-clock budget, CLAUDE_MAX_ITERATIONS and the no-progress guard - runs after this function returns.
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+
     # Send the prompt (initial issue prompt, or the resume nudge) via stdin.
     if ($null -ne $StdinContent) { $process.StandardInput.Write($StdinContent) }
     $process.StandardInput.Close()
@@ -242,7 +251,7 @@ function Invoke-ClaudeOnce {
         ConvertFrom-ClaudeJsonLine -Line $line
     }
 
-    $stderr = $process.StandardError.ReadToEnd()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
     if ($stderr) { Write-Host (Sanitize-ClaudeOutput $stderr) -ForegroundColor Red }
 
     $process.WaitForExit()
