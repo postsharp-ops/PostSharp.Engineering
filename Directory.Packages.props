@@ -31,10 +31,6 @@
     <PackageVersion Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="3.12.2149" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="HtmlAgilityPack" Version="1.12.4" />
-    <!-- Must not be older than the version required by the .NET SDK in use: the SDK tasks that MSBuildWorkspace runs in this
-         process bind to the copy of this assembly next to the application, and an older copy makes the project load without
-         any metadata reference. The .NET 10 SDK requires 7.0.3. -->
-    <PackageVersion Include="NuGet.Versioning" Version="7.9.0" />
     <PackageVersion Include="Spectre.Console" Version="0.49.1" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.49.1" />
     <PackageVersion Include="System.Configuration.ConfigurationManager" Version="9.0.0" />

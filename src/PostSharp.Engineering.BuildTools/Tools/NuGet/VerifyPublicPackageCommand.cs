@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
@@ -124,7 +123,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet
                 var dependentId = dependency.Attribute( "id" )!.Value;
                 var versionRangeString = dependency.Attribute( "version" )!.Value;
 
-                if ( !VersionRange.TryParse( versionRangeString, out var versionRange ) )
+                if ( !ParsedPackageVersion.TryParseRangeMinimum( versionRangeString, out var minVersion ) )
                 {
                     console.WriteError( $"{inputShortPath}: cannot parse the version range '{versionRangeString}'." );
                     success = false;
@@ -132,7 +131,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet
                     continue;
                 }
 
-                if ( versionRange.MinVersion == null )
+                if ( minVersion == null )
                 {
                     console.WriteError( $"{inputShortPath}: Version range '{versionRangeString}' doesn't contain minimal version." );
                     success = false;
@@ -143,13 +142,13 @@ namespace PostSharp.Engineering.BuildTools.Tools.NuGet
                 // Check if it's present in the directory.
                 var localFile = Path.Combine(
                     directory,
-                    dependentId + "." + versionRange.MinVersion.ToNormalizedString() + ".nupkg" );
+                    dependentId + "." + minVersion.ToNormalizedString() + ".nupkg" );
 
                 if ( !File.Exists( localFile ) )
                 {
                     // Check if the dependency is present on nuget.org.
                     var uri =
-                        $"https://www.nuget.org/api/v2/package/{dependentId}/{versionRange.MinVersion.ToNormalizedString()}";
+                        $"https://www.nuget.org/api/v2/package/{dependentId}/{minVersion.ToNormalizedString()}";
 
                     console.WriteMessage( $"Verifying {uri}" );
 
