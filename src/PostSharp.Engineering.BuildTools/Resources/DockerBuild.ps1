@@ -81,16 +81,24 @@
 .PARAMETER Test
     Runs a Docker test container instead of the product build. Requires -Dockerfile and -Command.
     The image is built and cached exactly as a product image is, with the same content-hash tag and the same
-    registry push and pull. What differs is that no product image chain is resolved and no product environment
-    variable is passed: the container gets what -Env asks for and nothing else, so the product credentials stay
-    out of it. The mounts are those of an ordinary build -- the repository, the caches and the dependency
-    repositories -- and the command runs with the repository as its working directory, so a test addresses what
-    it needs by a path relative to the repository root. Use it for a test that needs a container of its own.
+    registry push and pull. What differs is that the product image chain is resolved only for the test's
+    Dockerfile and its ancestors, and that Init.g.ps1 is neither generated nor run. The environment it would have
+    set is passed as -e arguments instead. The mounts are those of an ordinary build -- the repository, the
+    caches and the dependency repositories -- and the command runs with the repository as its working directory,
+    so a test addresses what it needs by a path relative to the repository root.
+
+    The Dockerfile is either the test's own, typically next to its RunTest.ps1, or a Dockerfile of the
+    repository's image chain in eng/docker, typically eng/docker/build.Dockerfile, for a test that needs the tool
+    chain of the build. The second form reuses the image that the chain built or published.
 
 .PARAMETER Context
-    (-Test) The Docker build context directory. Defaults to the directory containing the Dockerfile, or, for a
-    Dockerfile of the repository's image chain (eng/docker), to the context of that image in the chain, so that the
-    test reuses the image the chain built or published.
+    (-Test) The Docker build context directory. The default depends on where the Dockerfile is:
+    - eng/docker/<stem>.Dockerfile, a Dockerfile of the image chain: eng/docker-context/<stem>, the context the
+      chain gives that image. Any other context gives the image another tag, so it is built again instead of
+      being reused. Do not pass -Context for such a Dockerfile.
+    - Any other Dockerfile: the directory containing the Dockerfile.
+    -Context applies to the test's Dockerfile only. An ancestor that it names through ARG BASE_IMAGE always takes
+    its chain context.
 
 .PARAMETER Command
     (-Test) The command line executed in the test container, instead of the build script. Mutually exclusive
@@ -259,6 +267,24 @@ $OvercommitRatio = 1.0
 ####
 
 $ErrorActionPreference = "Stop"
+
+# BUILD CONTEXT CONVENTION. Each Dockerfile of the image chain has a build context of its own, named after the
+# Dockerfile:
+#
+#     $EngPath/docker/<stem>.Dockerfile   ->   $EngPath/docker-context/<stem>/
+#
+# - The rule holds for every image of the chain, whichever image is the target of the run: the build and Claude
+#   leaves, every ancestor reached through ARG BASE_IMAGE, and a chain Dockerfile that -Test names.
+# - The tag of an image is a content hash of its Dockerfile and of the files of its context (Get-ContentHash). The
+#   same Dockerfile built with another context therefore gets another tag, is found neither locally nor in the
+#   registry, and is built again. Everything that computes a tag must resolve the context by this rule.
+# - The directory is populated by Build.ps1 (ContainerComponent.PopulateContextDirectory), not by this script.
+#   It is never shared between images, and nothing falls back to the docker-context root (see Get-ContextDirFor).
+# - A missing directory is an empty context. The script creates it before building.
+# - The .g/ subdirectory holds the files of one run. It is gitignored and excluded from the hash.
+#
+# The only Dockerfile that takes another context is the Dockerfile of a -Test run that is not in $EngPath/docker:
+# its context is -Context, or the directory that holds the Dockerfile. See the -Test validation below.
 $dockerContextDirectory = "$EngPath/docker-context"
 
 # Detect platform (use built-in variables if available, fallback for older PowerShell)
@@ -589,16 +615,18 @@ try
 
         # A test may run in an image of the repository's chain, typically the build image, so that it reuses an
         # image that is already built or published instead of building one of its own. Such an image takes the
-        # context of the chain by default: any other context gives it another content hash, hence another tag, and
-        # the image would be built again.
+        # context of the chain by default, as the BUILD CONTEXT CONVENTION at the top of this script requires: any
+        # other context gives it another content hash, hence another tag, and the image would be built again. An
+        # explicit -Context is still honoured, and then produces exactly that rebuild.
         $chainDirectory = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "$EngPath/docker"))
         $isChainDockerfile = [string]::Equals(
             [System.IO.Path]::GetDirectoryName($script:TestDockerfilePath).TrimEnd('\', '/'),
             $chainDirectory.TrimEnd('\', '/'),
             [System.StringComparison]::OrdinalIgnoreCase)
 
+        # The chain branch must compute the same directory as Get-ContextDirFor, which is not defined yet here.
         $testContext = if ($Context) { $Context }
-        elseif ($isChainDockerfile) { Join-Path $PSScriptRoot "$EngPath/docker-context/$([System.IO.Path]::GetFileNameWithoutExtension($script:TestDockerfilePath))" }
+        elseif ($isChainDockerfile) { Join-Path $PSScriptRoot "$dockerContextDirectory/$([System.IO.Path]::GetFileNameWithoutExtension($script:TestDockerfilePath))" }
         else { Split-Path -Parent $Dockerfile }
 
         # The chain treats a missing context directory as an empty one, and creates it before building.
@@ -1157,10 +1185,12 @@ try
         return [System.IO.Path]::GetFileNameWithoutExtension($dfPath)
     }
 
-    # Per-image build context: docker-context/<stem>. There is deliberately NO fallback to the shared docker-context
-    # root: stray machine-specific files living there (e.g. .credentials.json, claude.json) would otherwise be folded
-    # into the image content hash and produce different tags on different machines for identical content. A missing
-    # directory is treated as an empty context by Get-ContentHash, and Build-OneImage creates it before building.
+    # Per-image build context: docker-context/<stem>, as stated by the BUILD CONTEXT CONVENTION at the top of this
+    # script. Every tag computation goes through this function. There is deliberately NO fallback to the shared
+    # docker-context root: stray machine-specific files living there (e.g. .credentials.json, claude.json) would
+    # otherwise be folded into the image content hash and produce different tags on different machines for identical
+    # content. A missing directory is treated as an empty context by Get-ContentHash, and Build-OneImage creates it
+    # before building.
     function Get-ContextDirFor([string]$dfPath)
     {
         # A test image takes its context from the test's own directory. The test owns the files its Dockerfile

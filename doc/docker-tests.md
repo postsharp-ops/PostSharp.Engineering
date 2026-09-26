@@ -227,13 +227,23 @@ more than any other consumer:
   next.
 - Removal of unused images, oldest first, when the image store exceeds `-MaxImageSpace`.
 
-`-Test` requires `-Dockerfile` and `-Command`, and takes an optional `-Context` that defaults to the
-directory containing the Dockerfile, and an optional `-OS` covered in the next section.
+`-Test` requires `-Dockerfile` and `-Command`, and takes an optional `-Context` and an optional `-OS` covered
+in the next section.
 
-A test that needs the tool chain of the build, rather than a tool chain of its own, names a Dockerfile of the
-repository's image chain, typically `eng/docker/build.Dockerfile`. Its context then defaults to the context of that
-image in the chain, and its ancestors keep their own contexts. The tag is therefore the one the chain computes, and
-the image is found locally or pulled from the registry instead of being built again.
+The Dockerfile is one of two kinds, and the kind decides the build context:
+
+| Dockerfile | Use | Default context | `-Context` |
+|------------|-----|-----------------|------------|
+| The test's own, typically next to its `RunTest.ps1` | A test whose tool chain is the subject: a specific SDK, operating system or base image | The directory that holds the Dockerfile | Allowed |
+| A Dockerfile of the image chain, typically `eng/docker/build.Dockerfile` | A test that needs the tool chain of the build, such as Visual Studio and the .NET SDK | `eng/docker-context/<stem>/`, the context the chain gives that image | Do not pass it |
+
+A chain Dockerfile follows the [build context convention](dockerbuild.md#build-contexts) of the chain. The tag
+folds the files of the context, so with the chain's context the tag is the one the chain computes, and the
+image is found locally or pulled from the registry instead of being built again. An explicit `-Context` is
+honoured, but it gives the image another tag, and the image is then built locally.
+
+`-Context` applies to the test's Dockerfile only. An ancestor that it names through `ARG BASE_IMAGE` always
+takes its chain context.
 
 Callers splat a **hashtable**, never an array. `& ./DockerBuild.ps1 @arguments` with an array does not bind
 these parameters: `-BuildArgs` takes the remaining arguments, every value lands there, and the script goes on
@@ -241,9 +251,9 @@ to run an ordinary product build -- forwarding the product secrets -- instead of
 failure is silent and its consequences are not, so the script refuses an argument that names one of its own
 parameters but was not bound to it.
 
-Compared with a normal run, `-Test` resolves the product image chain only when it names one of its
-Dockerfiles, and it does not generate or run `Init.g.ps1`. What it does **not** change is the mounts: the repository, the caches, the source dependencies
-and the sibling repositories are all mounted as they are for any build, and the command runs with the
+Compared with a normal run, `-Test` resolves the product image chain only for the test's Dockerfile and its
+ancestors, and it does not generate or run `Init.g.ps1`. What it does **not** change is the mounts: the
+repository, the caches, the source dependencies and the sibling repositories are all mounted as they are for any build, and the command runs with the
 repository as its working directory. A test consuming a source dependency needs the same repositories the
 build needs, and a test that had to restore every package over the network would be slower and would fail
 differently when the network does.
