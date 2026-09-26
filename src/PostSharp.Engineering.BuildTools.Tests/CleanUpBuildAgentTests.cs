@@ -160,6 +160,11 @@ public sealed class CleanUpBuildAgentTests : IDisposable
         var script = WslShell.ToWslPath( this._script );
 
         var shell = $$"""
+                     # Proof that a shell ran this at all, for a development machine that has wsl.exe but no
+                     # distribution behind it: there wsl.exe starts, prints a message of its own and exits without
+                     # running anything, which no exit code tells apart from a real result.
+                     echo WSL-RAN-THE-SCRIPT
+
                      set -e
                      command -v docker >/dev/null || exit 111
                      command -v pwsh >/dev/null || exit 111
@@ -192,9 +197,12 @@ public sealed class CleanUpBuildAgentTests : IDisposable
                      docker run --rm -v "$CACHE:$CACHE" busybox rm -rf "$CACHE" >/dev/null 2>&1 || true
                      """;
 
-        if ( !WslShell.TryRun( shell, out var exitCode, out var output ) || exitCode == 111 )
+        if ( !WslShell.TryRun( shell, out var exitCode, out var output )
+             || !output.Contains( "WSL-RAN-THE-SCRIPT", StringComparison.Ordinal )
+             || exitCode == 111 )
         {
-            // No WSL, or no engine and no PowerShell inside it. A build agent is one such machine.
+            // No wsl.exe, no distribution behind it, or no engine and no PowerShell inside that distribution. A
+            // build agent is such a machine: it runs one engine natively, and WSL is installed with no distribution.
             return;
         }
 

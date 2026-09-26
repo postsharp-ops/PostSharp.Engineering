@@ -33,6 +33,16 @@ internal static class WslShell
             return false;
         }
 
+        // Never on a build agent. WSL is a development-machine facility: an agent runs one engine natively and is
+        // routed the builds for it, so there is nothing for a second engine to do there. wsl.exe is nevertheless
+        // present on the Windows agents with no distribution behind it, where it starts, prints a message of its own
+        // and exits without running anything -- a result no exit code tells apart from a real one, which failed a
+        // build once. So the agent is recognized rather than probed.
+        if ( !string.IsNullOrEmpty( Environment.GetEnvironmentVariable( EnvironmentVariableNames.IsTeamCityAgent ) ) )
+        {
+            return false;
+        }
+
         // Through a file, so that no quoting of the script survives being passed as an argument.
         var scriptFile = Path.Combine( Path.GetTempPath(), $"wsl-{Guid.NewGuid():N}.sh" );
 
