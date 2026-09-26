@@ -55,6 +55,11 @@ public static partial class PostSharpDependencies
         public static DependencyDefinition PostSharp { get; } = new PostSharpDependencyDefinition( _projectName )
         {
             GenerateSnapshotDependency = false,
+
+            // The line has no consolidated product, but it releases like one: 'Prepare Deployment' advances the
+            // release branch to develop, 'Deploy [Public]' publishes from the release branch, and 'Finalize
+            // Deployment' tags it and merges it back. Without this, the deployment would be expected on develop.
+            PublishesFromReleaseBranch = true,
             Dependencies = [DevelopmentDependencies.PostSharpEngineering],
 
             // The packages this repository builds. The default is the product name followed by ".*", which would claim

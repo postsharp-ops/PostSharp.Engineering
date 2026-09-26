@@ -31,15 +31,16 @@ public class PostSharpConsolidatedTests
     }
 
     /// <summary>
-    /// Only a consolidated line publishes from the release branch. The 2026.0 line has no consolidated product, so its
-    /// products still publish from the development branch.
+    /// A consolidated line publishes from the release branch because it is consolidated. The earlier lines are not,
+    /// so PostSharp opts in explicitly: a deployment from develop would publish commits the release branch never saw.
     /// </summary>
     [Fact]
-    public void TheProductsOf20270_PublishFromTheReleaseBranch()
+    public void ThePostSharpProduct_PublishesFromTheReleaseBranchInEveryLine()
     {
         Assert.Equal( "release/2027.0", PostSharpDependencies.V2027_0.PostSharp.PublishingBranch );
         Assert.Equal( "release/2027.0", PostSharpDependencies.V2027_0.PostSharpDocumentation.PublishingBranch );
-        Assert.Equal( "develop/2026.0", PostSharpDependencies.V2026_0.PostSharp.PublishingBranch );
+        Assert.Equal( "release/2026.0", PostSharpDependencies.V2026_0.PostSharp.PublishingBranch );
+        Assert.Equal( "release/2024.0", PostSharpDependencies.V2024_0.PostSharp.PublishingBranch );
     }
 
     /// <summary>
