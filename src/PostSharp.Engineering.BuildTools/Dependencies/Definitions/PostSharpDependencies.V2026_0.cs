@@ -73,6 +73,8 @@ public static partial class PostSharpDependencies
         public static DependencyDefinition PostSharpDocumentation { get; } =
             new PostSharpDependencyDefinition( $"{_projectName}.Documentation", isVersioned: false )
             {
+                // Released the same way as PostSharp: see the comment there.
+                PublishesFromReleaseBranch = true,
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering.ToDependency(),
