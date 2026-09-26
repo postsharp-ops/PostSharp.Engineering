@@ -35,6 +35,12 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         EmbeddedResourceHelper.ExtractScript( context, "Build.ps1", "" );
         EmbeddedResourceHelper.ExtractScript( context, "build.sh", "" );
 
+        // What a build leaves on an agent that the next build must not see. Generated for every product, Docker or not:
+        // the stale packages it deletes reach the cache of the agent from any build, and a build configuration that
+        // runs no container still needs them gone. It is also what keeps that logic out of the generated TeamCity
+        // settings, where it used to be one very long inline command per build configuration.
+        EmbeddedResourceHelper.ExtractScript( context, "CleanUpBuildAgent.ps1", product.EngineeringDirectory );
+
         // The launcher of the Docker-based tests. It is generated for a product that declares at least one
         // configuration running them, rather than for every product that uses Docker: the two are unrelated,
         // because the launcher executes on the agent and starts containers of its own instead of running inside

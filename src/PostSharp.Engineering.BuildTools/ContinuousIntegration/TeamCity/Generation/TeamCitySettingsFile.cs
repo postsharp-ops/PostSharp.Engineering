@@ -312,17 +312,15 @@ internal static class TeamCitySettingsFile
         // Post-processing must reach every generated configuration, including those nested in deployment sub-projects.
         var allConfigurations = teamCityBuildConfigurations.Concat( subProjectConfigurations ).ToList();
 
-        // Insert, in front of every build configuration, a step that cleans the NuGet cache of every package the build
-        // can reach -- the repository itself, the closure of its package dependencies and its source dependencies -- so
-        // that a stale package cannot leak into the build. See NuGetCachePatterns.
-        var nugetCachePackagePatterns = NuGetCachePatterns.GetPatterns( product );
+        // Give every build configuration the generated script that cleans the agent: before the build, of every package
+        // the build can reach -- the repository itself, the closure of its package dependencies and its source
+        // dependencies, see NuGetCachePatterns -- and after it, of what its containers left behind. The list of packages
+        // is baked into that script by generate-scripts, from the same place, so the two cannot disagree.
+        var cleanUpBuildAgentScriptPath = Path.Combine( product.EngineeringDirectory, "CleanUpBuildAgent.ps1" );
 
-        if ( nugetCachePackagePatterns.Length > 0 )
+        foreach ( var teamCityBuildConfiguration in allConfigurations )
         {
-            foreach ( var teamCityBuildConfiguration in allConfigurations )
-            {
-                teamCityBuildConfiguration.NuGetCachePackagePatterns = nugetCachePackagePatterns;
-            }
+            teamCityBuildConfiguration.CleanUpBuildAgentScriptPath = cleanUpBuildAgentScriptPath;
         }
 
         // A GitHub App has no long-lived credential, so every build configuration issues its own installation tokens.

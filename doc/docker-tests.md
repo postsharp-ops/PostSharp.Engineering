@@ -193,9 +193,10 @@ repositories the build needs.
 
 The NuGet cache is one of those mounts, and the container deletes this product's packages from it before the test
 command runs — `rm -rf … && <command>`, in the shell the test command already goes through, because a test image
-need not carry PowerShell 7 and so does not run `Init.g.ps1`. Without it a test restores whatever an earlier build
-left in the cache rather than the artifacts under test, since every CI build carries the same package version. A
-removal that fails means the test command never runs. See
+need not carry PowerShell and so cannot run `eng/CleanUpBuildAgent.ps1` itself. `DockerBuild.ps1` asks that script
+for the command (`-EmitTestCommandPrefix`), so the packages and the way they are deleted stay in one place. Without
+it a test restores whatever an earlier build left in the cache rather than the artifacts under test, since every CI
+build carries the same package version. A removal that fails means the test command never runs. See
 [dockerbuild.md](dockerbuild.md#clearing-the-stale-product-packages-from-the-nuget-cache).
 
 ### Two consequences to respect

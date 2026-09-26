@@ -67,11 +67,17 @@ internal class PowerShellScriptBuildStep : BuildStep
 
     public override string GenerateTeamCityCode()
     {
+        // A step that has to run even when the build failed, timed out or was stopped. Those are the runs that leave the
+        // agent in the state the clean-up exists for, so a step that only ran on success would miss the cases it is for.
+        var executionModeCode = this.ExecutionMode == BuildStepExecutionMode.Always
+            ? "\n            executionMode = BuildStep.ExecutionMode.ALWAYS"
+            : "";
+
         if ( this.UseWsl )
         {
             return $@"        powerShell {{
             name = ""{KotlinHelper.EscapeString( this.Name )}""
-            id = ""{this.Id}""
+            id = ""{this.Id}""{executionModeCode}
             edition = PowerShellStep.Edition.Core{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
             scriptMode = script {{
@@ -84,7 +90,7 @@ internal class PowerShellScriptBuildStep : BuildStep
         {
             return $@"        powerShell {{
             name = ""{KotlinHelper.EscapeString( this.Name )}""
-            id = ""{this.Id}""
+            id = ""{this.Id}""{executionModeCode}
             edition = PowerShellStep.Edition.Core{(this.WorkingDirectory == null ? "" : $@"
             workingDir = ""{this.WorkingDirectory.Replace( Path.DirectorySeparatorChar, '/' )}""")}
             scriptMode = file {{

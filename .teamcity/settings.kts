@@ -49,10 +49,11 @@ object PublicBuild : BuildType({
             name = "Clean NuGet cache of produced and dependency packages"
             id = "CleanNuGetCache"
             edition = PowerShellStep.Edition.Core
-            scriptMode = script {
-                content = "${'$'}patterns = @('postsharp.engineering', 'postsharp.engineering.*')\n\n${'$'}nugetPackages = if ( ${'$'}env:NUGET_PACKAGES ) { ${'$'}env:NUGET_PACKAGES } else { Join-Path ${'$'}HOME '.nuget' 'packages' }\n\nif ( -not ( Test-Path -LiteralPath ${'$'}nugetPackages ) )\n{\n    Write-Host \"NuGet packages folder not found: ${'$'}nugetPackages\"\n    exit 0\n}\n\n# The identifier of the account this step runs as, on Unix only, where it decides whether a directory\n# that cannot be removed is a defect or a directory belonging to root that a container will remove. A\n# Unix without `id` gets the Windows treatment, where every survivor is a defect.\n${'$'}ownUserId = ${'$'}null\n\nif ( -not ${'$'}IsWindows )\n{\n    try { ${'$'}ownUserId = [int](& id -u) } catch { ${'$'}ownUserId = ${'$'}null }\n}\n\n${'$'}removedDirectories = 0\n${'$'}removedFiles = 0\n${'$'}failures = @()\n${'$'}ownedByAnotherAccount = @()\n\nforeach ( ${'$'}pattern in ${'$'}patterns )\n{\n    foreach ( ${'$'}directory in @( Get-ChildItem -LiteralPath ${'$'}nugetPackages -Directory -Filter ${'$'}pattern -ErrorAction SilentlyContinue ) )\n    {\n        ${'$'}path = ${'$'}directory.FullName\n        ${'$'}files = @( Get-ChildItem -LiteralPath ${'$'}path -Recurse -File -ErrorAction SilentlyContinue ).Count\n        Write-Host \"Removing NuGet cache directory: ${'$'}path (${'$'}files file(s))\"\n\n        ${'$'}failure = ${'$'}null\n\n        try\n        {\n            Remove-Item -LiteralPath ${'$'}path -Recurse -Force -ErrorAction Stop\n        }\n        catch\n        {\n            ${'$'}failure = ${'$'}_.Exception.Message\n        }\n\n        if ( -not ( Test-Path -LiteralPath ${'$'}path ) )\n        {\n            ${'$'}removedDirectories++\n            ${'$'}removedFiles += ${'$'}files\n            continue\n        }\n\n        if ( -not ${'$'}failure )\n        {\n            ${'$'}failure = 'the directory is still present after the removal'\n        }\n\n        # Everything still there is tested, not the directory itself: NuGet creates the directory of a\n        # package the first time anything restores it, so the agent may well own that while the version\n        # directory a container extracted underneath it belongs to root.\n        ${'$'}ownedElsewhere = @()\n\n        if ( ${'$'}null -ne ${'$'}ownUserId )\n        {\n            ${'$'}entries = @( Get-Item -LiteralPath ${'$'}path -Force -ErrorAction SilentlyContinue ) +\n                @( Get-ChildItem -LiteralPath ${'$'}path -Recurse -Force -ErrorAction SilentlyContinue )\n\n            ${'$'}ownedElsewhere = @( ${'$'}entries | Where-Object { ${'$'}_.UnixStat.UserId -ne ${'$'}ownUserId } )\n        }\n\n        if ( ${'$'}ownedElsewhere.Count -gt 0 )\n        {\n            ${'$'}ownedByAnotherAccount += ${'$'}path\n        }\n        else\n        {\n            ${'$'}failures += \"${'$'}{path}: ${'$'}failure\"\n        }\n    }\n}\n\nWrite-Host \"Removed ${'$'}removedDirectories package directory(ies) and ${'$'}removedFiles file(s) from the NuGet cache.\"\n\nif ( ${'$'}ownedByAnotherAccount.Count -gt 0 )\n{\n    Write-Host \"${'$'}(${'$'}ownedByAnotherAccount.Count) directory(ies) belong to another account, having been extracted by a container of an earlier build. The container that restores them next deletes them, and fails the build if it cannot:\"\n    ${'$'}ownedByAnotherAccount | ForEach-Object { Write-Host \"  ${'$'}_\" }\n}\n\nif ( ${'$'}failures.Count -gt 0 )\n{\n    Write-Host \"The NuGet cache could not be cleaned, so this build would restore stale packages:\" -ForegroundColor Red\n    ${'$'}failures | ForEach-Object { Write-Host \"  ${'$'}_\" -ForegroundColor Red }\n    exit 1\n}"
+            scriptMode = file {
+                path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
+            scriptArgs = " "
         }
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"
@@ -75,14 +76,15 @@ object PublicBuild : BuildType({
             scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage -Label %system.teamcity.buildType.id%_%build.number% test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --timeout %Build.Timeout% %Build.Arguments%"
         }
         powerShell {
-            name = "Cleanup Docker containers"
+            name = "Clean up the build agent"
             id = "DockerCleanup"
             executionMode = BuildStep.ExecutionMode.ALWAYS
             edition = PowerShellStep.Edition.Core
-            scriptMode = script {
-                content = "${'$'}label = \"%system.teamcity.buildType.id%_%build.number%\"; ${'$'}ids = docker ps -a -q --filter \"label=postsharp.build=${'$'}label\"; if (${'$'}ids) { docker rm -f ${'$'}ids 2>&1 | Out-Null }; if (${'$'}env:BUILDAGENT_CLEANUP_SCRIPT) { Write-Host \"Running the agent cleanup script: ${'$'}(${'$'}env:BUILDAGENT_CLEANUP_SCRIPT)\"; try { Invoke-Expression ${'$'}env:BUILDAGENT_CLEANUP_SCRIPT; if (${'$'}LASTEXITCODE -ne 0) { Write-Host \"The agent cleanup script exited with code ${'$'}LASTEXITCODE.\" } } catch { Write-Host \"The agent cleanup script failed: ${'$'}_\" } }"
+            scriptMode = file {
+                path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
+            scriptArgs = "-After -BuildLabel %system.teamcity.buildType.id%_%build.number% "
         }
     }
 
@@ -147,10 +149,11 @@ object PublicDeployment : BuildType({
             name = "Clean NuGet cache of produced and dependency packages"
             id = "CleanNuGetCache"
             edition = PowerShellStep.Edition.Core
-            scriptMode = script {
-                content = "${'$'}patterns = @('postsharp.engineering', 'postsharp.engineering.*')\n\n${'$'}nugetPackages = if ( ${'$'}env:NUGET_PACKAGES ) { ${'$'}env:NUGET_PACKAGES } else { Join-Path ${'$'}HOME '.nuget' 'packages' }\n\nif ( -not ( Test-Path -LiteralPath ${'$'}nugetPackages ) )\n{\n    Write-Host \"NuGet packages folder not found: ${'$'}nugetPackages\"\n    exit 0\n}\n\n# The identifier of the account this step runs as, on Unix only, where it decides whether a directory\n# that cannot be removed is a defect or a directory belonging to root that a container will remove. A\n# Unix without `id` gets the Windows treatment, where every survivor is a defect.\n${'$'}ownUserId = ${'$'}null\n\nif ( -not ${'$'}IsWindows )\n{\n    try { ${'$'}ownUserId = [int](& id -u) } catch { ${'$'}ownUserId = ${'$'}null }\n}\n\n${'$'}removedDirectories = 0\n${'$'}removedFiles = 0\n${'$'}failures = @()\n${'$'}ownedByAnotherAccount = @()\n\nforeach ( ${'$'}pattern in ${'$'}patterns )\n{\n    foreach ( ${'$'}directory in @( Get-ChildItem -LiteralPath ${'$'}nugetPackages -Directory -Filter ${'$'}pattern -ErrorAction SilentlyContinue ) )\n    {\n        ${'$'}path = ${'$'}directory.FullName\n        ${'$'}files = @( Get-ChildItem -LiteralPath ${'$'}path -Recurse -File -ErrorAction SilentlyContinue ).Count\n        Write-Host \"Removing NuGet cache directory: ${'$'}path (${'$'}files file(s))\"\n\n        ${'$'}failure = ${'$'}null\n\n        try\n        {\n            Remove-Item -LiteralPath ${'$'}path -Recurse -Force -ErrorAction Stop\n        }\n        catch\n        {\n            ${'$'}failure = ${'$'}_.Exception.Message\n        }\n\n        if ( -not ( Test-Path -LiteralPath ${'$'}path ) )\n        {\n            ${'$'}removedDirectories++\n            ${'$'}removedFiles += ${'$'}files\n            continue\n        }\n\n        if ( -not ${'$'}failure )\n        {\n            ${'$'}failure = 'the directory is still present after the removal'\n        }\n\n        # Everything still there is tested, not the directory itself: NuGet creates the directory of a\n        # package the first time anything restores it, so the agent may well own that while the version\n        # directory a container extracted underneath it belongs to root.\n        ${'$'}ownedElsewhere = @()\n\n        if ( ${'$'}null -ne ${'$'}ownUserId )\n        {\n            ${'$'}entries = @( Get-Item -LiteralPath ${'$'}path -Force -ErrorAction SilentlyContinue ) +\n                @( Get-ChildItem -LiteralPath ${'$'}path -Recurse -Force -ErrorAction SilentlyContinue )\n\n            ${'$'}ownedElsewhere = @( ${'$'}entries | Where-Object { ${'$'}_.UnixStat.UserId -ne ${'$'}ownUserId } )\n        }\n\n        if ( ${'$'}ownedElsewhere.Count -gt 0 )\n        {\n            ${'$'}ownedByAnotherAccount += ${'$'}path\n        }\n        else\n        {\n            ${'$'}failures += \"${'$'}{path}: ${'$'}failure\"\n        }\n    }\n}\n\nWrite-Host \"Removed ${'$'}removedDirectories package directory(ies) and ${'$'}removedFiles file(s) from the NuGet cache.\"\n\nif ( ${'$'}ownedByAnotherAccount.Count -gt 0 )\n{\n    Write-Host \"${'$'}(${'$'}ownedByAnotherAccount.Count) directory(ies) belong to another account, having been extracted by a container of an earlier build. The container that restores them next deletes them, and fails the build if it cannot:\"\n    ${'$'}ownedByAnotherAccount | ForEach-Object { Write-Host \"  ${'$'}_\" }\n}\n\nif ( ${'$'}failures.Count -gt 0 )\n{\n    Write-Host \"The NuGet cache could not be cleaned, so this build would restore stale packages:\" -ForegroundColor Red\n    ${'$'}failures | ForEach-Object { Write-Host \"  ${'$'}_\" -ForegroundColor Red }\n    exit 1\n}"
+            scriptMode = file {
+                path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
+            scriptArgs = " "
         }
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"
@@ -173,14 +176,15 @@ object PublicDeployment : BuildType({
             scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage -Label %system.teamcity.buildType.id%_%build.number% publish --configuration Public --deployment default --timeout %Publish.Timeout% %Publish.Arguments%"
         }
         powerShell {
-            name = "Cleanup Docker containers"
+            name = "Clean up the build agent"
             id = "DockerCleanup"
             executionMode = BuildStep.ExecutionMode.ALWAYS
             edition = PowerShellStep.Edition.Core
-            scriptMode = script {
-                content = "${'$'}label = \"%system.teamcity.buildType.id%_%build.number%\"; ${'$'}ids = docker ps -a -q --filter \"label=postsharp.build=${'$'}label\"; if (${'$'}ids) { docker rm -f ${'$'}ids 2>&1 | Out-Null }; if (${'$'}env:BUILDAGENT_CLEANUP_SCRIPT) { Write-Host \"Running the agent cleanup script: ${'$'}(${'$'}env:BUILDAGENT_CLEANUP_SCRIPT)\"; try { Invoke-Expression ${'$'}env:BUILDAGENT_CLEANUP_SCRIPT; if (${'$'}LASTEXITCODE -ne 0) { Write-Host \"The agent cleanup script exited with code ${'$'}LASTEXITCODE.\" } } catch { Write-Host \"The agent cleanup script failed: ${'$'}_\" } }"
+            scriptMode = file {
+                path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
+            scriptArgs = "-After -BuildLabel %system.teamcity.buildType.id%_%build.number% "
         }
     }
 
@@ -239,10 +243,11 @@ object VersionBump : BuildType({
             name = "Clean NuGet cache of produced and dependency packages"
             id = "CleanNuGetCache"
             edition = PowerShellStep.Edition.Core
-            scriptMode = script {
-                content = "${'$'}patterns = @('postsharp.engineering', 'postsharp.engineering.*')\n\n${'$'}nugetPackages = if ( ${'$'}env:NUGET_PACKAGES ) { ${'$'}env:NUGET_PACKAGES } else { Join-Path ${'$'}HOME '.nuget' 'packages' }\n\nif ( -not ( Test-Path -LiteralPath ${'$'}nugetPackages ) )\n{\n    Write-Host \"NuGet packages folder not found: ${'$'}nugetPackages\"\n    exit 0\n}\n\n# The identifier of the account this step runs as, on Unix only, where it decides whether a directory\n# that cannot be removed is a defect or a directory belonging to root that a container will remove. A\n# Unix without `id` gets the Windows treatment, where every survivor is a defect.\n${'$'}ownUserId = ${'$'}null\n\nif ( -not ${'$'}IsWindows )\n{\n    try { ${'$'}ownUserId = [int](& id -u) } catch { ${'$'}ownUserId = ${'$'}null }\n}\n\n${'$'}removedDirectories = 0\n${'$'}removedFiles = 0\n${'$'}failures = @()\n${'$'}ownedByAnotherAccount = @()\n\nforeach ( ${'$'}pattern in ${'$'}patterns )\n{\n    foreach ( ${'$'}directory in @( Get-ChildItem -LiteralPath ${'$'}nugetPackages -Directory -Filter ${'$'}pattern -ErrorAction SilentlyContinue ) )\n    {\n        ${'$'}path = ${'$'}directory.FullName\n        ${'$'}files = @( Get-ChildItem -LiteralPath ${'$'}path -Recurse -File -ErrorAction SilentlyContinue ).Count\n        Write-Host \"Removing NuGet cache directory: ${'$'}path (${'$'}files file(s))\"\n\n        ${'$'}failure = ${'$'}null\n\n        try\n        {\n            Remove-Item -LiteralPath ${'$'}path -Recurse -Force -ErrorAction Stop\n        }\n        catch\n        {\n            ${'$'}failure = ${'$'}_.Exception.Message\n        }\n\n        if ( -not ( Test-Path -LiteralPath ${'$'}path ) )\n        {\n            ${'$'}removedDirectories++\n            ${'$'}removedFiles += ${'$'}files\n            continue\n        }\n\n        if ( -not ${'$'}failure )\n        {\n            ${'$'}failure = 'the directory is still present after the removal'\n        }\n\n        # Everything still there is tested, not the directory itself: NuGet creates the directory of a\n        # package the first time anything restores it, so the agent may well own that while the version\n        # directory a container extracted underneath it belongs to root.\n        ${'$'}ownedElsewhere = @()\n\n        if ( ${'$'}null -ne ${'$'}ownUserId )\n        {\n            ${'$'}entries = @( Get-Item -LiteralPath ${'$'}path -Force -ErrorAction SilentlyContinue ) +\n                @( Get-ChildItem -LiteralPath ${'$'}path -Recurse -Force -ErrorAction SilentlyContinue )\n\n            ${'$'}ownedElsewhere = @( ${'$'}entries | Where-Object { ${'$'}_.UnixStat.UserId -ne ${'$'}ownUserId } )\n        }\n\n        if ( ${'$'}ownedElsewhere.Count -gt 0 )\n        {\n            ${'$'}ownedByAnotherAccount += ${'$'}path\n        }\n        else\n        {\n            ${'$'}failures += \"${'$'}{path}: ${'$'}failure\"\n        }\n    }\n}\n\nWrite-Host \"Removed ${'$'}removedDirectories package directory(ies) and ${'$'}removedFiles file(s) from the NuGet cache.\"\n\nif ( ${'$'}ownedByAnotherAccount.Count -gt 0 )\n{\n    Write-Host \"${'$'}(${'$'}ownedByAnotherAccount.Count) directory(ies) belong to another account, having been extracted by a container of an earlier build. The container that restores them next deletes them, and fails the build if it cannot:\"\n    ${'$'}ownedByAnotherAccount | ForEach-Object { Write-Host \"  ${'$'}_\" }\n}\n\nif ( ${'$'}failures.Count -gt 0 )\n{\n    Write-Host \"The NuGet cache could not be cleaned, so this build would restore stale packages:\" -ForegroundColor Red\n    ${'$'}failures | ForEach-Object { Write-Host \"  ${'$'}_\" -ForegroundColor Red }\n    exit 1\n}"
+            scriptMode = file {
+                path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
+            scriptArgs = " "
         }
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"
@@ -265,14 +270,15 @@ object VersionBump : BuildType({
             scriptArgs = "-Script Build.ps1 -ImageName postsharpengineering-2023.2 -NoBuildImage -Label %system.teamcity.buildType.id%_%build.number% bump --timeout %Bump.Timeout% %Bump.Arguments%"
         }
         powerShell {
-            name = "Cleanup Docker containers"
+            name = "Clean up the build agent"
             id = "DockerCleanup"
             executionMode = BuildStep.ExecutionMode.ALWAYS
             edition = PowerShellStep.Edition.Core
-            scriptMode = script {
-                content = "${'$'}label = \"%system.teamcity.buildType.id%_%build.number%\"; ${'$'}ids = docker ps -a -q --filter \"label=postsharp.build=${'$'}label\"; if (${'$'}ids) { docker rm -f ${'$'}ids 2>&1 | Out-Null }; if (${'$'}env:BUILDAGENT_CLEANUP_SCRIPT) { Write-Host \"Running the agent cleanup script: ${'$'}(${'$'}env:BUILDAGENT_CLEANUP_SCRIPT)\"; try { Invoke-Expression ${'$'}env:BUILDAGENT_CLEANUP_SCRIPT; if (${'$'}LASTEXITCODE -ne 0) { Write-Host \"The agent cleanup script exited with code ${'$'}LASTEXITCODE.\" } } catch { Write-Host \"The agent cleanup script failed: ${'$'}_\" } }"
+            scriptMode = file {
+                path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
+            scriptArgs = "-After -BuildLabel %system.teamcity.buildType.id%_%build.number% "
         }
     }
 

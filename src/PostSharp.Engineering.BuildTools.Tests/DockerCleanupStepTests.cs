@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
@@ -16,7 +16,9 @@ namespace PostSharp.Engineering.BuildTools.Tests;
 /// <summary>
 /// A container runs as root while the agent does not, so what a build writes into the mounted repository is
 /// owned by root on the host and the agent user cannot remove it afterwards. The generated cleanup step is
-/// where that is undone, by running the command the agent names in <c>BUILDAGENT_CLEANUP_SCRIPT</c>.
+/// where that is undone. What it does is in <c>CleanUpBuildAgent.ps1</c> and is tested in
+/// <see cref="CleanUpBuildAgentTests"/>; what is tested here is that the step exists, names that script and runs
+/// at the right time.
 /// </summary>
 public sealed class DockerCleanupStepTests
 {
@@ -32,6 +34,10 @@ public sealed class DockerCleanupStepTests
         var teamCityConfiguration = configuration.TeamCityBuildConfiguration(
             new ProductProperties( product ),
             new Dictionary<BuildConfiguration, TeamCityBuildConfiguration>() );
+
+        // What TeamCitySettingsFile gives every configuration it writes. A configuration without it emits neither
+        // clean-up step, which TheStepsAreWiredToTheGeneratedScript asserts does not happen to a generated product.
+        teamCityConfiguration.CleanUpBuildAgentScriptPath = $"{product.EngineeringDirectory}/CleanUpBuildAgent.ps1";
 
         var writer = new StringWriter();
         teamCityConfiguration.GenerateTeamcityCode( writer );
@@ -50,7 +56,8 @@ public sealed class DockerCleanupStepTests
         var kotlin = GenerateKotlin( DockerTestPlatform.LinuxX64 );
 
         Assert.Contains( "DockerCleanup", kotlin, StringComparison.Ordinal );
-        Assert.Contains( "BUILDAGENT_CLEANUP_SCRIPT", kotlin, StringComparison.Ordinal );
+        Assert.Contains( "eng/CleanUpBuildAgent.ps1", kotlin, StringComparison.Ordinal );
+        Assert.Contains( "-After -BuildLabel %system.teamcity.buildType.id%_%build.number%", kotlin, StringComparison.Ordinal );
     }
 
     /// <summary>
@@ -68,33 +75,36 @@ public sealed class DockerCleanupStepTests
     }
 
     /// <summary>
-    /// The containers are removed first. Reclaiming ownership while a container is still writing would leave
-    /// whatever it wrote afterwards owned by root again, which is the state the step exists to prevent.
+    /// The step names the script rather than carrying what it does. A settings file holding that inline was one very
+    /// long line per build configuration, where a defect -- a removal whose failure was silently absorbed -- had gone
+    /// unnoticed for as long as it had partly because nothing about such a line invites reading.
     /// </summary>
     [Fact]
-    public void ContainersAreRemovedBeforeTheAgentScriptRuns()
+    public void TheCleanupStepsCarryNoInlineScript()
     {
         var kotlin = GenerateKotlin( DockerTestPlatform.LinuxX64 );
 
-        var removal = kotlin.IndexOf( "docker rm", StringComparison.Ordinal );
-        var script = kotlin.IndexOf( "BUILDAGENT_CLEANUP_SCRIPT", StringComparison.Ordinal );
-
-        Assert.True( removal >= 0, "The cleanup step no longer removes the containers of the build." );
-        Assert.True( script >= 0, "The cleanup step no longer runs the agent's cleanup script." );
-        Assert.True( removal < script, "The agent's cleanup script must run after the containers are removed, not before." );
+        Assert.DoesNotContain( "BUILDAGENT_CLEANUP_SCRIPT", kotlin, StringComparison.Ordinal );
+        Assert.DoesNotContain( "docker rm", kotlin, StringComparison.Ordinal );
+        Assert.DoesNotContain( "Remove-Item", kotlin, StringComparison.Ordinal );
     }
 
     /// <summary>
-    /// An agent that names no command gets none. That is every Windows agent, and every developer machine,
-    /// where the ownership question does not arise.
+    /// The clean-up before the build, which every configuration with steps gets: the packages of an earlier build reach
+    /// the cache of the agent whether or not this configuration uses a container.
     /// </summary>
     [Fact]
-    public void TheAgentScriptIsRunOnlyWhenTheAgentNamesOne()
+    public void TheNuGetCacheIsCleanedByTheSameScriptBeforeTheBuild()
     {
         var kotlin = GenerateKotlin( DockerTestPlatform.WindowsX64 );
 
-        // The command is generated for every platform; what makes it a no-op is the condition around it,
-        // rather than the platform the configuration targets.
-        Assert.Contains( "if (${'$'}env:BUILDAGENT_CLEANUP_SCRIPT)", kotlin, StringComparison.Ordinal );
+        var clean = kotlin.IndexOf( "CleanNuGetCache", StringComparison.Ordinal );
+        var after = kotlin.IndexOf( "-After", StringComparison.Ordinal );
+
+        Assert.True( clean >= 0, "The build no longer cleans the NuGet cache." );
+        Assert.True( clean < after, "The clean-up before the build must come before the one after it." );
+
+        // Before the build it takes no argument: the packages it deletes are baked into the script by generate-scripts.
+        Assert.Contains( "eng/CleanUpBuildAgent.ps1", kotlin, StringComparison.Ordinal );
     }
 }

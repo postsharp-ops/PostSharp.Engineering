@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
@@ -96,10 +96,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         public bool StartsContainers { get; set; }
 
         /// <summary>
-        /// Gets or sets the NuGet package directories to delete before the build restores anything. See
-        /// <see cref="NuGetCachePatterns"/>.
+        /// Gets or sets the path, relative to the repository root, of the generated <c>CleanUpBuildAgent.ps1</c>,
+        /// which deletes the stale packages before the build and removes what the build leaves on the agent
+        /// afterwards. <c>null</c> emits neither step.
         /// </summary>
-        public string[]? NuGetCachePackagePatterns { get; set; }
+        public string? CleanUpBuildAgentScriptPath { get; set; }
 
         public TeamCityBuildConfiguration(
             string objectName,
@@ -169,47 +170,45 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 }
             }
 
-            // Insert, in front of all other build steps, a step that deletes from the NuGet cache all packages produced
-            // by the product itself and by the whole closure of its dependencies. Composite builds have no build steps,
-            // so they are skipped.
-            if ( this.NuGetCachePackagePatterns is { Length: > 0 } && allBuildSteps.Count > 0 )
+            // Insert, in front of all other build steps, a step that deletes from the NuGet cache every package the
+            // build can reach, so that it cannot restore a stale copy of one instead of the artifacts it depends on.
+            // Composite builds have no build steps, so they are skipped.
+            //
+            // Both this step and the one at the end name the generated script rather than carrying a command. The
+            // script is where the logic is reviewable, testable and the same for a caller that is a container; a
+            // settings file holding it inline was one very long line per build configuration, and the defect it was
+            // fixed for -- a removal whose failure was silently absorbed -- is exactly what such a line hides.
+            if ( this.CleanUpBuildAgentScriptPath != null && allBuildSteps.Count > 0 )
             {
                 allBuildSteps.Insert(
                     0,
-                    new PowerShellCommandBuildStep(
+                    new PowerShellScriptBuildStep(
                         "CleanNuGetCache",
                         "Clean NuGet cache of produced and dependency packages",
-                        GenerateNuGetCacheCleanupCommand( this.NuGetCachePackagePatterns ),
+                        this.CleanUpBuildAgentScriptPath,
+                        "",
                         null ) );
             }
 
             // If any step uses Docker, add a cleanup step that always runs: it removes the containers this
             // build started, and then gives the agent a chance to undo what those containers did to the
-            // working directory.
-            //
-            // The second part exists because a container runs as root while the agent does not, and the
-            // repository is a bind mount, so whatever the build wrote into it is owned by root on the host.
-            // The agent user cannot unlink those files, and a checkout directory belongs to a VCS root rather
-            // than to one build configuration, so the next build OF ANY KIND on that agent fails at checkout
-            // with "Error while applying patch" and thousands of "failed to remove ...: Permission denied".
-            // Swabra detects them, logs "unable to delete" for each and continues, so nothing catches it
-            // earlier.
+            // working directory. What it does and why is in the script it calls.
             //
             // It belongs here rather than in DockerBuild.ps1. A build step runs after checkout, so anything
             // placed at the start of a build is already too late for the build that fails: the damage has to
             // be undone at the end of the build that caused it, which is what ExecutionMode.Always gives.
-            // The containers are removed first, so nothing is still writing when the agent's command runs.
-            //
-            // What that command is, is the agent's business. BUILDAGENT_CLEANUP_SCRIPT names it -- typically
-            // "sudo /opt/buildAgent/bin/chown-all.sh" on the Linux agents -- and unset means no command,
-            // which is every Windows agent, where the question does not arise.
-            if ( this.StartsContainers || allBuildSteps.OfType<EngineeringPrepareImageBuildStep>().Any() )
+            if ( this.CleanUpBuildAgentScriptPath != null
+                 && (this.StartsContainers || allBuildSteps.OfType<EngineeringPrepareImageBuildStep>().Any()) )
             {
                 allBuildSteps.Add(
-                    new PowerShellCommandBuildStep(
+                    new PowerShellScriptBuildStep(
                         "DockerCleanup",
-                        "Cleanup Docker containers",
-                        "$label = \"%system.teamcity.buildType.id%_%build.number%\"; $ids = docker ps -a -q --filter \"label=postsharp.build=$label\"; if ($ids) { docker rm -f $ids 2>&1 | Out-Null }; if ($env:BUILDAGENT_CLEANUP_SCRIPT) { Write-Host \"Running the agent cleanup script: $($env:BUILDAGENT_CLEANUP_SCRIPT)\"; try { Invoke-Expression $env:BUILDAGENT_CLEANUP_SCRIPT; if ($LASTEXITCODE -ne 0) { Write-Host \"The agent cleanup script exited with code $LASTEXITCODE.\" } } catch { Write-Host \"The agent cleanup script failed: $_\" } }",
+                        "Clean up the build agent",
+                        this.CleanUpBuildAgentScriptPath,
+
+                        // The label is what scopes the removal to the containers of this build. Removing every
+                        // container of the agent would take out a build running beside this one.
+                        "-After -BuildLabel %system.teamcity.buildType.id%_%build.number%",
                         null )
                     {
                         ExecutionMode = BuildStepExecutionMode.Always
@@ -494,139 +493,5 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                   """ );
         }
 
-        /// <summary>
-        /// Generates the PowerShell script of the step that deletes, from the NuGet global packages folder of the agent,
-        /// every package directory matching one of the given <paramref name="packagePatterns"/>. The script honours the
-        /// <c>NUGET_PACKAGES</c> environment variable and otherwise falls back to the default location in the user
-        /// profile (<c>$HOME/.nuget/packages</c>).
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// A directory that survives fails the build. What this replaced passed <c>-ErrorAction SilentlyContinue</c> and
-        /// reported how much it had removed while never reporting what it could not: on a Linux agent it found some
-        /// thirty directories, removed none of them and exited 0, so every build there restored whatever an earlier
-        /// build had left in the cache. Finding nothing to delete is still success -- an empty cache is the normal state
-        /// of an agent that has just been cleaned.
-        /// </para>
-        /// <para>
-        /// The one survivor that is not a defect is a directory another account owns. A container runs as root while the
-        /// agent does not, and the cache is a bind mount, so what a container of an earlier build extracted cannot be
-        /// unlinked here at all -- no error handling changes that. Those are named and left to the container that is
-        /// about to restore them, which runs as root and does fail the build when it cannot remove them: see
-        /// <c>New-NuGetCacheCleanupScript</c> in <c>DockerBuild.ps1</c>. Failing here instead would mean no build could
-        /// ever run again on such an agent, since the cache is shared by every build configuration.
-        /// </para>
-        /// <para>
-        /// Internal rather than private because the tests run the script this returns, in PowerShell, against a
-        /// directory laid out like a NuGet cache. Asserting on its text would say nothing about the defect it replaced,
-        /// whose text read correctly.
-        /// </para>
-        /// </remarks>
-        internal static string GenerateNuGetCacheCleanupCommand( IEnumerable<string> packagePatterns )
-        {
-            // NuGetCachePatterns.GetPatterns has already lower-cased these and rejected anything that is not a package
-            // identifier or the '*' wildcard, so quoting them is all that is left to do here.
-            var patterns = string.Join( ", ", packagePatterns.Select( p => $"'{p}'" ) );
-
-            // Line endings are normalized because the script is escaped into a Kotlin string literal, and because the
-            // agent that runs it may be Unix.
-            return
-                $$"""
-                  $patterns = @({{patterns}})
-
-                  $nugetPackages = if ( $env:NUGET_PACKAGES ) { $env:NUGET_PACKAGES } else { Join-Path $HOME '.nuget' 'packages' }
-
-                  if ( -not ( Test-Path -LiteralPath $nugetPackages ) )
-                  {
-                      Write-Host "NuGet packages folder not found: $nugetPackages"
-                      exit 0
-                  }
-
-                  # The identifier of the account this step runs as, on Unix only, where it decides whether a directory
-                  # that cannot be removed is a defect or a directory belonging to root that a container will remove. A
-                  # Unix without `id` gets the Windows treatment, where every survivor is a defect.
-                  $ownUserId = $null
-
-                  if ( -not $IsWindows )
-                  {
-                      try { $ownUserId = [int](& id -u) } catch { $ownUserId = $null }
-                  }
-
-                  $removedDirectories = 0
-                  $removedFiles = 0
-                  $failures = @()
-                  $ownedByAnotherAccount = @()
-
-                  foreach ( $pattern in $patterns )
-                  {
-                      foreach ( $directory in @( Get-ChildItem -LiteralPath $nugetPackages -Directory -Filter $pattern -ErrorAction SilentlyContinue ) )
-                      {
-                          $path = $directory.FullName
-                          $files = @( Get-ChildItem -LiteralPath $path -Recurse -File -ErrorAction SilentlyContinue ).Count
-                          Write-Host "Removing NuGet cache directory: $path ($files file(s))"
-
-                          $failure = $null
-
-                          try
-                          {
-                              Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
-                          }
-                          catch
-                          {
-                              $failure = $_.Exception.Message
-                          }
-
-                          if ( -not ( Test-Path -LiteralPath $path ) )
-                          {
-                              $removedDirectories++
-                              $removedFiles += $files
-                              continue
-                          }
-
-                          if ( -not $failure )
-                          {
-                              $failure = 'the directory is still present after the removal'
-                          }
-
-                          # Everything still there is tested, not the directory itself: NuGet creates the directory of a
-                          # package the first time anything restores it, so the agent may well own that while the version
-                          # directory a container extracted underneath it belongs to root.
-                          $ownedElsewhere = @()
-
-                          if ( $null -ne $ownUserId )
-                          {
-                              $entries = @( Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue ) +
-                                  @( Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue )
-
-                              $ownedElsewhere = @( $entries | Where-Object { $_.UnixStat.UserId -ne $ownUserId } )
-                          }
-
-                          if ( $ownedElsewhere.Count -gt 0 )
-                          {
-                              $ownedByAnotherAccount += $path
-                          }
-                          else
-                          {
-                              $failures += "${path}: $failure"
-                          }
-                      }
-                  }
-
-                  Write-Host "Removed $removedDirectories package directory(ies) and $removedFiles file(s) from the NuGet cache."
-
-                  if ( $ownedByAnotherAccount.Count -gt 0 )
-                  {
-                      Write-Host "$($ownedByAnotherAccount.Count) directory(ies) belong to another account, having been extracted by a container of an earlier build. The container that restores them next deletes them, and fails the build if it cannot:"
-                      $ownedByAnotherAccount | ForEach-Object { Write-Host "  $_" }
-                  }
-
-                  if ( $failures.Count -gt 0 )
-                  {
-                      Write-Host "The NuGet cache could not be cleaned, so this build would restore stale packages:" -ForegroundColor Red
-                      $failures | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-                      exit 1
-                  }
-                  """.ReplaceLineEndings( "\n" );
-        }
     }
 }
