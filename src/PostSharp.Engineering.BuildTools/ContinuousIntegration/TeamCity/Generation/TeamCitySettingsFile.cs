@@ -312,16 +312,15 @@ internal static class TeamCitySettingsFile
         // Post-processing must reach every generated configuration, including those nested in deployment sub-projects.
         var allConfigurations = teamCityBuildConfigurations.Concat( subProjectConfigurations ).ToList();
 
-        // Insert, in front of every build configuration, a step that cleans the NuGet cache of all packages produced by
-        // the current repo and by the whole closure of its dependencies, so stale packages cannot leak into the build.
-        var nugetCachePackagePrefixes = GetNuGetCachePackagePrefixes( product );
+        // Give every build configuration the generated script that cleans the agent: before the build, of every package
+        // the build can reach -- the repository itself, the closure of its package dependencies and its source
+        // dependencies, see NuGetCachePatterns -- and after it, of what its containers left behind. The list of packages
+        // is baked into that script by generate-scripts, from the same place, so the two cannot disagree.
+        var cleanUpBuildAgentScriptPath = Path.Combine( product.EngineeringDirectory, "CleanUpBuildAgent.ps1" );
 
-        if ( nugetCachePackagePrefixes.Length > 0 )
+        foreach ( var teamCityBuildConfiguration in allConfigurations )
         {
-            foreach ( var teamCityBuildConfiguration in allConfigurations )
-            {
-                teamCityBuildConfiguration.NuGetCachePackagePrefixes = nugetCachePackagePrefixes;
-            }
+            teamCityBuildConfiguration.CleanUpBuildAgentScriptPath = cleanUpBuildAgentScriptPath;
         }
 
         // A GitHub App has no long-lived credential, so every build configuration issues its own installation tokens.
@@ -1066,29 +1065,6 @@ internal static class TeamCitySettingsFile
         };
 
         return teamCityBuildConfiguration;
-    }
-
-    /// <summary>
-    /// Gets the distinct, ordered set of package ID patterns (the <c>*</c> wildcard is allowed) to delete from the NuGet
-    /// cache before each build: the packages produced by the <paramref name="product"/> itself, plus those produced by
-    /// the whole closure of its dependencies, across all build configurations. These are the "namespace prefixes" used
-    /// to clean the NuGet cache before each build.
-    /// </summary>
-    private static string[] GetNuGetCachePackagePrefixes( Product product )
-    {
-        var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
-
-        var dependencyPatterns = configurations
-            .SelectMany( c => product.DependencyDefinition.GetAllDependencies( c ) )
-            .SelectMany( d => d.Definition.PackagePatterns );
-
-        // Include the packages produced by the current repo itself, not just its dependencies, so that stale packages
-        // from a previous build of this repo cannot leak into the build either.
-        return product.DependencyDefinition.PackagePatterns
-            .Concat( dependencyPatterns )
-            .Distinct( StringComparer.OrdinalIgnoreCase )
-            .OrderBy( p => p, StringComparer.OrdinalIgnoreCase )
-            .ToArray();
     }
 
     private static void GeneratePom( BuildContext context, string projectObjectName, string tcUrl )
