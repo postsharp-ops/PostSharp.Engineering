@@ -170,6 +170,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                 }
             }
 
+            // Whether this build runs anything in a container. It decides both clean-up steps: only such a build has
+            // containers to remove afterwards, and only such a build may leave a root-owned directory of the NuGet cache
+            // to a container instead of failing over it.
+            var usesContainers = this.StartsContainers || allBuildSteps.OfType<EngineeringPrepareImageBuildStep>().Any();
+
             // Insert, in front of all other build steps, a step that deletes from the NuGet cache every package the
             // build can reach, so that it cannot restore a stale copy of one instead of the artifacts it depends on.
             // Composite builds have no build steps, so they are skipped.
@@ -180,13 +185,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             // fixed for -- a removal whose failure was silently absorbed -- is exactly what such a line hides.
             if ( this.CleanUpBuildAgentScriptPath != null && allBuildSteps.Count > 0 )
             {
+                // -DeferToContainer only where a container of this build really will delete what the agent cannot: it
+                // runs this script as root before it restores. A build that restores on the agent itself gets no such
+                // promise, and deferring there would let it restore the very package the step exists to remove -- on an
+                // agent where an earlier build's container left one, which is every Linux agent.
+                var deferToContainer = usesContainers ? "-DeferToContainer" : "";
+
                 allBuildSteps.Insert(
                     0,
                     new PowerShellScriptBuildStep(
                         "CleanNuGetCache",
                         "Clean NuGet cache of produced and dependency packages",
                         this.CleanUpBuildAgentScriptPath,
-                        "",
+                        deferToContainer,
                         null ) );
             }
 
@@ -197,8 +208,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             // It belongs here rather than in DockerBuild.ps1. A build step runs after checkout, so anything
             // placed at the start of a build is already too late for the build that fails: the damage has to
             // be undone at the end of the build that caused it, which is what ExecutionMode.Always gives.
-            if ( this.CleanUpBuildAgentScriptPath != null
-                 && (this.StartsContainers || allBuildSteps.OfType<EngineeringPrepareImageBuildStep>().Any()) )
+            if ( this.CleanUpBuildAgentScriptPath != null && usesContainers )
             {
                 allBuildSteps.Add(
                     new PowerShellScriptBuildStep(

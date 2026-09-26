@@ -412,9 +412,16 @@ product by `generate-scripts`, from
 
 | Invocation | When | Who calls it |
 |---|---|---|
-| (no argument) | Before the build: deletes the stale packages of this product from the NuGet cache | The generated `CleanNuGetCache` step, and `Init.g.ps1` inside a container (with `-InContainer`) |
+| (no argument) | Before the build: deletes the stale packages of this product from the NuGet cache, and fails on anything that survives | The generated `CleanNuGetCache` step of a build that restores on the agent itself |
+| `-DeferToContainer` | The same, but a directory belonging to another account is named and left to the container that restores next | The generated `CleanNuGetCache` step of a build that runs a container |
+| `-InContainer` | The same, from inside the container: it is root, so every survivor fails | `Init.g.ps1` |
 | `-After -BuildLabel <label>` | After the build: removes the containers of this build, then runs the agent's clean-up command | The generated `DockerCleanup` step, with `ExecutionMode.Always` |
 | `-EmitTestCommandPrefix` | Never on its own -- it prints the shell command a test container runs instead of this script | `DockerBuild.ps1 -Test`, on the host |
+
+**Only a build that runs a container defers to one.** The generator is what knows whether this configuration does,
+so it is what passes `-DeferToContainer`. A build that restores on the agent itself has no later container to
+remove what it could not, so deferring there would let it restore the very package the step exists to delete --
+on an agent where an earlier build's container left one, which is every Linux agent.
 
 The generated TeamCity steps name this script rather than carrying a command. A settings file holding it inline
 was one very long line per build configuration, and the defect that made this script necessary -- a removal
@@ -509,7 +516,7 @@ problem as the section above. Two paths, because they are two kinds of container
 | `-Test` | The shell command from `-EmitTestCommandPrefix` goes in front of the test command (`rm -rf … && …`) | A test image is chosen for the tool chain under test and need not carry PowerShell, so it cannot run the script at all -- and a Docker test configuration starts no build container either. Asking the script for the command keeps the packages and the way they are deleted in one place |
 
 **A removal that fails stops the build.** `-InContainer` says that the caller is root and therefore the last thing
-that could have removed the directory, so a survivor is a defect; a non-zero exit from `Init.g.ps1` ends the
+that could have removed the directory, so a survivor is a defect there; a non-zero exit from `Init.g.ps1` ends the
 container before the build runs. In a test container the `&&` means the test command never starts. Restoring a
 stale package is worse than not building: it reports a pass for code that was never tested. Finding nothing to
 delete is success -- an empty cache is the normal state of a freshly cleaned agent.

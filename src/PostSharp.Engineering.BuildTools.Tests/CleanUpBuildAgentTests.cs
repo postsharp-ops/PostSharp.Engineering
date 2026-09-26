@@ -3,6 +3,10 @@
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -139,10 +143,11 @@ public sealed class CleanUpBuildAgentTests : IDisposable
     }
 
     /// <summary>
-    /// The distinction the whole design rests on, against a directory a container of an earlier build really did leave:
-    /// on the agent it is named and left to the container that restores it next, because no error handling there can
-    /// unlink it and failing would mean no build could ever run again on that agent; inside the container it is a defect,
-    /// because the container is root and therefore the last thing that could have removed it.
+    /// The distinction the whole design rests on, against a directory a container of an earlier build really did leave.
+    /// Three callers, three answers: the agent of a build that restores in a container names it and passes, because the
+    /// container will remove it and failing would mean no build could ever run again on that agent; the agent of a build
+    /// that restores by itself fails, having no container to defer to; and the container fails, being root and therefore
+    /// the last thing that could have removed it.
     /// </summary>
     /// <remarks>
     /// This needs a real container and a real agent account, so it runs on a development machine with WSL and reports
@@ -172,9 +177,13 @@ public sealed class CleanUpBuildAgentTests : IDisposable
                      # The exit code of each run is the subject, so a non-zero one must not end this script.
                      set +e
 
-                     echo "--- as the agent ---"
+                     echo "--- as the agent of a build that restores in a container ---"
+                     pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE" -DeferToContainer
+                     echo "DEFERRING-EXIT=$?"
+
+                     echo "--- as the agent of a build that restores on the agent ---"
                      pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE"
-                     echo "AGENT-EXIT=$?"
+                     echo "NATIVE-EXIT=$?"
 
                      echo "--- as the container ---"
                      pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE" -InContainer
@@ -193,8 +202,12 @@ public sealed class CleanUpBuildAgentTests : IDisposable
         Assert.DoesNotContain( "RUNNING-AS=0", output, StringComparison.Ordinal );
 
         // The agent cannot unlink it, says so, and passes: the container that restores it next is what removes it.
-        Assert.Contains( "AGENT-EXIT=0", output, StringComparison.Ordinal );
+        Assert.Contains( "DEFERRING-EXIT=0", output, StringComparison.Ordinal );
         Assert.Contains( "belong to another account", output, StringComparison.Ordinal );
+
+        // A build that restores on the agent itself has no such container, so the same directory fails it. Deferring
+        // there would let the build restore the very package this deletes.
+        Assert.Contains( "NATIVE-EXIT=1", output, StringComparison.Ordinal );
 
         // The container has no one to hand it to, so the same directory fails the build there.
         Assert.Contains( "CONTAINER-EXIT=1", output, StringComparison.Ordinal );
@@ -474,6 +487,38 @@ public sealed class CleanUpBuildAgentTests : IDisposable
         // The point of the script: none of what it does is in the settings any more.
         Assert.DoesNotContain( "BUILDAGENT_CLEANUP_SCRIPT", settings, StringComparison.Ordinal );
         Assert.DoesNotContain( "Remove-Item", settings, StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// A build only defers a directory it cannot delete to a container when it has one. The generator is what knows
+    /// that, so it is what passes <c>-DeferToContainer</c>: a build that restores on the agent itself must fail over
+    /// such a directory instead, there being no later container to remove it before NuGet reads it.
+    /// </summary>
+    [Fact]
+    public void OnlyABuildThatRunsAContainerDefersToOne()
+    {
+        Assert.Contains( "-DeferToContainer", GenerateSteps( startsContainers: true ), StringComparison.Ordinal );
+        Assert.DoesNotContain( "-DeferToContainer", GenerateSteps( startsContainers: false ), StringComparison.Ordinal );
+    }
+
+    private static string GenerateSteps( bool startsContainers )
+    {
+        var configuration = new TeamCityBuildConfiguration(
+            "Build",
+            "Build",
+            "develop/2026.1",
+            "Vcs",
+            BuildAgentRequirements.Empty )
+        {
+            BuildSteps = [new PowerShellCommandBuildStep( "Step", "A step that restores", "./Build.ps1 build", null )],
+            StartsContainers = startsContainers,
+            CleanUpBuildAgentScriptPath = "eng/CleanUpBuildAgent.ps1"
+        };
+
+        var writer = new StringWriter();
+        configuration.GenerateTeamcityCode( writer );
+
+        return writer.ToString();
     }
 
     /// <summary>

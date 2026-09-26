@@ -31,7 +31,7 @@ internal static class NuGetCachePatterns
 {
     /// <summary>
     /// The characters a pattern may contain. The value reaches a POSIX shell as an unquoted glob (see
-    /// <c>New-NuGetCacheCleanupShellCommand</c> in <c>DockerBuild.ps1</c>), so anything else in it would be read by
+    /// <c>New-TestCommandPrefix</c> in <c>Resources/CleanUpBuildAgent.ps1</c>), so anything else in it would be read by
     /// that shell rather than matched against a directory name. Package identifiers use none of it, so this rejects a
     /// mistake in a product definition instead of constraining a legitimate one.
     /// </summary>

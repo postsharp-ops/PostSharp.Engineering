@@ -53,7 +53,7 @@ object PublicBuild : BuildType({
                 path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
-            scriptArgs = " "
+            scriptArgs = "-DeferToContainer "
         }
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"
@@ -153,7 +153,7 @@ object PublicDeployment : BuildType({
                 path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
-            scriptArgs = " "
+            scriptArgs = "-DeferToContainer "
         }
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"
@@ -247,7 +247,7 @@ object VersionBump : BuildType({
                 path = "eng/CleanUpBuildAgent.ps1"
             }
             noProfile = false
-            scriptArgs = " "
+            scriptArgs = "-DeferToContainer "
         }
         powerShell {
             name = "Prepare Docker image postsharpengineering-2023.2"

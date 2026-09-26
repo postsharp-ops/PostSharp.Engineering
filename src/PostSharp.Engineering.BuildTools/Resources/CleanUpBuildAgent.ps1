@@ -28,9 +28,17 @@
 
 .PARAMETER InContainer
     States that the caller is a container that mounts the NuGet cache. Such a caller runs as root, so it is the
-    last thing that can remove these directories and every survivor is a defect. Without it, a directory
-    belonging to another account is left to the container that restores it next, because no error handling on an
-    agent can unlink what a container extracted.
+    last thing that can remove these directories and every survivor is a defect.
+
+.PARAMETER DeferToContainer
+    States that this build restores inside a container, which will run this script as root before it restores. A
+    directory belonging to another account is then named and left to that container, because no error handling on
+    an agent can unlink what a container extracted, and failing here would mean no build could ever run again on
+    such an agent.
+
+    Without it every survivor fails the build, which is the answer for a build that restores on the agent itself:
+    there is no later container to defer to, so deferring would let the build restore the very package the
+    clean-up exists to remove. -InContainer overrides it, a container having nobody to defer to either.
 
 .PARAMETER BuildLabel
     With -After, the value of the `postsharp.build` label that identifies the containers of this build. Unset
@@ -58,6 +66,7 @@
 param(
     [switch]$After,
     [switch]$InContainer,
+    [switch]$DeferToContainer,
     [string]$BuildLabel,
     [string]$NuGetCacheDirectory,
     [switch]$EmitTestCommandPrefix
@@ -205,8 +214,11 @@ function Remove-StalePackages
                 $failure = 'the directory is still present after the removal'
             }
 
-            # A container mounting the cache is root, so nothing there is anyone else's problem to solve.
-            if (-not $InContainer -and (Test-OwnedByAnotherAccount $path $ownUserId))
+            # Deferring is only honest when something else really will remove it: a container of this build, which
+            # runs as root and runs this script before it restores. A build that restores on the agent itself has no
+            # such container, and deferring there would let it restore the very package this deletes. A container has
+            # nobody to defer to at all.
+            if ($DeferToContainer -and -not $InContainer -and (Test-OwnedByAnotherAccount $path $ownUserId))
             {
                 $ownedByAnotherAccount += $path
             }

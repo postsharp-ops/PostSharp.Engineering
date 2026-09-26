@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -59,16 +60,33 @@ internal static class WslShell
             var standardOutput = process.StandardOutput.ReadToEndAsync();
             var standardError = process.StandardError.ReadToEndAsync();
 
-            process.WaitForExit( 300_000 );
+            if ( !process.WaitForExit( 300_000 ) )
+            {
+                // The process is killed rather than waited for: a stream read of a process that is still running never
+                // returns, so reading the output here would hang the test run instead of failing it. The whole tree
+                // goes, because the shell has started a container or a PowerShell of its own by now.
+                try
+                {
+                    process.Kill( true );
+                }
+                catch ( InvalidOperationException )
+                {
+                    // It exited between the wait and the kill.
+                }
+
+                throw new TimeoutException( $"The WSL shell did not finish within five minutes. It was started as: sh {scriptFile}" );
+            }
 
             output = standardOutput.GetAwaiter().GetResult() + standardError.GetAwaiter().GetResult();
             exitCode = process.ExitCode;
 
             return true;
         }
-        catch ( Exception )
+        catch ( Win32Exception )
         {
-            // No wsl.exe on this machine.
+            // wsl.exe is not on this machine, which is the one case that is not a failure: a build agent runs one
+            // engine natively and has none. Anything else -- a shell that cannot be run, a timeout -- is a failure and
+            // is left to propagate, rather than being reported as an environment without WSL.
             return false;
         }
         finally
