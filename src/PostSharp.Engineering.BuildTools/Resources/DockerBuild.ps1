@@ -254,7 +254,8 @@ $EngPath = '<ENG_PATH>'
 $EnvironmentVariables = '<ENVIRONMENT_VARIABLES>'
 $DockerImagePrefix = '<DOCKER_IMAGE_PREFIX>'
 # The NuGet package directories a container deletes from the mounted cache before it restores anything: the
-# packages this product produces, and those of the whole closure of its dependencies. Every continuous-integration
+# packages this product produces, those of the whole closure of its package dependencies, and those of its source
+# dependencies with their own closures. Every continuous-integration
 # build of a product carries the same public version, and NuGet never extracts a version that is already in the
 # global packages folder, so a container that does not delete them restores whatever an earlier build left in the
 # cache instead of the artifacts under test - and a test that passes then proves nothing.

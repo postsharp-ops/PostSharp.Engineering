@@ -254,7 +254,8 @@ $EngPath = 'eng'
 $EnvironmentVariables = 'AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AZ_IDENTITY_USERNAME,AZURE_CLIENT_ID,AZURE_CLIENT_SECRET,AZURE_DEVOPS_TOKEN,AZURE_DEVOPS_USER,AZURE_TENANT_ID,CLAUDE_CODE_OAUTH_TOKEN,DOC_API_KEY,DOWNLOADS_API_KEY,ENG_USERNAME,GIT_USER_EMAIL,GIT_USER_NAME,GITHUB_APP_ID,GITHUB_APP_PRIVATE_KEY,GITHUB_AUTHOR_EMAIL,GITHUB_REVIEWER_TOKEN,GITHUB_TOKEN,IS_POSTSHARP_OWNED,IS_TEAMCITY_AGENT,MetalamaLicense,NUGET_ORG_API_KEY,PostSharpLicense,SIGNSERVER_SECRET,TEAMCITY_CLOUD_TOKEN,TYPESENSE_API_KEY,VS_MARKETPLACE_ACCESS_TOKEN,VSS_NUGET_EXTERNAL_FEED_ENDPOINTS'
 $DockerImagePrefix = 'postsharpengineering-2023.2'
 # The NuGet package directories a container deletes from the mounted cache before it restores anything: the
-# packages this product produces, and those of the whole closure of its dependencies. Every continuous-integration
+# packages this product produces, those of the whole closure of its package dependencies, and those of its source
+# dependencies with their own closures. Every continuous-integration
 # build of a product carries the same public version, and NuGet never extracts a version that is already in the
 # global packages folder, so a container that does not delete them restores whatever an earlier build left in the
 # cache instead of the artifacts under test - and a test that passes then proves nothing.

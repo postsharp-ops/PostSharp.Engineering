@@ -312,8 +312,9 @@ internal static class TeamCitySettingsFile
         // Post-processing must reach every generated configuration, including those nested in deployment sub-projects.
         var allConfigurations = teamCityBuildConfigurations.Concat( subProjectConfigurations ).ToList();
 
-        // Insert, in front of every build configuration, a step that cleans the NuGet cache of all packages produced by
-        // the current repo and by the whole closure of its dependencies, so stale packages cannot leak into the build.
+        // Insert, in front of every build configuration, a step that cleans the NuGet cache of every package the build
+        // can reach -- the repository itself, the closure of its package dependencies and its source dependencies -- so
+        // that a stale package cannot leak into the build. See NuGetCachePatterns.
         var nugetCachePackagePatterns = NuGetCachePatterns.GetPatterns( product );
 
         if ( nugetCachePackagePatterns.Length > 0 )

@@ -443,8 +443,19 @@ on. A test then passes against code that no longer exists anywhere: one build re
 still ran the lock code of a Backstage the artifacts build could not possibly have been compiled against.
 
 `generate-scripts` bakes the list of directories to delete into `DockerBuild.ps1`
-(`$NuGetCachePackagePatterns`): the packages the product produces, plus the closure of its dependencies. The same
-list goes into the generated TeamCity step, both from `NuGetCachePatterns` in the SDK, so the two cannot disagree.
+(`$NuGetCachePackagePatterns`). It is everything the build can reach, over both kinds of edge and transitively:
+
+- the packages the **product itself** produces — a stale package of the repository being built leaks into its own
+  build exactly as a dependency's does;
+- the **whole closure** of its package dependencies, not the direct ones;
+- its **source dependencies**, with their own closures — a source dependency is built from source by the consuming
+  build and produces packages of its own. Leaving them out was a real hole: `NopCommerce` is a source dependency of
+  the consolidated Metalama product and a package dependency of nothing, so its two patterns were absent from the
+  list of every build of that product.
+
+The same list goes into the generated TeamCity step, both from `NuGetCachePatterns` in the SDK, so the two cannot
+disagree. Only first-party packages are ever named, dependency definitions holding no third-party ones, so nothing
+gets re-downloaded from nuget.org because of this.
 
 **The container does the deleting**, because on a Unix agent it is the only thing that can -- the same ownership
 problem as the section above. Two paths, because they are two kinds of container:
