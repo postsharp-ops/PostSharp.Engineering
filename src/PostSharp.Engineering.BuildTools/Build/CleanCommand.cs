@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.IO;
@@ -133,6 +134,12 @@ namespace PostSharp.Engineering.BuildTools.Build
             DeleteDirectory( product.GetPrivateArtifactsAbsoluteDirectory( context, settings.BuildConfiguration ) );
 
             DeleteDirectory( product.GetPublicArtifactsAbsoluteDirectory( context ) );
+
+            // The archive of a test project that was removed or renamed would otherwise be run again.
+            if ( product.PublishesTestArchives )
+            {
+                DeleteDirectory( Path.Combine( context.RepoDirectory, TestArchives.Directory ) );
+            }
 
             DeleteDirectory(
                 Path.Combine(

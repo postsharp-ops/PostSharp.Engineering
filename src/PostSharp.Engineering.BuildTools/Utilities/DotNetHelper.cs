@@ -32,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                context.GetWorkingDirectory( projectOrSolution ),
+                GetWorkingDirectory( context, projectOrSolution, command ),
                 options );
         }
 
@@ -56,11 +56,19 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                context.GetWorkingDirectory( projectOrSolution ),
+                GetWorkingDirectory( context, projectOrSolution, command ),
                 out exitCode,
                 out output,
                 options );
         }
+
+        // The mode of dotnet test is chosen by the global.json nearest to the working directory. Build.ps1 starts this program
+        // from the engineering directory, whose global.json pins the SDK of the program and names no test runner, so dotnet
+        // test runs from the repository root, where the global.json that selects Microsoft.Testing.Platform is.
+        private static string GetWorkingDirectory( BuildContext context, string projectOrSolution, string command )
+            => command == "test" && context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform
+                ? context.RepoDirectory
+                : context.GetWorkingDirectory( projectOrSolution );
 
         private static ToolInvocationOptions? AddSimulatedContinuousIntegrationEnvironmentVariables( BuildSettings settings, ToolInvocationOptions? options )
         {
@@ -107,6 +115,19 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
                 // dotnet run does not support --nologo.
                 nologo = string.Empty;
+            }
+
+            // In the mode of Microsoft.Testing.Platform, dotnet test takes no positional argument: the solution or the project is
+            // given by an option, and an argument it does not know is passed to the test applications, which refuse it.
+            if ( command == "test" && !isTestDllCommand && context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform )
+            {
+                var extension = Path.GetExtension( projectOrSolution );
+
+                projectPrefix = extension.Equals( ".sln", StringComparison.OrdinalIgnoreCase )
+                                || extension.Equals( ".slnx", StringComparison.OrdinalIgnoreCase )
+                                || extension.Equals( ".slnf", StringComparison.OrdinalIgnoreCase )
+                    ? "--solution "
+                    : "--project ";
             }
 
             argsBuilder.Append(

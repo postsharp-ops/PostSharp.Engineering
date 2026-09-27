@@ -143,6 +143,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 solutionsToBuild = product.Solutions;
             }
 
+            var solutionSettings = TestArchives.AddBuildProperties( product, settings );
+
             foreach ( var solution in solutionsToBuild )
             {
                 if ( settings.IncludeTests || !solution.IsTestOnly )
@@ -159,7 +161,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
                     var buildMethod = solution.GetBuildMethod();
 
-                    if ( !solution.Execute( context, settings, buildMethod ) )
+                    if ( !solution.Execute( context, solutionSettings, buildMethod ) )
                     {
                         return false;
                     }
@@ -169,6 +171,16 @@ namespace PostSharp.Engineering.BuildTools.Build
             }
 
             var publicArtifactsDirectory = product.GetPublicArtifactsAbsoluteDirectory( context );
+
+            // The archives are compared with the list only when this build wrote them: the command line can turn it off.
+            if ( settings.SolutionId == null
+                 && solutionSettings.Properties.TryGetValue( "PublishTestArchive", out var publishTestArchive )
+                 && bool.TryParse( publishTestArchive, out var isPublishingTestArchives )
+                 && isPublishingTestArchives
+                 && !TestArchives.Verify( context ) )
+            {
+                return false;
+            }
 
             // Allow for some customization before we create the zip file and copy to the public directory.
             var eventArgs = new BuildCompletedEventArgs( context, settings, buildInfo, privateArtifactsDirectory, publicArtifactsDirectory );

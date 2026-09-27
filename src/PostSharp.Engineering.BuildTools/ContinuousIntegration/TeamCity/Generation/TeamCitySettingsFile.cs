@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -16,15 +17,18 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Genera
 
 internal static class TeamCitySettingsFile
 {
-    internal static bool TryWrite( BuildContext context )
+    /// <param name="generatedConfigurations">The build configurations that <c>generate-scripts</c> creates, beside those that
+    /// the product declares.</param>
+    internal static bool TryWrite( BuildContext context, IReadOnlyList<AdditionalCiBuildConfiguration>? generatedConfigurations = null )
     {
         var product = context.Product;
+        IReadOnlyList<AdditionalCiBuildConfiguration> ciBuildConfigurations = [..product.AdditionalCiBuildConfigurations, ..generatedConfigurations ?? []];
         context.Console.WriteHeading( "Generating build integration scripts" );
 
         // A dependency between build configurations of the same product names its target by identifier, so a typo or
         // a cycle can only be caught here. Doing it before anything is generated is what lets the error name the
         // product definition rather than a Kotlin object in a generated file.
-        if ( !SnapshotDependencyGraph.TryValidate( context.Console, product ) )
+        if ( !SnapshotDependencyGraph.TryValidate( context.Console, product, ciBuildConfigurations ) )
         {
             return false;
         }
@@ -45,7 +49,7 @@ internal static class TeamCitySettingsFile
         var teamCityBuildBuildConfigurations = new Dictionary<BuildConfiguration, TeamCityBuildConfiguration>();
 
         // Create product-level properties once
-        var productProperties = new ProductProperties( product );
+        var productProperties = new ProductProperties( product, ciBuildConfigurations );
 
         foreach ( var configuration in configurations )
         {
@@ -74,6 +78,12 @@ internal static class TeamCitySettingsFile
             publishedArtifactRules += $@"\n+:{productProperties.TestResultsDirectory}/**/*=>{productProperties.TestResultsDirectory}";
             publishedArtifactRules += $@"\n+:{productProperties.LogsDirectory}/**/*=>logs";
             publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
+
+            // The build configurations of the test agents download them one by one.
+            if ( product.PublishesTestArchives )
+            {
+                publishedArtifactRules += $@"\n+:{TestArchives.Directory}/*.zip=>{TestArchives.Directory}";
+            }
 
             var teamCityBuildConfiguration = configurationInfo.CustomBuildConfiguration != null
                 ? CreateReplacementBuildConfiguration(
@@ -270,7 +280,7 @@ internal static class TeamCitySettingsFile
         // a product with dozens of test cells does not present them as one flat list; the rest sit at the root.
         var folderedConfigurations = new Dictionary<string, List<TeamCityBuildConfiguration>>( StringComparer.Ordinal );
 
-        foreach ( var additional in product.AdditionalCiBuildConfigurations )
+        foreach ( var additional in ciBuildConfigurations )
         {
             var configuration = additional.TeamCityBuildConfiguration( productProperties, teamCityBuildBuildConfigurations );
             configuration.GitHubAppTokenOverride = additional.GitHubAppToken;

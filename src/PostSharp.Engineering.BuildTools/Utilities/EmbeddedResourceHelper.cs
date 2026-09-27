@@ -60,6 +60,11 @@ internal static class EmbeddedResourceHelper
 
         AddDockerTestReplacements( product, replacements );
 
+        // The value lands inside a single-quoted PowerShell literal, so an apostrophe has to be doubled.
+        replacements.Add(
+            "<TEST_RESULTS_PATH>",
+            product.TestResultsDirectory.Replace( '\\', '/' ).Replace( "'", "''", StringComparison.Ordinal ) );
+
         ExtractResource( context, fileName, targetDirectory, replacements );
     }
 

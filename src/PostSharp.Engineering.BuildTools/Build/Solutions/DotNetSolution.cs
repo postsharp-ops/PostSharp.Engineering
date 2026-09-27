@@ -1,5 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.IO;
@@ -78,11 +80,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 stagingDirectory = TestResultsStaging.GetStagingDirectory( context.RepoDirectory, context.Product.TestResultsDirectory, runKey );
 
                 verb = "test";
-                args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory \"{stagingDirectory}\"";
 
-                if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+                switch ( context.Product.TestRunner )
                 {
-                    args += $" --filter \"{settings.TestsFilter}\"";
+                    case TestRunner.MicrosoftTestingPlatform:
+                        args = TestingPlatform.GetArguments( stagingDirectory, settings.TestsFilter );
+
+                        break;
+
+                    default:
+                        args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory \"{stagingDirectory}\"";
+
+                        if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+                        {
+                            args += $" --filter \"{settings.TestsFilter}\"";
+                        }
+
+                        break;
                 }
             }
             else
@@ -138,6 +152,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
             foreach ( var file in TestResultsStaging.Publish( context.Console, stagingDirectory, resultsDirectory, runKey ) )
             {
+                if ( context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform )
+                {
+                    TestingPlatform.NameDataRows( context, file );
+                }
+
                 this.AddTestResultFile( Path.GetRelativePath( context.RepoDirectory, file ) );
             }
         }

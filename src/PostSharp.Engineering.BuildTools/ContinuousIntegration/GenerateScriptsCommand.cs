@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -23,10 +24,43 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
     {
         var product = context.Product;
 
+        // The build configurations of the test agents are planned from the test applications, which only an evaluation of
+        // the projects tells. They are created before the TeamCity settings, which contain them, and are validated with
+        // the configurations that the product declares.
+        ImmutableArray<AdditionalCiBuildConfiguration> generatedConfigurations = [];
+
+        if ( product.TestAgents.Length > 0 )
+        {
+            if ( !product.PublishesTestArchives )
+            {
+                context.Console.WriteError( "The product declares TestAgents but no solution sets ContainsTestApplications, so no build writes the archives they run." );
+
+                return false;
+            }
+
+            // The projects are evaluated in the configuration of the build that publishes the archives, because a target
+            // framework, an assembly name or a skip reason can depend on it.
+            if ( !TestArchives.TryGetSourceConfiguration( product, out var configuration ) )
+            {
+                context.Console.WriteError(
+                    $"TestArchivesSourceDependency names the build configuration '{product.TestArchivesSourceDependency.ConfigurationId}', which the product does not declare." );
+
+                return false;
+            }
+
+            if ( !TestApplicationDiscovery.TryDiscover( context, configuration, out var applications ) )
+            {
+                return false;
+            }
+
+            generatedConfigurations = TestArchiveCells.Create( product, applications );
+            TestArchives.WriteList( context, applications );
+        }
+
         // TeamCity
         if ( product.GenerateTeamCitySettings )
         {
-            if ( !TeamCitySettingsFile.TryWrite( context ) )
+            if ( !TeamCitySettingsFile.TryWrite( context, generatedConfigurations ) )
             {
                 return false;
             }
@@ -48,6 +82,13 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         if ( product.AdditionalCiBuildConfigurations.Any( c => c is DockerTestsAdditionalCiBuildConfiguration ) )
         {
             EmbeddedResourceHelper.ExtractScript( context, "RunDockerTests.ps1", product.EngineeringDirectory );
+        }
+
+        // The runner of the test archives, for a product that publishes them; a product that does not has nothing for it
+        // to run.
+        if ( product.PublishesTestArchives )
+        {
+            EmbeddedResourceHelper.ExtractScript( context, TestArchives.ScriptName, product.EngineeringDirectory );
         }
 
         // The script that runs a command against every product of a consolidated build. Only a consolidated product has

@@ -86,7 +86,7 @@ public sealed class CustomBuildConfigurationTests
     public void ADependencyOnTheBuildResolvesToTheObjectNameItDeclares()
         => Assert.Equal(
             Generate( CreateProduct( CreateReplacement() ) ).ObjectName,
-            new SnapshotDependency( BuildConfiguration.Public ).TryGetObjectName( CreateProduct( CreateReplacement() ) ) );
+            new SnapshotDependency( BuildConfiguration.Public ).TryGetObjectName( CreateProduct( CreateReplacement() ), [] ) );
 
     /// <summary>
     /// The replacement keeps its own dependencies on other build configurations of the same product.

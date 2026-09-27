@@ -70,6 +70,10 @@ namespace PostSharp.Engineering.BuildTools
                         .WithData( data )
                         .WithDescription( "Lists the solutions in the build sequence." );
 
+                    root.AddCommand<ListTestApplicationsCommand>( "list-test-applications" )
+                        .WithData( data )
+                        .WithDescription( "Lists the Microsoft.Testing.Platform test applications of the solutions whose TestRunner declares them." );
+
                     root.AddCommand<TestCommand>( "test" )
                         .WithData( data )
                         .WithDescription( "Builds all packages then run all tests (implies 'build')" );

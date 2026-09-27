@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -33,7 +34,26 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             => this.RunMSBuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
 
         public override bool Test( BuildContext context, BuildSettings settings )
-            => this.RunMSBuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+        {
+            switch ( context.Product.TestRunner )
+            {
+                // The test applications that the build of the solution wrote are run by dotnet test, which reports them. The
+                // Test target of the solution would fail on every project that does not define one.
+                case TestRunner.MicrosoftTestingPlatform:
+                    return TestingPlatform.Test( context, settings, this, Path.Combine( context.RepoDirectory, this.SolutionPath ) );
+
+                default:
+                    if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+                    {
+                        // TODO if needed
+                        context.Console.WriteError( "Test filters are not implemented for non-SDK-style projects." );
+
+                        return false;
+                    }
+
+                    return this.RunMSBuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+            }
+        }
 
         public override bool Restore( BuildContext context, BuildSettings settings )
         {
@@ -80,14 +100,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         private bool RunMSBuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
         {
-            if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
-            {
-                // TODO if needed
-                context.Console.WriteError( "Test filters are not implemented for non-SDK-style projects." );
-
-                return false;
-            }
-
             var msbuildPath = MSBuildHelper.FindMSBuildExe( context, this.MSBuildVersion );
 
             if ( msbuildPath == null )

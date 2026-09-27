@@ -309,7 +309,7 @@ The `PostSharp.Engineering.Sdk` package provides:
 | `TeamCity.targets` | Build and test reporting for TeamCity |
 | `AspNetPublish.targets` | ASP.NET Core project publishing |
 | `WebPublish.targets` | Web project artifact publishing |
-| `TestsPublish.targets` | Test project artifact publishing |
+| `TestArchive.targets` | Zips each test application with its manifest into `artifacts/tests` ([Microsoft.Testing.Platform Tests](doc/testing-platform.md)) |
 | `PackagesConfig.targets` | Legacy packages.config support |
 | `CleanXmlDoc.targets` | XML documentation cleanup |
 

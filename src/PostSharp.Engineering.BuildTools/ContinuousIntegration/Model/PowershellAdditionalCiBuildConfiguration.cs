@@ -55,6 +55,14 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
     /// </remarks>
     public bool ConsumesProductDependencies { get; init; }
 
+    /// <summary>
+    /// Gets a value indicating whether a configuration that depends on a stage of its own product prepares the checkout to
+    /// continue that build: it takes the artifacts of the products this product depends on, and writes <c>nuget.config</c>
+    /// and <c>Versions.g.props</c> from the published ones. A configuration that only runs what a stage published, such as
+    /// the test archives, needs none of it.
+    /// </summary>
+    internal virtual bool PreparesBuildEnvironment => true;
+
     internal override TeamCityBuildConfiguration TeamCityBuildConfiguration(
         ProductProperties productProperties,
         IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations )
@@ -74,7 +82,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
         // checkout that was built against them. A configuration that consumes no such stage takes them only when it
         // sets ConsumesProductDependencies, which is what the first stage of a pipeline does: it compiles the product
         // and therefore needs what the product is compiled against.
-        var productDependencies = declaredSnapshotDependencies.Length > 0 || this.ConsumesProductDependencies
+        var productDependencies = this.PreparesBuildEnvironment && (declaredSnapshotDependencies.Length > 0 || this.ConsumesProductDependencies)
             ? product.DependencyDefinition.GetAllDependencies( this.EffectiveArtifactsConfiguration )
                 .Where( d => d.Definition.GenerateSnapshotDependency )
                 .ToList()
@@ -95,7 +103,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             snapshotDependencies = declaredSnapshotDependencies
                 .Select(
                     d => d.ToTeamCitySnapshotDependency(
-                        d.TryGetObjectName( product )
+                        d.TryGetObjectName( product, productProperties.CiBuildConfigurations )
                         ?? throw new KeyNotFoundException(
                             $"The '{this.Id}' build configuration depends on '{d}', which the product does not declare." ),
                         defaultArtifactRules,
@@ -113,7 +121,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             // Both steps below read a file that a stage of this product published, so they belong to a configuration
             // that waits for such a stage. A configuration that takes only the artifacts of other products has no
             // such directory, and it builds the product from source, which writes both files itself.
-            if ( declaredSnapshotDependencies.Length > 0 )
+            if ( declaredSnapshotDependencies.Length > 0 && this.PreparesBuildEnvironment )
             {
                 // If we have a build snapshot dependency, copy nuget.restored.config to nuget.config
                 var copyNuGetConfigCommand =

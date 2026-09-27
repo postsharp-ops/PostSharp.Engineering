@@ -103,6 +103,37 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string TestResultsDirectory { get; init; } = Path.Combine( "artifacts", "testResults" );
 
+        /// <summary>
+        /// Gets a value indicating whether the test applications of the product are packed into test archives, which test
+        /// agents run without a .NET SDK: whether one of its solutions sets <see cref="Solution.ContainsTestApplications"/>.
+        /// <c>Build.ps1 build</c> then sets <c>PublishTestArchive</c> for the build of the solutions, the clean step deletes
+        /// <c>artifacts/tests</c>, and <c>generate-scripts</c> writes <c>RunTests.ps1</c> into the engineering directory. See
+        /// <c>doc/testing-platform.md</c>.
+        /// </summary>
+        internal bool PublishesTestArchives => this.Solutions.Any( s => s.ContainsTestApplications );
+
+        /// <summary>
+        /// Gets the test platform of the product, which is the mode of <c>dotnet test</c> in its repository. With
+        /// <see cref="Model.TestRunner.MicrosoftTestingPlatform"/>, the generated <c>global.json</c> selects that mode, and
+        /// <c>Build.ps1 test</c> runs the test applications of the solutions with it. See <c>doc/testing-platform.md</c>.
+        /// </summary>
+        public TestRunner TestRunner { get; init; }
+
+        /// <summary>
+        /// Gets the kinds of build agents that run the test archives. <c>generate-scripts</c> creates their build
+        /// configurations from the test applications of the solutions whose <c>TestRunner</c> declares them, and writes the
+        /// list of the archives to <c>eng/test-archives.txt</c>, which <c>Build.ps1 build</c> checks. Requires a solution
+        /// that sets <see cref="Solution.ContainsTestApplications"/>. See <c>doc/testing-platform.md</c>.
+        /// </summary>
+        public TestAgent[] TestAgents { get; init; } = [];
+
+        /// <summary>
+        /// Gets the build configuration that publishes the test archives, which the build configurations of
+        /// <see cref="TestAgents"/> download them from. Defaults to the public build. Its artifact rules are replaced by the
+        /// archives of each build configuration.
+        /// </summary>
+        public SnapshotDependency TestArchivesSourceDependency { get; init; } = new( BuildConfiguration.Public );
+
         public string LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 
         public string DumpDirectory { get; init; } = Path.Combine( "artifacts", "dumps" );
