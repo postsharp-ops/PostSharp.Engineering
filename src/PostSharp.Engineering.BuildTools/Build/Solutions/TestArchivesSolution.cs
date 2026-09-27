@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
@@ -56,6 +57,15 @@ public sealed class TestArchivesSolution : Solution
     /// Gets the tags of the archives not to run.
     /// </summary>
     public string[] ExcludeTags { get; init; } = [];
+
+    /// <summary>
+    /// Adds <c>PublishTestArchive=true</c> to the properties of the build of the solutions when the product has a
+    /// <see cref="TestArchivesSolution"/>, so that its test projects write the archives that it runs.
+    /// </summary>
+    internal static BuildSettings AddBuildProperties( Product product, BuildSettings settings )
+        => product.Solutions.Any( s => s is TestArchivesSolution ) && !settings.Properties.ContainsKey( "PublishTestArchive" )
+            ? settings.WithAdditionalProperties( ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "true" ) )
+            : settings;
 
     // The archives are written by the build of the other solutions.
     public override bool Build( BuildContext context, BuildSettings settings ) => true;

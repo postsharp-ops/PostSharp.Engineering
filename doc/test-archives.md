@@ -37,7 +37,8 @@ A test project imports `TestArchive.targets` from the SDK, typically from `Direc
 
 The target runs after the build of each target framework when the project is a test application
 (`IsTestingPlatformApplication`, which xunit.v3 and the runner of MSTest set) and when `PublishTestArchive` is `true`.
-The product sets that property for the build that produces the artifacts, not for a build in the IDE.
+`Build.ps1 build` sets that property for a product that has a `TestArchivesSolution` (see below), unless the command
+line sets it. A build in the IDE does not set it, so it does not spend the time of a publication on every build.
 
 The target publishes the application into `obj/<configuration>/<target framework>/test-archive`, writes `test.psd1`
 there, and zips the directory to `artifacts/tests/<AssemblyName>.<TargetFramework>[.<RuntimeIdentifier>].zip`. The
@@ -174,7 +175,9 @@ Solutions =
 ]
 ```
 
-The solution builds nothing and runs `eng/RunTests.ps1`, with its `Tags` and `ExcludeTags`. `generate-scripts` writes
+The solution builds nothing and runs `eng/RunTests.ps1`, with its `Tags` and `ExcludeTags`. Its presence also makes
+`Build.ps1 build` pass `PublishTestArchive=true` to the other solutions. The clean step of the build deletes
+`artifacts/tests`, so that the archive of a test project that was removed or renamed is not run again. `generate-scripts` writes
 `eng/RunTests.ps1` for a product that has a `TestArchivesSolution`. The test filter of `Build.ps1 test` does not apply,
 because the filter syntax of an application is that of its test framework; pass a filter with
 `RunTests.ps1 -ApplicationArguments`.

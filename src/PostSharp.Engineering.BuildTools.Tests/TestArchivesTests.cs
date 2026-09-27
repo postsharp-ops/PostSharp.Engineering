@@ -1,7 +1,9 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Solutions;
+using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
@@ -296,6 +298,26 @@ public sealed class TestArchivesTests : IDisposable
         var command = TestArchivesSolution.GetCommand( "C:\\repo\\eng\\RunTests.ps1", ["A", "it's"], ["B"] );
 
         Assert.Equal( "& 'C:\\repo\\eng\\RunTests.ps1' -Tags 'A','it''s' -ExcludeTags 'B'; exit $LASTEXITCODE", command );
+    }
+
+    /// <summary>
+    /// The build of the solutions writes the archives when the product runs them, and only then, so that a product
+    /// without archives does not spend the time of a publication on every test project. A value given on the command line
+    /// is kept.
+    /// </summary>
+    [Fact]
+    public void TheBuildWritesTheArchivesOfAProductThatRunsThem()
+    {
+        var withArchives = new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = [new TestArchivesSolution()] };
+        var withoutArchives = new Product( MetalamaDependencies.V2026_1.Metalama );
+
+        Assert.Equal( "true", TestArchivesSolution.AddBuildProperties( withArchives, new BuildSettings() ).Properties["PublishTestArchive"] );
+        Assert.False( TestArchivesSolution.AddBuildProperties( withoutArchives, new BuildSettings() ).Properties.ContainsKey( "PublishTestArchive" ) );
+
+        var explicitSettings = new BuildSettings().WithAdditionalProperties(
+            ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "false" ) );
+
+        Assert.Equal( "false", TestArchivesSolution.AddBuildProperties( withArchives, explicitSettings ).Properties["PublishTestArchive"] );
     }
 
     public void Dispose() => this._directory.Dispose();
