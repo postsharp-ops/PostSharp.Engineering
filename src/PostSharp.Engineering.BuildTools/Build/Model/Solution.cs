@@ -31,8 +31,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         /// <summary>
         /// Gets a value indicating whether the test projects of the solution are Microsoft.Testing.Platform test applications
-        /// that run on the test agents of the product: <c>generate-scripts</c> reads them to plan the build configurations
-        /// of <see cref="Product.TestAgents"/>. Only these solutions are read, because evaluating the projects of every
+        /// that run on the test agents of the product: <c>Build.ps1 build</c> packs them into test archives, and
+        /// <c>generate-scripts</c> reads them to plan the build configurations of <see cref="Product.TestAgents"/>. Only these solutions are read, because evaluating the projects of every
         /// solution of a repository would cost time for nothing. See <c>doc/testing-platform.md</c>.
         /// </summary>
         public bool ContainsTestApplications { get; init; }

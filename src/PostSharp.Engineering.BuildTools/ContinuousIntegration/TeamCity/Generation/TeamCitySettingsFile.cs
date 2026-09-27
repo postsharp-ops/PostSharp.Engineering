@@ -80,7 +80,7 @@ internal static class TeamCitySettingsFile
             publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
 
             // The build configurations of the test agents download them one by one.
-            if ( product.PublishTestArchives )
+            if ( product.PublishesTestArchives )
             {
                 publishedArtifactRules += $@"\n+:{TestArchives.Directory}/*.zip=>{TestArchives.Directory}";
             }

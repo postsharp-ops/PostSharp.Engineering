@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -314,7 +315,7 @@ public sealed class TestArchivesTests : IDisposable
     [Fact]
     public void TheBuildWritesTheArchivesOfAProductThatPublishesThem()
     {
-        var withArchives = new Product( MetalamaDependencies.V2026_1.Metalama ) { PublishTestArchives = true };
+        var withArchives = new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }] };
         var withoutArchives = new Product( MetalamaDependencies.V2026_1.Metalama );
 
         Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, new BuildSettings() ).Properties["PublishTestArchive"] );

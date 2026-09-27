@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
@@ -130,7 +131,7 @@ public class GenerateScriptsTests
         {
             var product = new Product( MetalamaDependencies.V2026_1.Metalama )
             {
-                GenerateTeamCitySettings = false, GenerateDockerfiles = false, PublishTestArchives = true
+                GenerateTeamCitySettings = false, GenerateDockerfiles = false, Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }]
             };
 
             Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );

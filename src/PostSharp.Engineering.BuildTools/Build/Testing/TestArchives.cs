@@ -12,7 +12,7 @@ using System.Text;
 namespace PostSharp.Engineering.BuildTools.Build.Testing;
 
 /// <summary>
-/// The conventions of the test archives of a product whose <see cref="Product.PublishTestArchives"/> is set. See
+/// The conventions of the test archives of a product whose solutions set <see cref="Solution.ContainsTestApplications"/>. See
 /// <c>doc/testing-platform.md</c>.
 /// </summary>
 internal static class TestArchives
@@ -40,17 +40,17 @@ internal static class TestArchives
     /// publication on every build.
     /// </summary>
     public static BuildSettings AddBuildProperties( Product product, BuildSettings settings )
-        => product.PublishTestArchives && !settings.Properties.ContainsKey( "PublishTestArchive" )
+        => product.PublishesTestArchives && !settings.Properties.ContainsKey( "PublishTestArchive" )
             ? settings.WithAdditionalProperties( ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "true" ) )
             : settings;
 
     /// <summary>
-    /// Gets the build configuration of the build that publishes the archives, <see cref="Product.TestArchivesSource"/>: the
+    /// Gets the build configuration of the build that publishes the archives, <see cref="Product.TestArchivesSourceDependency"/>: the
     /// configuration it names, or the artifacts configuration of the additional build configuration it names.
     /// </summary>
     public static bool TryGetSourceConfiguration( Product product, out BuildConfiguration configuration )
     {
-        var source = product.TestArchivesSource;
+        var source = product.TestArchivesSourceDependency;
 
         if ( source.Configuration != null )
         {

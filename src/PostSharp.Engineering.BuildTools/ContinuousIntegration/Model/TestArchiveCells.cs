@@ -143,7 +143,7 @@ internal static class TestArchiveCells
             ProjectFolder = agent.ProjectFolder ?? DefaultProjectFolder,
             TimeoutInMinutes = agent.TimeoutInMinutes,
             Parameters = agent.Parameters,
-            SnapshotDependencies = [product.TestArchivesSource with { ArtifactRules = archiveRules, CleanDestination = true }],
+            SnapshotDependencies = [product.TestArchivesSourceDependency with { ArtifactRules = archiveRules, CleanDestination = true }],
             ArtifactRules = [$"+:{resultsDirectory}/**/*=>{resultsDirectory}"]
         };
     }

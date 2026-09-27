@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -27,7 +28,8 @@ public sealed class TestArchiveCellsTests
     private static Product CreateProduct( params TestAgent[] agents )
         => new( MetalamaDependencies.V2026_1.Metalama )
         {
-            PublishTestArchives = true, TestAgents = agents, TestArchivesSource = new SnapshotDependency( "BuildArtifacts" )
+            Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }], TestAgents = agents,
+            TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" )
         };
 
     [Fact]

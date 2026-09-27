@@ -136,7 +136,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             DeleteDirectory( product.GetPublicArtifactsAbsoluteDirectory( context ) );
 
             // The archive of a test project that was removed or renamed would otherwise be run again.
-            if ( product.PublishTestArchives )
+            if ( product.PublishesTestArchives )
             {
                 DeleteDirectory( Path.Combine( context.RepoDirectory, TestArchives.Directory ) );
             }

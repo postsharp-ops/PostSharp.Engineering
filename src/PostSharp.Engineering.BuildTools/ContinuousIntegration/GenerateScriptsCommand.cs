@@ -31,9 +31,9 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
 
         if ( product.TestAgents.Length > 0 )
         {
-            if ( !product.PublishTestArchives )
+            if ( !product.PublishesTestArchives )
             {
-                context.Console.WriteError( "The product declares TestAgents but does not set PublishTestArchives, so no build writes the archives they run." );
+                context.Console.WriteError( "The product declares TestAgents but no solution sets ContainsTestApplications, so no build writes the archives they run." );
 
                 return false;
             }
@@ -43,7 +43,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
             if ( !TestArchives.TryGetSourceConfiguration( product, out var configuration ) )
             {
                 context.Console.WriteError(
-                    $"TestArchivesSource names the build configuration '{product.TestArchivesSource.ConfigurationId}', which the product does not declare." );
+                    $"TestArchivesSourceDependency names the build configuration '{product.TestArchivesSourceDependency.ConfigurationId}', which the product does not declare." );
 
                 return false;
             }
@@ -86,7 +86,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
 
         // The runner of the test archives, for a product that publishes them; a product that does not has nothing for it
         // to run.
-        if ( product.PublishTestArchives )
+        if ( product.PublishesTestArchives )
         {
             EmbeddedResourceHelper.ExtractScript( context, TestArchives.ScriptName, product.EngineeringDirectory );
         }

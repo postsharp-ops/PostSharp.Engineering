@@ -12,7 +12,7 @@ two places:
 ```mermaid
 flowchart LR
     P["Product<br/>TestRunner = MicrosoftTestingPlatform"] --> T["Build.ps1 test<br/>dotnet test"]
-    P --> B["Build.ps1 build<br/>PublishTestArchives"]
+    S["Solution<br/>ContainsTestApplications"] --> B["Build.ps1 build<br/>test archives"]
     B --> A["artifacts/tests/*.zip<br/>one per project and target framework"]
     A --> C["Test agent<br/>eng/RunTests.ps1"]
     T --> R["TRX reports imported into TeamCity"]
@@ -84,10 +84,10 @@ Framework application as both x86 and x64 sets `RuntimeIdentifier` in each of th
 
 ## Test archives
 
-A product that runs its tests on agents sets `PublishTestArchives`:
+A solution whose test applications run on agents sets `ContainsTestApplications`:
 
 ```csharp
-var product = new Product( dependency ) { PublishTestArchives = true, ... };
+new MsbuildSolution( @"Patterns\MyProduct.sln" ) { ContainsTestApplications = true }
 ```
 
 `Build.ps1 build` then passes `PublishTestArchive=true` to the build of the solutions, unless the command line sets
@@ -192,8 +192,7 @@ configurations:
 ```csharp
 var product = new Product( dependency )
 {
-    PublishTestArchives = true,
-    TestArchivesSource = new SnapshotDependency( "BuildArtifacts" ),   // defaults to the public build
+    TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" ),   // defaults to the public build
     TestAgents =
     [
         new TestAgent( "win-x64", "UnitTestWinX64", "Unit Tests Windows x64", windowsContainerRequirements )
@@ -215,7 +214,7 @@ only: a repository can hold hundreds of other projects.
 new MsbuildSolution( @"Patterns\MyProduct.sln" ) { ContainsTestApplications = true }
 ```
 
-It evaluates each target framework, in the build configuration of `TestArchivesSource`, and builds and restores nothing.
+It evaluates each target framework, in the build configuration of `TestArchivesSourceDependency`, and builds and restores nothing.
 `Build.ps1 list-test-applications` shows what it finds.
 
 A project is a test application when it says so in a property that it sets itself. `IsTestingPlatformApplication` is
@@ -234,7 +233,7 @@ framework without its operating system, so that `net10.0` and `net10.0-windows` 
 tag of `SeparateTags` run in a build configuration of their own, and the others run with `-ExcludeTags`. A skipped
 application is not downloaded. A composite configuration, `RunAllTestArchives`, runs them all.
 
-A build configuration downloads exactly the archives it runs, one artifact rule per archive, from `TestArchivesSource`,
+A build configuration downloads exactly the archives it runs, one artifact rule per archive, from `TestArchivesSourceDependency`,
 and nothing else of the build: no package, and none of the artifacts of the products this product depends on. It runs
 `eng/RunTests.ps1 -Platform <platform>`, in a container when the requirements of the agent are those of a container
 host, and publishes the test results directory. The build that publishes the archives publishes
