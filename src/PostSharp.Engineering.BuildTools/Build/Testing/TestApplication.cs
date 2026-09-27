@@ -16,6 +16,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Testing;
 /// <param name="Tags">The tags of the application (<c>TestApplicationTag</c>).</param>
 /// <param name="RunAlone">Whether the application must not run at the same time as another one (<c>TestApplicationRunAlone</c>).</param>
 /// <param name="Skip">A reason not to run the application (<c>TestApplicationSkip</c>), or <c>null</c>.</param>
+/// <param name="Artifacts">The build artifacts that the prepare script of the application reads (<c>TestApplicationArtifacts</c>), as
+/// paths relative to the repository, with forward slashes.</param>
 internal sealed record TestApplication(
     string ProjectPath,
     string AssemblyName,
@@ -24,10 +26,21 @@ internal sealed record TestApplication(
     ImmutableArray<string> Platforms,
     ImmutableArray<string> Tags,
     bool RunAlone,
-    string? Skip )
+    string? Skip,
+    ImmutableArray<string> Artifacts )
 {
     /// <summary>
     /// Gets the name of the archive of the application, without the extension, as <c>TestArchive.targets</c> writes it.
     /// </summary>
     public string ArchiveName => this.RuntimeIdentifier.Length == 0 ? $"{this.AssemblyName}.{this.TargetFramework}" : $"{this.AssemblyName}.{this.TargetFramework}.{this.RuntimeIdentifier}";
+
+    /// <summary>
+    /// Gets the directory of an artifact, which the build configurations download it to.
+    /// </summary>
+    public static string GetArtifactDirectory( string artifact )
+    {
+        var separator = artifact.LastIndexOf( '/' );
+
+        return separator < 0 ? "" : artifact[..separator];
+    }
 }

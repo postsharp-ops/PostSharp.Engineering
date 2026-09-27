@@ -76,6 +76,8 @@ public sealed class TestArchivesTests : IDisposable
                  <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
                  <PublishTestArchive>true</PublishTestArchive>
                  <TestApplicationSkip Condition="$(TargetFramework.EndsWith('-windows'))">Not today; it's broken</TestApplicationSkip>
+                 <TestApplicationPrepareScript>Prepare.ps1</TestApplicationPrepareScript>
+                 <TestApplicationArtifacts>artifacts/publish/Probe.*.txt</TestApplicationArtifacts>
                </PropertyGroup>
                <ItemGroup>
                  <TestingPlatformBuilderHook Include="2006B3F7-93D2-4D9C-9C69-F41A1F21C9C7">
@@ -98,6 +100,7 @@ public sealed class TestArchivesTests : IDisposable
             var resultsDirectory = args[Array.IndexOf( args, "--results-directory" ) + 1];
             var reportFileName = args[Array.IndexOf( args, "--report-trx-filename" ) + 1];
             File.WriteAllLines( Path.Combine( resultsDirectory, "arguments.txt" ), args );
+            File.WriteAllText( Path.Combine( resultsDirectory, "prepared.txt" ), Environment.GetEnvironmentVariable( "PROBE_PREPARED" ) ?? "" );
             File.WriteAllText(
                 Path.Combine( resultsDirectory, reportFileName ),
                 "<TestRun xmlns=\"http://microsoft.com/schemas/VisualStudio/TeamTest/2010\"><TestDefinitions>"
@@ -106,6 +109,22 @@ public sealed class TestArchivesTests : IDisposable
 
             return int.Parse( Environment.GetEnvironmentVariable( "PROBE_EXIT_CODE" ) ?? "0" );
             """ );
+
+        // The prepare script reads the artifact that the project declares, and gives its content to the application.
+        File.WriteAllText(
+            Path.Combine( projectDirectory, "Prepare.ps1" ),
+            """
+            param([string]$RepositoryRoot, [string]$ApplicationDirectory)
+
+            if ($env:PROBE_PREPARE_FAILS) { throw 'The preparation failed.' }
+
+            $artifact = Get-ChildItem -Path (Join-Path $RepositoryRoot 'artifacts/publish/Probe.*.txt') | Select-Object -First 1
+            @{ PROBE_PREPARED = (Get-Content -LiteralPath $artifact.FullName -Raw).Trim() }
+            """ );
+
+        var publishDirectory = Path.Combine( this._directory.Path, "artifacts", "publish" );
+        Directory.CreateDirectory( publishDirectory );
+        File.WriteAllText( Path.Combine( publishDirectory, "Probe.1.0.txt" ), "from the artifact" );
 
         var engDirectory = Path.Combine( this._directory.Path, "eng" );
         Directory.CreateDirectory( engDirectory );
@@ -218,6 +237,8 @@ public sealed class TestArchivesTests : IDisposable
         Assert.Contains( "Extensions = @('Microsoft.Testing.Extensions.TrxReport')", manifest, StringComparison.Ordinal );
         Assert.Contains( "Tags = @('Fast', 'Owner''s')", manifest, StringComparison.Ordinal );
         Assert.Contains( "Skip = $null", manifest, StringComparison.Ordinal );
+        Assert.Contains( "Prepare = 'Prepare.ps1'", manifest, StringComparison.Ordinal );
+        Assert.Contains( "Artifacts = @('artifacts/publish/Probe.*.txt')", manifest, StringComparison.Ordinal );
 
         // A Windows target framework runs on Windows only, and the apostrophe and the semicolon of the reason survive.
         var windowsManifest = ReadManifest( windowsArchive );
@@ -235,6 +256,9 @@ public sealed class TestArchivesTests : IDisposable
 
         // The options of an extension that the application does not have are not passed, because the platform refuses them.
         Assert.DoesNotContain( "--hangdump", arguments );
+
+        // The environment variables that the prepare script returns reach the application.
+        Assert.Equal( "from the artifact", File.ReadAllText( Path.Combine( results, "prepared.txt" ) ) );
 
         // The data row is named after its arguments, which is how TeamCity tells the rows of a theory apart.
         var report = File.ReadAllText( Path.Combine( results, "report.trx" ) );
@@ -261,6 +285,31 @@ public sealed class TestArchivesTests : IDisposable
         (exitCode, output) = this.RunTests( "", new Dictionary<string, string> { ["PROBE_EXIT_CODE"] = "2" } );
         Assert.Equal( 1, exitCode );
         Assert.DoesNotContain( "##teamcity[buildProblem", output, StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// A prepare script that fails, or an artifact that is missing, fails the archive without starting the application.
+    /// </summary>
+    [Fact]
+    public void AFailedPreparationIsABuildProblem()
+    {
+        if ( DockerBuildScript.FindPowerShell() != "pwsh" )
+        {
+            return;
+        }
+
+        this.CreateRepository();
+
+        var (exitCode, output) = this.RunTests( "", new Dictionary<string, string> { ["PROBE_PREPARE_FAILS"] = "1" } );
+        Assert.Equal( 1, exitCode );
+        Assert.Contains( "##teamcity[buildProblem", output, StringComparison.Ordinal );
+        Assert.Contains( "The preparation failed.", output, StringComparison.Ordinal );
+        Assert.False( File.Exists( Path.Combine( this.ResultsDirectory, $"Probe.{_targetFramework}", "arguments.txt" ) ) );
+
+        File.Delete( Path.Combine( this._directory.Path, "artifacts", "publish", "Probe.1.0.txt" ) );
+        (exitCode, output) = this.RunTests( "", [] );
+        Assert.Equal( 1, exitCode );
+        Assert.Contains( "The artifact 'artifacts/publish/Probe.*.txt'", output, StringComparison.Ordinal );
     }
 
     /// <summary>

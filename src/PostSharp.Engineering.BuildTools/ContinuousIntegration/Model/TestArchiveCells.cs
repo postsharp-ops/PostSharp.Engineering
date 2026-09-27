@@ -125,8 +125,11 @@ internal static class TestArchiveCells
             arguments += $" -ExcludeTags {string.Join( ",", excludedTags )}";
         }
 
+        // The archives, and the artifacts that their prepare scripts read, each downloaded to its own path.
         var archiveRules = applications
             .Select( a => $"+:{TestArchives.Directory}/{a.ArchiveName}.zip=>{TestArchives.Directory}" )
+            .Concat( applications.SelectMany( a => a.Artifacts ).Select( x => $"+:{x}=>{TestApplication.GetArtifactDirectory( x )}" ) )
+            .Distinct( StringComparer.Ordinal )
             .Order( StringComparer.Ordinal )
             .ToArray();
 

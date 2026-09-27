@@ -230,6 +230,8 @@ function Read-ArchiveManifest([string]$archivePath)
         Arguments = @($manifest.Arguments)
         ReportType = $manifest.ReportType
         ReportFile = $manifest.ReportFile
+        Prepare = $manifest.Prepare
+        Artifacts = @($manifest.Artifacts)
     }
 }
 
@@ -504,6 +506,71 @@ function Copy-NewOutput([hashtable]$positions)
     }
 }
 
+# Runs the prepare script of an archive, which its manifest names, and returns the environment variables that the script
+# returns for the application. The script receives the root of the repository, under which the artifacts that the
+# manifest declares were downloaded, and the directory of the extracted application. It runs in this process, in the
+# directory of the application; an exception or a non-zero exit code fails the archive.
+function Invoke-PrepareScript([hashtable]$run)
+{
+    $environment = @{}
+
+    if (-not $run.Manifest.Prepare)
+    {
+        return $environment
+    }
+
+    $script = Join-Path $run.Directory $run.Manifest.Prepare
+
+    if (-not (Test-Path -LiteralPath $script))
+    {
+        throw "The archive has no '$( $run.Manifest.Prepare )', which its manifest names as the prepare script."
+    }
+
+    foreach ($artifact in $run.Manifest.Artifacts)
+    {
+        if (-not (Get-ChildItem -Path (Join-Path $repositoryRoot $artifact) -File -ErrorAction SilentlyContinue))
+        {
+            throw "The artifact '$artifact', which the manifest declares, is not in '$repositoryRoot'. Download it with the archive."
+        }
+    }
+
+    Write-Host "Preparing $( $run.Key ): $( $run.Manifest.Prepare )" -ForegroundColor Green
+
+    Push-Location -LiteralPath $run.Directory
+
+    try
+    {
+        $global:LASTEXITCODE = 0
+        $output = @( & $script -RepositoryRoot $repositoryRoot -ApplicationDirectory $run.Directory )
+
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "The prepare script failed with exit code $LASTEXITCODE."
+        }
+    }
+    finally
+    {
+        Pop-Location
+    }
+
+    foreach ($item in $output)
+    {
+        if ($item -is [System.Collections.IDictionary])
+        {
+            foreach ($key in $item.Keys)
+            {
+                $environment[[string]$key] = [string]$item[$key]
+            }
+        }
+        elseif ($null -ne $item)
+        {
+            Write-Host $item
+        }
+    }
+
+    return $environment
+}
+
 # Extracts the archive and starts its application. The output goes to files, so that applications running at the same
 # time do not interleave their lines.
 function Start-TestRun([hashtable]$run, [string]$dotnet)
@@ -550,6 +617,8 @@ function Start-TestRun([hashtable]$run, [string]$dotnet)
         }
     }
 
+    $environment = Invoke-PrepareScript $run
+
     $command = Get-ApplicationCommand $run $dotnet
     $run.StdOut = Join-Path $run.ResultsDirectory 'stdout.log'
     $run.StdErr = Join-Path $run.ResultsDirectory 'stderr.log'
@@ -563,6 +632,11 @@ function Start-TestRun([hashtable]$run, [string]$dotnet)
         NoNewWindow = $true
         RedirectStandardOutput = $run.StdOut
         RedirectStandardError = $run.StdErr
+    }
+
+    if ($environment.Count -gt 0)
+    {
+        $startArguments.Environment = $environment
     }
 
     # Start-Process refuses an empty argument list.
