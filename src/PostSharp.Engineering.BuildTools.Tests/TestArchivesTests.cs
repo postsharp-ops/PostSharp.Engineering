@@ -2,7 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
-using PostSharp.Engineering.BuildTools.Build.Solutions;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -59,6 +59,7 @@ public sealed class TestArchivesTests : IDisposable
     private void CreateRepository()
     {
         File.WriteAllText( Path.Combine( this._directory.Path, "Build.ps1" ), "" );
+        this.WriteDirectoryBuildTargets();
 
         var projectDirectory = Path.Combine( this._directory.Path, "src", "Probe" );
         Directory.CreateDirectory( projectDirectory );
@@ -73,15 +74,14 @@ public sealed class TestArchivesTests : IDisposable
                  <EnableWindowsTargeting>true</EnableWindowsTargeting>
                  <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
                  <PublishTestArchive>true</PublishTestArchive>
-                 <TestArchiveSkip Condition="$(TargetFramework.EndsWith('-windows'))">Not today; it's broken</TestArchiveSkip>
+                 <TestApplicationSkip Condition="$(TargetFramework.EndsWith('-windows'))">Not today; it's broken</TestApplicationSkip>
                </PropertyGroup>
                <ItemGroup>
                  <TestingPlatformBuilderHook Include="2006B3F7-93D2-4D9C-9C69-F41A1F21C9C7">
                    <DisplayName>Microsoft.Testing.Extensions.TrxReport</DisplayName>
                  </TestingPlatformBuilderHook>
-                 <TestArchiveTag Include="Fast" />
+                 <TestApplicationTag Include="Fast" />
                </ItemGroup>
-               <Import Project="{Path.Combine( SdkDirectory, "TestArchive.targets" )}" />
              </Project>
              """ );
 
@@ -109,7 +109,7 @@ public sealed class TestArchivesTests : IDisposable
         Directory.CreateDirectory( engDirectory );
 
         File.WriteAllText(
-            Path.Combine( engDirectory, TestArchivesSolution.ScriptName ),
+            Path.Combine( engDirectory, TestArchives.ScriptName ),
             ReadScript().Replace( "<TEST_RESULTS_PATH>", "artifacts/testResults", StringComparison.Ordinal ),
             new UTF8Encoding( false ) );
 
@@ -117,9 +117,22 @@ public sealed class TestArchivesTests : IDisposable
         Assert.True( exitCode == 0, output );
     }
 
+    /// <summary>
+    /// Imports the targets file from <c>Directory.Build.targets</c>, after the body of the project and the inference of the
+    /// target framework by the .NET SDK, which its defaults are computed from.
+    /// </summary>
+    private void WriteDirectoryBuildTargets()
+        => File.WriteAllText(
+            Path.Combine( this._directory.Path, "Directory.Build.targets" ),
+            $"""
+             <Project>
+               <Import Project="{Path.Combine( SdkDirectory, "TestArchive.targets" )}" />
+             </Project>
+             """ );
+
     private static string ReadScript()
     {
-        var resourceName = $"PostSharp.Engineering.BuildTools.Resources.{TestArchivesSolution.ScriptName}";
+        var resourceName = $"PostSharp.Engineering.BuildTools.Resources.{TestArchives.ScriptName}";
 
         using var stream = typeof(Product).Assembly.GetManifestResourceStream( resourceName )
                            ?? throw new InvalidOperationException( $"Cannot find the embedded resource '{resourceName}'." );
@@ -132,7 +145,7 @@ public sealed class TestArchivesTests : IDisposable
     private (int ExitCode, string Output) RunTests( string arguments, Dictionary<string, string> environment )
     {
         environment["TEAMCITY_VERSION"] = "test";
-        var script = Path.Combine( this._directory.Path, "eng", TestArchivesSolution.ScriptName );
+        var script = Path.Combine( this._directory.Path, "eng", TestArchives.ScriptName );
 
         return Run(
             "pwsh",
@@ -271,6 +284,7 @@ public sealed class TestArchivesTests : IDisposable
     public void NoArchiveIsWrittenUnlessThePropertyIsSet()
     {
         this._directory.WriteFile( "Build.ps1", "" );
+        this.WriteDirectoryBuildTargets();
 
         var project = this._directory.WriteFile(
             "Probe.csproj",
@@ -281,7 +295,6 @@ public sealed class TestArchivesTests : IDisposable
                  <TargetFramework>{_targetFramework}</TargetFramework>
                  <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
                </PropertyGroup>
-               <Import Project="{Path.Combine( SdkDirectory, "TestArchive.targets" )}" />
              </Project>
              """ );
 
@@ -292,32 +305,24 @@ public sealed class TestArchivesTests : IDisposable
         Assert.False( Directory.Exists( this.ArchivesDirectory ) );
     }
 
-    [Fact]
-    public void TheCommandPassesEveryTagAsAnArrayElement()
-    {
-        var command = TestArchivesSolution.GetCommand( "C:\\repo\\eng\\RunTests.ps1", ["A", "it's"], ["B"] );
-
-        Assert.Equal( "& 'C:\\repo\\eng\\RunTests.ps1' -Tags 'A','it''s' -ExcludeTags 'B'; exit $LASTEXITCODE", command );
-    }
-
     /// <summary>
-    /// The build of the solutions writes the archives when the product runs them, and only then, so that a product
+    /// The build of the solutions writes the archives when the product publishes them, and only then, so that a product
     /// without archives does not spend the time of a publication on every test project. A value given on the command line
     /// is kept.
     /// </summary>
     [Fact]
-    public void TheBuildWritesTheArchivesOfAProductThatRunsThem()
+    public void TheBuildWritesTheArchivesOfAProductThatPublishesThem()
     {
-        var withArchives = new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = [new TestArchivesSolution()] };
+        var withArchives = new Product( MetalamaDependencies.V2026_1.Metalama ) { PublishTestArchives = true };
         var withoutArchives = new Product( MetalamaDependencies.V2026_1.Metalama );
 
-        Assert.Equal( "true", TestArchivesSolution.AddBuildProperties( withArchives, new BuildSettings() ).Properties["PublishTestArchive"] );
-        Assert.False( TestArchivesSolution.AddBuildProperties( withoutArchives, new BuildSettings() ).Properties.ContainsKey( "PublishTestArchive" ) );
+        Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, new BuildSettings() ).Properties["PublishTestArchive"] );
+        Assert.False( TestArchives.AddBuildProperties( withoutArchives, new BuildSettings() ).Properties.ContainsKey( "PublishTestArchive" ) );
 
         var explicitSettings = new BuildSettings().WithAdditionalProperties(
             ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "false" ) );
 
-        Assert.Equal( "false", TestArchivesSolution.AddBuildProperties( withArchives, explicitSettings ).Properties["PublishTestArchive"] );
+        Assert.Equal( "false", TestArchives.AddBuildProperties( withArchives, explicitSettings ).Properties["PublishTestArchive"] );
     }
 
     public void Dispose() => this._directory.Dispose();

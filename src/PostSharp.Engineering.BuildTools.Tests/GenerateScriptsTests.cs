@@ -2,7 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Build.Model;
-using PostSharp.Engineering.BuildTools.Build.Solutions;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -110,8 +110,8 @@ public class GenerateScriptsTests
     }
 
     /// <summary>
-    /// The runner of the test archives is generated for a product that has a solution to run them, and not for one that
-    /// does not. The results directory of the product reaches it through generation.
+    /// The runner of the test archives is generated for a product that publishes them, and not for one that does not. The
+    /// results directory of the product reaches it through generation.
     /// </summary>
     [Fact]
     public void RunTests_IsGeneratedOnlyForAProductWithTestArchives()
@@ -123,19 +123,19 @@ public class GenerateScriptsTests
             var product = CreateProduct();
 
             Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
-            Assert.False( File.Exists( Path.Combine( directory.Path, product.EngineeringDirectory, TestArchivesSolution.ScriptName ) ) );
+            Assert.False( File.Exists( Path.Combine( directory.Path, product.EngineeringDirectory, TestArchives.ScriptName ) ) );
         }
 
         using ( var directory = new TempDirectory() )
         {
             var product = new Product( MetalamaDependencies.V2026_1.Metalama )
             {
-                GenerateTeamCitySettings = false, GenerateDockerfiles = false, Solutions = [new TestArchivesSolution()]
+                GenerateTeamCitySettings = false, GenerateDockerfiles = false, PublishTestArchives = true
             };
 
             Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
 
-            var runner = Path.Combine( directory.Path, product.EngineeringDirectory, TestArchivesSolution.ScriptName );
+            var runner = Path.Combine( directory.Path, product.EngineeringDirectory, TestArchives.ScriptName );
             Assert.True( File.Exists( runner ) );
             Assert.Contains( "$TestResultsPath = 'artifacts/testResults'", File.ReadAllText( runner ), StringComparison.Ordinal );
         }

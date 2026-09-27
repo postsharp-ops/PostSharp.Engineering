@@ -29,6 +29,38 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         protected override bool ProducesTestResults => true;
 
+        /// <summary>
+        /// Gets the way <c>Build.ps1 test</c> runs the tests of the solution. With
+        /// <see cref="Solutions.TestRunner.MicrosoftTestingPlatform"/>, the test applications that the build has written are
+        /// run without <c>dotnet test</c>.
+        /// </summary>
+        public TestRunner TestRunner { get; init; }
+
+        public override bool Test( BuildContext context, BuildSettings settings )
+        {
+            if ( this.TestRunner != TestRunner.MicrosoftTestingPlatform )
+            {
+                return base.Test( context, settings );
+            }
+
+            var configuration = context.Product.DependencyDefinition.MSBuildConfiguration[settings.BuildConfiguration];
+
+            return TestingPlatformTestRunner.Test(
+                context,
+                settings,
+                this,
+                this.GetFinalSolutionPath( context ),
+                ( project, target ) => DotNetHelper.Run(
+                    context,
+                    settings,
+                    project,
+                    "msbuild",
+                    $"-t:{target} -p:Configuration={configuration}",
+                    false,
+                    this.CreateInvocationOptions(),
+                    this.Name ) );
+        }
+
         public override bool Pack( BuildContext context, BuildSettings settings )
             => DotNetHelper.Run( context, settings, this.GetFinalSolutionPath( context ), "pack", "", true, this.CreateInvocationOptions() );
 

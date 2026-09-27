@@ -3,7 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Files;
-using PostSharp.Engineering.BuildTools.Build.Solutions;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -51,11 +51,11 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
             EmbeddedResourceHelper.ExtractScript( context, "RunDockerTests.ps1", product.EngineeringDirectory );
         }
 
-        // The runner of the test archives. It is generated for a product that has a solution to run them, which is what
-        // 'Build.ps1 test' calls; a product whose test projects write no archive has nothing for it to run.
-        if ( product.Solutions.Any( s => s is TestArchivesSolution ) )
+        // The runner of the test archives, for a product that publishes them; a product that does not has nothing for it
+        // to run.
+        if ( product.PublishTestArchives )
         {
-            EmbeddedResourceHelper.ExtractScript( context, TestArchivesSolution.ScriptName, product.EngineeringDirectory );
+            EmbeddedResourceHelper.ExtractScript( context, TestArchives.ScriptName, product.EngineeringDirectory );
         }
 
         // The script that runs a command against every product of a consolidated build. Only a consolidated product has

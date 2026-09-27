@@ -1,35 +1,49 @@
 <Project>
 
     <!--
-        Packs a Microsoft.Testing.Platform test application into a zip archive that a test agent runs without a .NET SDK.
-        See doc/test-archives.md.
+        Describes a Microsoft.Testing.Platform test application, and packs it into a zip archive that a test agent runs
+        without a .NET SDK. See doc/testing-platform.md.
 
-        The target runs after the build of each target framework. It publishes the application, writes the test.psd1
-        manifest at the root of the published directory, and zips that directory to
-        $(TestArchiveDirectory)<AssemblyName>.<TargetFramework>[.<RuntimeIdentifier>].zip.
+        Import this file after the body of the project, typically from Directory.Build.targets: the defaults below are
+        computed from properties that the project and the .NET SDK set before that point. Being computed at evaluation
+        time, they are also what generate-scripts reads to plan the test build configurations, without a build.
 
-        It runs only when PublishTestArchive is true. The product sets it for the build that produces the artifacts, and
-        not for a build in the IDE.
+        The PublishTestArchive target runs after the build of each target framework. It publishes the application,
+        writes the test.psd1 manifest at the root of the published directory, and zips that directory to
+        $(TestArchiveDirectory)<AssemblyName>.<TargetFramework>[.<RuntimeIdentifier>].zip. It runs only when
+        PublishTestArchive is true, which Build.ps1 build sets for a product that publishes test archives.
 
-        Properties that a product can set:
-            PublishTestArchive          true to produce the archive.
-            TestArchiveDirectory        Where the archives go. Defaults to artifacts/tests under the directory of Build.ps1.
-            TestArchivePlatforms        The platforms the application runs on, separated by semicolons, for example
-                                        'win-x64;linux-x64'. Defaults to every platform for .NET, and to Windows for
-                                        .NET Framework or a Windows-specific target framework.
-            TestArchiveTimeoutSeconds   The time after which the runner kills the application. Defaults to 1800.
-            TestArchiveRunAlone         true when the application must not run at the same time as another one, for
-                                        example because its tests measure time.
-            TestArchiveSkip             A reason not to run the application. The runner reports it and runs nothing.
+        Properties that describe the application, read by the archive, by Build.ps1 test and by generate-scripts:
+            TestApplicationPlatforms        The platforms the application runs on, separated by semicolons, for example
+                                            'win-x64;linux-x64'. Defaults to every platform for .NET, and to Windows for
+                                            .NET Framework or a Windows-specific target framework.
+            TestApplicationTimeoutSeconds   The time after which the application is stopped. Defaults to 1800.
+            TestApplicationRunAlone         true when the application must not run at the same time as another one, for
+                                            example because its tests measure time.
+            TestApplicationSkip             A reason not to run the application. It is reported, and nothing runs.
 
-        Items that a product can add:
-            TestArchiveTag              A tag that RunTests.ps1 -Tags and -ExcludeTags select the application by.
+        Items:
+            TestApplicationTag              A tag that RunTests.ps1 -Tags and -ExcludeTags select the application by.
+
+        Properties of the archive:
+            PublishTestArchive              true to produce the archive.
+            TestArchiveDirectory            Where the archives go. Defaults to artifacts/tests under the directory of Build.ps1.
     -->
 
     <PropertyGroup>
+        <!-- The SDK gives every .NET Framework executable a runtime identifier, win-x86 by default, which describes the
+             build and not a choice of the project. Only a runtime identifier that the project sets describes the
+             application. -->
+        <TestApplicationRuntimeIdentifier Condition="'$(_UsingDefaultRuntimeIdentifier)' != 'true'">$(RuntimeIdentifier)</TestApplicationRuntimeIdentifier>
+
+        <TestApplicationPlatforms Condition="'$(TestApplicationPlatforms)' == '' AND $(TestApplicationRuntimeIdentifier.StartsWith('win'))">win-x64;win-arm64</TestApplicationPlatforms>
+        <TestApplicationPlatforms Condition="'$(TestApplicationPlatforms)' == '' AND '$(TestApplicationRuntimeIdentifier)' != ''">$(TestApplicationRuntimeIdentifier)</TestApplicationPlatforms>
+        <TestApplicationPlatforms Condition="'$(TestApplicationPlatforms)' == '' AND ('$(TargetFrameworkIdentifier)' == '.NETFramework' OR '$(TargetPlatformIdentifier)' == 'windows')">win-x64;win-arm64</TestApplicationPlatforms>
+        <TestApplicationPlatforms Condition="'$(TestApplicationPlatforms)' == ''">win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</TestApplicationPlatforms>
+        <TestApplicationTimeoutSeconds Condition="'$(TestApplicationTimeoutSeconds)' == ''">1800</TestApplicationTimeoutSeconds>
+
         <_TestArchiveRepositoryDirectory>$([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Build.ps1'))</_TestArchiveRepositoryDirectory>
         <TestArchiveDirectory Condition="'$(TestArchiveDirectory)' == '' AND '$(_TestArchiveRepositoryDirectory)' != ''">$([MSBuild]::NormalizeDirectory('$(_TestArchiveRepositoryDirectory)', 'artifacts', 'tests'))</TestArchiveDirectory>
-        <TestArchiveTimeoutSeconds Condition="'$(TestArchiveTimeoutSeconds)' == ''">1800</TestArchiveTimeoutSeconds>
 
         <!-- The satellite assemblies of the dependencies are most of the files of some applications, and no test reads them. -->
         <SatelliteResourceLanguages Condition="'$(SatelliteResourceLanguages)' == '' AND '$(PublishTestArchive)' == 'true'">en</SatelliteResourceLanguages>
@@ -47,12 +61,8 @@
                Condition="'$(TestArchiveDirectory)' == ''" />
 
         <PropertyGroup>
-            <!-- The SDK gives every .NET Framework executable a runtime identifier, win-x86 by default, which describes the
-                 build and not a choice of the project. Only a runtime identifier that the project sets names the archive. -->
-            <_TestArchiveRuntimeIdentifier Condition="'$(_UsingDefaultRuntimeIdentifier)' != 'true'">$(RuntimeIdentifier)</_TestArchiveRuntimeIdentifier>
-
             <_TestArchiveName>$(AssemblyName).$(TargetFramework)</_TestArchiveName>
-            <_TestArchiveName Condition="'$(_TestArchiveRuntimeIdentifier)' != ''">$(_TestArchiveName).$(_TestArchiveRuntimeIdentifier)</_TestArchiveName>
+            <_TestArchiveName Condition="'$(TestApplicationRuntimeIdentifier)' != ''">$(_TestArchiveName).$(TestApplicationRuntimeIdentifier)</_TestArchiveName>
             <_TestArchivePublishDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'test-archive'))</_TestArchivePublishDirectory>
             <_TestArchiveFile>$([MSBuild]::EnsureTrailingSlash('$(TestArchiveDirectory)'))$(_TestArchiveName).zip</_TestArchiveFile>
 
@@ -61,21 +71,15 @@
             <_TestArchiveEntry Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">$(TargetName).exe</_TestArchiveEntry>
             <_TestArchiveEntry Condition="'$(TargetFrameworkIdentifier)' != '.NETFramework'">$(TargetFileName)</_TestArchiveEntry>
 
-            <_TestArchivePlatforms>$(TestArchivePlatforms)</_TestArchivePlatforms>
-            <_TestArchivePlatforms Condition="'$(_TestArchivePlatforms)' == '' AND $(_TestArchiveRuntimeIdentifier.StartsWith('win'))">win-x64;win-arm64</_TestArchivePlatforms>
-            <_TestArchivePlatforms Condition="'$(_TestArchivePlatforms)' == '' AND '$(_TestArchiveRuntimeIdentifier)' != ''">$(_TestArchiveRuntimeIdentifier)</_TestArchivePlatforms>
-            <_TestArchivePlatforms Condition="'$(_TestArchivePlatforms)' == '' AND ('$(TargetFrameworkIdentifier)' == '.NETFramework' OR '$(TargetPlatformIdentifier)' == 'windows')">win-x64;win-arm64</_TestArchivePlatforms>
-            <_TestArchivePlatforms Condition="'$(_TestArchivePlatforms)' == ''">win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</_TestArchivePlatforms>
-
             <_TestArchiveRunAlone>%24false</_TestArchiveRunAlone>
-            <_TestArchiveRunAlone Condition="'$(TestArchiveRunAlone)' == 'true'">%24true</_TestArchiveRunAlone>
+            <_TestArchiveRunAlone Condition="'$(TestApplicationRunAlone)' == 'true'">%24true</_TestArchiveRunAlone>
 
             <_TestArchiveSkip>%24null</_TestArchiveSkip>
-            <_TestArchiveSkip Condition="'$(TestArchiveSkip)' != ''">%27$(TestArchiveSkip.Replace("'", "''"))%27</_TestArchiveSkip>
+            <_TestArchiveSkip Condition="'$(TestApplicationSkip)' != ''">%27$(TestApplicationSkip.Replace("'", "''"))%27</_TestArchiveSkip>
         </PropertyGroup>
 
         <ItemGroup>
-            <_TestArchivePlatform Include="$(_TestArchivePlatforms)" />
+            <_TestArchivePlatform Include="$(TestApplicationPlatforms)" />
 
             <!-- The extensions registered in the application. The runner passes the options of an extension only when the
                  application has it, because the platform refuses an option that no extension declares. -->
@@ -87,7 +91,7 @@
         <PropertyGroup>
             <_TestArchivePlatformList>%40(@(_TestArchivePlatform->'%27%(Identity)%27', ', '))</_TestArchivePlatformList>
             <_TestArchiveExtensionList>%40(@(_TestArchiveExtension->'%27%(Identity)%27', ', '))</_TestArchiveExtensionList>
-            <_TestArchiveTagList>%40(@(TestArchiveTag->'%27%(Identity)%27', ', '))</_TestArchiveTagList>
+            <_TestArchiveTagList>%40(@(TestApplicationTag->'%27%(Identity)%27', ', '))</_TestArchiveTagList>
         </PropertyGroup>
 
         <!-- One item per line. A single multi-line value would be split at every semicolon that a value contains. -->
@@ -95,13 +99,13 @@
             <_TestArchiveManifestLine Include="@{" />
             <_TestArchiveManifestLine Include="%20%20%20%20Name = %27$(AssemblyName)%27" />
             <_TestArchiveManifestLine Include="%20%20%20%20TargetFramework = %27$(TargetFramework)%27" />
-            <_TestArchiveManifestLine Include="%20%20%20%20RuntimeIdentifier = %27$(_TestArchiveRuntimeIdentifier)%27" />
+            <_TestArchiveManifestLine Include="%20%20%20%20RuntimeIdentifier = %27$(TestApplicationRuntimeIdentifier)%27" />
             <_TestArchiveManifestLine Include="%20%20%20%20Kind = %27mtp%27" />
             <_TestArchiveManifestLine Include="%20%20%20%20Entry = %27$(_TestArchiveEntry)%27" />
             <_TestArchiveManifestLine Include="%20%20%20%20Platforms = $(_TestArchivePlatformList)" />
             <_TestArchiveManifestLine Include="%20%20%20%20Extensions = $(_TestArchiveExtensionList)" />
             <_TestArchiveManifestLine Include="%20%20%20%20Tags = $(_TestArchiveTagList)" />
-            <_TestArchiveManifestLine Include="%20%20%20%20TimeoutSeconds = $(TestArchiveTimeoutSeconds)" />
+            <_TestArchiveManifestLine Include="%20%20%20%20TimeoutSeconds = $(TestApplicationTimeoutSeconds)" />
             <_TestArchiveManifestLine Include="%20%20%20%20RunAlone = $(_TestArchiveRunAlone)" />
             <_TestArchiveManifestLine Include="%20%20%20%20Skip = $([MSBuild]::Escape('$(_TestArchiveSkip)'))" />
             <_TestArchiveManifestLine Include="}" />

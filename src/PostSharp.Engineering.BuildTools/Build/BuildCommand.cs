@@ -5,7 +5,6 @@ using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Files.NuGet;
 using PostSharp.Engineering.BuildTools.Build.Model;
-using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -144,9 +143,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 solutionsToBuild = product.Solutions;
             }
 
-            // A product that runs test archives gets them from the build of its solutions. The build in the IDE does not set
-            // this property, so it does not spend the time of a publication on every build.
-            var solutionSettings = TestArchivesSolution.AddBuildProperties( product, settings );
+            var solutionSettings = TestArchives.AddBuildProperties( product, settings );
 
             foreach ( var solution in solutionsToBuild )
             {

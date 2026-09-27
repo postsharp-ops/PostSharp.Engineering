@@ -32,8 +32,27 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         public override bool Pack( BuildContext context, BuildSettings settings )
             => this.RunMSBuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
 
+        /// <summary>
+        /// Gets the way <c>Build.ps1 test</c> runs the tests of the solution. With
+        /// <see cref="Solutions.TestRunner.MicrosoftTestingPlatform"/>, the test applications that the build has written are
+        /// run instead of the <c>Test</c> target of the solution, which fails on every project that does not define one.
+        /// </summary>
+        public TestRunner TestRunner { get; init; }
+
         public override bool Test( BuildContext context, BuildSettings settings )
-            => this.RunMSBuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+        {
+            if ( this.TestRunner != TestRunner.MicrosoftTestingPlatform )
+            {
+                return this.RunMSBuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+            }
+
+            return TestingPlatformTestRunner.Test(
+                context,
+                settings,
+                this,
+                Path.Combine( context.RepoDirectory, this.SolutionPath ),
+                ( project, target ) => this.RunMSBuild( context, settings, project, target, "-p:RestorePackages=false", testsFilterIsPassed: true ) );
+        }
 
         public override bool Restore( BuildContext context, BuildSettings settings )
         {
@@ -78,9 +97,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             return true;
         }
 
-        private bool RunMSBuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
+        private bool RunMSBuild(
+            BuildContext context,
+            BuildSettings settings,
+            string project,
+            string target,
+            string arguments = "",
+            bool testsFilterIsPassed = false )
         {
-            if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+            if ( !string.IsNullOrEmpty( settings.TestsFilter ) && !testsFilterIsPassed )
             {
                 // TODO if needed
                 context.Console.WriteError( "Test filters are not implemented for non-SDK-style projects." );

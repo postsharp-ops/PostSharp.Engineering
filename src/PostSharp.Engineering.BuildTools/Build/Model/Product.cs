@@ -103,6 +103,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string TestResultsDirectory { get; init; } = Path.Combine( "artifacts", "testResults" );
 
+        /// <summary>
+        /// Gets a value indicating whether the test applications of the product are packed into test archives, which test
+        /// agents run without a .NET SDK. <c>Build.ps1 build</c> then sets <c>PublishTestArchive</c> for the build of the
+        /// solutions, the clean step deletes <c>artifacts/tests</c>, and <c>generate-scripts</c> writes <c>RunTests.ps1</c>
+        /// into the engineering directory. See <c>doc/testing-platform.md</c>.
+        /// </summary>
+        public bool PublishTestArchives { get; init; }
+
         public string LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 
         public string DumpDirectory { get; init; } = Path.Combine( "artifacts", "dumps" );

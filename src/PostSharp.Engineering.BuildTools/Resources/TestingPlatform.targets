@@ -1,0 +1,64 @@
+<Project>
+
+    <!--
+        Runs the Microsoft.Testing.Platform test applications of a solution, for Build.ps1 test. PostSharp.Engineering
+        writes this file next to a generated project that calls PostSharpEngineeringTest on every project of the
+        solution, and gives it to them as CustomAfterMicrosoftCommonTargets and
+        CustomAfterMicrosoftCommonCrossTargetingTargets. It runs the application that each build has already written,
+        with the InvokeTestingPlatform target of Microsoft.Testing.Platform.MSBuild, and builds nothing.
+
+        Global properties, set by PostSharp.Engineering:
+            PostSharpEngineeringTestResultsDirectory    Where the applications write their results.
+            PostSharpEngineeringTestPhase               RunAlone to run the applications that set TestApplicationRunAlone,
+                                                        Parallel to run the others.
+            PostSharpEngineeringTestFilter              The value of the filter option of the applications, if any.
+    -->
+
+    <!-- The outer build of a project with several target frameworks dispatches to each of them. -->
+    <Target Name="PostSharpEngineeringTest">
+        <ItemGroup Condition="'$(TargetFramework)' == '' AND '$(TargetFrameworks)' != ''">
+            <_PostSharpEngineeringTargetFramework Include="$(TargetFrameworks)" />
+            <_PostSharpEngineeringInnerBuild Include="$(MSBuildProjectFullPath)" Properties="TargetFramework=%(_PostSharpEngineeringTargetFramework.Identity)" />
+        </ItemGroup>
+
+        <MSBuild Projects="@(_PostSharpEngineeringInnerBuild)"
+                 Targets="PostSharpEngineeringTestApplication"
+                 BuildInParallel="$([System.String]::Equals('$(PostSharpEngineeringTestPhase)', 'Parallel'))"
+                 ContinueOnError="ErrorAndContinue"
+                 Condition="'@(_PostSharpEngineeringInnerBuild)' != ''" />
+
+        <CallTarget Targets="PostSharpEngineeringTestApplication" Condition="'$(TargetFramework)' != '' OR '$(TargetFrameworks)' == ''" />
+    </Target>
+
+    <Target Name="PostSharpEngineeringTestApplication"
+            Condition="'$(IsTestingPlatformApplication)' == 'true' AND (('$(TestApplicationRunAlone)' == 'true' AND '$(PostSharpEngineeringTestPhase)' == 'RunAlone') OR ('$(TestApplicationRunAlone)' != 'true' AND '$(PostSharpEngineeringTestPhase)' != 'RunAlone'))"
+            DependsOnTargets="_PostSharpEngineeringSetTestArguments;_PostSharpEngineeringInvokeTestApplication" />
+
+    <!-- The options of an extension are passed only when the application has it, because the platform refuses an option
+         that no extension declares. The properties are set in a target of their own, which completes before
+         InvokeTestingPlatform starts: a property set by the target that calls another one is not seen by it. -->
+    <Target Name="_PostSharpEngineeringSetTestArguments">
+        <Message Importance="high" Text="$(MSBuildProjectName) ($(TargetFramework)) is skipped: $(TestApplicationSkip)" Condition="'$(TestApplicationSkip)' != ''" />
+
+        <PropertyGroup>
+            <_PostSharpEngineeringTimeoutSeconds>$(TestApplicationTimeoutSeconds)</_PostSharpEngineeringTimeoutSeconds>
+            <_PostSharpEngineeringTimeoutSeconds Condition="'$(_PostSharpEngineeringTimeoutSeconds)' == ''">1800</_PostSharpEngineeringTimeoutSeconds>
+
+            <!-- The dump is taken at 80% of the timeout, or five minutes before it, whichever is later. -->
+            <_PostSharpEngineeringHangDumpSeconds>$([System.Math]::Max($([System.Math]::Floor($([MSBuild]::Multiply($(_PostSharpEngineeringTimeoutSeconds), 0.8)))), $([MSBuild]::Subtract($(_PostSharpEngineeringTimeoutSeconds), 300))))</_PostSharpEngineeringHangDumpSeconds>
+
+            <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --results-directory &quot;$(PostSharpEngineeringTestResultsDirectory)&quot;</TestingPlatformCommandLineArguments>
+            <TestingPlatformCommandLineArguments Condition="'@(TestingPlatformBuilderHook->WithMetadataValue('DisplayName', 'Microsoft.Testing.Extensions.TrxReport'))' != ''">$(TestingPlatformCommandLineArguments) --report-trx --report-trx-filename &quot;$(AssemblyName).$(TargetFramework).trx&quot;</TestingPlatformCommandLineArguments>
+            <TestingPlatformCommandLineArguments Condition="'@(TestingPlatformBuilderHook->WithMetadataValue('DisplayName', 'Microsoft.Testing.Extensions.HangDump'))' != ''">$(TestingPlatformCommandLineArguments) --hangdump --hangdump-timeout $(_PostSharpEngineeringHangDumpSeconds)s</TestingPlatformCommandLineArguments>
+
+            <!-- The crash dump extension supports .NET only. -->
+            <TestingPlatformCommandLineArguments Condition="'@(TestingPlatformBuilderHook->WithMetadataValue('DisplayName', 'Microsoft.Testing.Extensions.CrashDump'))' != '' AND '$(TargetFrameworkIdentifier)' != '.NETFramework'">$(TestingPlatformCommandLineArguments) --crashdump</TestingPlatformCommandLineArguments>
+
+            <!-- A filter can select no test in an application, which is then a success. -->
+            <TestingPlatformCommandLineArguments Condition="'$(PostSharpEngineeringTestFilter)' != ''">$(TestingPlatformCommandLineArguments) --filter &quot;$(PostSharpEngineeringTestFilter)&quot; --ignore-exit-code 8</TestingPlatformCommandLineArguments>
+        </PropertyGroup>
+    </Target>
+
+    <Target Name="_PostSharpEngineeringInvokeTestApplication" Condition="'$(TestApplicationSkip)' == ''" DependsOnTargets="InvokeTestingPlatform" />
+
+</Project>
