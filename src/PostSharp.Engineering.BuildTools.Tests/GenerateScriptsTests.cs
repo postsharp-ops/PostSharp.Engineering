@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -105,6 +106,38 @@ public class GenerateScriptsTests
             // The declared directory reaches the launcher through generation rather than through the arguments of the
             // configuration, so this is what proves a product's choice is honoured.
             Assert.Contains( "$DockerTestsPath = 'Tests/Containers'", File.ReadAllText( launcher ), StringComparison.Ordinal );
+        }
+    }
+
+    /// <summary>
+    /// The runner of the test archives is generated for a product that has a solution to run them, and not for one that
+    /// does not. The results directory of the product reaches it through generation.
+    /// </summary>
+    [Fact]
+    public void RunTests_IsGeneratedOnlyForAProductWithTestArchives()
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using ( var directory = new TempDirectory() )
+        {
+            var product = CreateProduct();
+
+            Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+            Assert.False( File.Exists( Path.Combine( directory.Path, product.EngineeringDirectory, TestArchivesSolution.ScriptName ) ) );
+        }
+
+        using ( var directory = new TempDirectory() )
+        {
+            var product = new Product( MetalamaDependencies.V2026_1.Metalama )
+            {
+                GenerateTeamCitySettings = false, GenerateDockerfiles = false, Solutions = [new TestArchivesSolution()]
+            };
+
+            Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+
+            var runner = Path.Combine( directory.Path, product.EngineeringDirectory, TestArchivesSolution.ScriptName );
+            Assert.True( File.Exists( runner ) );
+            Assert.Contains( "$TestResultsPath = 'artifacts/testResults'", File.ReadAllText( runner ), StringComparison.Ordinal );
         }
     }
 
