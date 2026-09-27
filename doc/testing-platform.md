@@ -173,8 +173,14 @@ Each selected archive is extracted to `artifacts/tests/run/<name>`, and its resu
 runner reads its `runtimeconfig.json` and fails with a message naming the missing runtime if the host does not have it.
 
 The applications whose manifest sets `RunAlone` run first, one at a time. The others then run at most `-MaxParallel`
-at a time, a quarter of the processors by default. The output of an application that runs alone is shown as it
-arrives; the output of applications that run at the same time is shown in one block when each one finishes.
+at a time, a quarter of the processors by default.
+
+The output of each application goes to `stdout.log` and `stderr.log` in its results directory. Without TeamCity, the
+runner also shows it: the output of an application that runs alone as it arrives, and the output of applications that
+run at the same time in one block when each one finishes. On TeamCity, the runner does not write the output to the
+build log, because a large build log slows TeamCity down. It writes only the last 100 lines of each file when an
+application fails. `-ShowOutput` writes the whole output on TeamCity too. The results of the tests, with the output of
+each test, are in the report.
 
 `-ApplicationArguments` is added to the command line of every application. When it is given, an application in which
 no test ran succeeds, because such arguments usually filter the tests.
@@ -262,6 +268,9 @@ extension that declares it, because the platform refuses an option that no exten
 | `--ignore-exit-code 8` | `-ApplicationArguments` is given. Such arguments usually filter the tests, and an application in which the filter selects no test succeeds. |
 
 ## Reporting
+
+The runner detects TeamCity from the `TEAMCITY_VERSION` or the `IS_TEAMCITY_AGENT` environment variable:
+`DockerBuild.ps1` passes only the latter to the container. `-NoTeamCity` disables the service messages.
 
 On TeamCity, each TRX report is imported with `importData` of the `mstest` type, also when the application failed, so
 that TeamCity shows which tests failed.

@@ -52,7 +52,14 @@
     Lists the archives and whether each one would run, and runs nothing.
 
 .PARAMETER NoTeamCity
-    Writes plain text instead of TeamCity service messages. Implied when TEAMCITY_VERSION is not set.
+    Writes plain text instead of TeamCity service messages. Implied when neither TEAMCITY_VERSION nor
+    IS_TEAMCITY_AGENT is set. DockerBuild.ps1 passes only the latter to the container.
+
+.PARAMETER ShowOutput
+    Writes the output of the applications to the console. This is the default without TeamCity. Under TeamCity, the
+    output of an application goes only to the stdout.log and stderr.log files of its results directory, because a
+    large build log slows TeamCity down, and the last lines of these files are written only when the application
+    fails. The results of the tests, with their own output, are in the report.
 
 .EXAMPLE
     ./eng/RunTests.ps1
@@ -76,7 +83,8 @@ param(
     [string[]]$ApplicationArguments,
     [string]$ResultsPath,
     [switch]$List,
-    [switch]$NoTeamCity
+    [switch]$NoTeamCity,
+    [switch]$ShowOutput
 )
 
 # Require PowerShell 7.5 or higher (run with pwsh, not powershell)
@@ -97,6 +105,9 @@ $DefaultTimeoutSeconds = 1800
 # The exit codes of Microsoft.Testing.Platform that this script reads. See https://aka.ms/testingplatform/exitcodes.
 $FailedTestsExitCode = 2
 $ZeroTestsExitCode = 8
+
+# The number of lines of each output file that is written when an application fails and its output is not shown.
+$OutputTailLineCount = 100
 
 # TeamCity reads a service message up to the first unescaped delimiter, so an unescaped value silently truncates or
 # corrupts the report. The vertical bar is replaced first: doing it later would double the bars introduced by the other
@@ -637,7 +648,11 @@ function Complete-TestRun([hashtable]$run, [bool]$timedOut)
 
     $run.Stopwatch.Stop()
 
-    if (-not $run.Live)
+    if (-not $ShowOutput)
+    {
+        # The output stays in the files of the results directory.
+    }
+    elseif (-not $run.Live)
     {
         Write-ServiceMessage 'blockOpened' @{ name = $run.Key }
 
@@ -715,6 +730,25 @@ function Complete-TestRun([hashtable]$run, [bool]$timedOut)
     return $null
 }
 
+# Writes the last lines of the output files of an application whose output was not shown.
+function Write-OutputTail([hashtable]$run)
+{
+    Write-ServiceMessage 'blockOpened' @{ name = "$( $run.Key ) output" }
+
+    foreach ($file in $run.StdOut, $run.StdErr)
+    {
+        $lines = @( Get-Content -LiteralPath $file -Tail $OutputTailLineCount -ErrorAction SilentlyContinue )
+
+        if ($lines.Count -gt 0)
+        {
+            Write-Host "Last $( $lines.Count ) lines of $file :"
+            $lines | ForEach-Object { Write-Host $_ }
+        }
+    }
+
+    Write-ServiceMessage 'blockClosed' @{ name = "$( $run.Key ) output" }
+}
+
 # Runs the given archives, at most $maxParallel at a time, and returns the failed ones.
 function Invoke-TestRuns([hashtable[]]$runs, [int]$maxParallel, [string]$dotnet)
 {
@@ -725,7 +759,8 @@ function Invoke-TestRuns([hashtable[]]$runs, [int]$maxParallel, [string]$dotnet)
 
     # The output of an application that runs alone is shown as it arrives, so that a long run is not indistinguishable
     # from a hung one. The output of applications that run at the same time is shown in one block when each finishes.
-    $live = $maxParallel -eq 1
+    # Without -ShowOutput, neither is shown.
+    $live = $ShowOutput -and $maxParallel -eq 1
 
     while ($queue.Count -gt 0 -or $running.Count -gt 0)
     {
@@ -777,6 +812,11 @@ function Invoke-TestRuns([hashtable[]]$runs, [int]$maxParallel, [string]$dotnet)
 
             if ($reason)
             {
+                if (-not $ShowOutput)
+                {
+                    Write-OutputTail $run
+                }
+
                 $message = "$( $run.Key ): $reason."
                 Write-Host $message -ForegroundColor Red
 
@@ -806,9 +846,14 @@ try
     $repositoryRoot = ( Resolve-Path ( Join-Path $PSScriptRoot '..' ) ).Path
     Set-Location $repositoryRoot
 
-    if (-not $env:TEAMCITY_VERSION)
+    if (-not $env:TEAMCITY_VERSION -and -not $env:IS_TEAMCITY_AGENT)
     {
         $NoTeamCity = $true
+    }
+
+    if ($NoTeamCity)
+    {
+        $ShowOutput = $true
     }
 
     if (-not $Path)
