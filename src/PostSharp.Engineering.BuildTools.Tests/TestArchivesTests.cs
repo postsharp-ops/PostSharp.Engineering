@@ -15,7 +15,7 @@ using Xunit;
 namespace PostSharp.Engineering.BuildTools.Tests;
 
 /// <summary>
-/// Packs a project with <c>TestsPublish.targets</c> and runs the archives with <c>RunTests.ps1</c>.
+/// Packs a project with <c>TestArchive.targets</c> and runs the archives with <c>RunTests.ps1</c>.
 /// </summary>
 /// <remarks>
 /// The project imitates a Microsoft.Testing.Platform test application instead of referencing one, so that the test needs
@@ -35,7 +35,7 @@ public sealed class TestArchivesTests : IDisposable
         {
             var directory = AppContext.BaseDirectory;
 
-            while ( directory != null && !File.Exists( Path.Combine( directory, "src", "PostSharp.Engineering.Sdk", "TestsPublish.targets" ) ) )
+            while ( directory != null && !File.Exists( Path.Combine( directory, "src", "PostSharp.Engineering.Sdk", "TestArchive.targets" ) ) )
             {
                 directory = Path.GetDirectoryName( directory );
             }
@@ -79,7 +79,7 @@ public sealed class TestArchivesTests : IDisposable
                  </TestingPlatformBuilderHook>
                  <TestArchiveTag Include="Fast" />
                </ItemGroup>
-               <Import Project="{Path.Combine( SdkDirectory, "TestsPublish.targets" )}" />
+               <Import Project="{Path.Combine( SdkDirectory, "TestArchive.targets" )}" />
              </Project>
              """ );
 
@@ -279,7 +279,7 @@ public sealed class TestArchivesTests : IDisposable
                  <TargetFramework>{_targetFramework}</TargetFramework>
                  <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
                </PropertyGroup>
-               <Import Project="{Path.Combine( SdkDirectory, "TestsPublish.targets" )}" />
+               <Import Project="{Path.Combine( SdkDirectory, "TestArchive.targets" )}" />
              </Project>
              """ );
 

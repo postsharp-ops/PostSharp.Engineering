@@ -18,7 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions;
 /// <para>
 /// A test archive is a zip file that holds one published Microsoft.Testing.Platform test application and its manifest.
 /// The test projects of the other solutions write their archives into <c>artifacts/tests</c> while they are built, with
-/// the <c>TestsPublish.targets</c> file of <c>PostSharp.Engineering.Sdk</c>. This solution builds nothing: it runs what
+/// the <c>TestArchive.targets</c> file of <c>PostSharp.Engineering.Sdk</c>. This solution builds nothing: it runs what
 /// they wrote, with the script that a test agent runs, so that <c>Build.ps1 test</c> tests what the agents test.
 /// </para>
 /// <para>
@@ -34,7 +34,7 @@ public sealed class TestArchivesSolution : Solution
     public const string ScriptName = "RunTests.ps1";
 
     /// <summary>
-    /// The directory of the archives, relative to the repository root. <c>TestsPublish.targets</c> writes them there
+    /// The directory of the archives, relative to the repository root. <c>TestArchive.targets</c> writes them there
     /// unless a project sets <c>TestArchiveDirectory</c>.
     /// </summary>
     public const string ArchivesDirectory = "artifacts/tests";

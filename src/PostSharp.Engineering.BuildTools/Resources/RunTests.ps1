@@ -9,7 +9,7 @@
 
 .DESCRIPTION
     A test archive is a zip file that holds one published test application and its manifest, test.psd1. The build
-    writes one archive per test project and target framework into artifacts/tests, with the TestsPublish.targets file
+    writes one archive per test project and target framework into artifacts/tests, with the TestArchive.targets file
     of PostSharp.Engineering.Sdk.
 
     This script reads the manifest of every archive, selects the archives that apply to the platform and to the tags,

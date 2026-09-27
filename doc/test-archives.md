@@ -19,7 +19,7 @@ them can still be archived, with a manifest of the `exe` kind (see below).
 
 ```mermaid
 flowchart LR
-    B["Build of the solutions<br/>TestsPublish.targets"] --> A["artifacts/tests/*.zip<br/>one per project and target framework"]
+    B["Build of the solutions<br/>TestArchive.targets"] --> A["artifacts/tests/*.zip<br/>one per project and target framework"]
     A --> L["Build.ps1 test<br/>TestArchivesSolution"]
     A --> C["Test agent<br/>downloads its archives"]
     L --> R["eng/RunTests.ps1"]
@@ -29,10 +29,10 @@ flowchart LR
 
 ## Writing the archives
 
-A test project imports `TestsPublish.targets` from the SDK, typically from `Directory.Build.targets`:
+A test project imports `TestArchive.targets` from the SDK, typically from `Directory.Build.targets`:
 
 ```xml
-<Import Sdk="PostSharp.Engineering.Sdk" Project="TestsPublish.targets" />
+<Import Sdk="PostSharp.Engineering.Sdk" Project="TestArchive.targets" />
 ```
 
 The target runs after the build of each target framework when the project is a test application
