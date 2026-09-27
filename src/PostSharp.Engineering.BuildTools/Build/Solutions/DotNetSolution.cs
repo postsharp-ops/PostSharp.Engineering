@@ -1,5 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.IO;
@@ -28,38 +30,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         public string DefaultTarget { get; init; } = "Build";
 
         protected override bool ProducesTestResults => true;
-
-        /// <summary>
-        /// Gets the way <c>Build.ps1 test</c> runs the tests of the solution. With
-        /// <see cref="Solutions.TestRunner.MicrosoftTestingPlatform"/>, the test applications that the build has written are
-        /// run without <c>dotnet test</c>.
-        /// </summary>
-        public TestRunner TestRunner { get; init; }
-
-        public override bool Test( BuildContext context, BuildSettings settings )
-        {
-            if ( this.TestRunner != TestRunner.MicrosoftTestingPlatform )
-            {
-                return base.Test( context, settings );
-            }
-
-            var configuration = context.Product.DependencyDefinition.MSBuildConfiguration[settings.BuildConfiguration];
-
-            return TestingPlatformTestRunner.Test(
-                context,
-                settings,
-                this,
-                this.GetFinalSolutionPath( context ),
-                ( project, target ) => DotNetHelper.Run(
-                    context,
-                    settings,
-                    project,
-                    "msbuild",
-                    $"-t:{target} -p:Configuration={configuration}",
-                    false,
-                    this.CreateInvocationOptions(),
-                    this.Name ) );
-        }
 
         public override bool Pack( BuildContext context, BuildSettings settings )
             => DotNetHelper.Run( context, settings, this.GetFinalSolutionPath( context ), "pack", "", true, this.CreateInvocationOptions() );
@@ -110,11 +80,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 stagingDirectory = TestResultsStaging.GetStagingDirectory( context.RepoDirectory, context.Product.TestResultsDirectory, runKey );
 
                 verb = "test";
-                args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory \"{stagingDirectory}\"";
 
-                if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+                switch ( context.Product.TestRunner )
                 {
-                    args += $" --filter \"{settings.TestsFilter}\"";
+                    case TestRunner.MicrosoftTestingPlatform:
+                        args = TestingPlatform.GetArguments( stagingDirectory, settings.TestsFilter );
+
+                        break;
+
+                    default:
+                        args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory \"{stagingDirectory}\"";
+
+                        if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+                        {
+                            args += $" --filter \"{settings.TestsFilter}\"";
+                        }
+
+                        break;
                 }
             }
             else
@@ -170,6 +152,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
             foreach ( var file in TestResultsStaging.Publish( context.Console, stagingDirectory, resultsDirectory, runKey ) )
             {
+                if ( context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform )
+                {
+                    TestingPlatform.NameDataRows( context, file );
+                }
+
                 this.AddTestResultFile( Path.GetRelativePath( context.RepoDirectory, file ) );
             }
         }

@@ -389,7 +389,9 @@ function Get-ApplicationCommand([hashtable]$run, [string]$dotnet)
 
         if ($manifest.Extensions -contains 'Microsoft.Testing.Extensions.TrxReport')
         {
-            $arguments += '--report-trx', '--report-trx-filename', "$( $run.Key ).trx"
+            # A short name: the directory already names the archive, and a .NET Framework application cannot write a
+            # report into a path of more than 260 characters.
+            $arguments += '--report-trx', '--report-trx-filename', 'report.trx'
         }
 
         # The dump is taken before the application is killed, so that a hung run leaves a dump of the process.

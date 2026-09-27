@@ -71,7 +71,7 @@ internal static class GlobalJsonFile
                 },
                 "msbuild-sdks": {
                   "PostSharp.Engineering.Sdk": "{{VersionHelper.EngineeringVersion}}"
-                }
+                }{{GetTestSection( product )}}
               }
               """;
 
@@ -79,4 +79,16 @@ internal static class GlobalJsonFile
 
         return true;
     }
+
+    // The mode of dotnet test is chosen by global.json only. A directory that must keep VSTest, such as a test that runs
+    // dotnet test on projects of its own, has a global.json of its own.
+    internal static string GetTestSection( Product product )
+        => product.TestRunner == TestRunner.MicrosoftTestingPlatform
+            ? """
+              ,
+                "test": {
+                  "runner": "Microsoft.Testing.Platform"
+                }
+              """.TrimEnd()
+            : "";
 }

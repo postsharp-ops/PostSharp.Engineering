@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -173,7 +174,7 @@ public abstract class TestableSolution : Solution
             foreach ( var file in this.GetTestResultFiles() )
             {
                 TeamCityHelper.SendImportDataMessage(
-                    "vstest",
+                    context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform ? TestingPlatform.ReportType : "vstest",
                     file.Replace( Path.DirectorySeparatorChar, '/' ),
                     Path.GetFileName( projectOrSolution ),
                     false );

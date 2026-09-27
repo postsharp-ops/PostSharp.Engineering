@@ -44,6 +44,27 @@ internal static class TestArchives
             ? settings.WithAdditionalProperties( ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "true" ) )
             : settings;
 
+    /// <summary>
+    /// Gets the build configuration of the build that publishes the archives, <see cref="Product.TestArchivesSource"/>: the
+    /// configuration it names, or the artifacts configuration of the additional build configuration it names.
+    /// </summary>
+    public static bool TryGetSourceConfiguration( Product product, out BuildConfiguration configuration )
+    {
+        var source = product.TestArchivesSource;
+
+        if ( source.Configuration != null )
+        {
+            configuration = source.Configuration.Value;
+
+            return true;
+        }
+
+        var additional = product.AdditionalCiBuildConfigurations.FirstOrDefault( c => string.Equals( c.Id, source.ConfigurationId, StringComparison.Ordinal ) );
+        configuration = additional?.EffectiveArtifactsConfiguration ?? default;
+
+        return additional != null;
+    }
+
     private static string GetListPath( BuildContext context ) => Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, ListFileName );
 
     /// <summary>

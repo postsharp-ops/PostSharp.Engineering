@@ -112,6 +112,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool PublishTestArchives { get; init; }
 
         /// <summary>
+        /// Gets the test platform of the product, which is the mode of <c>dotnet test</c> in its repository. With
+        /// <see cref="Model.TestRunner.MicrosoftTestingPlatform"/>, the generated <c>global.json</c> selects that mode, and
+        /// <c>Build.ps1 test</c> runs the test applications of the solutions with it. See <c>doc/testing-platform.md</c>.
+        /// </summary>
+        public TestRunner TestRunner { get; init; }
+
+        /// <summary>
         /// Gets the kinds of build agents that run the test archives. <c>generate-scripts</c> creates their build
         /// configurations from the test applications of the solutions whose <c>TestRunner</c> declares them, and writes the
         /// list of the archives to <c>eng/test-archives.txt</c>, which <c>Build.ps1 build</c> checks. Requires
@@ -125,17 +132,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// archives of each build configuration.
         /// </summary>
         public SnapshotDependency TestArchivesSource { get; init; } = new( BuildConfiguration.Public );
-
-        /// <summary>
-        /// Gets or sets the build configurations that <c>generate-scripts</c> creates, rather than the product declares.
-        /// </summary>
-        internal ImmutableArray<AdditionalCiBuildConfiguration> GeneratedCiBuildConfigurations { get; set; } = [];
-
-        /// <summary>
-        /// Gets the build configurations that the product declares and those that <c>generate-scripts</c> creates.
-        /// </summary>
-        internal IEnumerable<AdditionalCiBuildConfiguration> AllCiBuildConfigurations
-            => this.AdditionalCiBuildConfigurations.Concat( this.GeneratedCiBuildConfigurations );
 
         public string LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 

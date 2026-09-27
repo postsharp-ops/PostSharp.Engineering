@@ -4,15 +4,15 @@ A [Microsoft.Testing.Platform](https://aka.ms/testingplatform) test application 
 tests, such as a project that uses xunit.v3 or the runner of MSTest. PostSharp.Engineering runs these applications in
 two places:
 
-- **`Build.ps1 test`** runs the applications of the solutions that declare them, from their build output.
+- **`Build.ps1 test`** runs them with `dotnet test`, in the mode of Microsoft.Testing.Platform.
 - **Test agents** run test archives: zip files that the build writes, one per application and target framework, each
   with a manifest. An agent needs PowerShell 7.5 and the runtime of the application, and neither the .NET SDK nor the
   source of the product.
 
 ```mermaid
 flowchart LR
-    S["Solution<br/>TestRunner = MicrosoftTestingPlatform"] --> T["Build.ps1 test<br/>applications in bin"]
-    S --> B["Build.ps1 build<br/>PublishTestArchives"]
+    P["Product<br/>TestRunner = MicrosoftTestingPlatform"] --> T["Build.ps1 test<br/>dotnet test"]
+    P --> B["Build.ps1 build<br/>PublishTestArchives"]
     B --> A["artifacts/tests/*.zip<br/>one per project and target framework"]
     A --> C["Test agent<br/>eng/RunTests.ps1"]
     T --> R["TRX reports imported into TeamCity"]
@@ -21,30 +21,39 @@ flowchart LR
 
 ## `Build.ps1 test`
 
-A solution whose test projects are test applications sets `TestRunner`. The property exists on `DotNetSolution` and on
-`MsbuildSolution`:
+A product whose test projects are test applications sets `TestRunner`:
 
 ```csharp
-new MsbuildSolution( @"Patterns\MyProduct.sln" ) { TestRunner = TestRunner.MicrosoftTestingPlatform }
+var product = new Product( dependency ) { TestRunner = TestRunner.MicrosoftTestingPlatform, ... };
 ```
 
-`Build.ps1 test` then does not run `dotnet test`, whose mode is chosen for the whole repository by `global.json`, nor the
-`Test` target of the solution, which fails on every project that does not define one. It writes a project that calls a
-target on every managed project of the solution, and a targets file that defines that target, which it gives to the
-projects as `CustomAfterMicrosoftCommonTargets` and `CustomAfterMicrosoftCommonCrossTargetingTargets`. In each build of
-a test application, the target runs the application that the build has written, with the `InvokeTestingPlatform`
-target of `Microsoft.Testing.Platform.MSBuild`. Nothing is built: `Build.ps1 test` builds the product first, unless
-`--no-dependencies` is given.
+`dotnet test` runs test applications only in the mode of Microsoft.Testing.Platform, which is chosen by `global.json`
+and nothing else. The `global.json` that PostSharp.Engineering generates therefore gets:
 
-The applications that set `TestApplicationRunAlone` run first, one at a time; the others then run in parallel. The
-options passed to each application are those of the table in [Options](#options). The filter of `Build.ps1 test
---tests-filter` is passed as `--filter`, which xunit.v3 and MSTest both read.
+```json
+"test": { "runner": "Microsoft.Testing.Platform" }
+```
 
-Both files are kept in `artifacts/testing-platform/<solution>`, so that a failed run can be diagnosed from them. The
-reports are imported into TeamCity once all the applications have exited, as described in [Reporting](#reporting).
+The mode applies to every `dotnet test` whose working directory is under the repository root. A directory that must
+keep VSTest, such as a test that runs `dotnet test` on projects of its own, has a `global.json` of its own, without that
+section: `dotnet` uses the `global.json` nearest to its working directory.
 
-A product that sets `CustomAfterMicrosoftCommonTargets` itself loses its own value during the test run, because the
-global property replaces it.
+`Build.ps1 test` then passes the options of that mode to `dotnet test`:
+
+| Option | Why |
+|---|---|
+| `--solution` or `--project` | The mode takes no positional argument; an argument it does not know goes to the test applications, which refuse it. |
+| `--report-trx --results-directory <staging>` | The reports that PostSharp.Engineering imports into TeamCity. Every application must reference `Microsoft.Testing.Extensions.TrxReport`. |
+| `--results-directory-layout per-module` | Each application writes into a directory of its own. The default layout names a report after the assembly, the target framework and the architecture, so `net10.0` and `net10.0-windows` would write the same file. |
+| `--no-artifact-post-processing` | No merged report, which TeamCity would import beside the others and count every test twice. |
+| `--filter <filter> --ignore-exit-code 8` | `--tests-filter` is given. xunit.v3 and MSTest both read the VSTest filter syntax. A filter can select no test in one application, which is then a success. |
+
+A `DotNetSolution` is built by `dotnet test`, as before. A `MsbuildSolution` is tested with `dotnet test --no-build`: it is
+built by the MSBuild of Visual Studio, which a solution with native projects needs, and `dotnet test` only has to find
+the applications that the build wrote. The `Test` target of a solution is not used, because it fails on every project
+that does not define one. A test-only `MsbuildSolution`, which `Build.ps1 build` skips, is built first.
+
+On TeamCity, each report is imported as described in [Reporting](#reporting).
 
 ## Describing a test application
 
@@ -57,6 +66,9 @@ A test project imports `TestArchive.targets` from the SDK, **after the body of t
 
 Its defaults are computed at evaluation time, from properties that the project and the .NET SDK set before that point,
 such as the target framework. Imported earlier, the defaults would be computed from nothing.
+
+These properties describe the application to its archive, to `RunTests.ps1` and to `generate-scripts`. `Build.ps1 test`
+runs `dotnet test`, which does not read them.
 
 | Property or item | Default | Meaning |
 |---|---|---|
@@ -196,9 +208,15 @@ var product = new Product( dependency )
 
 ### Discovering the test applications
 
-`generate-scripts` evaluates the managed projects of the solutions whose `TestRunner` is
-`MicrosoftTestingPlatform`, and of those only: a repository can hold hundreds of other projects. It evaluates each
-target framework, and builds and restores nothing. `Build.ps1 list-test-applications` shows what it finds.
+`generate-scripts` evaluates the managed projects of the solutions that set `ContainsTestApplications`, and of those
+only: a repository can hold hundreds of other projects.
+
+```csharp
+new MsbuildSolution( @"Patterns\MyProduct.sln" ) { ContainsTestApplications = true }
+```
+
+It evaluates each target framework, in the build configuration of `TestArchivesSource`, and builds and restores nothing.
+`Build.ps1 list-test-applications` shows what it finds.
 
 A project is a test application when it says so in a property that it sets itself. `IsTestingPlatformApplication` is
 set by the packages of the test frameworks, which are imported only after a restore, so `UseMicrosoftTestingPlatformRunner`
@@ -231,10 +249,10 @@ not be tested. `generate-scripts` therefore writes the list of the archives it p
 build configuration, and a listed archive that the build did not write fails the download of the configurations that
 run it.
 
-## Options
+## Options of the archives
 
-`Build.ps1 test` and `RunTests.ps1` pass the same options to an application of the `mtp` kind, because the platform
-refuses an option that no extension of the application declares:
+`RunTests.ps1` passes these options to an application of the `mtp` kind, each only when the application has the
+extension that declares it, because the platform refuses an option that no extension declares:
 
 | Option | When |
 |---|---|
@@ -242,7 +260,7 @@ refuses an option that no extension of the application declares:
 | `--report-trx --report-trx-filename <name>.trx` | The application has `Microsoft.Testing.Extensions.TrxReport`. |
 | `--hangdump --hangdump-timeout` | The application has `Microsoft.Testing.Extensions.HangDump`. The dump is taken at 80% of the timeout, or five minutes before it, whichever is later, so that a hung application leaves a dump before it is stopped. |
 | `--crashdump` | The application has `Microsoft.Testing.Extensions.CrashDump` and is not a .NET Framework application, which that extension does not support. |
-| `--filter <filter> --ignore-exit-code 8` | `Build.ps1 test --tests-filter` is given. A filter can select no test in an application, which is then a success. |
+| `--ignore-exit-code 8` | `-ApplicationArguments` is given. Such arguments usually filter the tests, and an application in which the filter selects no test succeeds. |
 
 ## Reporting
 
@@ -256,5 +274,5 @@ a theory as one test that ran several times.
 
 In `RunTests.ps1`, a failed test, which is exit code 2, fails the build through the imported report. Any other failure
 is reported as a `buildProblem`, because the report alone would leave the build green: an exit code other than 0 and 2,
-a timeout, a missing report, a missing runtime, or a manifest that cannot be read. `Build.ps1 test` fails on any failure
-of an application. The exit codes of the platform are listed at <https://aka.ms/testingplatform/exitcodes>.
+a timeout, a missing report, a missing runtime, or a manifest that cannot be read. `Build.ps1 test` fails when
+`dotnet test` fails. The exit codes of the platform are listed at <https://aka.ms/testingplatform/exitcodes>.

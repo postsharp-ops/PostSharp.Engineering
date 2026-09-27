@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -32,34 +33,26 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         public override bool Pack( BuildContext context, BuildSettings settings )
             => this.RunMSBuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
 
-        /// <summary>
-        /// Gets the way <c>Build.ps1 test</c> runs the tests of the solution. With
-        /// <see cref="Solutions.TestRunner.MicrosoftTestingPlatform"/>, the test applications that the build has written are
-        /// run instead of the <c>Test</c> target of the solution, which fails on every project that does not define one.
-        /// </summary>
-        public TestRunner TestRunner { get; init; }
-
         public override bool Test( BuildContext context, BuildSettings settings )
         {
-            if ( this.TestRunner != TestRunner.MicrosoftTestingPlatform )
+            switch ( context.Product.TestRunner )
             {
-                if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
-                {
-                    // TODO if needed
-                    context.Console.WriteError( "Test filters are not implemented for non-SDK-style projects." );
+                // The test applications that the build of the solution wrote are run by dotnet test, which reports them. The
+                // Test target of the solution would fail on every project that does not define one.
+                case TestRunner.MicrosoftTestingPlatform:
+                    return TestingPlatform.Test( context, settings, this, Path.Combine( context.RepoDirectory, this.SolutionPath ) );
 
-                    return false;
-                }
+                default:
+                    if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+                    {
+                        // TODO if needed
+                        context.Console.WriteError( "Test filters are not implemented for non-SDK-style projects." );
 
-                return this.RunMSBuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+                        return false;
+                    }
+
+                    return this.RunMSBuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
             }
-
-            return TestingPlatformTestRunner.Test(
-                context,
-                settings,
-                this,
-                Path.Combine( context.RepoDirectory, this.SolutionPath ),
-                ( project, target ) => this.RunMSBuild( context, settings, project, target, "-p:RestorePackages=false" ) );
         }
 
         public override bool Restore( BuildContext context, BuildSettings settings )

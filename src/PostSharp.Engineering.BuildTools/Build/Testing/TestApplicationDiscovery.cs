@@ -4,7 +4,7 @@ using Microsoft.Build.Evaluation;
 using Microsoft.Build.Exceptions;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
-using PostSharp.Engineering.BuildTools.Build.Solutions;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 
 namespace PostSharp.Engineering.BuildTools.Build.Testing;
 
@@ -21,8 +22,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Testing;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Only the solutions whose <see cref="TestRunner"/> is <see cref="TestRunner.MicrosoftTestingPlatform"/> are read: a
-/// repository can contain hundreds of other projects, and evaluating them would cost time for nothing.
+/// Only the solutions whose <see cref="Solution.ContainsTestApplications"/> is set are read: a repository can contain
+/// hundreds of other projects, and evaluating them would cost time for nothing.
 /// </para>
 /// <para>
 /// A project is a test application when it says so in a property that it sets itself. <c>IsTestingPlatformApplication</c>
@@ -58,11 +59,11 @@ internal static class TestApplicationDiscovery
         using var collection = new ProjectCollection( globalProperties );
         var projectCount = 0;
 
-        foreach ( var solution in product.Solutions.Where( IsTestingPlatformSolution ) )
+        foreach ( var solution in product.Solutions.Where( s => s.ContainsTestApplications ) )
         {
             var solutionPath = Path.Combine( context.RepoDirectory, solution.SolutionPath );
 
-            if ( !TestingPlatformTestRunner.TryGetProjects( context, solutionPath, out var projects ) )
+            if ( !TryGetProjects( context, solutionPath, out var projects ) )
             {
                 applications = default;
 
@@ -112,13 +113,61 @@ internal static class TestApplicationDiscovery
         return duplicates.Count == 0;
     }
 
-    private static bool IsTestingPlatformSolution( Solution solution )
-        => solution switch
+    private static readonly string[] _projectExtensions = [".csproj", ".vbproj", ".fsproj"];
+
+    /// <summary>
+    /// Gets the managed projects of a solution, solution filter or project, by their full path.
+    /// </summary>
+    internal static bool TryGetProjects( BuildContext context, string solutionPath, out IReadOnlyList<string> projects )
+    {
+        var extension = Path.GetExtension( solutionPath );
+
+        if ( extension.Equals( ".slnf", StringComparison.OrdinalIgnoreCase ) )
         {
-            DotNetSolution dotNetSolution => dotNetSolution.TestRunner == TestRunner.MicrosoftTestingPlatform,
-            MsbuildSolution msbuildSolution => msbuildSolution.TestRunner == TestRunner.MicrosoftTestingPlatform,
-            _ => false
-        };
+            // A solution filter names the projects by a path relative to the directory of its solution.
+            using var document = JsonDocument.Parse( File.ReadAllText( solutionPath ) );
+            var solutionElement = document.RootElement.GetProperty( "solution" );
+            var filteredSolution = Path.GetFullPath( solutionElement.GetProperty( "path" ).GetString()!, Path.GetDirectoryName( solutionPath )! );
+
+            projects = solutionElement.GetProperty( "projects" )
+                .EnumerateArray()
+                .Select( p => Path.GetFullPath( p.GetString()!.Replace( '\\', Path.DirectorySeparatorChar ), Path.GetDirectoryName( filteredSolution )! ) )
+                .Where( IsManagedProject )
+                .ToList();
+
+            return true;
+        }
+
+        if ( !extension.Equals( ".sln", StringComparison.OrdinalIgnoreCase ) && !extension.Equals( ".slnx", StringComparison.OrdinalIgnoreCase ) )
+        {
+            projects = [solutionPath];
+
+            return true;
+        }
+
+        if ( !ToolInvocationHelper.InvokeTool( context.Console, "dotnet", $"sln \"{solutionPath}\" list", context.RepoDirectory, out _, out var output ) )
+        {
+            context.Console.WriteError( $"Cannot list the projects of '{solutionPath}'." );
+            context.Console.WriteError( output );
+            projects = [];
+
+            return false;
+        }
+
+        // The output has a header, and names each project by a path relative to the directory of the solution.
+        projects = output
+            .Split( '\r', '\n' )
+            .Select( l => l.Trim() )
+            .Where( IsManagedProject )
+            .Select( p => Path.GetFullPath( p.Replace( '\\', Path.DirectorySeparatorChar ), Path.GetDirectoryName( solutionPath )! ) )
+            .ToList();
+
+        return true;
+    }
+
+    // A test application is a managed project. The other projects of a solution, such as a shared project or a native one,
+    // cannot always be evaluated alone.
+    private static bool IsManagedProject( string path ) => _projectExtensions.Any( e => path.EndsWith( e, StringComparison.OrdinalIgnoreCase ) );
 
     private static void AddApplications( ProjectCollection collection, string projectPath, ImmutableArray<TestApplication>.Builder applications )
     {

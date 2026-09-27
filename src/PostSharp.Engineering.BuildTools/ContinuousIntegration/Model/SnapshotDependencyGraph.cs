@@ -25,12 +25,16 @@ internal static class SnapshotDependencyGraph
     private static readonly BuildConfiguration[] _configurations =
         [BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public];
 
-    public static bool TryValidate( ConsoleHelper console, Product product )
+    /// <param name="configurations">The additional build configurations of the generated settings, which are those that the
+    /// product declares unless <c>generate-scripts</c> creates more.</param>
+    public static bool TryValidate( ConsoleHelper console, Product product, IReadOnlyList<AdditionalCiBuildConfiguration>? configurations = null )
     {
+        configurations ??= product.AdditionalCiBuildConfigurations;
+
         var success = true;
         var configurationsById = new Dictionary<string, AdditionalCiBuildConfiguration>( StringComparer.Ordinal );
 
-        foreach ( var additionalConfiguration in product.AllCiBuildConfigurations )
+        foreach ( var additionalConfiguration in configurations )
         {
             if ( !configurationsById.TryAdd( additionalConfiguration.Id, additionalConfiguration ) )
             {
@@ -46,7 +50,7 @@ internal static class SnapshotDependencyGraph
         // of node are addressed the same way, because both become a Kotlin object in the same generated project.
         var edges = new Dictionary<string, List<string>>( StringComparer.Ordinal );
 
-        foreach ( var additionalConfiguration in product.AllCiBuildConfigurations )
+        foreach ( var additionalConfiguration in configurations )
         {
             success &= TryAddNode( additionalConfiguration, additionalConfiguration.Id, $"The '{additionalConfiguration.Id}' build configuration" );
         }
@@ -191,7 +195,7 @@ internal static class SnapshotDependencyGraph
                     continue;
                 }
 
-                var targetObjectName = dependency.TryGetObjectName( product )!;
+                var targetObjectName = dependency.TryGetObjectName( product, configurations )!;
 
                 if ( string.Equals( targetObjectName, objectName, StringComparison.Ordinal ) )
                 {

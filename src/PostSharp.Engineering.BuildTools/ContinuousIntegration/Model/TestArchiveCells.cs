@@ -79,6 +79,21 @@ internal static class TestArchiveCells
         return [..cells];
     }
 
+    // A part of a TeamCity identifier, which a Kotlin object carries too: letters and digits, the first one in upper case.
+    // Two tags that differ only by punctuation give the same identifier, which the validation of the dependency graph
+    // reports as two configurations of one identifier.
+    private static string ToIdentifier( string value )
+    {
+        var identifier = string.Concat( value.Where( char.IsAsciiLetterOrDigit ) );
+
+        if ( identifier.Length == 0 )
+        {
+            throw new InvalidOperationException( $"'{value}' has no letter or digit, and cannot name a build configuration." );
+        }
+
+        return char.ToUpperInvariant( identifier[0] ) + identifier[1..];
+    }
+
     // The target framework without its operating system: net10.0-windows runs where net10.0 does.
     private static string GetRuntime( string targetFramework )
     {
@@ -95,8 +110,7 @@ internal static class TestArchiveCells
         IReadOnlyList<TestApplication> applications,
         IReadOnlyList<string> excludedTags )
     {
-        var runtimeId = string.Concat( runtime.Where( char.IsLetterOrDigit ) );
-        runtimeId = char.ToUpperInvariant( runtimeId[0] ) + runtimeId[1..];
+        var runtimeId = ToIdentifier( runtime );
 
         var arguments = $"-Platform {agent.Platform}";
 
@@ -119,7 +133,7 @@ internal static class TestArchiveCells
         var resultsDirectory = product.TestResultsDirectory.Replace( '\\', '/' );
 
         return new TestArchivesCiBuildConfiguration(
-            string.Create( CultureInfo.InvariantCulture, $"{agent.IdPrefix}{runtimeId}{tag}" ),
+            string.Create( CultureInfo.InvariantCulture, $"{agent.IdPrefix}{runtimeId}{(tag == null ? "" : ToIdentifier( tag ))}" ),
             tag == null ? $"{agent.Name}: {runtime}" : $"{agent.Name}: {runtime} ({tag})",
             arguments )
         {

@@ -1,8 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
@@ -33,9 +35,16 @@ internal class ProductProperties
 
     public TeamCitySourceDependency[] EngOnlySourceDependencies { get; }
 
-    public ProductProperties( Product product )
+    /// <summary>
+    /// Gets the additional build configurations of the generated settings: those that the product declares, and those that
+    /// <c>generate-scripts</c> creates, such as the build configurations of the test agents.
+    /// </summary>
+    public IReadOnlyList<AdditionalCiBuildConfiguration> CiBuildConfigurations { get; }
+
+    public ProductProperties( Product product, IReadOnlyList<AdditionalCiBuildConfiguration>? ciBuildConfigurations = null )
     {
         this.Product = product;
+        this.CiBuildConfigurations = ciBuildConfigurations ?? product.AdditionalCiBuildConfigurations;
 
         // Calculate product-level artifact directories
         this.PublicArtifactsDirectory = product.PublicArtifactsDirectory.Replace( "\\", "/", StringComparison.Ordinal );

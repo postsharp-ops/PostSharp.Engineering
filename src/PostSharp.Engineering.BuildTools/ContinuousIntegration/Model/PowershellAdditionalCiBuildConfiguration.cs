@@ -103,7 +103,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             snapshotDependencies = declaredSnapshotDependencies
                 .Select(
                     d => d.ToTeamCitySnapshotDependency(
-                        d.TryGetObjectName( product )
+                        d.TryGetObjectName( product, productProperties.CiBuildConfigurations )
                         ?? throw new KeyNotFoundException(
                             $"The '{this.Id}' build configuration depends on '{d}', which the product does not declare." ),
                         defaultArtifactRules,

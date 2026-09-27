@@ -80,7 +80,7 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
         {
             Solutions =
             [
-                new DotNetSolution( "Probe.sln" ) { TestRunner = TestRunner.MicrosoftTestingPlatform },
+                new DotNetSolution( "Probe.sln" ) { ContainsTestApplications = true },
 
                 // A solution that does not declare test applications is not read, even when its projects are some.
                 new DotNetSolution( "Other.sln" )
@@ -134,9 +134,37 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
             </PropertyGroup>
             """ );
 
-        Assert.True( this.Discover( ["Xunit", "MSTest", "Manual"], out var applications ) );
+        // An application built for one processor architecture. Windows on ARM64 runs an x86 application, and not the
+        // reverse.
+        this.CreateProject(
+            "Arm64",
+            """
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net48</TargetFramework>
+              <RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+              <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+            </PropertyGroup>
+            """ );
 
-        Assert.Equal( ["MSTest.net8.0-windows", "Xunit.net48", "Xunit.net8.0"], applications.Select( a => a.ArchiveName ).Order().ToArray() );
+        this.CreateProject(
+            "X86",
+            """
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net48</TargetFramework>
+              <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+              <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+            </PropertyGroup>
+            """ );
+
+        Assert.True( this.Discover( ["Xunit", "MSTest", "Manual", "Arm64", "X86"], out var applications ) );
+
+        Assert.Equal( ["win-arm64"], applications.Single( a => a.ArchiveName == "Arm64.net48.win-arm64" ).Platforms.ToArray() );
+        Assert.Equal( ["win-x64", "win-arm64"], applications.Single( a => a.ArchiveName == "X86.net48.win-x86" ).Platforms.ToArray() );
+
+
+        Assert.Equal( ["Arm64.net48.win-arm64", "MSTest.net8.0-windows", "X86.net48.win-x86", "Xunit.net48", "Xunit.net8.0"], applications.Select( a => a.ArchiveName ).Order( StringComparer.Ordinal ).ToArray() );
 
         var net8 = applications.Single( a => a.ArchiveName == "Xunit.net8.0" );
         Assert.Equal( ["win-x64", "win-arm64", "linux-x64", "linux-arm64", "osx-x64", "osx-arm64"], net8.Platforms.ToArray() );

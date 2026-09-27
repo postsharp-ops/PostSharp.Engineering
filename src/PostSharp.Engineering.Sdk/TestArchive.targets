@@ -13,7 +13,8 @@
         $(TestArchiveDirectory)<AssemblyName>.<TargetFramework>[.<RuntimeIdentifier>].zip. It runs only when
         PublishTestArchive is true, which Build.ps1 build sets for a product that publishes test archives.
 
-        Properties that describe the application, read by the archive, by Build.ps1 test and by generate-scripts:
+        Properties that describe the application, read by the archive and by generate-scripts (Build.ps1 test runs
+        dotnet test, which does not read them):
             TestApplicationPlatforms        The platforms the application runs on, separated by semicolons, for example
                                             'win-x64;linux-x64'. Defaults to every platform for .NET, and to Windows for
                                             .NET Framework or a Windows-specific target framework.
@@ -36,6 +37,9 @@
              application. -->
         <TestApplicationRuntimeIdentifier Condition="'$(_UsingDefaultRuntimeIdentifier)' != 'true'">$(RuntimeIdentifier)</TestApplicationRuntimeIdentifier>
 
+        <!-- Windows on ARM64 runs x86 and x64 applications, and not the reverse: a win-arm64 application can carry ARM64
+             native assets. -->
+        <TestApplicationPlatforms Condition="'$(TestApplicationPlatforms)' == '' AND '$(TestApplicationRuntimeIdentifier)' == 'win-arm64'">win-arm64</TestApplicationPlatforms>
         <TestApplicationPlatforms Condition="'$(TestApplicationPlatforms)' == '' AND $(TestApplicationRuntimeIdentifier.StartsWith('win'))">win-x64;win-arm64</TestApplicationPlatforms>
         <TestApplicationPlatforms Condition="'$(TestApplicationPlatforms)' == '' AND '$(TestApplicationRuntimeIdentifier)' != ''">$(TestApplicationRuntimeIdentifier)</TestApplicationPlatforms>
         <TestApplicationPlatforms Condition="'$(TestApplicationPlatforms)' == '' AND ('$(TargetFrameworkIdentifier)' == '.NETFramework' OR '$(TargetPlatformIdentifier)' == 'windows')">win-x64;win-arm64</TestApplicationPlatforms>
@@ -45,8 +49,6 @@
         <_TestArchiveRepositoryDirectory>$([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Build.ps1'))</_TestArchiveRepositoryDirectory>
         <TestArchiveDirectory Condition="'$(TestArchiveDirectory)' == '' AND '$(_TestArchiveRepositoryDirectory)' != ''">$([MSBuild]::NormalizeDirectory('$(_TestArchiveRepositoryDirectory)', 'artifacts', 'tests'))</TestArchiveDirectory>
 
-        <!-- The satellite assemblies of the dependencies are most of the files of some applications, and no test reads them. -->
-        <SatelliteResourceLanguages Condition="'$(SatelliteResourceLanguages)' == '' AND '$(PublishTestArchive)' == 'true'">en</SatelliteResourceLanguages>
     </PropertyGroup>
 
     <!--
@@ -74,6 +76,11 @@
             <_TestArchiveRunAlone>%24false</_TestArchiveRunAlone>
             <_TestArchiveRunAlone Condition="'$(TestApplicationRunAlone)' == 'true'">%24true</_TestArchiveRunAlone>
 
+            <!-- The satellite assemblies of the dependencies are most of the files of some applications, and no test reads
+                 them. Only the publication of the archive leaves them out, and a value that the project sets is kept. -->
+            <_TestArchiveSatelliteResourceLanguages>$(SatelliteResourceLanguages)</_TestArchiveSatelliteResourceLanguages>
+            <_TestArchiveSatelliteResourceLanguages Condition="'$(_TestArchiveSatelliteResourceLanguages)' == ''">en</_TestArchiveSatelliteResourceLanguages>
+
             <_TestArchiveSkip>%24null</_TestArchiveSkip>
             <_TestArchiveSkip Condition="'$(TestApplicationSkip)' != ''">%27$(TestApplicationSkip.Replace("'", "''"))%27</_TestArchiveSkip>
         </PropertyGroup>
@@ -84,14 +91,22 @@
             <!-- The extensions registered in the application. The runner passes the options of an extension only when the
                  application has it, because the platform refuses an option that no extension declares. -->
             <_TestArchiveExtension Include="@(TestingPlatformBuilderHook->'%(DisplayName)')" />
+
+            <_TestArchiveTag Include="@(TestApplicationTag)" />
+
+            <!-- Each value becomes a single-quoted PowerShell literal, in which an apostrophe is doubled. The value is quoted
+                 with backticks in the expression, which an apostrophe would otherwise end. -->
+            <_TestArchivePlatform Literal="$([System.String]::Copy(`%(Identity)`).Replace(&quot;'&quot;, &quot;''&quot;))" />
+            <_TestArchiveExtension Literal="$([System.String]::Copy(`%(Identity)`).Replace(&quot;'&quot;, &quot;''&quot;))" />
+            <_TestArchiveTag Literal="$([System.String]::Copy(`%(Identity)`).Replace(&quot;'&quot;, &quot;''&quot;))" />
         </ItemGroup>
 
         <!-- The lists as PowerShell arrays. An item list cannot be concatenated with other text in an item, so it is
              flattened into a property first; %40 is the '@' of the array, which MSBuild would read as an item list. -->
         <PropertyGroup>
-            <_TestArchivePlatformList>%40(@(_TestArchivePlatform->'%27%(Identity)%27', ', '))</_TestArchivePlatformList>
-            <_TestArchiveExtensionList>%40(@(_TestArchiveExtension->'%27%(Identity)%27', ', '))</_TestArchiveExtensionList>
-            <_TestArchiveTagList>%40(@(TestApplicationTag->'%27%(Identity)%27', ', '))</_TestArchiveTagList>
+            <_TestArchivePlatformList>%40(@(_TestArchivePlatform->'%27%(Literal)%27', ', '))</_TestArchivePlatformList>
+            <_TestArchiveExtensionList>%40(@(_TestArchiveExtension->'%27%(Literal)%27', ', '))</_TestArchiveExtensionList>
+            <_TestArchiveTagList>%40(@(_TestArchiveTag->'%27%(Literal)%27', ', '))</_TestArchiveTagList>
         </PropertyGroup>
 
         <!-- One item per line. A single multi-line value would be split at every semicolon that a value contains. -->
@@ -118,7 +133,7 @@
              evaluated from the directory of the archive. NoBuild publishes the output that the build has just written. -->
         <MSBuild Projects="$(MSBuildProjectFullPath)"
                  Targets="Publish"
-                 Properties="NoBuild=true;_IsPublishingTestArchive=true;PublishDir=$(_TestArchivePublishDirectory);PublishDocumentationFile=false;PublishReferencesDocumentationFiles=false" />
+                 Properties="NoBuild=true;_IsPublishingTestArchive=true;PublishDir=$(_TestArchivePublishDirectory);PublishDocumentationFile=false;PublishReferencesDocumentationFiles=false;SatelliteResourceLanguages=$(_TestArchiveSatelliteResourceLanguages)" />
 
         <WriteLinesToFile File="$(_TestArchivePublishDirectory)test.psd1" Lines="@(_TestArchiveManifestLine)" Overwrite="true" />
 

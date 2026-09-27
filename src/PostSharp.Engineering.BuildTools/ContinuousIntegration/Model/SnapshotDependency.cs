@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
@@ -107,11 +108,11 @@ public sealed record SnapshotDependency
     /// Gets the object name of the TeamCity build type this dependency resolves to, or <c>null</c> when the target
     /// does not exist or is not exported. Validation reports those cases; the generator never sees them.
     /// </summary>
-    internal string? TryGetObjectName( Product product )
+    internal string? TryGetObjectName( Product product, IEnumerable<AdditionalCiBuildConfiguration> configurations )
     {
         if ( this.ConfigurationId != null )
         {
-            return product.AllCiBuildConfigurations.Any( c => string.Equals( c.Id, this.ConfigurationId, StringComparison.Ordinal ) )
+            return configurations.Any( c => string.Equals( c.Id, this.ConfigurationId, StringComparison.Ordinal ) )
                 ? this.ConfigurationId
                 : null;
         }

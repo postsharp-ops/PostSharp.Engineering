@@ -27,6 +27,8 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         // The build configurations of the test agents are planned from the test applications, which only an evaluation of
         // the projects tells. They are created before the TeamCity settings, which contain them, and are validated with
         // the configurations that the product declares.
+        ImmutableArray<AdditionalCiBuildConfiguration> generatedConfigurations = [];
+
         if ( product.TestAgents.Length > 0 )
         {
             if ( !product.PublishTestArchives )
@@ -36,19 +38,29 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 return false;
             }
 
-            if ( !TestApplicationDiscovery.TryDiscover( context, BuildConfiguration.Debug, out var applications ) )
+            // The projects are evaluated in the configuration of the build that publishes the archives, because a target
+            // framework, an assembly name or a skip reason can depend on it.
+            if ( !TestArchives.TryGetSourceConfiguration( product, out var configuration ) )
+            {
+                context.Console.WriteError(
+                    $"TestArchivesSource names the build configuration '{product.TestArchivesSource.ConfigurationId}', which the product does not declare." );
+
+                return false;
+            }
+
+            if ( !TestApplicationDiscovery.TryDiscover( context, configuration, out var applications ) )
             {
                 return false;
             }
 
-            product.GeneratedCiBuildConfigurations = TestArchiveCells.Create( product, applications );
+            generatedConfigurations = TestArchiveCells.Create( product, applications );
             TestArchives.WriteList( context, applications );
         }
 
         // TeamCity
         if ( product.GenerateTeamCitySettings )
         {
-            if ( !TeamCitySettingsFile.TryWrite( context ) )
+            if ( !TeamCitySettingsFile.TryWrite( context, generatedConfigurations ) )
             {
                 return false;
             }

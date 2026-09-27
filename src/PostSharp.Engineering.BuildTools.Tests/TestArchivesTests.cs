@@ -81,6 +81,7 @@ public sealed class TestArchivesTests : IDisposable
                    <DisplayName>Microsoft.Testing.Extensions.TrxReport</DisplayName>
                  </TestingPlatformBuilderHook>
                  <TestApplicationTag Include="Fast" />
+                 <TestApplicationTag Include="Owner's" />
                </ItemGroup>
              </Project>
              """ );
@@ -214,7 +215,7 @@ public sealed class TestArchivesTests : IDisposable
         Assert.Contains( $"Entry = 'Probe.dll'", manifest, StringComparison.Ordinal );
         Assert.Contains( "Platforms = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')", manifest, StringComparison.Ordinal );
         Assert.Contains( "Extensions = @('Microsoft.Testing.Extensions.TrxReport')", manifest, StringComparison.Ordinal );
-        Assert.Contains( "Tags = @('Fast')", manifest, StringComparison.Ordinal );
+        Assert.Contains( "Tags = @('Fast', 'Owner''s')", manifest, StringComparison.Ordinal );
         Assert.Contains( "Skip = $null", manifest, StringComparison.Ordinal );
 
         // A Windows target framework runs on Windows only, and the apostrophe and the semicolon of the reason survive.
@@ -235,7 +236,7 @@ public sealed class TestArchivesTests : IDisposable
         Assert.DoesNotContain( "--hangdump", arguments );
 
         // The data row is named after its arguments, which is how TeamCity tells the rows of a theory apart.
-        var report = File.ReadAllText( Path.Combine( results, $"Probe.{_targetFramework}.trx" ) );
+        var report = File.ReadAllText( Path.Combine( results, "report.trx" ) );
         Assert.Contains( "name=\"Rows(value: 1)\"", report, StringComparison.Ordinal );
     }
 

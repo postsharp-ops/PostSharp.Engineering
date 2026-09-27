@@ -172,7 +172,12 @@ namespace PostSharp.Engineering.BuildTools.Build
 
             var publicArtifactsDirectory = product.GetPublicArtifactsAbsoluteDirectory( context );
 
-            if ( product.PublishTestArchives && settings.SolutionId == null && !TestArchives.Verify( context ) )
+            // The archives are compared with the list only when this build wrote them: the command line can turn it off.
+            if ( settings.SolutionId == null
+                 && solutionSettings.Properties.TryGetValue( "PublishTestArchive", out var publishTestArchive )
+                 && bool.TryParse( publishTestArchive, out var isPublishingTestArchives )
+                 && isPublishingTestArchives
+                 && !TestArchives.Verify( context ) )
             {
                 return false;
             }

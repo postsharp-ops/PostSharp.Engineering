@@ -30,6 +30,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool IsTestOnly { get; init; }
 
         /// <summary>
+        /// Gets a value indicating whether the test projects of the solution are Microsoft.Testing.Platform test applications
+        /// that run on the test agents of the product: <c>generate-scripts</c> reads them to plan the build configurations
+        /// of <see cref="Product.TestAgents"/>. Only these solutions are read, because evaluating the projects of every
+        /// solution of a repository would cost time for nothing. See <c>doc/testing-platform.md</c>.
+        /// </summary>
+        public bool ContainsTestApplications { get; init; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether a call to the <see cref="Pack"/> method should be explicitly preceded by
         /// a call to the <see cref="Build"/> method.
         /// </summary>
