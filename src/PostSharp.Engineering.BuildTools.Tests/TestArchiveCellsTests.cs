@@ -22,8 +22,14 @@ public sealed class TestArchiveCellsTests
     private static readonly string[] _everywhere = ["win-x64", "win-arm64", "linux-x64", "linux-arm64", "osx-x64", "osx-arm64"];
     private static readonly string[] _windows = ["win-x64", "win-arm64"];
 
-    private static TestApplication Application( string name, string targetFramework, string[] platforms, string[]? tags = null, string? skip = null )
-        => new( $"C:\\src\\{name}\\{name}.csproj", name, targetFramework, "", [..platforms], [..tags ?? []], false, skip );
+    private static TestApplication Application(
+        string name,
+        string targetFramework,
+        string[] platforms,
+        string[]? tags = null,
+        string? skip = null,
+        string[]? artifacts = null )
+        => new( $"C:\\src\\{name}\\{name}.csproj", name, targetFramework, "", [..platforms], [..tags ?? []], false, skip, [..artifacts ?? []] );
 
     private static Product CreateProduct( params TestAgent[] agents )
         => new( MetalamaDependencies.V2026_1.Metalama )
@@ -31,6 +37,35 @@ public sealed class TestArchiveCellsTests
             Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }], TestAgents = agents,
             TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" )
         };
+
+    /// <summary>
+    /// A build configuration downloads the artifacts that the prepare scripts of its applications read, once each.
+    /// </summary>
+    [Fact]
+    public void TheArtifactsOfTheApplicationsAreDownloaded()
+    {
+        var product = CreateProduct( new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty ) );
+
+        var cells = TestArchiveCells.Create(
+            product,
+            [
+                Application( "Client", "net48", _windows, artifacts: ["artifacts/publish/public/Product.*.nupkg"] ),
+                Application( "Other", "net48", _windows, artifacts: ["artifacts/publish/public/Product.*.nupkg"] ),
+                Application( "Common", "net10.0", _everywhere )
+            ] );
+
+        var net48 = cells.Single( c => c.Id == "TestWinX64Net48" );
+
+        Assert.Equal(
+            [
+                "+:artifacts/publish/public/Product.*.nupkg=>artifacts/publish/public",
+                "+:artifacts/tests/Client.net48.zip=>artifacts/tests",
+                "+:artifacts/tests/Other.net48.zip=>artifacts/tests"
+            ],
+            net48.SnapshotDependencies!.Single().ArtifactRules! );
+
+        Assert.Equal( ["+:artifacts/tests/Common.net10.0.zip=>artifacts/tests"], cells.Single( c => c.Id == "TestWinX64Net100" ).SnapshotDependencies!.Single().ArtifactRules! );
+    }
 
     [Fact]
     public void EachAgentGetsOneConfigurationPerRuntimeAndSeparateTag()
