@@ -26,7 +26,8 @@
     of this host.
 
 .PARAMETER Name
-    Runs only the archives whose name matches one of these wildcard patterns. The name of an archive is its file name
+    Runs only the archives whose name matches one of these wildcard patterns. This parameter, -Tags and -ExcludeTags
+    also accept a comma-separated list, which is what a build step or pwsh -File passes. The name of an archive is its file name
     without the extension, for example 'MyProduct.Tests.net10.0'.
 
 .PARAMETER Tags
@@ -825,6 +826,12 @@ try
     {
         $Platform = Get-HostPlatform
     }
+
+    # A build step passes its arguments as text, and pwsh -File passes 'a,b' to an array parameter as one string, so a list
+    # can arrive as one comma-separated value.
+    $Name = @( $Name | ForEach-Object { $_ -split ',' } | Where-Object { $_ } )
+    $Tags = @( $Tags | ForEach-Object { $_ -split ',' } | Where-Object { $_ } )
+    $ExcludeTags = @( $ExcludeTags | ForEach-Object { $_ -split ',' } | Where-Object { $_ } )
 
     if ($MaxParallel -le 0)
     {

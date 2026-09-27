@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
+using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -74,6 +75,12 @@ internal static class TeamCitySettingsFile
             publishedArtifactRules += $@"\n+:{productProperties.TestResultsDirectory}/**/*=>{productProperties.TestResultsDirectory}";
             publishedArtifactRules += $@"\n+:{productProperties.LogsDirectory}/**/*=>logs";
             publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
+
+            // The build configurations of the test agents download them one by one.
+            if ( product.PublishTestArchives )
+            {
+                publishedArtifactRules += $@"\n+:{TestArchives.Directory}/*.zip=>{TestArchives.Directory}";
+            }
 
             var teamCityBuildConfiguration = configurationInfo.CustomBuildConfiguration != null
                 ? CreateReplacementBuildConfiguration(
@@ -270,7 +277,7 @@ internal static class TeamCitySettingsFile
         // a product with dozens of test cells does not present them as one flat list; the rest sit at the root.
         var folderedConfigurations = new Dictionary<string, List<TeamCityBuildConfiguration>>( StringComparer.Ordinal );
 
-        foreach ( var additional in product.AdditionalCiBuildConfigurations )
+        foreach ( var additional in product.AllCiBuildConfigurations )
         {
             var configuration = additional.TeamCityBuildConfiguration( productProperties, teamCityBuildBuildConfigurations );
             configuration.GitHubAppTokenOverride = additional.GitHubAppToken;

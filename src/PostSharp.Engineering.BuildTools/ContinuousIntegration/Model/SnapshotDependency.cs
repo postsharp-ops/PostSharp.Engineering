@@ -111,7 +111,7 @@ public sealed record SnapshotDependency
     {
         if ( this.ConfigurationId != null )
         {
-            return product.AdditionalCiBuildConfigurations.Any( c => string.Equals( c.Id, this.ConfigurationId, StringComparison.Ordinal ) )
+            return product.AllCiBuildConfigurations.Any( c => string.Equals( c.Id, this.ConfigurationId, StringComparison.Ordinal ) )
                 ? this.ConfigurationId
                 : null;
         }

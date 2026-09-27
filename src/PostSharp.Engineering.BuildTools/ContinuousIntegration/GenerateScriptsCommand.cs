@@ -24,6 +24,27 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
     {
         var product = context.Product;
 
+        // The build configurations of the test agents are planned from the test applications, which only an evaluation of
+        // the projects tells. They are created before the TeamCity settings, which contain them, and are validated with
+        // the configurations that the product declares.
+        if ( product.TestAgents.Length > 0 )
+        {
+            if ( !product.PublishTestArchives )
+            {
+                context.Console.WriteError( "The product declares TestAgents but does not set PublishTestArchives, so no build writes the archives they run." );
+
+                return false;
+            }
+
+            if ( !TestApplicationDiscovery.TryDiscover( context, BuildConfiguration.Debug, out var applications ) )
+            {
+                return false;
+            }
+
+            product.GeneratedCiBuildConfigurations = TestArchiveCells.Create( product, applications );
+            TestArchives.WriteList( context, applications );
+        }
+
         // TeamCity
         if ( product.GenerateTeamCitySettings )
         {

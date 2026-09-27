@@ -43,6 +43,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         {
             if ( this.TestRunner != TestRunner.MicrosoftTestingPlatform )
             {
+                if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+                {
+                    // TODO if needed
+                    context.Console.WriteError( "Test filters are not implemented for non-SDK-style projects." );
+
+                    return false;
+                }
+
                 return this.RunMSBuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
             }
 
@@ -51,7 +59,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 settings,
                 this,
                 Path.Combine( context.RepoDirectory, this.SolutionPath ),
-                ( project, target ) => this.RunMSBuild( context, settings, project, target, "-p:RestorePackages=false", testsFilterIsPassed: true ) );
+                ( project, target ) => this.RunMSBuild( context, settings, project, target, "-p:RestorePackages=false" ) );
         }
 
         public override bool Restore( BuildContext context, BuildSettings settings )
@@ -97,22 +105,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             return true;
         }
 
-        private bool RunMSBuild(
-            BuildContext context,
-            BuildSettings settings,
-            string project,
-            string target,
-            string arguments = "",
-            bool testsFilterIsPassed = false )
+        private bool RunMSBuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
         {
-            if ( !string.IsNullOrEmpty( settings.TestsFilter ) && !testsFilterIsPassed )
-            {
-                // TODO if needed
-                context.Console.WriteError( "Test filters are not implemented for non-SDK-style projects." );
-
-                return false;
-            }
-
             var msbuildPath = MSBuildHelper.FindMSBuildExe( context, this.MSBuildVersion );
 
             if ( msbuildPath == null )

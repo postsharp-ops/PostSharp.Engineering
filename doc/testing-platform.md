@@ -172,6 +172,65 @@ A .NET Framework application run from a deep directory failed to load an assembl
 from a path of 223. The limit of 260 characters of Windows is the likely cause. The runner warns when the longest
 path of a .NET Framework application reaches 240 characters; use a shorter `-Path` if the application then fails.
 
+## Test agents
+
+A product declares the kinds of agents that run its archives, and `generate-scripts` creates their build
+configurations:
+
+```csharp
+var product = new Product( dependency )
+{
+    PublishTestArchives = true,
+    TestArchivesSource = new SnapshotDependency( "BuildArtifacts" ),   // defaults to the public build
+    TestAgents =
+    [
+        new TestAgent( "win-x64", "UnitTestWinX64", "Unit Tests Windows x64", windowsContainerRequirements )
+        {
+            Dockerfile = "eng/docker/build.Dockerfile", SeparateTags = ["TimeSensitive"]
+        },
+        new TestAgent( "osx-arm64", "UnitTestMacOsArm64", "Unit Tests macOS ARM64", macOsRequirements )
+    ],
+    ...
+};
+```
+
+### Discovering the test applications
+
+`generate-scripts` evaluates the managed projects of the solutions whose `TestRunner` is
+`MicrosoftTestingPlatform`, and of those only: a repository can hold hundreds of other projects. It evaluates each
+target framework, and builds and restores nothing. `Build.ps1 list-test-applications` shows what it finds.
+
+A project is a test application when it says so in a property that it sets itself. `IsTestingPlatformApplication` is
+set by the packages of the test frameworks, which are imported only after a restore, so `UseMicrosoftTestingPlatformRunner`
+(xunit.v3) and `EnableMSTestRunner` (MSTest) are read too. An explicit `IsTestingPlatformApplication=false` wins: that is
+how a project that references a test project, and therefore receives the props of its test framework, says that it is
+not one.
+
+Two applications with one archive name are an error, because one of them would never be tested. A project built for two
+processor architectures under one assembly name sets `RuntimeIdentifier` in each build.
+
+### The build configurations
+
+Each agent gets one build configuration per runtime of the applications that apply to its platform: the target
+framework without its operating system, so that `net10.0` and `net10.0-windows` run together. The applications of each
+tag of `SeparateTags` run in a build configuration of their own, and the others run with `-ExcludeTags`. A skipped
+application is not downloaded. A composite configuration, `RunAllTestArchives`, runs them all.
+
+A build configuration downloads exactly the archives it runs, one artifact rule per archive, from `TestArchivesSource`,
+and nothing else of the build: no package, and none of the artifacts of the products this product depends on. It runs
+`eng/RunTests.ps1 -Platform <platform>`, in a container when the requirements of the agent are those of a container
+host, and publishes the test results directory. The build that publishes the archives publishes
+`artifacts/tests/*.zip`; PostSharp.Engineering adds that rule to the product build configurations, and a product that
+names another build configuration adds it there.
+
+### Staying current
+
+An application added without running `generate-scripts` again would be in no build configuration, and would silently
+not be tested. `generate-scripts` therefore writes the list of the archives it planned to `eng/test-archives.txt`, and
+`Build.ps1 build` fails when the archives it writes differ from that list: an archive missing from the list is run by no
+build configuration, and a listed archive that the build did not write fails the download of the configurations that
+run it.
+
 ## Options
 
 `Build.ps1 test` and `RunTests.ps1` pass the same options to an application of the `mtp` kind, because the platform

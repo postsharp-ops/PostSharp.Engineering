@@ -30,7 +30,7 @@ internal static class SnapshotDependencyGraph
         var success = true;
         var configurationsById = new Dictionary<string, AdditionalCiBuildConfiguration>( StringComparer.Ordinal );
 
-        foreach ( var additionalConfiguration in product.AdditionalCiBuildConfigurations )
+        foreach ( var additionalConfiguration in product.AllCiBuildConfigurations )
         {
             if ( !configurationsById.TryAdd( additionalConfiguration.Id, additionalConfiguration ) )
             {
@@ -46,7 +46,7 @@ internal static class SnapshotDependencyGraph
         // of node are addressed the same way, because both become a Kotlin object in the same generated project.
         var edges = new Dictionary<string, List<string>>( StringComparer.Ordinal );
 
-        foreach ( var additionalConfiguration in product.AdditionalCiBuildConfigurations )
+        foreach ( var additionalConfiguration in product.AllCiBuildConfigurations )
         {
             success &= TryAddNode( additionalConfiguration, additionalConfiguration.Id, $"The '{additionalConfiguration.Id}' build configuration" );
         }

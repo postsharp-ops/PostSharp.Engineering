@@ -111,6 +111,32 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public bool PublishTestArchives { get; init; }
 
+        /// <summary>
+        /// Gets the kinds of build agents that run the test archives. <c>generate-scripts</c> creates their build
+        /// configurations from the test applications of the solutions whose <c>TestRunner</c> declares them, and writes the
+        /// list of the archives to <c>eng/test-archives.txt</c>, which <c>Build.ps1 build</c> checks. Requires
+        /// <see cref="PublishTestArchives"/>. See <c>doc/testing-platform.md</c>.
+        /// </summary>
+        public TestAgent[] TestAgents { get; init; } = [];
+
+        /// <summary>
+        /// Gets the build configuration that publishes the test archives, which the build configurations of
+        /// <see cref="TestAgents"/> download them from. Defaults to the public build. Its artifact rules are replaced by the
+        /// archives of each build configuration.
+        /// </summary>
+        public SnapshotDependency TestArchivesSource { get; init; } = new( BuildConfiguration.Public );
+
+        /// <summary>
+        /// Gets or sets the build configurations that <c>generate-scripts</c> creates, rather than the product declares.
+        /// </summary>
+        internal ImmutableArray<AdditionalCiBuildConfiguration> GeneratedCiBuildConfigurations { get; set; } = [];
+
+        /// <summary>
+        /// Gets the build configurations that the product declares and those that <c>generate-scripts</c> creates.
+        /// </summary>
+        internal IEnumerable<AdditionalCiBuildConfiguration> AllCiBuildConfigurations
+            => this.AdditionalCiBuildConfigurations.Concat( this.GeneratedCiBuildConfigurations );
+
         public string LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 
         public string DumpDirectory { get; init; } = Path.Combine( "artifacts", "dumps" );

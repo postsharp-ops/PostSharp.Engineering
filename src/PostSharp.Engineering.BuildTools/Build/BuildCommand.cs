@@ -172,6 +172,11 @@ namespace PostSharp.Engineering.BuildTools.Build
 
             var publicArtifactsDirectory = product.GetPublicArtifactsAbsoluteDirectory( context );
 
+            if ( product.PublishTestArchives && settings.SolutionId == null && !TestArchives.Verify( context ) )
+            {
+                return false;
+            }
+
             // Allow for some customization before we create the zip file and copy to the public directory.
             var eventArgs = new BuildCompletedEventArgs( context, settings, buildInfo, privateArtifactsDirectory, publicArtifactsDirectory );
             product.OnBuildCompleted( eventArgs );

@@ -1,0 +1,178 @@
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.MSBuild;
+using PostSharp.Engineering.BuildTools.Build.Solutions;
+using PostSharp.Engineering.BuildTools.Build.Testing;
+using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
+using System;
+using System.IO;
+using System.Linq;
+using Xunit;
+
+namespace PostSharp.Engineering.BuildTools.Tests;
+
+/// <summary>
+/// Evaluates projects with <see cref="TestApplicationDiscovery"/>, without restoring or building them.
+/// </summary>
+public sealed class TestApplicationDiscoveryTests : IDisposable
+{
+    private readonly TempDirectory _directory = new();
+
+    private static string SdkDirectory
+    {
+        get
+        {
+            var directory = AppContext.BaseDirectory;
+
+            while ( directory != null && !File.Exists( Path.Combine( directory, "src", "PostSharp.Engineering.Sdk", "TestArchive.targets" ) ) )
+            {
+                directory = Path.GetDirectoryName( directory );
+            }
+
+            Assert.NotNull( directory );
+
+            return Path.Combine( directory, "src", "PostSharp.Engineering.Sdk" );
+        }
+    }
+
+    public TestApplicationDiscoveryTests()
+    {
+        // The targets file is imported after the body of the projects, as the documentation says.
+        File.WriteAllText(
+            Path.Combine( this._directory.Path, "Directory.Build.targets" ),
+            $"""
+             <Project>
+               <Import Project="{Path.Combine( SdkDirectory, "TestArchive.targets" )}" />
+             </Project>
+             """ );
+    }
+
+    private void CreateProject( string name, string body )
+    {
+        var directory = Path.Combine( this._directory.Path, name );
+        Directory.CreateDirectory( directory );
+
+        File.WriteAllText(
+            Path.Combine( directory, $"{name}.csproj" ),
+            $"""
+             <Project Sdk="Microsoft.NET.Sdk">
+               {body}
+             </Project>
+             """ );
+    }
+
+    private bool Discover( string[] projects, out System.Collections.Immutable.ImmutableArray<TestApplication> applications )
+    {
+        var lines = projects.SelectMany(
+            p => new[]
+            {
+                $"Project(\"{{9A19103F-16F7-4668-BE54-9A1E7A4F7556}}\") = \"{p}\", \"{p}\\{p}.csproj\", \"{{{Guid.NewGuid().ToString().ToUpperInvariant()}}}\"",
+                "EndProject"
+            } );
+
+        File.WriteAllLines(
+            Path.Combine( this._directory.Path, "Probe.sln" ),
+            ["Microsoft Visual Studio Solution File, Format Version 12.00", ..lines, "Global", "EndGlobal"] );
+
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            Solutions =
+            [
+                new DotNetSolution( "Probe.sln" ) { TestRunner = TestRunner.MicrosoftTestingPlatform },
+
+                // A solution that does not declare test applications is not read, even when its projects are some.
+                new DotNetSolution( "Other.sln" )
+            ]
+        };
+
+        MSBuildHelper.InitializeLocator();
+
+        return TestApplicationDiscovery.TryDiscover( TestBuildContext.Create( this._directory.Path, product ), BuildConfiguration.Debug, out applications );
+    }
+
+    [Fact]
+    public void TheApplicationsAreReadFromTheEvaluationOfEachTargetFramework()
+    {
+        // The markers that a project sets itself, because the one of the test frameworks needs a restore.
+        this.CreateProject(
+            "Xunit",
+            """
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFrameworks>net8.0;net48;netstandard2.0</TargetFrameworks>
+              <UseMicrosoftTestingPlatformRunner Condition="'$(TargetFramework)' != 'netstandard2.0'">true</UseMicrosoftTestingPlatformRunner>
+              <TestApplicationRunAlone>true</TestApplicationRunAlone>
+            </PropertyGroup>
+            <ItemGroup>
+              <TestApplicationTag Include="TimeSensitive" />
+            </ItemGroup>
+            """ );
+
+        this.CreateProject(
+            "MSTest",
+            """
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0-windows</TargetFramework>
+              <EnableWindowsTargeting>true</EnableWindowsTargeting>
+              <EnableMSTestRunner>true</EnableMSTestRunner>
+              <TestApplicationSkip>Not today</TestApplicationSkip>
+            </PropertyGroup>
+            """ );
+
+        // A project that references a test project receives the props of its test framework, and says it is not one.
+        this.CreateProject(
+            "Manual",
+            """
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+              <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+            </PropertyGroup>
+            """ );
+
+        Assert.True( this.Discover( ["Xunit", "MSTest", "Manual"], out var applications ) );
+
+        Assert.Equal( ["MSTest.net8.0-windows", "Xunit.net48", "Xunit.net8.0"], applications.Select( a => a.ArchiveName ).Order().ToArray() );
+
+        var net8 = applications.Single( a => a.ArchiveName == "Xunit.net8.0" );
+        Assert.Equal( ["win-x64", "win-arm64", "linux-x64", "linux-arm64", "osx-x64", "osx-arm64"], net8.Platforms.ToArray() );
+        Assert.Equal( ["TimeSensitive"], net8.Tags.ToArray() );
+        Assert.True( net8.RunAlone );
+        Assert.Null( net8.Skip );
+
+        // A .NET Framework application runs on Windows, and its default runtime identifier does not name its archive.
+        Assert.Equal( ["win-x64", "win-arm64"], applications.Single( a => a.ArchiveName == "Xunit.net48" ).Platforms.ToArray() );
+
+        var windows = applications.Single( a => a.ArchiveName == "MSTest.net8.0-windows" );
+        Assert.Equal( ["win-x64", "win-arm64"], windows.Platforms.ToArray() );
+        Assert.Equal( "Not today", windows.Skip );
+    }
+
+    /// <summary>
+    /// Two applications with one archive name would write one archive, and one of them would never be tested.
+    /// </summary>
+    [Fact]
+    public void TwoApplicationsWithOneArchiveNameAreAnError()
+    {
+        const string body = """
+                            <PropertyGroup>
+                              <OutputType>Exe</OutputType>
+                              <TargetFramework>net8.0</TargetFramework>
+                              <AssemblyName>Shared</AssemblyName>
+                              <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+                            </PropertyGroup>
+                            """;
+
+        this.CreateProject( "First", body );
+        this.CreateProject( "Second", body );
+
+        Assert.False( this.Discover( ["First", "Second"], out var applications ) );
+        Assert.Equal( 2, applications.Length );
+    }
+
+    public void Dispose() => this._directory.Dispose();
+}
