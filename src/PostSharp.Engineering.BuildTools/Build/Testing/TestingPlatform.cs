@@ -5,7 +5,11 @@ using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -32,24 +36,108 @@ internal static class TestingPlatform
     public const string ReportFileName = "report.trx";
 
     /// <summary>
+    /// The first major version of the .NET SDK whose <c>dotnet test</c> accepts <c>--results-directory-layout</c> and
+    /// <c>--no-artifact-post-processing</c>. The SDK 10.0.1xx to 10.0.4xx refuse both options: it passes them to the test
+    /// applications, which exit with code 5 (invalid command line).
+    /// </summary>
+    internal const int ResultsDirectoryLayoutSdkMajorVersion = 11;
+
+    /// <summary>
+    /// Gets the options of <c>dotnet test</c> that write the TRX reports of <paramref name="solutionPath"/> into
+    /// <paramref name="resultsDirectory"/>, for the .NET SDK that <c>dotnet</c> selects in the repository.
+    /// </summary>
+    /// <returns><c>false</c> if the SDK would lose a report of the solution. See <see cref="FindReportNameConflicts"/>.</returns>
+    public static bool TryGetArguments(
+        BuildContext context,
+        BuildSettings settings,
+        string solutionPath,
+        string resultsDirectory,
+        [NotNullWhen( true )] out string? arguments )
+    {
+        var sdkMajorVersion = GetSdkMajorVersion( context );
+
+        if ( sdkMajorVersion is { } major && major < ResultsDirectoryLayoutSdkMajorVersion )
+        {
+            if ( !TestApplicationDiscovery.TryDiscover( context, settings.BuildConfiguration, solutionPath, out var applications ) )
+            {
+                arguments = null;
+
+                return false;
+            }
+
+            var conflicts = FindReportNameConflicts( applications );
+
+            foreach ( var conflict in conflicts )
+            {
+                context.Console.WriteError(
+                    $"With the .NET SDK {major}, the target frameworks {string.Join( " and ", conflict.Select( a => $"'{a.TargetFramework}'" ) )} of "
+                    + $"'{Path.GetRelativePath( context.RepoDirectory, conflict.First().ProjectPath )}' write the same test report, and one "
+                    + $"replaces the other. Use the .NET SDK {ResultsDirectoryLayoutSdkMajorVersion} or later, which writes the report of each "
+                    + "application into a directory of its own, or remove one of the target frameworks." );
+            }
+
+            if ( conflicts.Count > 0 )
+            {
+                arguments = null;
+
+                return false;
+            }
+        }
+
+        arguments = GetArguments( resultsDirectory, settings.TestsFilter, sdkMajorVersion );
+
+        return true;
+    }
+
+    /// <summary>
+    /// Finds the test applications that write the same TRX report when <c>dotnet test</c> runs them with a .NET SDK before 11.
+    /// </summary>
+    /// <remarks>
+    /// Such an SDK writes every report into one directory, under the name <c>&lt;assembly&gt;_&lt;framework&gt;_&lt;architecture&gt;.trx</c>,
+    /// and replaces a report that has the same name without a warning. The framework in the name has no operating system, so
+    /// <c>net10.0</c> and <c>net10.0-windows</c> of one project give the same name.
+    /// </remarks>
+    internal static IReadOnlyList<IGrouping<string, TestApplication>> FindReportNameConflicts( IEnumerable<TestApplication> applications )
+        => applications
+            .GroupBy( a => $"{a.AssemblyName}_{GetFrameworkWithoutPlatform( a.TargetFramework )}_{a.RuntimeIdentifier}", StringComparer.OrdinalIgnoreCase )
+            .Where( g => g.Count() > 1 )
+            .ToList();
+
+    private static string GetFrameworkWithoutPlatform( string targetFramework )
+    {
+        var dash = targetFramework.IndexOf( '-', StringComparison.Ordinal );
+
+        return dash < 0 ? targetFramework : targetFramework[..dash];
+    }
+
+    /// <summary>
     /// Gets the options of <c>dotnet test</c> that write the TRX reports into <paramref name="resultsDirectory"/>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Each application writes its report into a directory of its own (<c>per-module</c>): the default layout names a report
-    /// after the assembly, the target framework and the architecture, so <c>net10.0</c> and <c>net10.0-windows</c> would
-    /// write the same file. <c>--no-artifact-post-processing</c> keeps <c>dotnet test</c> from also writing a merged report,
-    /// which TeamCity would import beside the others and count every test twice.
+    /// With the .NET SDK 11 and later, each application writes its report into a directory of its own (<c>per-module</c>):
+    /// the default layout names a report after the assembly, the target framework and the architecture, so <c>net10.0</c>
+    /// and <c>net10.0-windows</c> would write the same file. <c>--no-artifact-post-processing</c> keeps <c>dotnet test</c>
+    /// from also writing a merged report, which TeamCity would import beside the others and count every test twice.
+    /// </para>
+    /// <para>
+    /// An earlier SDK accepts neither option, and does not merge the reports. Each application then writes its report into
+    /// <paramref name="resultsDirectory"/> under the default name, <c>&lt;assembly&gt;_&lt;target framework&gt;_&lt;architecture&gt;.trx</c>,
+    /// and <see cref="ReportFileName"/> is not given, because every application would write the same file. Two target
+    /// frameworks of one project that differ only by their operating system still write the same file with such an SDK.
     /// </para>
     /// <para>
     /// A filter can select no test in an application, which is then a success (<c>--ignore-exit-code 8</c>); a run whose
     /// filter selects no test at all still fails.
     /// </para>
     /// </remarks>
-    public static string GetArguments( string resultsDirectory, string? filter )
+    /// <param name="sdkMajorVersion">The major version of the .NET SDK, or <c>null</c> when it is not known, which is
+    /// treated as a current SDK.</param>
+    internal static string GetArguments( string resultsDirectory, string? filter, int? sdkMajorVersion )
     {
-        var arguments =
-            $"--report-trx --report-trx-filename {ReportFileName} --results-directory \"{resultsDirectory}\" --results-directory-layout per-module --no-artifact-post-processing";
+        var arguments = sdkMajorVersion is { } major && major < ResultsDirectoryLayoutSdkMajorVersion
+            ? $"--report-trx --results-directory \"{resultsDirectory}\""
+            : $"--report-trx --report-trx-filename {ReportFileName} --results-directory \"{resultsDirectory}\" --results-directory-layout per-module --no-artifact-post-processing";
 
         if ( !string.IsNullOrEmpty( filter ) )
         {
@@ -57,6 +145,26 @@ internal static class TestingPlatform
         }
 
         return arguments;
+    }
+
+    /// <summary>
+    /// Gets the major version of the .NET SDK that <c>dotnet</c> selects in the repository, which is the one that the
+    /// <c>global.json</c> of the repository names, or <c>null</c> when it cannot be determined.
+    /// </summary>
+    private static int? GetSdkMajorVersion( BuildContext context )
+    {
+        if ( !ToolInvocationHelper.InvokeTool( context.Console, "dotnet", "--version", context.RepoDirectory, out var exitCode, out var output )
+             || exitCode != 0 )
+        {
+            context.Console.WriteWarning( "Cannot determine the version of the .NET SDK. The options of the .NET SDK 11 are passed to 'dotnet test'." );
+
+            return null;
+        }
+
+        var version = output.Trim();
+        var dot = version.IndexOf( '.', StringComparison.Ordinal );
+
+        return dot > 0 && int.TryParse( version[..dot], NumberStyles.None, CultureInfo.InvariantCulture, out var major ) ? major : null;
     }
 
     /// <summary>
@@ -81,12 +189,17 @@ internal static class TestingPlatform
 
         try
         {
+            if ( !TryGetArguments( context, settings, solutionPath, stagingDirectory, out var arguments ) )
+            {
+                return false;
+            }
+
             return DotNetHelper.Run(
                 context,
                 settings,
                 solutionPath,
                 "test",
-                $"--no-build {GetArguments( stagingDirectory, settings.TestsFilter )}",
+                $"--no-build {arguments}",
                 true,
                 logName: solution.Name );
         }

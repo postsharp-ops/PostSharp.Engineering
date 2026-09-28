@@ -44,9 +44,18 @@ section: `dotnet` uses the `global.json` nearest to its working directory.
 |---|---|
 | `--solution` or `--project` | The mode takes no positional argument; an argument it does not know goes to the test applications, which refuse it. |
 | `--report-trx --results-directory <staging>` | The reports that PostSharp.Engineering imports into TeamCity. Every application must reference `Microsoft.Testing.Extensions.TrxReport`. |
-| `--results-directory-layout per-module` | Each application writes into a directory of its own. The default layout names a report after the assembly, the target framework and the architecture, so `net10.0` and `net10.0-windows` would write the same file. |
-| `--no-artifact-post-processing` | No merged report, which TeamCity would import beside the others and count every test twice. |
+| `--report-trx-filename report.trx --results-directory-layout per-module` | .NET SDK 11 and later. Each application writes into a directory of its own. The default layout names a report after the assembly, the target framework and the architecture, so `net10.0` and `net10.0-windows` would write the same file. |
+| `--no-artifact-post-processing` | .NET SDK 11 and later. No merged report, which TeamCity would import beside the others and count every test twice. |
 | `--filter <filter> --ignore-exit-code 8` | `--tests-filter` is given. xunit.v3 and MSTest both read the VSTest filter syntax. A filter can select no test in one application, which is then a success. |
+
+The .NET SDK 10 accepts neither `--results-directory-layout` nor `--no-artifact-post-processing`: it passes them to the
+applications, which exit with code 5. `Build.ps1 test` therefore asks `dotnet --version` for the SDK of the repository,
+and with an SDK before 11 it passes only `--report-trx --results-directory <staging>`. Each application then writes
+`<assembly>_<target framework>_<architecture>.trx` into the staging directory, and that SDK does not merge the reports.
+Two target frameworks of one project that differ only by their operating system, such as `net10.0` and
+`net10.0-windows`, write the same file with such an SDK, and the second report replaces the first without a warning.
+`Build.ps1 test` therefore evaluates the test applications of the solution first, and fails with the name of the
+project when it finds such a pair.
 
 A `DotNetSolution` is built by `dotnet test`, as before. A `MsbuildSolution` is tested with `dotnet test --no-build`: it is
 built by the MSBuild of Visual Studio, which a solution with native projects needs, and `dotnet test` only has to find
@@ -98,6 +107,15 @@ it. A build in the IDE does not set it, so it does not spend the time of a publi
 [The build configurations](#the-build-configurations). The clean step
 deletes `artifacts/tests`, so that the archive of a test project that was removed or renamed is not run again, and
 `generate-scripts` writes `eng/RunTests.ps1`.
+
+The archive is written by the build of the test project. `Build.ps1 build` packs a `DotNetSolution` with `dotnet pack`,
+which does not build the projects that are not packable, and a test project is not packable. A `DotNetSolution` that
+contains test applications therefore sets `PackRequiresExplicitBuild`, so that the whole solution is built before it is
+packed:
+
+```csharp
+new DotNetSolution( "MyProduct.sln" ) { ContainsTestApplications = true, PackRequiresExplicitBuild = true }
+```
 
 > [!NOTE]
 > `eng/RunTests.ps1` is **generated**. The source of truth is

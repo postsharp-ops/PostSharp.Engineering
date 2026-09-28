@@ -128,6 +128,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                                 || extension.Equals( ".slnf", StringComparison.OrdinalIgnoreCase )
                     ? "--solution "
                     : "--project ";
+
+                // The .NET SDK 10 does not know --nologo in this mode, and passes it to the test applications, which exit with
+                // code 5 (invalid command line). The option only hides the banner, so it is not given with any SDK.
+                nologo = string.Empty;
             }
 
             argsBuilder.Append(
