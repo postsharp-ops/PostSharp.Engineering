@@ -37,8 +37,8 @@ public sealed class ConfigurationPipelinesTests
             => true;
     }
 
-    private static TestApplication Application( string name, string targetFramework )
-        => new( $"C:\\src\\{name}\\{name}.csproj", name, targetFramework, "", ["win-x64"], [], false, null, [] );
+    private static TestApplication Application( string name, string targetFramework, string? skip = null )
+        => new( $"C:\\src\\{name}\\{name}.csproj", name, targetFramework, "", ["win-x64"], [], false, skip, [] );
 
     private static Product CreateProductWithTwoSources( params AdditionalCiBuildConfiguration[] configurations )
         => new( MetalamaDependencies.V2026_1.Metalama )
@@ -154,7 +154,45 @@ public sealed class ConfigurationPipelinesTests
         Assert.True( File.Exists( Path.Combine( directory.Path, ".teamcity", "buildTypes", "Public", "UnitTests", "PublicCell.kt" ) ) );
     }
 
-    private static Product CreateProductWithGatedDeployment( string gateId )
+    /// <summary>
+    /// The cells of each configuration are planned from the applications discovered in that configuration.
+    /// </summary>
+    [Fact]
+    public void EachSetOfCellsUsesTheApplicationsOfItsConfiguration()
+    {
+        var cells = TestArchiveCells.Create(
+            CreateProductWithTwoSources(),
+            c => c == BuildConfiguration.Release ? [Application( "Common", "net10.0" )] : [Application( "Common", "net10.0", "Not in this configuration" )] );
+
+        Assert.Contains( cells, c => c.Id == "ReleaseTestWinX64Net100" );
+        Assert.DoesNotContain( cells, c => c.Id.StartsWith( "Public", StringComparison.Ordinal ) );
+    }
+
+    /// <summary>
+    /// Two folders whose object names are the same would make the settings fail to compile.
+    /// </summary>
+    [Fact]
+    public void TwoFoldersOfOneObjectNameAreAnError()
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            GenerateDockerfiles = false,
+            OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows ),
+            AdditionalCiBuildConfigurations =
+            [
+                new PowershellAdditionalCiBuildConfiguration( "A", "A cell", "Test.ps1", "" ) { ProjectFolder = "ReleaseUnitTests" },
+                new PowershellAdditionalCiBuildConfiguration( "B", "A cell", "Test.ps1", "" ) { ProjectFolder = "Release/Unit Tests" }
+            ]
+        };
+
+        Assert.False( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+    }
+
+    private static Product CreateProductWithGatedDeployment( string gateId, bool reuseLastSuccessfulBuild = false )
         => new( MetalamaDependencies.V2026_1.Metalama )
         {
             GenerateDockerfiles = false,
@@ -169,7 +207,11 @@ public sealed class ConfigurationPipelinesTests
             ],
             Configurations = Product.DefaultConfigurations.WithValue(
                 BuildConfiguration.Public,
-                c => c with { PublicPublishers = [new TestPublisher()], DeploymentDependencies = [new SnapshotDependency( gateId )] } )
+                c => c with
+                {
+                    PublicPublishers = [new TestPublisher()],
+                    DeploymentDependencies = [new SnapshotDependency( gateId ) { ReuseLastSuccessfulBuild = reuseLastSuccessfulBuild ? true : null }]
+                } )
         };
 
     /// <summary>
@@ -199,5 +241,8 @@ public sealed class ConfigurationPipelinesTests
     {
         Assert.False( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateProductWithGatedDeployment( "NoSuchGate" ) ) );
         Assert.True( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateProductWithGatedDeployment( "PublicGate" ) ) );
+
+        // Reusing the last successful build of a dependency that downloads nothing removes the ordering.
+        Assert.False( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateProductWithGatedDeployment( "PublicGate", true ) ) );
     }
 }

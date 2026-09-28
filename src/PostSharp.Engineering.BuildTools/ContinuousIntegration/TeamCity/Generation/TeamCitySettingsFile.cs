@@ -307,6 +307,24 @@ internal static class TeamCitySettingsFile
 
         subProjects.AddRange( rootFolder.Children.Select( c => c.ToProject() ) );
 
+        // The object name of a folder drops what a Kotlin identifier cannot carry and concatenates the path, so two distinct
+        // folders, such as 'ReleaseUnitTests' and 'Release/Unit Tests', can give the same name, which Kotlin rejects.
+        var duplicateObjectNames = new TeamCityProject( [], [], subProjects.ToArray() ).SubProjectObjectNames
+            .GroupBy( n => n, StringComparer.Ordinal )
+            .Where( g => g.Count() > 1 )
+            .Select( g => g.Key )
+            .ToList();
+
+        if ( duplicateObjectNames.Count > 0 )
+        {
+            context.Console.WriteError(
+                $"Several TeamCity sub-projects would be declared with the object name {string.Join( ", ", duplicateObjectNames.Select( n => $"'{n}'" ) )}. "
+                + "Rename the ProjectFolder of the build configurations so that their folders differ by more than punctuation, spaces "
+                + "and the placement of '/'." );
+
+            return false;
+        }
+
         // Add from extensions.
         foreach ( var extension in product.Extensions )
         {

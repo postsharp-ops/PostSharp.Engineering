@@ -17,6 +17,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
         private readonly TeamCityProject[] _subProjects;
 
         /// <summary>
+        /// Gets the object names of the sub-projects of this project, at any depth. Every project object is declared at the top
+        /// level of the settings file, so they must be unique.
+        /// </summary>
+        public IEnumerable<string> SubProjectObjectNames
+            => this._subProjects.SelectMany( p => new[] { p._objectName! }.Concat( p.SubProjectObjectNames ) );
+
+        /// <summary>
         /// Gets every build configuration of this project and of its sub-projects, at any depth.
         /// </summary>
         public IEnumerable<TeamCityBuildConfiguration> AllConfigurations

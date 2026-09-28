@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using System;
@@ -39,15 +40,19 @@ internal static class TestArchiveCells
     public const string DefaultProjectFolder = "Unit Tests";
 
     public static ImmutableArray<AdditionalCiBuildConfiguration> Create( Product product, IReadOnlyList<TestApplication> applications )
+        => Create( product, _ => applications );
+
+    /// <param name="getApplications">Gets the applications discovered in a configuration.</param>
+    public static ImmutableArray<AdditionalCiBuildConfiguration> Create( Product product, Func<BuildConfiguration, IReadOnlyList<TestApplication>> getApplications )
     {
         var configurations = product.TestArchivesConfigurations;
 
         if ( configurations.Length == 1 )
         {
-            return Create( product, applications, new SnapshotDependency( configurations[0] ), null );
+            return Create( product, getApplications( configurations[0] ), new SnapshotDependency( configurations[0] ), null );
         }
 
-        return [..configurations.SelectMany( c => Create( product, applications, new SnapshotDependency( c ), c.ToString() ) )];
+        return [..configurations.SelectMany( c => Create( product, getApplications( c ), new SnapshotDependency( c ), c.ToString() ) )];
     }
 
     /// <param name="setName">The name of the set of build configurations, which prefixes their identifiers and names the folder

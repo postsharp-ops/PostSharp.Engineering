@@ -50,6 +50,9 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 return false;
             }
 
+            // The cells of each configuration are planned from the applications discovered in that configuration, whose skip
+            // reasons, platforms, tags and artifacts can differ.
+            var applicationsByConfiguration = new Dictionary<BuildConfiguration, IReadOnlyList<TestApplication>>();
             IReadOnlyList<TestApplication>? applications = null;
 
             foreach ( var sourceConfiguration in sourceConfigurations )
@@ -74,9 +77,10 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 }
 
                 applications ??= sourceApplications;
+                applicationsByConfiguration.Add( sourceConfiguration, sourceApplications );
             }
 
-            generatedConfigurations = TestArchiveCells.Create( product, applications! );
+            generatedConfigurations = TestArchiveCells.Create( product, c => applicationsByConfiguration[c] );
             TestArchives.WriteList( context, applications! );
         }
 

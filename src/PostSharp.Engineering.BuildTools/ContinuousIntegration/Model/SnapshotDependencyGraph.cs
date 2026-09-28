@@ -110,6 +110,17 @@ internal static class SnapshotDependencyGraph
 
                     isValid = false;
                 }
+
+                // Without artifact rules the dependency is an ordering constraint, and reusing the last successful build removes
+                // the ordering: TeamCity would emit neither block, and the deployment would not wait.
+                if ( dependency.ArtifactRules is null or { Length: 0 } && dependency.ReuseLastSuccessfulBuild == true )
+                {
+                    console.WriteError(
+                        $"The deployments of the '{configuration}' build configuration depend on '{dependency}' without artifact rules "
+                        + "and reuse its last successful build, so they would not wait for it. Clear ReuseLastSuccessfulBuild." );
+
+                    isValid = false;
+                }
             }
 
             return isValid;
