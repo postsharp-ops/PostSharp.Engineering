@@ -53,7 +53,9 @@ applications, which exit with code 5. `Build.ps1 test` therefore asks `dotnet --
 and with an SDK before 11 it passes only `--report-trx --results-directory <staging>`. Each application then writes
 `<assembly>_<target framework>_<architecture>.trx` into the staging directory, and that SDK does not merge the reports.
 Two target frameworks of one project that differ only by their operating system, such as `net10.0` and
-`net10.0-windows`, write the same file with such an SDK.
+`net10.0-windows`, write the same file with such an SDK, and the second report replaces the first without a warning.
+`Build.ps1 test` therefore evaluates the test applications of the solution first, and fails with the name of the
+project when it finds such a pair.
 
 A `DotNetSolution` is built by `dotnet test`, as before. A `MsbuildSolution` is tested with `dotnet test --no-build`: it is
 built by the MSBuild of Visual Studio, which a solution with native projects needs, and `dotnet test` only has to find

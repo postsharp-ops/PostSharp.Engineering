@@ -44,25 +44,81 @@ internal static class TestApplicationDiscovery
         return TryDiscoverCore( context, configuration, out applications );
     }
 
-    [MethodImpl( MethodImplOptions.NoInlining )]
+    /// <summary>
+    /// Finds the test applications of one solution, solution filter or project, whether or not its solution sets
+    /// <see cref="Solution.ContainsTestApplications"/>, and without the checks that only the test archives need.
+    /// </summary>
+    public static bool TryDiscover( BuildContext context, BuildConfiguration configuration, string solutionPath, out ImmutableArray<TestApplication> applications )
+    {
+        MSBuildHelper.InitializeLocator();
+
+        return TryEvaluate( context, configuration, [solutionPath], out applications, out _ );
+    }
+
     private static bool TryDiscoverCore( BuildContext context, BuildConfiguration configuration, out ImmutableArray<TestApplication> applications )
     {
         var stopwatch = Stopwatch.StartNew();
-        var builder = ImmutableArray.CreateBuilder<TestApplication>();
         var product = context.Product;
+
+        var solutionPaths = product.Solutions.Where( s => s.ContainsTestApplications ).Select( s => Path.Combine( context.RepoDirectory, s.SolutionPath ) );
+
+        if ( !TryEvaluate( context, configuration, solutionPaths, out applications, out var projectCount ) )
+        {
+            return false;
+        }
+
+        context.Console.WriteMessage(
+            $"Found {applications.Length} test application(s) in {projectCount} project(s) in {stopwatch.Elapsed.TotalSeconds:F1} s." );
+
+        // Two applications with one archive name would write one archive, and one of them would never be tested. The usual
+        // cause is a project built for two processor architectures under one assembly name: each build sets
+        // RuntimeIdentifier, which is part of the name.
+        var duplicates = applications.GroupBy( a => a.ArchiveName, StringComparer.OrdinalIgnoreCase ).Where( g => g.Count() > 1 ).ToList();
+
+        foreach ( var duplicate in duplicates )
+        {
+            context.Console.WriteError(
+                $"The test applications of {string.Join( " and ", duplicate.Select( a => $"'{Path.GetRelativePath( context.RepoDirectory, a.ProjectPath )}'" ) )} "
+                + $"have the same archive name, '{duplicate.Key}'. Give them different assembly names, or set RuntimeIdentifier." );
+        }
+
+        // An artifact is downloaded to its own path, which must therefore name files of a directory of the repository.
+        var invalidArtifacts = applications
+            .SelectMany( a => a.Artifacts.Where( x => !IsValidArtifact( x ) ).Select( x => (Application: a, Artifact: x) ) )
+            .ToList();
+
+        foreach ( var invalid in invalidArtifacts )
+        {
+            context.Console.WriteError(
+                $"The artifact '{invalid.Artifact}' of '{Path.GetRelativePath( context.RepoDirectory, invalid.Application.ProjectPath )}' is not valid. "
+                + "Give a path relative to the repository, in which only the file name can contain wildcards." );
+        }
+
+        return duplicates.Count == 0 && invalidArtifacts.Count == 0;
+    }
+
+    // The MSBuild assemblies are loaded by the locator, so this method, which uses their types, must not be inlined into a
+    // caller that runs before MSBuildHelper.InitializeLocator.
+    [MethodImpl( MethodImplOptions.NoInlining )]
+    private static bool TryEvaluate(
+        BuildContext context,
+        BuildConfiguration configuration,
+        IEnumerable<string> solutionPaths,
+        out ImmutableArray<TestApplication> applications,
+        out int projectCount )
+    {
+        var builder = ImmutableArray.CreateBuilder<TestApplication>();
 
         var globalProperties = new Dictionary<string, string>
         {
-            ["Configuration"] = product.DependencyDefinition.MSBuildConfiguration[configuration]
+            ["Configuration"] = context.Product.DependencyDefinition.MSBuildConfiguration[configuration]
         };
 
         using var collection = new ProjectCollection( globalProperties );
-        var projectCount = 0;
+        projectCount = 0;
 
-        foreach ( var solution in product.Solutions.Where( s => s.ContainsTestApplications ) )
+        foreach ( var solutionPath in solutionPaths )
         {
-            var solutionPath = Path.Combine( context.RepoDirectory, solution.SolutionPath );
-
             if ( !TryGetProjects( context, solutionPath, out var projects ) )
             {
                 applications = default;
@@ -93,36 +149,9 @@ internal static class TestApplicationDiscovery
             }
         }
 
-        context.Console.WriteMessage(
-            $"Found {builder.Count} test application(s) in {projectCount} project(s) in {stopwatch.Elapsed.TotalSeconds:F1} s." );
-
         applications = builder.ToImmutable();
 
-        // Two applications with one archive name would write one archive, and one of them would never be tested. The usual
-        // cause is a project built for two processor architectures under one assembly name: each build sets
-        // RuntimeIdentifier, which is part of the name.
-        var duplicates = applications.GroupBy( a => a.ArchiveName, StringComparer.OrdinalIgnoreCase ).Where( g => g.Count() > 1 ).ToList();
-
-        foreach ( var duplicate in duplicates )
-        {
-            context.Console.WriteError(
-                $"The test applications of {string.Join( " and ", duplicate.Select( a => $"'{Path.GetRelativePath( context.RepoDirectory, a.ProjectPath )}'" ) )} "
-                + $"have the same archive name, '{duplicate.Key}'. Give them different assembly names, or set RuntimeIdentifier." );
-        }
-
-        // An artifact is downloaded to its own path, which must therefore name files of a directory of the repository.
-        var invalidArtifacts = applications
-            .SelectMany( a => a.Artifacts.Where( x => !IsValidArtifact( x ) ).Select( x => (Application: a, Artifact: x) ) )
-            .ToList();
-
-        foreach ( var invalid in invalidArtifacts )
-        {
-            context.Console.WriteError(
-                $"The artifact '{invalid.Artifact}' of '{Path.GetRelativePath( context.RepoDirectory, invalid.Application.ProjectPath )}' is not valid. "
-                + "Give a path relative to the repository, in which only the file name can contain wildcards." );
-        }
-
-        return duplicates.Count == 0 && invalidArtifacts.Count == 0;
+        return true;
     }
 
     private static bool IsValidArtifact( string artifact )
