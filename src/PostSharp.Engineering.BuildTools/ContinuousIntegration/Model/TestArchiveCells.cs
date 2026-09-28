@@ -147,6 +147,10 @@ internal static class TestArchiveCells
             TimeoutInMinutes = agent.TimeoutInMinutes,
             Parameters = agent.Parameters,
             SnapshotDependencies = [product.TestArchivesSourceDependency with { ArtifactRules = archiveRules, CleanDestination = true }],
+
+            // The layout of the product build configuration that publishes the archives, when it is one. The cell reads no
+            // other artifact of it, but the layout must name the configuration that the cell depends on.
+            BuildSnapshotDependency = product.TestArchivesSourceDependency.Configuration,
             ArtifactRules = [$"+:{resultsDirectory}/**/*=>{resultsDirectory}"]
         };
     }

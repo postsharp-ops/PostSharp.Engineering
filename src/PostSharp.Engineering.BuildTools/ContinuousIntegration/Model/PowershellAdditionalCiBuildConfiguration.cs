@@ -56,6 +56,19 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
     public bool ConsumesProductDependencies { get; init; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether this configuration builds the product from source although it depends on
+    /// a stage of its own product.
+    /// </summary>
+    /// <remarks>
+    /// A configuration that depends on a stage of its own product continues the checkout of that stage by default: it
+    /// copies the <c>nuget.restored.config</c> and the version file that the stage published to <c>nuget.config</c> and
+    /// <c>eng/Versions.g.props</c>. A configuration that builds the product again and compares the result with the
+    /// artifacts of an earlier stage must not: the build writes both files itself, and the artifacts of the stage go to
+    /// the directory that its artifact rules name.
+    /// </remarks>
+    public bool BuildsFromSource { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether a configuration that depends on a stage of its own product prepares the checkout to
     /// continue that build: it takes the artifacts of the products this product depends on, and writes <c>nuget.config</c>
     /// and <c>Versions.g.props</c> from the published ones. A configuration that only runs what a stage published, such as
@@ -121,7 +134,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             // Both steps below read a file that a stage of this product published, so they belong to a configuration
             // that waits for such a stage. A configuration that takes only the artifacts of other products has no
             // such directory, and it builds the product from source, which writes both files itself.
-            if ( declaredSnapshotDependencies.Length > 0 && this.PreparesBuildEnvironment )
+            if ( declaredSnapshotDependencies.Length > 0 && this.PreparesBuildEnvironment && !this.BuildsFromSource )
             {
                 // If we have a build snapshot dependency, copy nuget.restored.config to nuget.config
                 var copyNuGetConfigCommand =
