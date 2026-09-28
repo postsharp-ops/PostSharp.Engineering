@@ -119,6 +119,7 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
               <EnableWindowsTargeting>true</EnableWindowsTargeting>
               <EnableMSTestRunner>true</EnableMSTestRunner>
               <TestApplicationSkip>Not today</TestApplicationSkip>
+              <TestApplicationArtifacts>artifacts/publish/public/Product.*.nupkg; artifacts\other\Tool.zip</TestApplicationArtifacts>
             </PropertyGroup>
             """ );
 
@@ -178,6 +179,35 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
         var windows = applications.Single( a => a.ArchiveName == "MSTest.net8.0-windows" );
         Assert.Equal( ["win-x64", "win-arm64"], windows.Platforms.ToArray() );
         Assert.Equal( "Not today", windows.Skip );
+
+        // The wildcards of the artifacts are kept, because the artifacts do not exist when generate-scripts runs.
+        Assert.Equal( ["artifacts/publish/public/Product.*.nupkg", "artifacts/other/Tool.zip"], windows.Artifacts.ToArray() );
+        Assert.Empty( net8.Artifacts );
+    }
+
+    /// <summary>
+    /// An artifact is downloaded to its own path, so a path outside the repository, or with a wildcard in its directory,
+    /// cannot be downloaded.
+    /// </summary>
+    [Theory]
+    [InlineData( "/artifacts/Product.nupkg" )]
+    [InlineData( "../artifacts/Product.nupkg" )]
+    [InlineData( "artifacts/*/Product.nupkg" )]
+    [InlineData( "Product.nupkg" )]
+    public void AnInvalidArtifactIsAnError( string artifact )
+    {
+        this.CreateProject(
+            "Probe",
+            $"""
+             <PropertyGroup>
+               <OutputType>Exe</OutputType>
+               <TargetFramework>net8.0</TargetFramework>
+               <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+               <TestApplicationArtifacts>{artifact}</TestApplicationArtifacts>
+             </PropertyGroup>
+             """ );
+
+        Assert.False( this.Discover( ["Probe"], out _ ) );
     }
 
     /// <summary>

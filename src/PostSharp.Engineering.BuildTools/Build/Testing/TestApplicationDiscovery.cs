@@ -110,7 +110,30 @@ internal static class TestApplicationDiscovery
                 + $"have the same archive name, '{duplicate.Key}'. Give them different assembly names, or set RuntimeIdentifier." );
         }
 
-        return duplicates.Count == 0;
+        // An artifact is downloaded to its own path, which must therefore name files of a directory of the repository.
+        var invalidArtifacts = applications
+            .SelectMany( a => a.Artifacts.Where( x => !IsValidArtifact( x ) ).Select( x => (Application: a, Artifact: x) ) )
+            .ToList();
+
+        foreach ( var invalid in invalidArtifacts )
+        {
+            context.Console.WriteError(
+                $"The artifact '{invalid.Artifact}' of '{Path.GetRelativePath( context.RepoDirectory, invalid.Application.ProjectPath )}' is not valid. "
+                + "Give a path relative to the repository, in which only the file name can contain wildcards." );
+        }
+
+        return duplicates.Count == 0 && invalidArtifacts.Count == 0;
+    }
+
+    private static bool IsValidArtifact( string artifact )
+    {
+        var directory = TestApplication.GetArtifactDirectory( artifact );
+
+        return !Path.IsPathRooted( artifact )
+               && directory.Length > 0
+               && artifact.IndexOfAny( ['=', '>', ':'] ) < 0
+               && directory.IndexOfAny( ['*', '?'] ) < 0
+               && directory.Split( '/' ).All( s => s is not ("" or "." or "..") );
     }
 
     private static readonly string[] _projectExtensions = [".csproj", ".vbproj", ".fsproj"];
@@ -210,7 +233,8 @@ internal static class TestApplicationDiscovery
                 Split( project.GetPropertyValue( "TestApplicationPlatforms" ) ),
                 project.GetItems( "TestApplicationTag" ).Select( i => i.EvaluatedInclude ).Distinct().ToImmutableArray(),
                 IsTrue( project, "TestApplicationRunAlone" ),
-                skip.Length == 0 ? null : skip ) );
+                skip.Length == 0 ? null : skip,
+                Split( project.GetPropertyValue( "TestApplicationArtifacts" ) ).Select( x => x.Replace( '\\', '/' ) ).Distinct().ToImmutableArray() ) );
     }
 
     private static bool IsTestApplication( Project project )

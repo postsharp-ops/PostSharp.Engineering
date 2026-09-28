@@ -76,6 +76,8 @@ runs `dotnet test`, which does not read them.
 | `TestApplicationTimeoutSeconds` | `1800` | The time after which the application is stopped. |
 | `TestApplicationRunAlone` | `false` | `true` when the application must not run at the same time as another one, for example because its tests measure time. |
 | `TestApplicationSkip` | | A reason not to run the application. It is reported, and nothing runs. |
+| `TestApplicationPrepareScript` | | A PowerShell script, relative to the project, that the runner runs before the application. See [Preparing an application](#preparing-an-application). |
+| `TestApplicationArtifacts` | | The build artifacts that the prepare script reads, separated by semicolons, as paths relative to the repository in which the file name can contain wildcards. It is a property and not an item, because MSBuild expands the wildcards of an item at evaluation, before the artifacts exist. |
 | `TestApplicationTag` item | | A tag that `RunTests.ps1 -Tags` and `-ExcludeTags` select the application by. |
 
 The SDK gives every .NET Framework executable a runtime identifier, `win-x86` by default. That identifier describes the
@@ -124,6 +126,8 @@ project: it publishes what the build has just written. To keep the archives smal
     TimeoutSeconds = 1800
     RunAlone = $true
     Skip = $null
+    Prepare = $null
+    Artifacts = @()
 }
 ```
 
@@ -134,6 +138,8 @@ project: it publishes what the build has just written. To keep the archives smal
 | `Extensions` | The extensions registered in the application, from the `TestingPlatformBuilderHook` items of its build. |
 | `Arguments` | `exe` only. The command line of the application. `{ResultsDirectory}` is replaced with the directory of its results. |
 | `ReportType`, `ReportFile` | `exe` only. The TeamCity `importData` type of the report, such as `gtest`, and its path, in which `{ResultsDirectory}` is replaced. |
+| `Prepare` | The file name of the prepare script at the root of the archive, from `TestApplicationPrepareScript`, or `$null`. |
+| `Artifacts` | The build artifacts that the prepare script reads, from `TestApplicationArtifacts`. |
 
 The other fields are the properties of [Describing a test application](#describing-a-test-application).
 
@@ -190,6 +196,32 @@ A .NET Framework application run from a deep directory failed to load an assembl
 from a path of 223. The limit of 260 characters of Windows is the likely cause. The runner warns when the longest
 path of a .NET Framework application reaches 240 characters; use a shorter `-Path` if the application then fails.
 
+### Preparing an application
+
+A test application that needs more than its own files, for example a tool that a package of the product ships,
+declares a prepare script and the build artifacts that the script reads:
+
+```xml
+<PropertyGroup>
+  <TestApplicationPrepareScript>TestPrepare.ps1</TestApplicationPrepareScript>
+  <TestApplicationArtifacts>artifacts/publish/public/MyProduct.*.nupkg</TestApplicationArtifacts>
+</PropertyGroup>
+```
+
+The script is packed at the root of the archive. The runner checks that every declared artifact is present under the
+repository, then runs the script after extracting the archive and before starting the application:
+
+- The script runs in the process of the runner, in the directory of the application.
+- It receives `-RepositoryRoot`, under which the artifacts were downloaded, and `-ApplicationDirectory`.
+- It returns a hashtable of environment variables, which the runner gives to the application. It writes any other
+  output to the console.
+- An exception or a non-zero exit code fails the archive, and the application does not start.
+
+The script runs for its own archive only, once per run. It must not need the .NET SDK, which the test agents do not
+have: a `.nupkg` is a zip file, which `Expand-Archive` extracts. An environment variable lets the tests override a
+location they otherwise take from the source tree, so that the same tests run from the IDE, from `dotnet test` and
+from an archive.
+
 ## Test agents
 
 A product declares the kinds of agents that run its archives, and `generate-scripts` creates their build
@@ -240,7 +272,8 @@ tag of `SeparateTags` run in a build configuration of their own, and the others 
 application is not downloaded. A composite configuration, `RunAllTestArchives`, runs them all.
 
 A build configuration downloads exactly the archives it runs, one artifact rule per archive, from `TestArchivesSourceDependency`,
-and nothing else of the build: no package, and none of the artifacts of the products this product depends on. It runs
+and the artifacts that their prepare scripts read, each to its own path. It downloads nothing else of the build: no other
+package, and none of the artifacts of the products this product depends on. It runs
 `eng/RunTests.ps1 -Platform <platform>`, in a container when the requirements of the agent are those of a container
 host, and publishes the test results directory. The build that publishes the archives publishes
 `artifacts/tests/*.zip`; PostSharp.Engineering adds that rule to the product build configurations, and a product that
