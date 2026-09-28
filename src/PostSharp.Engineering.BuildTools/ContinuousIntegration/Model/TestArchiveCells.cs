@@ -146,11 +146,11 @@ internal static class TestArchiveCells
             ProjectFolder = agent.ProjectFolder ?? DefaultProjectFolder,
             TimeoutInMinutes = agent.TimeoutInMinutes,
             Parameters = agent.Parameters,
-
-            // The layout of the artifacts is that of the build configuration the archives come from. Without it, a source
-            // that names a product build configuration fails the validation of the dependency graph.
-            BuildSnapshotDependency = product.TestArchivesSourceDependency.Configuration,
             SnapshotDependencies = [product.TestArchivesSourceDependency with { ArtifactRules = archiveRules, CleanDestination = true }],
+
+            // The layout of the product build configuration that publishes the archives, when it is one. The cell reads no
+            // other artifact of it, but the layout must name the configuration that the cell depends on.
+            BuildSnapshotDependency = product.TestArchivesSourceDependency.Configuration,
             ArtifactRules = [$"+:{resultsDirectory}/**/*=>{resultsDirectory}"]
         };
     }

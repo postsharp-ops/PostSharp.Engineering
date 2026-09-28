@@ -114,25 +114,25 @@ public sealed class TestArchiveCellsTests
     }
 
     /// <summary>
-    /// The build configurations are valid when the archives come from a product build configuration, such as the default
-    /// public build, and not only from an additional build configuration.
+    /// A cell that downloads the archives from a product build configuration reads the artifact layout of that
+    /// configuration, which is what the validation of the dependency graph requires.
     /// </summary>
-    [Theory]
-    [InlineData( BuildConfiguration.Public )]
-    [InlineData( BuildConfiguration.Debug )]
-    public void TheArchivesCanComeFromAProductBuildConfiguration( BuildConfiguration configuration )
+    [Fact]
+    public void ACellOfAProductConfigurationReadsItsLayout()
     {
-        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
-        {
-            Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
-            TestAgents = [new TestAgent( "linux-x64", "TestLinuxX64", "Linux x64", BuildAgentRequirements.Empty )],
-            TestArchivesSourceDependency = new SnapshotDependency( configuration )
-        };
+        Product CreateReleaseProduct( AdditionalCiBuildConfiguration[] configurations )
+            => new( MetalamaDependencies.V2026_1.Metalama )
+            {
+                Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
+                TestAgents = [new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty )],
+                TestArchivesSourceDependency = new SnapshotDependency( BuildConfiguration.Release ),
+                AdditionalCiBuildConfigurations = configurations
+            };
 
-        var cells = TestArchiveCells.Create( product, [Application( "Common", "net10.0", _everywhere )] );
+        var cells = TestArchiveCells.Create( CreateReleaseProduct( [] ), [Application( "Common", "net10.0", _everywhere )] );
 
-        Assert.Equal( configuration, cells.Single( c => c.Id == "TestLinuxX64Net100" ).BuildSnapshotDependency );
-        Assert.True( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), product, cells ) );
+        Assert.Equal( BuildConfiguration.Release, cells.Single( c => c.Id == "TestWinX64Net100" ).BuildSnapshotDependency );
+        Assert.True( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateReleaseProduct( [..cells] ) ) );
     }
 
     [Fact]

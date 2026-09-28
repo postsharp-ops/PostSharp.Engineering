@@ -48,6 +48,11 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 return false;
             }
 
+            if ( !TestArchives.TryValidateSource( product, context.Console ) )
+            {
+                return false;
+            }
+
             if ( !TestApplicationDiscovery.TryDiscover( context, configuration, out var applications ) )
             {
                 return false;
