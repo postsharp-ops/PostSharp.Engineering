@@ -263,13 +263,18 @@ internal static class TestApplicationDiscovery
                 project.GetItems( "TestApplicationTag" ).Select( i => i.EvaluatedInclude ).Distinct().ToImmutableArray(),
                 IsTrue( project, "TestApplicationRunAlone" ),
                 skip.Length == 0 ? null : skip,
-                Split( project.GetPropertyValue( "TestApplicationArtifacts" ) ).Select( x => x.Replace( '\\', '/' ) ).Distinct().ToImmutableArray() ) );
+                Split( project.GetPropertyValue( "TestApplicationArtifacts" ) ).Select( x => x.Replace( '\\', '/' ) ).Distinct().ToImmutableArray() )
+            {
+                ProjectAssetsFile = IsScript( project ) ? "" : project.GetPropertyValue( "ProjectAssetsFile" )
+            } );
     }
+
+    private static bool IsScript( Project project ) => string.Equals( project.GetPropertyValue( "TestApplicationKind" ), "ps1", StringComparison.OrdinalIgnoreCase );
 
     private static bool IsTestApplication( Project project )
     {
         // A project that describes an archive whose entry is a PowerShell script, which runs the tests itself.
-        if ( string.Equals( project.GetPropertyValue( "TestApplicationKind" ), "ps1", StringComparison.OrdinalIgnoreCase ) )
+        if ( IsScript( project ) )
         {
             return true;
         }

@@ -353,6 +353,168 @@ public sealed class TestArchivesTests : IDisposable
         Assert.Equal( "win-x64 native", File.ReadAllText( Path.Combine( this.ResultsDirectory, $"Native.{_targetFramework}", "arguments.txt" ) ).Trim() );
     }
 
+    /// <summary>
+    /// The files that the application takes from a package are not in the archive. The runner puts them in place from the
+    /// NuGet cache or from the packages that the build configuration downloaded, checks the hash of a nupkg, and fails an
+    /// archive whose package it cannot find. The package comes from a local source, so the test needs no network.
+    /// </summary>
+    [Fact]
+    public void ThePackageFilesAreTakenFromTheCacheOrTheDownloadedPackages()
+    {
+        if ( DockerBuildScript.FindPowerShell() != "pwsh" )
+        {
+            return;
+        }
+
+        File.WriteAllText( Path.Combine( this._directory.Path, "Build.ps1" ), "" );
+        this.WriteDirectoryBuildTargets();
+
+        var cache = Path.Combine( this._directory.Path, "cache" );
+        var feed = Path.Combine( this._directory.Path, "feed" );
+
+        File.WriteAllText(
+            Path.Combine( this._directory.Path, "nuget.config" ),
+            $"""
+             <configuration>
+               <packageSources>
+                 <clear />
+                 <add key="feed" value="{feed}" />
+               </packageSources>
+             </configuration>
+             """ );
+
+        var environment = new Dictionary<string, string> { ["NUGET_PACKAGES"] = cache };
+
+        // The library, packed into the local source.
+        var libraryDirectory = Path.Combine( this._directory.Path, "src", "Greeting" );
+        Directory.CreateDirectory( libraryDirectory );
+
+        File.WriteAllText(
+            Path.Combine( libraryDirectory, "Greeting.csproj" ),
+            $"""
+             <Project Sdk="Microsoft.NET.Sdk">
+               <PropertyGroup>
+                 <TargetFramework>{_targetFramework}</TargetFramework>
+                 <Version>1.0.1</Version>
+               </PropertyGroup>
+             </Project>
+             """ );
+
+        File.WriteAllText( Path.Combine( libraryDirectory, "Greeting.cs" ), "public static class Greeting { public const string Text = \"from the package\"; public static string Get() => Text; }" );
+
+        var (exitCode, output) = Run( "dotnet", $"pack \"{libraryDirectory}\" -nologo -o \"{feed}\" -nodeReuse:false -p:UseSharedCompilation=false", libraryDirectory, environment );
+        Assert.True( exitCode == 0, output );
+
+        // The application, which writes what the library returns.
+        var projectDirectory = Path.Combine( this._directory.Path, "src", "Probe" );
+        Directory.CreateDirectory( projectDirectory );
+
+        File.WriteAllText(
+            Path.Combine( projectDirectory, "Probe.csproj" ),
+            $"""
+             <Project Sdk="Microsoft.NET.Sdk">
+               <PropertyGroup>
+                 <OutputType>Exe</OutputType>
+                 <TargetFramework>{_targetFramework}</TargetFramework>
+                 <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
+                 <PublishTestArchive>true</PublishTestArchive>
+               </PropertyGroup>
+               <ItemGroup>
+                 <PackageReference Include="Greeting" Version="1.0.1" />
+               </ItemGroup>
+             </Project>
+             """ );
+
+        File.WriteAllText(
+            Path.Combine( projectDirectory, "Program.cs" ),
+            """
+            using System.IO;
+
+            var resultsDirectory = args[System.Array.IndexOf( args, "--results-directory" ) + 1];
+            File.WriteAllText( Path.Combine( resultsDirectory, "greeting.txt" ), Greeting.Get() );
+            """ );
+
+        var engDirectory = Path.Combine( this._directory.Path, "eng" );
+        Directory.CreateDirectory( engDirectory );
+
+        File.WriteAllText(
+            Path.Combine( engDirectory, TestArchives.ScriptName ),
+            ReadScript().Replace( "<TEST_RESULTS_PATH>", "artifacts/testResults", StringComparison.Ordinal ),
+            new UTF8Encoding( false ) );
+
+        (exitCode, output) = Run(
+            "dotnet",
+            $"build \"{projectDirectory}\" -nologo -nodeReuse:false -p:UseSharedCompilation=false",
+            projectDirectory,
+            environment,
+            blockedEnvironmentVariables: ["TEAMCITY_VERSION"] );
+
+        Assert.True( exitCode == 0, output );
+
+        // The archive does not hold the library, and its manifest names the package, which has no URL.
+        var archive = Path.Combine( this.ArchivesDirectory, $"Probe.{_targetFramework}.zip" );
+
+        using ( var zip = ZipFile.OpenRead( archive ) )
+        {
+            Assert.NotNull( zip.GetEntry( "Probe.dll" ) );
+            Assert.Null( zip.GetEntry( "Greeting.dll" ) );
+        }
+
+        var manifest = ReadManifest( archive );
+        Assert.Contains( "Id = 'greeting'", manifest, StringComparison.Ordinal );
+        Assert.Contains( "Url = $null", manifest, StringComparison.Ordinal );
+        Assert.Contains( $"@{{ Path = 'lib/{_targetFramework}/Greeting.dll'; Target = 'Greeting.dll' }}", manifest, StringComparison.Ordinal );
+
+        // The restore graph names the package, with the key of its source in nuget.config.
+        var application = new TestApplication(
+            Path.Combine( projectDirectory, "Probe.csproj" ),
+            "Probe",
+            _targetFramework,
+            "",
+            ["win-x64"],
+            [],
+            false,
+            null,
+            [] ) { ProjectAssetsFile = Path.Combine( projectDirectory, "obj", "project.assets.json" ) };
+
+        var context = TestBuildContext.Create( this._directory.Path );
+        Assert.True( TestArchivePackages.Sources.TryLoad( context, out var sources ) );
+        Assert.True( TestArchivePackages.TryGetPackages( context.Console, sources, application, out var packages ) );
+        Assert.Equal( ["feed/Greeting"], packages.Select( p => p.Reference ).ToArray() );
+
+        // The build configuration downloads it from the build that publishes it, under its original name.
+        var downloaded = Path.Combine( this._directory.Path, "artifacts", "test-packages", "feed", "Greeting.1.0.1.nupkg" );
+        Directory.CreateDirectory( Path.GetDirectoryName( downloaded )! );
+        File.Copy( Path.Combine( feed, "Greeting.1.0.1.nupkg" ), downloaded );
+
+        var greeting = Path.Combine( this.ResultsDirectory, $"Probe.{_targetFramework}", "greeting.txt" );
+
+        // From the cache of the build.
+        (exitCode, output) = this.RunTests( "", new Dictionary<string, string>( environment ) );
+        Assert.True( exitCode == 0, output );
+        Assert.Equal( "from the package", File.ReadAllText( greeting ) );
+
+        // From the downloaded package, on an agent whose cache does not have it.
+        var emptyCache = new Dictionary<string, string> { ["NUGET_PACKAGES"] = Path.Combine( this._directory.Path, "empty-cache" ) };
+        File.Delete( greeting );
+        (exitCode, output) = this.RunTests( "", new Dictionary<string, string>( emptyCache ) );
+        Assert.True( exitCode == 0, output );
+        Assert.Equal( "from the package", File.ReadAllText( greeting ) );
+
+        // A nupkg that is not the one of the build is refused.
+        File.AppendAllText( downloaded, "tampered" );
+        (exitCode, output) = this.RunTests( "", new Dictionary<string, string>( emptyCache ) );
+        Assert.Equal( 1, exitCode );
+        Assert.Contains( "has the SHA-512", output, StringComparison.Ordinal );
+
+        // A package that was not downloaded names the command that updates the list of the packages to download.
+        File.Delete( downloaded );
+        (exitCode, output) = this.RunTests( "", new Dictionary<string, string>( emptyCache ) );
+        Assert.Equal( 1, exitCode );
+        Assert.Contains( "is not in", output, StringComparison.Ordinal );
+        Assert.Contains( "generate-scripts", output, StringComparison.Ordinal );
+    }
+
     [Fact]
     public void AFailureOtherThanAFailedTestIsABuildProblem()
     {

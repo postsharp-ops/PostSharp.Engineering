@@ -3,6 +3,8 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Testing;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -84,7 +86,7 @@ internal static class TestArchiveCells
 
                     if ( tagged.Count > 0 )
                     {
-                        cells.Add( CreateCell( product, source, setName, agent, runtime.Key, tag, tagged, separatedTags ) );
+                        cells.Add( CreateCell( product, source, setName, agent, runtime.Key, tag, tagged, separatedTags, applications ) );
                         remaining.RemoveAll( tagged.Contains );
                     }
 
@@ -93,7 +95,7 @@ internal static class TestArchiveCells
 
                 if ( remaining.Count > 0 )
                 {
-                    cells.Add( CreateCell( product, source, setName, agent, runtime.Key, null, remaining, separatedTags ) );
+                    cells.Add( CreateCell( product, source, setName, agent, runtime.Key, null, remaining, separatedTags, applications ) );
                 }
             }
         }
@@ -133,6 +135,42 @@ internal static class TestArchiveCells
         return dash < 0 ? targetFramework : targetFramework[..dash];
     }
 
+    /// <summary>
+    /// Gets the dependency of the product that publishes packages, by its key in <c>nuget.config</c>.
+    /// </summary>
+    internal static DependencyConfiguration GetDependency( Product product, BuildConfiguration configuration, string key )
+        => product.DependencyDefinition.GetAllDependencies( configuration ).FirstOrDefault( d => d.Key.Equals( key, StringComparison.OrdinalIgnoreCase ) )
+           ?? throw new InvalidOperationException(
+               $"The test applications use packages of the source '{key}' of nuget.config, which is neither this product nor one of its dependencies." );
+
+    // The rules that download packages from the private artifacts of a build, one per package, to a directory per producer. A
+    // rule names the package and not its version, which changes with every build: <id>.*.nupkg. It would also match a package
+    // whose identifier starts with <id> and a dot, such as <id>.Tools, so such a package of the same producer, known from the
+    // other applications, is excluded unless it is needed too.
+    private static string[] GetPackageRules( string producer, string artifactsDirectory, IReadOnlyList<string> ids, IReadOnlyList<TestApplication> allApplications )
+    {
+        var knownIds = allApplications.SelectMany( a => a.Packages )
+            .Select( TestArchivePackages.Package.ParseReference )
+            .Where( p => p.Producer.Equals( producer, StringComparison.OrdinalIgnoreCase ) )
+            .Select( p => p.Id )
+            .Distinct( StringComparer.OrdinalIgnoreCase )
+            .ToList();
+
+        var destination = $"{TestArchivePackages.Directory}/{producer}";
+
+        string[] rules =
+        [
+            ..ids.Select( id => $"+:{artifactsDirectory}/{id}.*.nupkg=>{destination}" ),
+            ..ids.SelectMany(
+                    id => knownIds.Where(
+                        k => k.StartsWith( id + ".", StringComparison.OrdinalIgnoreCase ) && !ids.Contains( k, StringComparer.OrdinalIgnoreCase ) ) )
+                .Distinct( StringComparer.OrdinalIgnoreCase )
+                .Select( k => $"-:{artifactsDirectory}/{k}.*.nupkg" )
+        ];
+
+        return [..rules.Order( StringComparer.Ordinal )];
+    }
+
     private static TestArchivesCiBuildConfiguration CreateCell(
         Product product,
         SnapshotDependency source,
@@ -141,7 +179,8 @@ internal static class TestArchiveCells
         string runtime,
         string? tag,
         IReadOnlyList<TestApplication> applications,
-        IReadOnlyList<string> excludedTags )
+        IReadOnlyList<string> excludedTags,
+        IReadOnlyList<TestApplication> allApplications )
     {
         var runtimeId = ToIdentifier( runtime );
 
@@ -158,10 +197,30 @@ internal static class TestArchiveCells
             arguments += $" -ExcludeTags {string.Join( ",", excludedTags )}";
         }
 
-        // The archives, and the artifacts that their prepare scripts read, each downloaded to its own path.
+        var configuration = source.Configuration!.Value;
+
+        // The packages that are not from nuget.org, grouped by the build that publishes them: this product, or a dependency.
+        var packagesByProducer = applications.SelectMany( a => a.Packages )
+            .Select( TestArchivePackages.Package.ParseReference )
+            .Distinct()
+            .GroupBy( p => p.Producer, StringComparer.OrdinalIgnoreCase )
+            .ToDictionary(
+                g => g.Key,
+                g => GetPackageRules(
+                    g.Key,
+                    g.Key.Equals( product.ProductName, StringComparison.OrdinalIgnoreCase )
+                        ? product.GetPrivateArtifactsRelativeDirectory( configuration ).Replace( '\\', '/' )
+                        : ConfigurationProperties.GetPrivateArtifactsDirectory( GetDependency( product, configuration, g.Key ) ),
+                    g.Select( p => p.Id ).ToList(),
+                    allApplications ),
+                StringComparer.OrdinalIgnoreCase );
+
+        // The archives, the artifacts that their prepare scripts read, and the packages that this product publishes, each
+        // downloaded to its own path.
         var archiveRules = applications
             .Select( a => $"+:{TestArchives.Directory}/{a.ArchiveName}.zip=>{TestArchives.Directory}" )
             .Concat( applications.SelectMany( a => a.Artifacts ).Select( x => $"+:{x}=>{TestApplication.GetArtifactDirectory( x )}" ) )
+            .Concat( packagesByProducer.GetValueOrDefault( product.ProductName, [] ) )
             .Distinct( StringComparer.Ordinal )
             .Order( StringComparer.Ordinal )
             .ToArray();
@@ -182,6 +241,10 @@ internal static class TestArchiveCells
             TimeoutInMinutes = agent.TimeoutInMinutes,
             Parameters = agent.Parameters,
             SnapshotDependencies = [source with { ArtifactRules = archiveRules, CleanDestination = true }],
+            ArtifactsConfiguration = configuration,
+            PackageArtifactRules = packagesByProducer
+                .Where( p => !p.Key.Equals( product.ProductName, StringComparison.OrdinalIgnoreCase ) )
+                .ToImmutableDictionary( p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase ),
 
             // The layout of the product build configuration that publishes the archives, when it is one. The cell reads no
             // other artifact of it, but the layout must name the configuration that the cell depends on.

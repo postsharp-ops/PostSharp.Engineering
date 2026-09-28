@@ -10,6 +10,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Immutable;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using Xunit;
 
@@ -149,10 +150,166 @@ public sealed class TestArchiveCellsTests
         File.WriteAllText( Path.Combine( archives, "Common.net10.0.zip" ), "" );
         File.WriteAllText( Path.Combine( archives, "Common.net48.zip" ), "" );
 
-        Assert.True( TestArchives.Verify( context ) );
+        Assert.True( TestArchives.Verify( context, [] ) );
 
         // A test project added without regenerating the build configurations is run by none of them.
         File.WriteAllText( Path.Combine( archives, "Added.net10.0.zip" ), "" );
-        Assert.False( TestArchives.Verify( context ) );
+        Assert.False( TestArchives.Verify( context, [] ) );
+    }
+
+    /// <summary>
+    /// A build configuration downloads each package that is not from nuget.org from the build that publishes it, by its
+    /// identifier and not by its version. A rule for a package also matches the packages whose identifier extends it, which are
+    /// excluded unless they are needed too.
+    /// </summary>
+    [Fact]
+    public void ThePackagesOfOtherSourcesAreDownloadedFromTheirBuild()
+    {
+        var product = CreateProduct( new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty ) );
+        var self = product.ProductName;
+
+        var cells = TestArchiveCells.Create(
+            product,
+            [
+                Application( "Client", "net48", _windows ) with { Packages = [$"{self}/Product.Redist", $"{self}/Product.Tools"] },
+                Application( "Other", "net10.0", _everywhere ) with { Packages = [$"{self}/Product.Redist"] },
+                Application( "Tools", "net10.0", _everywhere ) with { Packages = [$"{self}/Product.Redist.Tools"] }
+            ] );
+
+        Assert.Equal(
+            [
+                "+:artifacts/publish/private/Product.Redist.*.nupkg=>artifacts/test-packages/" + self,
+                "+:artifacts/publish/private/Product.Tools.*.nupkg=>artifacts/test-packages/" + self,
+                "+:artifacts/tests/Client.net48.zip=>artifacts/tests",
+                "-:artifacts/publish/private/Product.Redist.Tools.*.nupkg"
+            ],
+            cells.Single( c => c.Id == "TestWinX64Net48" ).SnapshotDependencies!.Single().ArtifactRules! );
+
+        // Both packages are needed, so the rule of the shorter one is enough and nothing is excluded.
+        Assert.Equal(
+            [
+                "+:artifacts/publish/private/Product.Redist.*.nupkg=>artifacts/test-packages/" + self,
+                "+:artifacts/publish/private/Product.Redist.Tools.*.nupkg=>artifacts/test-packages/" + self,
+                "+:artifacts/tests/Other.net10.0.zip=>artifacts/tests",
+                "+:artifacts/tests/Tools.net10.0.zip=>artifacts/tests"
+            ],
+            cells.Single( c => c.Id == "TestWinX64Net100" ).SnapshotDependencies!.Single().ArtifactRules! );
+    }
+
+    /// <summary>
+    /// The packages that NuGet restored from a source other than nuget.org, and that have a file to publish in the restore
+    /// graph of the target framework, are named after each archive with the key of their source in nuget.config, which the
+    /// package source mapping gives. A package added without regenerating the build configurations would be downloaded by
+    /// none of them.
+    /// </summary>
+    [Fact]
+    public void ThePackagesOfOtherSourcesAreListed()
+    {
+        using var directory = new TempDirectory();
+        var context = TestBuildContext.Create( directory.Path, CreateProduct() );
+        var packageFolder = Path.Combine( directory.Path, "packages" );
+
+        File.WriteAllText(
+            Path.Combine( directory.Path, "nuget.config" ),
+            """
+            <configuration>
+              <packageSources>
+                <clear />
+                <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+                <add key="Backstage" value="C:\artifacts\Backstage" />
+              </packageSources>
+              <packageSourceMapping>
+                <clear />
+                <packageSource key="nuget.org"><package pattern="*" /></packageSource>
+                <packageSource key="Backstage"><package pattern="Backstage*" /><package pattern="Product" /></packageSource>
+              </packageSourceMapping>
+            </configuration>
+            """ );
+
+        // The target of the framework and the target of the framework and a runtime identifier, a project reference, and a
+        // package of MSBuild targets, whose empty asset groups hold the _._ placeholder.
+        var assetsFile = Path.Combine( directory.Path, "project.assets.json" );
+
+        File.WriteAllText(
+            assetsFile,
+            $$"""
+              {
+                "version": 3,
+                "targets": {
+                  "net48": {
+                    "Backstage/1.0.1": { "type": "package", "runtime": { "lib/net472/Backstage.dll": {} } },
+                    "xunit.v3/3.0.0": { "type": "package", "runtime": { "lib/net472/xunit.v3.dll": {} } },
+                    "Product/2.0.0": { "type": "package", "runtime": { "lib/netstandard1.0/_._": {} }, "build": { "build/Product.targets": {} } },
+                    "Common/1.0.0": { "type": "project" }
+                  },
+                  "net48/win-x86": {
+                    "Backstage.Tools/1.0.1": { "type": "package", "native": { "runtimes/win-x86/native/tools.dll": {} } }
+                  },
+                  "net10.0": {
+                    "Backstage.Other/1.0.0": { "type": "package", "runtime": { "lib/net10.0/Other.dll": {} } }
+                  }
+                },
+                "libraries": {
+                  "Backstage/1.0.1": { "type": "package", "path": "backstage/1.0.1" },
+                  "Backstage.Tools/1.0.1": { "type": "package", "path": "backstage.tools/1.0.1" },
+                  "xunit.v3/3.0.0": { "type": "package", "path": "xunit.v3/3.0.0" },
+                  "Backstage.Other/1.0.0": { "type": "package", "path": "backstage.other/1.0.0" },
+                  "Product/2.0.0": { "type": "package", "path": "product/2.0.0" },
+                  "Common/1.0.0": { "type": "project", "path": "../Common/Common.csproj" }
+                },
+                "packageFolders": { "{{packageFolder.Replace( "\\", "\\\\", StringComparison.Ordinal )}}": {} }
+              }
+              """ );
+
+        var application = Application( "Client", "net48", _windows ) with { ProjectAssetsFile = assetsFile };
+
+        Assert.True( TestArchivePackages.Sources.TryLoad( context, out var sources ) );
+        Assert.True( TestArchivePackages.TryGetPackages( context.Console, sources, application, out var packages ) );
+        Assert.Equal( ["Backstage/Backstage", "Backstage/Backstage.Tools"], packages.Select( p => p.Reference ).ToArray() );
+
+        TestArchives.WriteList( context, [application with { Packages = [..packages.Select( p => p.Reference )] }] );
+
+        Assert.Contains(
+            "Client.net48: Backstage/Backstage Backstage/Backstage.Tools",
+            File.ReadAllText( Path.Combine( directory.Path, "eng", "test-archives.txt" ) ),
+            StringComparison.Ordinal );
+
+        // The archive takes a file from a package of another source.
+        var archives = Path.Combine( directory.Path, "artifacts", "tests" );
+        Directory.CreateDirectory( archives );
+        var archive = Path.Combine( archives, "Client.net48.zip" );
+
+        void WriteArchive( string package )
+        {
+            File.Delete( archive );
+
+            using var zip = ZipFile.Open( archive, ZipArchiveMode.Create );
+            using var writer = new StreamWriter( zip.CreateEntry( "test.psd1" ).Open() );
+
+            writer.Write(
+                $$"""
+                  @{
+                      Packages = @(
+                          @{
+                              Id = '{{package}}'
+                              Version = '1.0.1'
+                              Sha512 = 'x'
+                              Url = $null
+                              Files = @() } )
+                  }
+                  """ );
+        }
+
+        WriteArchive( "backstage" );
+        Assert.True( TestArchives.Verify( context, [application] ) );
+
+        // A package that the archive takes from another source and that the restore graph does not show fails the build.
+        WriteArchive( "product" );
+        Assert.False( TestArchives.Verify( context, [application] ) );
+
+        // A package that the list does not name fails the build.
+        WriteArchive( "backstage" );
+        TestArchives.WriteList( context, [application with { Packages = ["Backstage/Backstage"] }] );
+        Assert.False( TestArchives.Verify( context, [application] ) );
     }
 }

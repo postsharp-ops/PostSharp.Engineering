@@ -15,11 +15,21 @@
     This script reads the manifest of every archive, selects the archives that apply to the platform and to the tags,
     extracts them, runs each application, and imports its report into TeamCity.
 
+    An archive does not hold the files that the application takes from NuGet packages. Its manifest lists them, and this
+    script puts them in place after it extracts the archive. It takes each package from the NuGet cache of this host when
+    the cache has the same package, or else from its URL on nuget.org, or else, for a package that a build of the product
+    or of a dependency publishes, from -PackagesPath, to which the build configuration downloads it. It checks the SHA-512
+    of every package it does not take from the cache.
+
     The only requirements on the host are PowerShell 7.5 and the runtime that each application targets: the .NET
     runtime for a .NET application, the .NET Framework for a .NET Framework application. The .NET SDK is not needed.
 
 .PARAMETER Path
     The directory that contains the archives. Defaults to artifacts/tests.
+
+.PARAMETER PackagesPath
+    The directory that contains the packages that are not from nuget.org, in any subdirectory. Defaults to
+    artifacts/test-packages.
 
 .PARAMETER Platform
     The platform to run: win-x64, win-arm64, linux-x64, linux-arm64, osx-x64 or osx-arm64. Defaults to the platform
@@ -74,6 +84,7 @@
 [CmdletBinding(PositionalBinding = $false)]
 param(
     [string]$Path,
+    [string]$PackagesPath,
     [ValidateSet('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')]
     [string]$Platform,
     [string[]]$Name,
@@ -100,6 +111,7 @@ $TestResultsPath = '<TEST_RESULTS_PATH>'
 ####
 
 $TestArchivesPath = 'artifacts/tests'
+$TestPackagesPath = 'artifacts/test-packages'
 $DefaultTimeoutSeconds = 1800
 
 # The exit codes of Microsoft.Testing.Platform that this script reads. See https://aka.ms/testingplatform/exitcodes.
@@ -232,6 +244,144 @@ function Read-ArchiveManifest([string]$archivePath)
         ReportFile = $manifest.ReportFile
         Prepare = $manifest.Prepare
         Artifacts = @($manifest.Artifacts)
+        Packages = @($manifest.Packages | Where-Object { $_ })
+    }
+}
+
+# The SHA-512 of a file, in the base64 form of the .nupkg.sha512 file that NuGet writes beside a package.
+function Get-PackageHash([string]$path)
+{
+    return [System.Convert]::ToBase64String([System.Convert]::FromHexString((Get-FileHash -LiteralPath $path -Algorithm SHA512).Hash))
+}
+
+# Finds a package that the manifest of an archive lists, and returns where its files are: the directory of the package in
+# the NuGet cache, or a nupkg whose hash has been checked. A package that cannot be found is returned with an Error, which
+# fails the archives that need it and not the others.
+function Get-Package([hashtable]$package)
+{
+    $id = $package.Id
+    $version = $package.Version
+    $name = "$id.$version.nupkg"
+
+    # The NuGet cache holds the extracted package, and its .sha512 file gives the hash of the nupkg it was extracted from.
+    # NuGet writes that file after the other files, so an interrupted extraction is not used.
+    $cacheRoot = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path ([Environment]::GetFolderPath('UserProfile')) '.nuget' 'packages' }
+    $cacheDirectory = Join-Path $cacheRoot $id $version
+    $cacheHash = Join-Path $cacheDirectory "$name.sha512"
+
+    if ((Test-Path -LiteralPath $cacheHash) -and (Get-Content -LiteralPath $cacheHash -Raw).Trim() -eq $package.Sha512)
+    {
+        return @{ Directory = $cacheDirectory }
+    }
+
+    if (-not $package.Url)
+    {
+        # The build configuration downloads the package from the build that published it, under its original file name, to
+        # a directory per producer. The file name is compared without case, because the manifest has the identifier and the
+        # version in lower case.
+        $file = if (Test-Path -LiteralPath $PackagesPath -PathType Container)
+        {
+            Get-ChildItem -LiteralPath $PackagesPath -Recurse -File -Filter '*.nupkg' |
+                    Where-Object { $_.Name -ieq $name } |
+                    Select-Object -First 1 -ExpandProperty FullName
+        }
+
+        if (-not $file)
+        {
+            return @{ Error = "The package '$id' $version is not in '$PackagesPath'. The build configuration downloads the packages that 'Build.ps1 generate-scripts' listed for its archives in test-archives.txt, from the builds that publish them; run 'Build.ps1 generate-scripts' if that list is out of date." }
+        }
+    }
+    else
+    {
+        $file = Join-Path $Path 'run' 'packages' $name
+
+        if (-not (Test-Path -LiteralPath $file) -or (Get-PackageHash $file) -ne $package.Sha512)
+        {
+            New-Item -ItemType Directory -Path (Split-Path $file) -Force | Out-Null
+            $temporaryFile = "$file.download"
+            Write-Host "Downloading $( $package.Url )." -ForegroundColor DarkGray
+
+            try
+            {
+                Invoke-WebRequest -Uri $package.Url -OutFile $temporaryFile -MaximumRetryCount 4 -RetryIntervalSec 5 -ErrorAction Stop
+            }
+            catch
+            {
+                Remove-Item -LiteralPath $temporaryFile -Force -ErrorAction SilentlyContinue
+
+                return @{ Error = "The package '$id' $version cannot be downloaded from $( $package.Url ): $( $_.Exception.Message )" }
+            }
+
+            Move-Item -LiteralPath $temporaryFile -Destination $file -Force
+        }
+    }
+
+    $hash = Get-PackageHash $file
+
+    if ($hash -ne $package.Sha512)
+    {
+        return @{ Error = "The package '$id' $version in '$file' has the SHA-512 $hash, and the manifest expects $( $package.Sha512 )." }
+    }
+
+    return @{ File = $file }
+}
+
+# Copies the files that the application takes from packages to their places in its directory.
+function Install-Packages([hashtable]$run)
+{
+    foreach ($package in $run.Manifest.Packages)
+    {
+        $source = $script:Packages["$( $package.Id )/$( $package.Version )"]
+
+        if ($source.Error)
+        {
+            throw $source.Error
+        }
+
+        $files = @($package.Files)
+
+        if ($source.Directory)
+        {
+            foreach ($file in $files)
+            {
+                $target = Join-Path $run.Directory $file.Target
+                New-Item -ItemType Directory -Path (Split-Path $target) -Force | Out-Null
+                Copy-Item -LiteralPath (Join-Path $source.Directory $file.Path) -Destination $target -Force
+            }
+
+            continue
+        }
+
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($source.File)
+
+        try
+        {
+            # The entries of a nupkg have escaped names, such as %2B for a plus sign.
+            $entries = @{ }
+
+            foreach ($entry in $archive.Entries)
+            {
+                $entries[[System.Uri]::UnescapeDataString($entry.FullName)] = $entry
+            }
+
+            foreach ($file in $files)
+            {
+                $entry = $entries[$file.Path]
+
+                if (-not $entry)
+                {
+                    throw "The package '$( $package.Id )' $( $package.Version ) has no '$( $file.Path )', which the manifest lists."
+                }
+
+                $target = Join-Path $run.Directory $file.Target
+                New-Item -ItemType Directory -Path (Split-Path $target) -Force | Out-Null
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target, $true)
+            }
+        }
+        finally
+        {
+            $archive.Dispose()
+        }
     }
 }
 
@@ -592,6 +742,7 @@ function Start-TestRun([hashtable]$run, [string]$dotnet)
     Remove-Item -LiteralPath $run.Directory -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $run.ResultsDirectory -Recurse -Force -ErrorAction SilentlyContinue
     [System.IO.Compression.ZipFile]::ExtractToDirectory($run.Archive, $run.Directory, $true)
+    Install-Packages $run
     New-Item -ItemType Directory -Path $run.ResultsDirectory -Force | Out-Null
 
     $entryPath = Join-Path $run.Directory $run.Manifest.Entry
@@ -955,7 +1106,13 @@ try
         $ResultsPath = $TestResultsPath
     }
 
+    if (-not $PackagesPath)
+    {
+        $PackagesPath = $TestPackagesPath
+    }
+
     $Path = [System.IO.Path]::GetFullPath($Path, $repositoryRoot)
+    $PackagesPath = [System.IO.Path]::GetFullPath($PackagesPath, $repositoryRoot)
     $ResultsPath = [System.IO.Path]::GetFullPath($ResultsPath, $repositoryRoot)
 
     if (-not $Platform)
@@ -1068,6 +1225,19 @@ try
 
         $installedRuntimes = Get-InstalledRuntimes $dotnet
         $runs | ForEach-Object { $_.InstalledRuntimes = $installedRuntimes }
+    }
+
+    # Each package is found, downloaded and checked once, before the applications start, and not once per archive.
+    $script:Packages = @{ }
+
+    foreach ($package in @($runs | ForEach-Object { $_.Manifest.Packages }))
+    {
+        $packageKey = "$( $package.Id )/$( $package.Version )"
+
+        if (-not $script:Packages.ContainsKey($packageKey))
+        {
+            $script:Packages[$packageKey] = Get-Package $package
+        }
     }
 
     # The applications that must run alone run first, one at a time, while nothing else loads the machine.

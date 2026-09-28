@@ -80,8 +80,49 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 applicationsByConfiguration.Add( sourceConfiguration, sourceApplications );
             }
 
+            // The packages that each application downloads from the builds that publish them are read from the restore graph of
+            // its project. The graph does not depend on the configuration, so the projects are restored once, in the
+            // configuration that the repository was prepared in, whose packages exist.
+            var restoreSettings = new BuildSettings();
+            restoreSettings.Initialize( context );
+
+            foreach ( var solution in product.Solutions.Where( s => s.ContainsTestApplications ) )
+            {
+                if ( !solution.Restore( context, restoreSettings ) )
+                {
+                    context.Console.WriteError( $"Cannot restore '{solution.Name}', whose restore graph gives the packages of its test applications. Build the product first." );
+
+                    return false;
+                }
+            }
+
+            if ( !TestArchivePackages.Sources.TryLoad( context, out var sources ) )
+            {
+                return false;
+            }
+
+            var packagesByArchive = new Dictionary<string, ImmutableArray<string>>( StringComparer.OrdinalIgnoreCase );
+
+            foreach ( var application in applications! )
+            {
+                if ( !TestArchivePackages.TryGetPackages( context.Console, sources, application, out var packages ) )
+                {
+                    return false;
+                }
+
+                packagesByArchive[application.ArchiveName] = [..packages.Select( p => p.Reference )];
+            }
+
+            foreach ( var configuration in sourceConfigurations )
+            {
+                applicationsByConfiguration[configuration] =
+                    applicationsByConfiguration[configuration].Select( a => a with { Packages = packagesByArchive[a.ArchiveName] } ).ToList();
+            }
+
+            applications = applicationsByConfiguration[sourceConfigurations[0]];
+
             generatedConfigurations = TestArchiveCells.Create( product, c => applicationsByConfiguration[c] );
-            TestArchives.WriteList( context, applications! );
+            TestArchives.WriteList( context, applications );
         }
 
         // TeamCity
