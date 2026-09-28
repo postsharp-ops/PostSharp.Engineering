@@ -128,11 +128,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public TestAgent[] TestAgents { get; init; } = [];
 
         /// <summary>
-        /// Gets the build configuration that publishes the test archives, which the build configurations of
-        /// <see cref="TestAgents"/> download them from. Defaults to the public build. Its artifact rules are replaced by the
-        /// archives of each build configuration.
+        /// Gets the build configurations whose builds write and publish the test archives, and whose archives the build
+        /// configurations of <see cref="TestAgents"/> run: those that set <see cref="BuildConfigurationInfo.RunsTestArchives"/>.
         /// </summary>
-        public SnapshotDependency TestArchivesSourceDependency { get; init; } = new( BuildConfiguration.Public );
+        internal ImmutableArray<BuildConfiguration> TestArchivesConfigurations
+            => [..new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public }.Where( c => this.Configurations[c].RunsTestArchives )];
 
         public string LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 

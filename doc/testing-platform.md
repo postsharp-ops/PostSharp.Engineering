@@ -275,7 +275,8 @@ configurations:
 ```csharp
 var product = new Product( dependency )
 {
-    TestArchivesSourceDependency = new SnapshotDependency( BuildConfiguration.Release ),   // the tested build; the default is Public
+    // The build whose archives the agents run.
+    Configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Release, c => c with { RunsTestArchives = true } ),
     TestAgents =
     [
         new TestAgent( "win-x64", "UnitTestWinX64", "Unit Tests Windows x64", windowsContainerRequirements )
@@ -297,7 +298,7 @@ only: a repository can hold hundreds of other projects.
 new MsbuildSolution( @"Patterns\MyProduct.sln" ) { ContainsTestApplications = true }
 ```
 
-It evaluates each target framework, in the build configuration of `TestArchivesSourceDependency`, and builds and restores nothing.
+It evaluates each target framework, in each build configuration that sets `RunsTestArchives`, and builds and restores nothing.
 `Build.ps1 list-test-applications` shows what it finds.
 
 A project is a test application when it says so in a property that it sets itself. `IsTestingPlatformApplication` is
@@ -316,21 +317,40 @@ framework without its operating system, so that `net10.0` and `net10.0-windows` 
 tag of `SeparateTags` run in a build configuration of their own, and the others run with `-ExcludeTags`. A skipped
 application is not downloaded. A composite configuration, `RunAllTestArchives`, runs them all.
 
-A build configuration downloads exactly the archives it runs, one artifact rule per archive, from `TestArchivesSourceDependency`,
+A build configuration downloads exactly the archives it runs, one artifact rule per archive, from the build of its configuration,
 and the artifacts that their prepare scripts read, each to its own path. It downloads nothing else of the build: no other
 package, and none of the artifacts of the products this product depends on. It runs
 `eng/RunTests.ps1 -Platform <platform>`, in a container when the requirements of the agent are those of a container
 host, and publishes the test results directory.
 
-Only the build that `TestArchivesSourceDependency` names writes and publishes the archives. When it names a product build
-configuration, the public build by default, `Build.ps1 build` of that configuration writes them, and PostSharp.Engineering
-gives its build configuration, or the `CustomBuildConfiguration` that replaces it, the rule `artifacts/tests/*.zip`. When
-it names an additional build configuration, the product gives that configuration `-p:PublishTestArchive=true` and the
-rule, and `generate-scripts` fails when either is missing. The other builds of the product do not spend the time of writing the archives, nor the space of publishing them.
+Only the builds of the configurations that set `RunsTestArchives` write and publish the archives: `Build.ps1 build` of
+such a configuration writes them on the build server, and PostSharp.Engineering gives its build configuration, or the
+`CustomBuildConfiguration` that replaces it, the rule `artifacts/tests/*.zip`. The other builds of the product do not
+spend the time of writing the archives, nor the space of publishing them. A local build always writes them.
+`generate-scripts` fails when the product declares `TestAgents` and no configuration sets `RunsTestArchives`.
 
-A product that tests one build and ships another, signed one names the tested build here. To ship what it tested, it
-gives the tested configuration the version of the public build (`BuildConfigurationInfo.VersionKind`, see the README),
-and compares the two builds.
+### Several tested builds
+
+A product can test the build of its development workflow and the build that it ships, each with the full matrix of the
+test agents, by setting `RunsTestArchives` on both configurations:
+
+```csharp
+Configurations = Product.DefaultConfigurations
+    .WithValue( BuildConfiguration.Release, c => c with { RunsTestArchives = true } )
+    .WithValue( BuildConfiguration.Public, c => c with { RunsTestArchives = true } ),
+```
+
+- Both builds write and publish the archives.
+- Each configuration gets its own set of build configurations. Their identifiers start with the name of the
+  configuration (`ReleaseUnitTestWinX64Net100`, `PublicRunAllTestArchives`), and their project folders are nested in a
+  folder of that name (`Release/Unit Tests`). A `ProjectFolder` that is a path separated by `/` nests the TeamCity
+  sub-projects, for the build configurations that the product declares too.
+- `generate-scripts` evaluates the projects in each configuration, and fails when they do not write the same archives,
+  because `eng/test-archives.txt` is shared.
+
+The deployment of the shipped build waits for the quality gate of its own matrix through
+`BuildConfigurationInfo.DeploymentDependencies`, for example `[new SnapshotDependency( "PublicRunAllTestArchives" )]`,
+or a composite of the product that includes it. Such a dependency downloads nothing unless it has artifact rules.
 
 ### Staying current
 

@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using System;
@@ -26,6 +27,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 /// names are those of the applications that <c>generate-scripts</c> found, so an application added without running it
 /// again would be in no build configuration: <see cref="TestArchives.Verify"/> fails the build in that case.
 /// </para>
+/// <para>
+/// A product whose archives are run for several build configurations (<see cref="Build.BuildConfigurationInfo.RunsTestArchives"/>)
+/// gets one set of build configurations per configuration. The identifiers of a set start with the name of its configuration,
+/// and its project folders are nested in a folder of that name.
+/// </para>
 /// </remarks>
 internal static class TestArchiveCells
 {
@@ -34,6 +40,28 @@ internal static class TestArchiveCells
     public const string DefaultProjectFolder = "Unit Tests";
 
     public static ImmutableArray<AdditionalCiBuildConfiguration> Create( Product product, IReadOnlyList<TestApplication> applications )
+        => Create( product, _ => applications );
+
+    /// <param name="getApplications">Gets the applications discovered in a configuration.</param>
+    public static ImmutableArray<AdditionalCiBuildConfiguration> Create( Product product, Func<BuildConfiguration, IReadOnlyList<TestApplication>> getApplications )
+    {
+        var configurations = product.TestArchivesConfigurations;
+
+        if ( configurations.Length == 1 )
+        {
+            return Create( product, getApplications( configurations[0] ), new SnapshotDependency( configurations[0] ), null );
+        }
+
+        return [..configurations.SelectMany( c => Create( product, getApplications( c ), new SnapshotDependency( c ), c.ToString() ) )];
+    }
+
+    /// <param name="setName">The name of the set of build configurations, which prefixes their identifiers and names the folder
+    /// that nests their project folders, or <c>null</c> when the product has a single source of the archives.</param>
+    private static ImmutableArray<AdditionalCiBuildConfiguration> Create(
+        Product product,
+        IReadOnlyList<TestApplication> applications,
+        SnapshotDependency source,
+        string? setName )
     {
         var cells = new List<AdditionalCiBuildConfiguration>();
 
@@ -56,7 +84,7 @@ internal static class TestArchiveCells
 
                     if ( tagged.Count > 0 )
                     {
-                        cells.Add( CreateCell( product, agent, runtime.Key, tag, tagged, separatedTags ) );
+                        cells.Add( CreateCell( product, source, setName, agent, runtime.Key, tag, tagged, separatedTags ) );
                         remaining.RemoveAll( tagged.Contains );
                     }
 
@@ -65,7 +93,7 @@ internal static class TestArchiveCells
 
                 if ( remaining.Count > 0 )
                 {
-                    cells.Add( CreateCell( product, agent, runtime.Key, null, remaining, separatedTags ) );
+                    cells.Add( CreateCell( product, source, setName, agent, runtime.Key, null, remaining, separatedTags ) );
                 }
             }
         }
@@ -73,7 +101,10 @@ internal static class TestArchiveCells
         if ( cells.Count > 0 )
         {
             cells.Add(
-                new CompositeAdditionalCiBuildConfiguration( CompositeId, "Run All Test Archives", cells.Select( c => c.Id ).ToArray() ) );
+                new CompositeAdditionalCiBuildConfiguration(
+                    setName + CompositeId,
+                    setName == null ? "Run All Test Archives" : $"Run All Test Archives [{setName}]",
+                    cells.Select( c => c.Id ).ToArray() ) { ProjectFolder = setName } );
         }
 
         return [..cells];
@@ -104,6 +135,8 @@ internal static class TestArchiveCells
 
     private static TestArchivesCiBuildConfiguration CreateCell(
         Product product,
+        SnapshotDependency source,
+        string? setName,
         TestAgent agent,
         string runtime,
         string? tag,
@@ -135,22 +168,24 @@ internal static class TestArchiveCells
 
         var resultsDirectory = product.TestResultsDirectory.Replace( '\\', '/' );
 
+        var projectFolder = agent.ProjectFolder ?? DefaultProjectFolder;
+
         return new TestArchivesCiBuildConfiguration(
-            string.Create( CultureInfo.InvariantCulture, $"{agent.IdPrefix}{runtimeId}{(tag == null ? "" : ToIdentifier( tag ))}" ),
+            string.Create( CultureInfo.InvariantCulture, $"{setName}{agent.IdPrefix}{runtimeId}{(tag == null ? "" : ToIdentifier( tag ))}" ),
             tag == null ? $"{agent.Name}: {runtime}" : $"{agent.Name}: {runtime} ({tag})",
             arguments )
         {
             BuildAgentRequirements = agent.Requirements,
             Dockerfile = agent.Dockerfile,
             ContainerMemoryInGigabytes = agent.ContainerMemoryInGigabytes,
-            ProjectFolder = agent.ProjectFolder ?? DefaultProjectFolder,
+            ProjectFolder = setName == null ? projectFolder : $"{setName}/{projectFolder}",
             TimeoutInMinutes = agent.TimeoutInMinutes,
             Parameters = agent.Parameters,
-            SnapshotDependencies = [product.TestArchivesSourceDependency with { ArtifactRules = archiveRules, CleanDestination = true }],
+            SnapshotDependencies = [source with { ArtifactRules = archiveRules, CleanDestination = true }],
 
             // The layout of the product build configuration that publishes the archives, when it is one. The cell reads no
             // other artifact of it, but the layout must name the configuration that the cell depends on.
-            BuildSnapshotDependency = product.TestArchivesSourceDependency.Configuration,
+            BuildSnapshotDependency = source.Configuration,
             ArtifactRules = [$"+:{resultsDirectory}/**/*=>{resultsDirectory}"]
         };
     }

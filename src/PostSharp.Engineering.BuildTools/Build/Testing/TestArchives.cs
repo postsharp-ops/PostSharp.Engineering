@@ -38,8 +38,8 @@ internal static class TestArchives
     /// <summary>
     /// Adds <c>PublishTestArchive=true</c> to the properties of the build of the solutions of a product that publishes test
     /// archives, unless the command line sets it. A build in the IDE does not set it, so it does not spend the time of a
-    /// publication on every build. On TeamCity, only the build of the configuration that the test agents download the
-    /// archives from writes them (see <see cref="IsSourceConfiguration"/>); a local build always writes them, so that
+    /// publication on every build. On TeamCity, only the builds of the configurations that the test agents download the
+    /// archives from write them (see <see cref="IsSourceConfiguration"/>); a local build always writes them, so that
     /// <c>Build.ps1 test</c> can run them.
     /// </summary>
     public static BuildSettings AddBuildProperties( Product product, BuildSettings settings, bool isTeamCityBuild )
@@ -50,80 +50,11 @@ internal static class TestArchives
             : settings;
 
     /// <summary>
-    /// Determines whether a build configuration of the product is the one that <see cref="Product.TestArchivesSourceDependency"/>
-    /// names, which writes and publishes the archives. An additional build configuration that the dependency names does it
-    /// with the arguments (<c>-p:PublishTestArchive=true</c>) and the artifact rules that the product gives it.
+    /// Determines whether the build of a configuration writes and publishes the archives: whether it sets
+    /// <see cref="BuildConfigurationInfo.RunsTestArchives"/>.
     /// </summary>
     public static bool IsSourceConfiguration( Product product, BuildConfiguration configuration )
-        => product.PublishesTestArchives && product.TestArchivesSourceDependency.Configuration == configuration;
-
-    /// <summary>
-    /// Checks that an additional build configuration that <see cref="Product.TestArchivesSourceDependency"/> names writes and
-    /// publishes the archives. PostSharp.Engineering cannot give it the property and the rule, because it does not know how
-    /// the configuration runs the build, so the product gives them; without them, every cell of the test agents would wait
-    /// for a build that publishes nothing to download.
-    /// </summary>
-    public static bool TryValidateSource( Product product, ConsoleHelper console )
-    {
-        var source = product.TestArchivesSourceDependency;
-
-        if ( source.Configuration != null )
-        {
-            return true;
-        }
-
-        var additional = product.AdditionalCiBuildConfigurations.FirstOrDefault( c => string.Equals( c.Id, source.ConfigurationId, StringComparison.Ordinal ) );
-
-        if ( additional == null )
-        {
-            // TryGetSourceConfiguration reports it.
-            return true;
-        }
-
-        var isValid = true;
-
-        if ( additional.ArtifactRules == null || !additional.ArtifactRules.Any( r => r.Contains( Directory + "/", StringComparison.Ordinal ) ) )
-        {
-            console.WriteError(
-                $"The '{additional.Id}' build configuration publishes the test archives (TestArchivesSourceDependency), but none of its artifact "
-                + $"rules publishes '{Directory}'. Add '+:{Directory}/*.zip=>{Directory}'." );
-
-            isValid = false;
-        }
-
-        if ( additional is PowershellAdditionalCiBuildConfiguration powershell
-             && !powershell.Arguments.Contains( "PublishTestArchive=true", StringComparison.OrdinalIgnoreCase ) )
-        {
-            console.WriteError(
-                $"The '{additional.Id}' build configuration publishes the test archives (TestArchivesSourceDependency), but its arguments do not "
-                + "set PublishTestArchive. Add '-p:PublishTestArchive=true'." );
-
-            isValid = false;
-        }
-
-        return isValid;
-    }
-
-    /// <summary>
-    /// Gets the build configuration of the build that publishes the archives, <see cref="Product.TestArchivesSourceDependency"/>: the
-    /// configuration it names, or the artifacts configuration of the additional build configuration it names.
-    /// </summary>
-    public static bool TryGetSourceConfiguration( Product product, out BuildConfiguration configuration )
-    {
-        var source = product.TestArchivesSourceDependency;
-
-        if ( source.Configuration != null )
-        {
-            configuration = source.Configuration.Value;
-
-            return true;
-        }
-
-        var additional = product.AdditionalCiBuildConfigurations.FirstOrDefault( c => string.Equals( c.Id, source.ConfigurationId, StringComparison.Ordinal ) );
-        configuration = additional?.EffectiveArtifactsConfiguration ?? default;
-
-        return additional != null;
-    }
+        => product.PublishesTestArchives && product.Configurations[configuration].RunsTestArchives;
 
     private static string GetListPath( BuildContext context ) => Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, ListFileName );
 

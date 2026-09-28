@@ -11,26 +11,35 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
     {
         private readonly string? _objectName;
         private readonly string? _projectName;
+        private readonly string? _packageSegment;
         private readonly TeamCityBuildConfiguration[] _configurations;
         private readonly string[] _additionalBuildTypes;
         private readonly TeamCityProject[] _subProjects;
 
         /// <summary>
-        /// Gets every build configuration of this project and of its sub-projects.
+        /// Gets the object names of the sub-projects of this project, at any depth. Every project object is declared at the top
+        /// level of the settings file, so they must be unique.
+        /// </summary>
+        public IEnumerable<string> SubProjectObjectNames
+            => this._subProjects.SelectMany( p => new[] { p._objectName! }.Concat( p.SubProjectObjectNames ) );
+
+        /// <summary>
+        /// Gets every build configuration of this project and of its sub-projects, at any depth.
         /// </summary>
         public IEnumerable<TeamCityBuildConfiguration> AllConfigurations
-            => this._configurations.Concat( this._subProjects.SelectMany( p => p._configurations ) );
+            => this._configurations.Concat( this._subProjects.SelectMany( p => p.AllConfigurations ) );
 
         /// <summary>
         /// Gets every build configuration together with the package it belongs to. The packages mirror the project
-        /// tree -- a sub-project's configurations sit in a package of their own -- so that the directory a file is
-        /// in tells you which TeamCity project creates it.
+        /// tree -- a sub-project's configurations sit in a package of their own, nested in the package of its parent --
+        /// so that the directory a file is in tells you which TeamCity project creates it.
         /// </summary>
         public IEnumerable<(string Package, TeamCityBuildConfiguration Configuration)> ConfigurationsByPackage
-            => this._configurations.Select( c => (BuildTypesPackage, c) )
-                .Concat(
-                    this._subProjects.SelectMany(
-                        p => p._configurations.Select( c => ($"{BuildTypesPackage}.{p._objectName}", c) ) ) );
+            => this.GetConfigurationsByPackage( BuildTypesPackage );
+
+        private IEnumerable<(string Package, TeamCityBuildConfiguration Configuration)> GetConfigurationsByPackage( string package )
+            => this._configurations.Select( c => (package, c) )
+                .Concat( this._subProjects.SelectMany( p => p.GetConfigurationsByPackage( $"{package}.{p._packageSegment ?? p._objectName}" ) ) );
 
         /// <summary>
         /// Gets the packages that hold the build configurations, which the settings file imports.
@@ -63,16 +72,23 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
             this._subProjects = subProjects ?? [];
         }
 
+        /// <param name="objectName">The name of the Kotlin object of the project, which must be unique in the settings, because every
+        /// project object is declared at the top level of the settings file.</param>
+        /// <param name="packageSegment">The last segment of the package of the build configurations of the project, or <c>null</c>
+        /// for <paramref name="objectName"/>. A nested project gives the name of its own folder, so that the package of its
+        /// build configurations follows the path of the project.</param>
         public TeamCityProject(
             string objectName,
             string projectName,
             TeamCityBuildConfiguration[] configurations,
             string[] additionalBuildTypes,
-            TeamCityProject[]? subProjects = null )
+            TeamCityProject[]? subProjects = null,
+            string? packageSegment = null )
             : this( configurations, additionalBuildTypes, subProjects )
         {
             this._objectName = objectName;
             this._projectName = projectName;
+            this._packageSegment = packageSegment;
         }
 
         public void GenerateTeamcityCode( TextWriter writer, bool separateBuildTypeFiles = false )
@@ -144,20 +160,27 @@ project {{
                 }
             }
 
-            foreach ( var subProject in this._subProjects )
+            void WriteSubProjects( TeamCityProject project )
             {
-                writer.WriteLine(
-                    $@"object {subProject._objectName} : Project({{
+                foreach ( var subProject in project._subProjects )
+                {
+                    writer.WriteLine(
+                        $@"object {subProject._objectName} : Project({{
 
     name = ""{subProject._projectName}""
 " );
 
-                WriteProjectBody( subProject );
+                    WriteProjectBody( subProject );
 
-                writer.WriteLine(
-                    $@"
+                    writer.WriteLine(
+                        $@"
 }})" );
+
+                    WriteSubProjects( subProject );
+                }
             }
+
+            WriteSubProjects( this );
         }
     }
 }

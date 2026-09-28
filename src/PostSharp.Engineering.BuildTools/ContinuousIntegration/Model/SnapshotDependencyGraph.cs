@@ -60,6 +60,8 @@ internal static class SnapshotDependencyGraph
             var configurationInfo = product.Configurations[configuration];
             var customBuildConfiguration = configurationInfo.CustomBuildConfiguration;
 
+            success &= TryValidateDeploymentDependencies( configuration, configurationInfo );
+
             if ( customBuildConfiguration == null )
             {
                 // The stock build step runs 'Build.ps1 test', which refuses a configuration that does not support the build.
@@ -92,6 +94,37 @@ internal static class SnapshotDependencyGraph
         }
 
         return success & TryValidateCycles();
+
+        // A deployment is no node of the graph: nothing depends on it, so it cannot close a cycle. Its targets must exist.
+        bool TryValidateDeploymentDependencies( BuildConfiguration configuration, BuildConfigurationInfo configurationInfo )
+        {
+            var isValid = true;
+
+            foreach ( var dependency in configurationInfo.DeploymentDependencies ?? [] )
+            {
+                if ( dependency.TryGetObjectName( product, configurations ) == null )
+                {
+                    console.WriteError(
+                        $"The deployments of the '{configuration}' build configuration depend on '{dependency}', which is neither an "
+                        + "additional build configuration of the product nor an exported build configuration." );
+
+                    isValid = false;
+                }
+
+                // Without artifact rules the dependency is an ordering constraint, and reusing the last successful build removes
+                // the ordering: TeamCity would emit neither block, and the deployment would not wait.
+                if ( dependency.ArtifactRules is null or { Length: 0 } && dependency.ReuseLastSuccessfulBuild == true )
+                {
+                    console.WriteError(
+                        $"The deployments of the '{configuration}' build configuration depend on '{dependency}' without artifact rules "
+                        + "and reuse its last successful build, so they would not wait for it. Clear ReuseLastSuccessfulBuild." );
+
+                    isValid = false;
+                }
+            }
+
+            return isValid;
+        }
 
         bool TryValidateReplacement(
             AdditionalCiBuildConfiguration customBuildConfiguration,
