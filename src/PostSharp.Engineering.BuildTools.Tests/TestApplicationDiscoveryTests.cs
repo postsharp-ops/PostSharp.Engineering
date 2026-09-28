@@ -213,6 +213,31 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
     /// <summary>
     /// Two applications with one archive name would write one archive, and one of them would never be tested.
     /// </summary>
+    /// <summary>
+    /// A project that describes an archive of the ps1 kind is a test application, although no test framework marks it, so
+    /// that generate-scripts plans a build configuration for it.
+    /// </summary>
+    [Fact]
+    public void AProjectOfThePs1KindIsATestApplication()
+    {
+        this.CreateProject(
+            "Native",
+            """
+            <PropertyGroup>
+              <TargetFramework>net48</TargetFramework>
+              <TestApplicationKind>ps1</TestApplicationKind>
+              <TestApplicationEntry>RunTest.ps1</TestApplicationEntry>
+              <TestApplicationPlatforms>win-x64;win-arm64</TestApplicationPlatforms>
+            </PropertyGroup>
+            """ );
+
+        Assert.True( this.Discover( ["Native"], out var applications ) );
+
+        var application = Assert.Single( applications );
+        Assert.Equal( "Native.net48", application.ArchiveName );
+        Assert.Equal( ["win-x64", "win-arm64"], application.Platforms.ToArray() );
+    }
+
     [Fact]
     public void TwoApplicationsWithOneArchiveNameAreAnError()
     {
