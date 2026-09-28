@@ -359,9 +359,9 @@ public sealed class TestArchivesTests : IDisposable
 
     /// <summary>
     /// The build of the solutions writes the archives when the product publishes them, and only then, so that a product
-    /// without archives does not spend the time of a publication on every test project. On TeamCity, only the build given
-    /// --test-archives writes them, so that the builds that the test agents do not download from do not spend that time
-    /// either. A value given on the command line is kept.
+    /// without archives does not spend the time of a publication on every test project. On TeamCity, only the build of the
+    /// configuration that TestArchivesSourceDependency names writes them, so that the builds that the test agents do not
+    /// download from do not spend that time either. A value given on the command line is kept.
     /// </summary>
     [Fact]
     public void TheBuildWritesTheArchivesOfAProductThatPublishesThem()
@@ -372,14 +372,22 @@ public sealed class TestArchivesTests : IDisposable
         Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, new BuildSettings(), false ).Properties["PublishTestArchive"] );
         Assert.False( TestArchives.AddBuildProperties( withoutArchives, new BuildSettings(), false ).Properties.ContainsKey( "PublishTestArchive" ) );
 
-        // On TeamCity, only with --test-archives.
-        Assert.False( TestArchives.AddBuildProperties( withArchives, new BuildSettings(), true ).Properties.ContainsKey( "PublishTestArchive" ) );
-        Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, new BuildSettings { PublishTestArchives = true }, true ).Properties["PublishTestArchive"] );
+        // On TeamCity, only in the build of the source configuration, Public by default.
+        Assert.False( TestArchives.AddBuildProperties( withArchives, this.Settings( BuildConfiguration.Release ), true ).Properties.ContainsKey( "PublishTestArchive" ) );
+        Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, this.Settings( BuildConfiguration.Public ), true ).Properties["PublishTestArchive"] );
 
         var explicitSettings = new BuildSettings().WithAdditionalProperties(
             ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "false" ) );
 
         Assert.Equal( "false", TestArchives.AddBuildProperties( withArchives, explicitSettings, false ).Properties["PublishTestArchive"] );
+    }
+
+    private BuildSettings Settings( BuildConfiguration configuration )
+    {
+        var settings = new BuildSettings { BuildConfiguration = configuration };
+        settings.Initialize( TestBuildContext.Create( this._directory.Path ) );
+
+        return settings;
     }
 
     /// <summary>

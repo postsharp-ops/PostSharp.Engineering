@@ -37,20 +37,21 @@ internal static class TestArchives
     /// <summary>
     /// Adds <c>PublishTestArchive=true</c> to the properties of the build of the solutions of a product that publishes test
     /// archives, unless the command line sets it. A build in the IDE does not set it, so it does not spend the time of a
-    /// publication on every build. On TeamCity, only the build that the test agents download the archives from writes them:
-    /// it has <see cref="BuildSettings.PublishTestArchives"/>, which <c>generate-scripts</c> gives it.
+    /// publication on every build. On TeamCity, only the build of the configuration that the test agents download the
+    /// archives from writes them (see <see cref="IsSourceConfiguration"/>); a local build always writes them, so that
+    /// <c>Build.ps1 test</c> can run them.
     /// </summary>
     public static BuildSettings AddBuildProperties( Product product, BuildSettings settings, bool isTeamCityBuild )
         => product.PublishesTestArchives
            && !settings.Properties.ContainsKey( "PublishTestArchive" )
-           && (settings.PublishTestArchives || !isTeamCityBuild)
+           && (!isTeamCityBuild || IsSourceConfiguration( product, settings.BuildConfiguration ))
             ? settings.WithAdditionalProperties( ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "true" ) )
             : settings;
 
     /// <summary>
     /// Determines whether a build configuration of the product is the one that <see cref="Product.TestArchivesSourceDependency"/>
     /// names, which writes and publishes the archives. An additional build configuration that the dependency names does it
-    /// with the arguments and the artifact rules that the product gives it.
+    /// with the arguments (<c>-p:PublishTestArchive=true</c>) and the artifact rules that the product gives it.
     /// </summary>
     public static bool IsSourceConfiguration( Product product, BuildConfiguration configuration )
         => product.PublishesTestArchives && product.TestArchivesSourceDependency.Configuration == configuration;

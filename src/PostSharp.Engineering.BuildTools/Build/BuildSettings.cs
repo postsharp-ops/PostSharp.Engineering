@@ -160,12 +160,6 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--no-sign" )]
         public bool NoSign { get; set; }
 
-        [Description(
-            "Packs the test applications into test archives. A local build does it by default; a build on TeamCity does it only with this option, "
-            + "which generate-scripts gives to the build configuration that the test agents download the archives from." )]
-        [CommandOption( "--test-archives" )]
-        public bool PublishTestArchives { get; set; }
-
         [Description( "Creates a zip file with all artifacts" )]
         [CommandOption( "--zip" )]
         public bool CreateZip { get; set; }
@@ -239,11 +233,30 @@ namespace PostSharp.Engineering.BuildTools.Build
             return clone;
         }
 
-        public VersionSpec GetVersionSpec( BuildConfiguration configuration )
-            => configuration == BuildConfiguration.Public
-                ? new VersionSpec( VersionKind.Public )
-                : this.BuildNumber != null
-                    ? new VersionSpec( VersionKind.Numbered, this.BuildNumber.Value )
-                    : new VersionSpec( VersionKind.Local );
+        /// <summary>
+        /// Gets the versioning scheme of a build of a configuration of the product. A <see cref="BuildConfiguration.Public"/> build has
+        /// a public version. A build of another configuration has a local version on a developer machine and, on the build server
+        /// (with <see cref="BuildNumber"/>), the <see cref="BuildConfigurationInfo.VersionKind"/> of the configuration, a numbered
+        /// version by default.
+        /// </summary>
+        public VersionSpec GetVersionSpec( Product product, BuildConfiguration configuration )
+        {
+            if ( configuration == BuildConfiguration.Public )
+            {
+                return new VersionSpec( VersionKind.Public );
+            }
+
+            if ( this.BuildNumber == null )
+            {
+                return new VersionSpec( VersionKind.Local );
+            }
+
+            return product.Configurations[configuration].VersionKind switch
+            {
+                VersionKind.Public => new VersionSpec( VersionKind.Public ),
+                VersionKind.Local => new VersionSpec( VersionKind.Local ),
+                _ => new VersionSpec( VersionKind.Numbered, this.BuildNumber.Value )
+            };
+        }
     }
 }

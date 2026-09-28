@@ -56,6 +56,16 @@ The final package version is computed as:
 - **RTM**: `{MainVersion}` with empty suffix (e.g., `2023.2.279`)
 - **Patch**: `{OverriddenPatchVersion}{PackageVersionSuffix}` (e.g., `2023.2.279.1`)
 
+This is the version of a `Public` build. The version of a build of another configuration depends on where it runs:
+
+- **Local** (a developer machine): `{MainVersion}.{counter}-local-{user}-{configuration}`.
+- **Numbered** (the build server, `--buildNumber`): `{MainVersion}.{build number}-dev-{configuration}`.
+
+`BuildConfigurationInfo.VersionKind` changes the versioning scheme of a configuration on the build server. A product
+whose tested build (for example `Release`) and signed build (`Public`) must carry the same version, so that the two can
+be compared, gives `VersionKind.Public` to the configuration of the tested build. A local build of that configuration
+keeps a local version, so that no package of a public version enters the package cache of a developer machine.
+
 ### Patch Versions
 
 The `OverriddenPatchVersion` property enables releasing patches of repo B without releasing a new build of dependent repo A:

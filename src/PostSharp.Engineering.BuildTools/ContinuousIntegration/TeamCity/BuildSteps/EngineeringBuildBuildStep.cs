@@ -8,16 +8,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildS
 
 internal class EngineeringBuildBuildStep : EngineeringCommandBuildStep
 {
-    public EngineeringBuildBuildStep(
-        BuildConfiguration configuration,
-        bool testOnBuild,
-        DockerSpec? dockerSpec,
-        TimeSpan? timeout,
-        bool publishTestArchives = false ) : base(
+    public EngineeringBuildBuildStep( BuildConfiguration configuration, bool testOnBuild, DockerSpec? dockerSpec, TimeSpan? timeout ) : base(
         "Build",
         "Build",
         testOnBuild ? "test" : "build",
-        $"--configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%{(publishTestArchives ? " --test-archives" : "")}",
+        $"--configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%",
         true,
         dockerSpec,
         timeout ) { }

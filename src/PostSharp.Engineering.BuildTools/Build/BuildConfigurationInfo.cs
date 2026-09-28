@@ -20,6 +20,14 @@ namespace PostSharp.Engineering.BuildTools.Build;
 /// <param name="TeamCityBuildName">Name of the TeamCity configuration implementing the <b>Build</b> action.</param>
 /// <param name="TeamCityDeploymentName">Name of the TeamCity configuration implementing the <b>Deploy</b> action.</param>
 /// <param name="TeamCitySwapName">Name of the TeamCity configuration implementing the <b>Swap</b> action.</param>
+/// <param name="VersionKind">
+/// The versioning scheme of a build of this configuration on the build server, or <c>null</c> for the default:
+/// <see cref="Model.VersionKind.Public"/> for <see cref="BuildConfiguration.Public"/> and <see cref="Model.VersionKind.Numbered"/>
+/// for the others. A product whose tested build and signed build must carry the same version, so that the two can be
+/// compared, gives <see cref="Model.VersionKind.Public"/> to the configuration of its tested build. A local build of a
+/// configuration other than <see cref="BuildConfiguration.Public"/> always has a local version, so that it never puts a
+/// package of a public version in the package cache.
+/// </param>
 /// <param name="CustomBuildConfiguration">
 /// The build configuration that replaces the standard <b>Build</b> action, or <c>null</c> for the standard one. A
 /// product whose public build consumes what an earlier build configuration of the same product produced -- PostSharp
@@ -59,4 +67,5 @@ public record BuildConfigurationInfo(
     TimeSpan? BuildTimeout = null,
     TimeSpan? DeploymentTimeout = null,
     TimeSpan? SwapTimeout = null,
-    AdditionalCiBuildConfiguration? CustomBuildConfiguration = null );
+    AdditionalCiBuildConfiguration? CustomBuildConfiguration = null,
+    VersionKind? VersionKind = null );

@@ -80,7 +80,8 @@ internal static class TeamCitySettingsFile
             publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
 
             // The build configurations of the test agents download them one by one, from the build that TestArchivesSourceDependency
-            // names. An additional build configuration that it names publishes them with the artifact rules of the product.
+            // names. An additional build configuration that it names publishes them with the artifact rules of the product. The
+            // rule also applies to the CustomBuildConfiguration that replaces the build of this configuration.
             if ( TestArchives.IsSourceConfiguration( product, configuration ) )
             {
                 publishedArtifactRules += $@"\n+:{TestArchives.Directory}/*.zip=>{TestArchives.Directory}";
@@ -1043,13 +1044,7 @@ internal static class TeamCitySettingsFile
                     dockerSpec: product.DockerSpec ) );
         }
 
-        teamCityBuildSteps.Add(
-            new EngineeringBuildBuildStep(
-                configurationProperties.Configuration,
-                true,
-                product.DockerSpec,
-                context.BuildTimeout,
-                TestArchives.IsSourceConfiguration( product, configurationProperties.Configuration ) ) );
+        teamCityBuildSteps.Add( new EngineeringBuildBuildStep( configurationProperties.Configuration, true, product.DockerSpec, context.BuildTimeout ) );
 
         if ( !product.UseDocker )
         {
