@@ -35,6 +35,18 @@ internal sealed record TestApplication(
     public string ArchiveName => this.RuntimeIdentifier.Length == 0 ? $"{this.AssemblyName}.{this.TargetFramework}" : $"{this.AssemblyName}.{this.TargetFramework}.{this.RuntimeIdentifier}";
 
     /// <summary>
+    /// Gets the full path of the <c>project.assets.json</c> file of the project, or an empty string for an archive of the
+    /// ps1 kind, which publishes nothing.
+    /// </summary>
+    public string ProjectAssetsFile { get; init; } = "";
+
+    /// <summary>
+    /// Gets the packages of the application that the build configurations download from the builds that publish them, as
+    /// <see cref="TestArchivePackages.Package.Reference"/> gives them. <c>generate-scripts</c> sets them after a restore.
+    /// </summary>
+    public ImmutableArray<string> Packages { get; init; } = [];
+
+    /// <summary>
     /// Gets the directory of an artifact, which the build configurations download it to.
     /// </summary>
     public static string GetArtifactDirectory( string artifact )

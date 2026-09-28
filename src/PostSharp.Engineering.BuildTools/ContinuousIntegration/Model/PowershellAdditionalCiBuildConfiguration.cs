@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
@@ -62,6 +63,12 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
     /// the test archives, needs none of it.
     /// </summary>
     internal virtual bool PreparesBuildEnvironment => true;
+
+    /// <summary>
+    /// Gets the snapshot dependencies on the builds of the products this product depends on that a configuration adds with
+    /// artifact rules of its own, when it does not prepare the build environment.
+    /// </summary>
+    internal virtual IReadOnlyList<TeamCitySnapshotDependency> GetProductDependencySnapshots( Product product ) => [];
 
     internal override TeamCityBuildConfiguration TeamCityBuildConfiguration(
         ProductProperties productProperties,
@@ -160,6 +167,14 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                         createVersionsFileCommand,
                         null ) );
             }
+        }
+
+        var additionalDependencies = this.GetProductDependencySnapshots( product );
+
+        if ( additionalDependencies.Count > 0 )
+        {
+            snapshotDependencies ??= [];
+            snapshotDependencies.AddRange( additionalDependencies );
         }
 
         // Add the main execution step

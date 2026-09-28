@@ -129,6 +129,30 @@ the nearest `Build.ps1` above the project; `TestArchiveDirectory` changes it. Th
 project: it publishes what the build has just written. To keep the archives small, the target sets
 `SatelliteResourceLanguages` to `en` unless the project sets it, and does not publish the documentation files.
 
+### The files of packages
+
+An archive does not hold the files that the application takes from NuGet packages: before the publication copies its
+files, the target removes every file under the NuGet package root and lists it in the `Packages` field of the manifest.
+This covers every way a package file reaches the output: the runtime, native and resource assets, and the files that the
+props of a package add. The dependency file is generated before that point, so it still names these files, and the
+runner puts them back at the same paths.
+
+A package that NuGet restored from nuget.org is given its URL, and the runner downloads it. Any other package is one that
+a build of the product, or of a product it depends on, publishes in its private artifacts: its source in `nuget.config`
+is the directory of those artifacts. The build configuration of a test agent downloads it from that build, through an
+artifact dependency, to `artifacts/test-packages/<source>`, where `<source>` is the key of the source in `nuget.config`:
+the name of the product, or of the dependency. See [The build configurations](#the-build-configurations).
+
+For each package, the runner takes the first of these that exists:
+
+1. The NuGet cache of the host (`NUGET_PACKAGES`, or `~/.nuget/packages`), when its `<id>.<version>.nupkg.sha512` file
+   gives the hash of the manifest. A local run finds every package there.
+2. For a package without a URL, the nupkg under `artifacts/test-packages` (`-PackagesPath`).
+3. The URL, downloaded once per run to `artifacts/tests/run/packages`.
+
+It checks the SHA-512 of every nupkg that it does not take from the cache, and gets each package once for all the
+archives of the run. An archive whose package cannot be found fails, and the others run.
+
 ### The manifest
 
 `test.psd1` is a PowerShell data file at the root of the archive.
@@ -148,6 +172,15 @@ project: it publishes what the build has just written. To keep the archives smal
     Skip = $null
     Prepare = $null
     Artifacts = @()
+    Packages = @(
+        @{
+            Id = 'xunit.v3.core'
+            Version = '3.0.0'
+            Sha512 = '<base64>'
+            Url = 'https://api.nuget.org/v3-flatcontainer/xunit.v3.core/3.0.0/xunit.v3.core.3.0.0.nupkg'
+            Files = @(
+                @{ Path = 'lib/net8.0/xunit.v3.core.dll'; Target = 'xunit.v3.core.dll' } )
+        } )
 }
 ```
 
@@ -160,6 +193,7 @@ project: it publishes what the build has just written. To keep the archives smal
 | `ReportType`, `ReportFile` | `exe` and `ps1` only. The TeamCity `importData` type of the reports, such as `gtest`, and their path, in which `{ResultsDirectory}` is replaced and the file name can contain wildcards. |
 | `Prepare` | The file name of the prepare script at the root of the archive, from `TestApplicationPrepareScript`, or `$null`. |
 | `Artifacts` | The build artifacts that the prepare script reads, from `TestApplicationArtifacts`. |
+| `Packages` | The files that the application takes from packages, which are not in the archive: for each package, its identifier and version in lower case, the SHA-512 of the nupkg in base64, its URL on nuget.org or `$null` for a package that a build publishes, and each file as its path in the package and its path in the application. See [The files of packages](#the-files-of-packages). |
 
 The other fields are the properties of [Describing a test application](#describing-a-test-application).
 
@@ -298,8 +332,14 @@ only: a repository can hold hundreds of other projects.
 new MsbuildSolution( @"Patterns\MyProduct.sln" ) { ContainsTestApplications = true }
 ```
 
-It evaluates each target framework, in each build configuration that sets `RunsTestArchives`, and builds and restores nothing.
+It evaluates each target framework, in each build configuration that sets `RunsTestArchives`, and builds nothing.
 `Build.ps1 list-test-applications` shows what it finds.
+
+It then restores these solutions, in the configuration that the repository was prepared in, and reads from the
+`project.assets.json` file of each project the packages that the application needs and that are not from nuget.org: the
+packages of the restore graph that have a file to publish, with the source that the package source mapping of
+`nuget.config` gives them. The restore needs the packages of the product, so `generate-scripts` runs after a
+`Build.ps1 build`.
 
 A project is a test application when it says so in a property that it sets itself. `IsTestingPlatformApplication` is
 set by the packages of the test frameworks, which are imported only after a restore, so `UseMicrosoftTestingPlatformRunner`
@@ -318,8 +358,14 @@ tag of `SeparateTags` run in a build configuration of their own, and the others 
 application is not downloaded. A composite configuration, `RunAllTestArchives`, runs them all.
 
 A build configuration downloads exactly the archives it runs, one artifact rule per archive, from the build of its configuration,
-and the artifacts that their prepare scripts read, each to its own path. It downloads nothing else of the build: no other
-package, and none of the artifacts of the products this product depends on. It runs
+and the artifacts that their prepare scripts read, each to its own path. It also downloads the packages of its
+applications that are not from nuget.org, from the build that publishes them: the build of its configuration for a
+package of the product, and, through a snapshot dependency of its own, the build of the dependency that the build of the
+product used for a package of a dependency. A rule names a package and not its version, which changes with every build:
+`+:artifacts/publish/private/<id>.*.nupkg=>artifacts/test-packages/<source>`. Such a pattern also matches a package whose
+identifier extends `<id>` with a dot, such as `<id>.Tools`, so the rules exclude such a package of the other applications
+unless the build configuration needs it too. It downloads nothing else: no other package, and no other artifact of the
+products this product depends on. It runs
 `eng/RunTests.ps1 -Platform <platform>`, in a container when the requirements of the agent are those of a container
 host, and publishes the test results directory.
 
@@ -355,10 +401,13 @@ or a composite of the product that includes it. Such a dependency downloads noth
 ### Staying current
 
 An application added without running `generate-scripts` again would be in no build configuration, and would silently
-not be tested. `generate-scripts` therefore writes the list of the archives it planned to `eng/test-archives.txt`, and
+not be tested. `generate-scripts` therefore writes the list of the archives it planned to `eng/test-archives.txt`, each followed by the
+packages that its build configurations download from the builds that publish them (`<source>/<id>`), and
 `Build.ps1 build` fails when the archives it writes differ from that list: an archive missing from the list is run by no
-build configuration, and a listed archive that the build did not write fails the download of the configurations that
-run it.
+build configuration, and a listed archive that the build did not write fails the download of the configurations that run
+it. The same applies to the packages of each archive, which change when a package reference does. The build also fails
+when a manifest takes a file from a package that is not from nuget.org and that the list does not name: a file that the
+props of a package add, which the restore graph does not show.
 
 ## Options of the archives
 

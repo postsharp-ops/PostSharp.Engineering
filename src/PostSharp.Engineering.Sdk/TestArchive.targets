@@ -13,6 +13,11 @@
         $(TestArchiveDirectory)<AssemblyName>.<TargetFramework>[.<RuntimeIdentifier>].zip. It runs only when
         PublishTestArchive is true, which Build.ps1 build sets for a product that publishes test archives.
 
+        The files that the publication takes from NuGet packages are not in the archive. The Packages key of the manifest
+        lists them, with the package they come from, and RunTests.ps1 puts them in place before it runs the application:
+        from the NuGet cache of the agent, from nuget.org, or, for a package that a build of the product or of a dependency
+        publishes, from artifacts/test-packages, to which the build configuration downloads it. See doc/testing-platform.md.
+
         Properties that describe the application, read by the archive and by generate-scripts (Build.ps1 test runs
         dotnet test, which does not read them):
             TestApplicationPlatforms        The platforms the application runs on, separated by semicolons, for example
@@ -163,7 +168,6 @@
             <_TestArchiveManifestLine Include="%20%20%20%20Artifacts = $([MSBuild]::Escape('$(_TestArchiveArtifactList)'))" />
             <_TestArchiveManifestLine Include="%20%20%20%20ReportType = $([MSBuild]::Escape('$(_TestArchiveReportType)'))" Condition="'$(_TestArchiveKind)' == 'ps1'" />
             <_TestArchiveManifestLine Include="%20%20%20%20ReportFile = $([MSBuild]::Escape('$(_TestArchiveReportFile)'))" Condition="'$(_TestArchiveKind)' == 'ps1'" />
-            <_TestArchiveManifestLine Include="}" />
         </ItemGroup>
 
         <!-- A file left by an earlier publication would otherwise be zipped with the current ones. -->
@@ -171,10 +175,13 @@
 
         <!-- The publication runs in a project instance of its own, so that every property derived from PublishDir is
              evaluated from the directory of the archive. NoBuild publishes the output that the build has just written. -->
+        <!-- The second target returns the Packages key of the manifest, which the publication has computed. -->
         <MSBuild Projects="$(MSBuildProjectFullPath)"
-                 Targets="Publish"
+                 Targets="Publish;_GetTestArchivePackages"
                  Properties="NoBuild=true;_IsPublishingTestArchive=true;PublishDir=$(_TestArchivePublishDirectory);PublishDocumentationFile=false;PublishReferencesDocumentationFiles=false;SatelliteResourceLanguages=$(_TestArchiveSatelliteResourceLanguages)"
-                 Condition="'$(_TestArchiveKind)' == 'mtp'" />
+                 Condition="'$(_TestArchiveKind)' == 'mtp'">
+            <Output TaskParameter="TargetOutputs" ItemName="_TestArchivePackagesLine" />
+        </MSBuild>
 
         <!-- An archive of the ps1 kind holds its script and the files that the project gives it. -->
         <Error Text="The test archive of '$(MSBuildProjectName)' is of the ps1 kind, and its entry '$(TestApplicationEntry)' does not exist."
@@ -200,6 +207,12 @@
               DestinationFolder="$(_TestArchivePublishDirectory)"
               Condition="'$(_TestArchivePrepareScriptPath)' != ''" />
 
+        <ItemGroup>
+            <_TestArchivePackagesLine Include="%20%20%20%20Packages = %40()" Condition="'@(_TestArchivePackagesLine)' == ''" />
+            <_TestArchiveManifestLine Include="@(_TestArchivePackagesLine)" />
+            <_TestArchiveManifestLine Include="}" />
+        </ItemGroup>
+
         <WriteLinesToFile File="$(_TestArchivePublishDirectory)test.psd1" Lines="@(_TestArchiveManifestLine)" Overwrite="true" />
 
         <MakeDir Directories="$(TestArchiveDirectory)" />
@@ -207,5 +220,145 @@
 
         <Message Importance="high" Text="$(MSBuildProjectName) ($(TargetFramework)) -> $(_TestArchiveFile)" />
     </Target>
+
+    <!--
+        In the publication of the archive, the files that come from a package, which are the files under the NuGet package
+        root, are removed from the files to copy just before they are copied. The dependency file has been generated at
+        that point, and still names them: RunTests.ps1 puts them at the same paths. The rule covers every way a package
+        file reaches the output: the runtime, native and resource assets, and the files that the props of a package add.
+    -->
+    <Target Name="_RemoveTestArchivePackageFiles"
+            BeforeTargets="_ComputeResolvedFilesToPublishTypes"
+            Condition="'$(_IsPublishingTestArchive)' == 'true' AND '$(NuGetPackageRoot)' != ''">
+
+        <GetTestArchivePackages Files="@(ResolvedFileToPublish)" PackageRoot="$(NuGetPackageRoot)">
+            <Output TaskParameter="PackageFiles" ItemName="_TestArchivePackageFile" />
+            <Output TaskParameter="Manifest" PropertyName="_TestArchivePackages" />
+        </GetTestArchivePackages>
+
+        <ItemGroup>
+            <ResolvedFileToPublish Remove="@(_TestArchivePackageFile)" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="_GetTestArchivePackages" Returns="@(_TestArchivePackagesLine)">
+        <ItemGroup>
+            <_TestArchivePackagesLine Include="%20%20%20%20$([MSBuild]::Escape('$(_TestArchivePackages)'))" Condition="'$(_TestArchivePackages)' != ''" />
+        </ItemGroup>
+    </Target>
+
+    <!--
+        Gets the files of a publication that come from a package, and writes the Packages key of the manifest. For each
+        package, it gives the identifier and version that name its directory in the package root, the SHA-512 of the nupkg,
+        the URL of the nupkg when the package comes from nuget.org, and each file as its path in the package and its path
+        in the application. NuGet writes the hash to <id>.<version>.nupkg.sha512 and the source to .nupkg.metadata, beside
+        each package that it extracts. The task uses no JSON library, because it also runs in the MSBuild of Visual Studio.
+    -->
+    <UsingTask TaskName="GetTestArchivePackages"
+               TaskFactory="RoslynCodeTaskFactory"
+               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+        <ParameterGroup>
+            <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+            <PackageRoot ParameterType="System.String" Required="true" />
+            <PackageFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+            <Manifest ParameterType="System.String" Output="true" />
+        </ParameterGroup>
+        <Task>
+            <Using Namespace="System" />
+            <Using Namespace="System.Collections.Generic" />
+            <Using Namespace="System.IO" />
+            <Using Namespace="System.Linq" />
+            <Using Namespace="System.Text" />
+            <Using Namespace="System.Text.RegularExpressions" />
+            <Code Type="Fragment" Language="cs"><![CDATA[
+const string nugetOrgSource = "https://api.nuget.org/v3/index.json";
+const string nugetOrgPackages = "https://api.nuget.org/v3-flatcontainer/";
+
+var root = Path.GetFullPath( PackageRoot ).TrimEnd( '\\', '/' ) + Path.DirectorySeparatorChar;
+var packageFiles = new List<ITaskItem>();
+var packages = new SortedDictionary<string, List<KeyValuePair<string, string>>>( StringComparer.Ordinal );
+
+foreach ( var file in Files )
+{
+    var fullPath = Path.GetFullPath( file.GetMetadata( "FullPath" ) );
+
+    if ( !fullPath.StartsWith( root, StringComparison.OrdinalIgnoreCase ) )
+    {
+        continue;
+    }
+
+    // <root>/<id>/<version>/<path in the package>
+    var parts = fullPath.Substring( root.Length ).Replace( '\\', '/' ).Split( new[] { '/' }, 3 );
+
+    if ( parts.Length < 3 )
+    {
+        continue;
+    }
+
+    var key = parts[0] + "/" + parts[1];
+
+    if ( !packages.TryGetValue( key, out var list ) )
+    {
+        packages.Add( key, list = new List<KeyValuePair<string, string>>() );
+    }
+
+    list.Add( new KeyValuePair<string, string>( parts[2], file.GetMetadata( "RelativePath" ).Replace( '\\', '/' ) ) );
+    packageFiles.Add( file );
+}
+
+Func<string, string> quote = value => "'" + value.Replace( "'", "''" ) + "'";
+
+var manifest = new StringBuilder();
+manifest.Append( "Packages = @(" );
+
+foreach ( var package in packages )
+{
+    var id = package.Key.Split( '/' )[0];
+    var version = package.Key.Split( '/' )[1];
+    var metadataPath = Path.Combine( root, id, version, ".nupkg.metadata" );
+
+    // The contentHash of .nupkg.metadata leaves out the signature of a signed package, so it is not the hash of the nupkg
+    // that the runner downloads. The .sha512 file is.
+    var hashPath = Path.Combine( root, id, version, id + "." + version + ".nupkg.sha512" );
+
+    if ( !File.Exists( metadataPath ) || !File.Exists( hashPath ) )
+    {
+        Log.LogError( "The test archive cannot reference the package '{0}' {1}: '{2}' or '{3}' does not exist.", id, version, metadataPath, hashPath );
+
+        continue;
+    }
+
+    var hash = File.ReadAllText( hashPath ).Trim();
+    var source = Regex.Match( File.ReadAllText( metadataPath ), "\"source\"\\s*:\\s*\"([^\"]+)\"" ).Groups[1].Value;
+
+    var url = string.Equals( source.TrimEnd( '/' ), nugetOrgSource, StringComparison.OrdinalIgnoreCase )
+        ? quote( nugetOrgPackages + id + "/" + version + "/" + id + "." + version + ".nupkg" )
+        : "$null";
+
+    manifest.AppendLine();
+    manifest.AppendLine( "        @{" );
+    manifest.AppendLine( "            Id = " + quote( id ) );
+    manifest.AppendLine( "            Version = " + quote( version ) );
+    manifest.AppendLine( "            Sha512 = " + quote( hash ) );
+    manifest.AppendLine( "            Url = " + url );
+    manifest.Append( "            Files = @(" );
+
+    foreach ( var file in package.Value.OrderBy( f => f.Value, StringComparer.Ordinal ) )
+    {
+        manifest.AppendLine();
+        manifest.Append( "                @{ Path = " + quote( file.Key ) + "; Target = " + quote( file.Value ) + " }" );
+    }
+
+    manifest.AppendLine( " )" );
+    manifest.Append( "        }" );
+}
+
+manifest.Append( " )" );
+
+PackageFiles = packageFiles.ToArray();
+Manifest = manifest.ToString();
+]]></Code>
+        </Task>
+    </UsingTask>
 
 </Project>
