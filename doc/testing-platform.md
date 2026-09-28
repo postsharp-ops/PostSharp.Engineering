@@ -232,7 +232,7 @@ configurations:
 ```csharp
 var product = new Product( dependency )
 {
-    TestArchivesSourceDependency = new SnapshotDependency( BuildConfiguration.Release ),   // defaults to the public build
+    TestArchivesSourceDependency = new SnapshotDependency( BuildConfiguration.Release ),   // the tested build; the default is Public
     TestAgents =
     [
         new TestAgent( "win-x64", "UnitTestWinX64", "Unit Tests Windows x64", windowsContainerRequirements )
@@ -283,7 +283,7 @@ Only the build that `TestArchivesSourceDependency` names writes and publishes th
 configuration, the public build by default, `Build.ps1 build` of that configuration writes them, and PostSharp.Engineering
 gives its build configuration, or the `CustomBuildConfiguration` that replaces it, the rule `artifacts/tests/*.zip`. When
 it names an additional build configuration, the product gives that configuration `-p:PublishTestArchive=true` and the
-rule. The other builds of the product do not spend the time of writing the archives, nor the space of publishing them.
+rule, and `generate-scripts` fails when either is missing. The other builds of the product do not spend the time of writing the archives, nor the space of publishing them.
 
 A product that tests one build and ships another, signed one names the tested build here. To ship what it tested, it
 gives the tested configuration the version of the public build (`BuildConfigurationInfo.VersionKind`, see the README),

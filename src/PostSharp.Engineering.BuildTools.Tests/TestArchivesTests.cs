@@ -382,6 +382,35 @@ public sealed class TestArchivesTests : IDisposable
         Assert.Equal( "false", TestArchives.AddBuildProperties( withArchives, explicitSettings, false ).Properties["PublishTestArchive"] );
     }
 
+    /// <summary>
+    /// An additional build configuration that publishes the archives must write them and publish them, which only the product
+    /// can give it.
+    /// </summary>
+    [Fact]
+    public void AnAdditionalSourceConfigurationMustPublishTheArchives()
+    {
+        Product CreateProduct( string arguments, string[]? rules )
+            => new( MetalamaDependencies.V2026_1.Metalama )
+            {
+                Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
+                TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" ),
+                AdditionalCiBuildConfigurations =
+                [
+                    new PowershellAdditionalCiBuildConfiguration( "BuildArtifacts", "Build artifacts", "Build.ps1", arguments ) { ArtifactRules = rules }
+                ]
+            };
+
+        var console = new ConsoleHelper();
+
+        Assert.True(
+            TestArchives.TryValidateSource(
+                CreateProduct( "build -p:PublishTestArchive=true", ["+:artifacts/tests/*.zip=>artifacts/tests"] ),
+                console ) );
+
+        Assert.False( TestArchives.TryValidateSource( CreateProduct( "build", ["+:artifacts/tests/*.zip=>artifacts/tests"] ), console ) );
+        Assert.False( TestArchives.TryValidateSource( CreateProduct( "build -p:PublishTestArchive=true", null ), console ) );
+    }
+
     private BuildSettings Settings( BuildConfiguration configuration )
     {
         var settings = new BuildSettings { BuildConfiguration = configuration };
