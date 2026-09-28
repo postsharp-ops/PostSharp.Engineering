@@ -129,7 +129,7 @@ public sealed record SnapshotDependency
     /// </summary>
     internal TeamCitySnapshotDependency ToTeamCitySnapshotDependency(
         string objectName,
-        string defaultArtifactRules,
+        string? defaultArtifactRules,
         bool inheritedReuseLastSuccessfulBuild )
         => new(
             objectName,

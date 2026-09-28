@@ -130,9 +130,29 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets the build configuration that publishes the test archives, which the build configurations of
         /// <see cref="TestAgents"/> download them from. Defaults to the public build. Its artifact rules are replaced by the
-        /// archives of each build configuration.
+        /// archives of each build configuration. <see cref="TestArchivesSourceDependencies"/> replaces it when set.
         /// </summary>
         public SnapshotDependency TestArchivesSourceDependency { get; init; } = new( BuildConfiguration.Public );
+
+        /// <summary>
+        /// Gets the build configurations that publish the test archives, or <c>null</c> for <see cref="TestArchivesSourceDependency"/>
+        /// alone. Each of them gets its own set of the build configurations of <see cref="TestAgents"/>, in a sub-project named
+        /// after it, with identifiers that it prefixes.
+        /// </summary>
+        /// <remarks>
+        /// A product that tests both the build of its development workflow and the build that it ships names both here: for
+        /// example the Release build, which the pull requests are gated on, and the Public build, which the deployment is gated
+        /// on (see <see cref="Build.BuildConfigurationInfo.DeploymentDependencies"/>). The two sets run the same test
+        /// applications, because the list of the archives (<c>eng/test-archives.txt</c>) is shared.
+        /// </remarks>
+        public SnapshotDependency[]? TestArchivesSourceDependencies { get; init; }
+
+        /// <summary>
+        /// Gets the build configurations that publish the test archives: <see cref="TestArchivesSourceDependencies"/>, or
+        /// <see cref="TestArchivesSourceDependency"/> alone.
+        /// </summary>
+        internal ImmutableArray<SnapshotDependency> EffectiveTestArchivesSourceDependencies
+            => this.TestArchivesSourceDependencies is { } sources ? [..sources] : [this.TestArchivesSourceDependency];
 
         public string LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 

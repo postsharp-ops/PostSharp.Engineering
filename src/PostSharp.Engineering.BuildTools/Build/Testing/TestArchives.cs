@@ -50,12 +50,12 @@ internal static class TestArchives
             : settings;
 
     /// <summary>
-    /// Determines whether a build configuration of the product is the one that <see cref="Product.TestArchivesSourceDependency"/>
-    /// names, which writes and publishes the archives. An additional build configuration that the dependency names does it
-    /// with the arguments (<c>-p:PublishTestArchive=true</c>) and the artifact rules that the product gives it.
+    /// Determines whether a build configuration of the product is one that <see cref="Product.EffectiveTestArchivesSourceDependencies"/>
+    /// names, which writes and publishes the archives. An additional build configuration that a source names does it with the
+    /// arguments (<c>-p:PublishTestArchive=true</c>) and the artifact rules that the product gives it.
     /// </summary>
     public static bool IsSourceConfiguration( Product product, BuildConfiguration configuration )
-        => product.PublishesTestArchives && product.TestArchivesSourceDependency.Configuration == configuration;
+        => product.PublishesTestArchives && product.EffectiveTestArchivesSourceDependencies.Any( s => s.Configuration == configuration );
 
     /// <summary>
     /// Checks that an additional build configuration that <see cref="Product.TestArchivesSourceDependency"/> names writes and
@@ -63,10 +63,20 @@ internal static class TestArchives
     /// the configuration runs the build, so the product gives them; without them, every cell of the test agents would wait
     /// for a build that publishes nothing to download.
     /// </summary>
-    public static bool TryValidateSource( Product product, ConsoleHelper console )
+    public static bool TryValidateSources( Product product, ConsoleHelper console )
     {
-        var source = product.TestArchivesSourceDependency;
+        var isValid = true;
 
+        foreach ( var source in product.EffectiveTestArchivesSourceDependencies )
+        {
+            isValid &= TryValidateSource( product, source, console );
+        }
+
+        return isValid;
+    }
+
+    private static bool TryValidateSource( Product product, SnapshotDependency source, ConsoleHelper console )
+    {
         if ( source.Configuration != null )
         {
             return true;
@@ -105,13 +115,11 @@ internal static class TestArchives
     }
 
     /// <summary>
-    /// Gets the build configuration of the build that publishes the archives, <see cref="Product.TestArchivesSourceDependency"/>: the
-    /// configuration it names, or the artifacts configuration of the additional build configuration it names.
+    /// Gets the build configuration of a build that publishes the archives, one of <see cref="Product.EffectiveTestArchivesSourceDependencies"/>:
+    /// the configuration it names, or the artifacts configuration of the additional build configuration it names.
     /// </summary>
-    public static bool TryGetSourceConfiguration( Product product, out BuildConfiguration configuration )
+    public static bool TryGetSourceConfiguration( Product product, SnapshotDependency source, out BuildConfiguration configuration )
     {
-        var source = product.TestArchivesSourceDependency;
-
         if ( source.Configuration != null )
         {
             configuration = source.Configuration.Value;

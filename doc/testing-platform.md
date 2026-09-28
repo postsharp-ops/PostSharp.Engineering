@@ -332,6 +332,27 @@ A product that tests one build and ships another, signed one names the tested bu
 gives the tested configuration the version of the public build (`BuildConfigurationInfo.VersionKind`, see the README),
 and compares the two builds.
 
+### Several tested builds
+
+A product can test the build of its development workflow and the build that it ships, each with the full matrix of the
+test agents. It names both in `TestArchivesSourceDependencies`, which replaces `TestArchivesSourceDependency`:
+
+```csharp
+TestArchivesSourceDependencies = [new SnapshotDependency( BuildConfiguration.Release ), new SnapshotDependency( BuildConfiguration.Public )],
+```
+
+- Both builds write and publish the archives.
+- Each source gets its own set of build configurations. Their identifiers start with the name of the source
+  (`ReleaseUnitTestWinX64Net100`, `PublicRunAllTestArchives`), and their project folders are nested in a folder of that
+  name (`Release/Unit Tests`). A `ProjectFolder` that is a path separated by `/` nests the TeamCity sub-projects, for the
+  build configurations that the product declares too.
+- `generate-scripts` evaluates the projects in the configuration of each source, and fails when they do not write the
+  same archives, because `eng/test-archives.txt` is shared.
+
+The deployment of the shipped build waits for the quality gate of its own matrix through
+`BuildConfigurationInfo.DeploymentDependencies`, for example `[new SnapshotDependency( "PublicRunAllTestArchives" )]`,
+or a composite of the product that includes it. Such a dependency downloads nothing unless it has artifact rules.
+
 ### Staying current
 
 An application added without running `generate-scripts` again would be in no build configuration, and would silently

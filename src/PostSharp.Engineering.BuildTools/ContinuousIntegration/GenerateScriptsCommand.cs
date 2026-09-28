@@ -9,6 +9,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -38,28 +39,59 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 return false;
             }
 
-            // The projects are evaluated in the configuration of the build that publishes the archives, because a target
+            // The projects are evaluated in the configuration of each build that publishes the archives, because a target
             // framework, an assembly name or a skip reason can depend on it.
-            if ( !TestArchives.TryGetSourceConfiguration( product, out var configuration ) )
-            {
-                context.Console.WriteError(
-                    $"TestArchivesSourceDependency names the build configuration '{product.TestArchivesSourceDependency.ConfigurationId}', which the product does not declare." );
+            var sourceConfigurations = new List<BuildConfiguration>();
 
+            foreach ( var source in product.EffectiveTestArchivesSourceDependencies )
+            {
+                if ( !TestArchives.TryGetSourceConfiguration( product, source, out var sourceConfiguration ) )
+                {
+                    context.Console.WriteError(
+                        $"The test archives are published by the build configuration '{source.ConfigurationId}', which the product does not declare." );
+
+                    return false;
+                }
+
+                if ( !sourceConfigurations.Contains( sourceConfiguration ) )
+                {
+                    sourceConfigurations.Add( sourceConfiguration );
+                }
+            }
+
+            if ( !TestArchives.TryValidateSources( product, context.Console ) )
+            {
                 return false;
             }
 
-            if ( !TestArchives.TryValidateSource( product, context.Console ) )
+            IReadOnlyList<TestApplication>? applications = null;
+
+            foreach ( var sourceConfiguration in sourceConfigurations )
             {
-                return false;
+                if ( !TestApplicationDiscovery.TryDiscover( context, sourceConfiguration, out var sourceApplications ) )
+                {
+                    return false;
+                }
+
+                // The list of the archives, which 'Build.ps1 build' checks, is shared by every source, so they must write the
+                // same archives.
+                if ( applications != null
+                     && !applications.Select( a => a.ArchiveName )
+                         .Order( StringComparer.Ordinal )
+                         .SequenceEqual( sourceApplications.Select( a => a.ArchiveName ).Order( StringComparer.Ordinal ), StringComparer.Ordinal ) )
+                {
+                    context.Console.WriteError(
+                        $"The builds that publish the test archives do not write the same archives: the '{sourceConfiguration}' build configuration "
+                        + $"writes a different set than the '{sourceConfigurations[0]}' one. The list of the archives is shared by all of them." );
+
+                    return false;
+                }
+
+                applications ??= sourceApplications;
             }
 
-            if ( !TestApplicationDiscovery.TryDiscover( context, configuration, out var applications ) )
-            {
-                return false;
-            }
-
-            generatedConfigurations = TestArchiveCells.Create( product, applications );
-            TestArchives.WriteList( context, applications );
+            generatedConfigurations = TestArchiveCells.Create( product, applications! );
+            TestArchives.WriteList( context, applications! );
         }
 
         // TeamCity

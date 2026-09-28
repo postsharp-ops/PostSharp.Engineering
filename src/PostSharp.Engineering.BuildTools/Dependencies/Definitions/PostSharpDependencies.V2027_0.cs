@@ -85,16 +85,12 @@ public static partial class PostSharpDependencies
             // related family; listing it here is what gives the PostSharp build a TeamCity snapshot dependency on
             // the Backstage build and what puts the Backstage artifacts among the package sources of the generated
             // nuget.config, so that the compiler restores the packages of the build it was chained to rather than
-            // from a feed they are not published to.
-            //
-            // The Release build of PostSharp is the build that the tests run on, and it has the public version, so that
-            // the public build can be compared with it. It therefore takes the public build of Backstage, like the public
-            // build of PostSharp: the packages of the two PostSharp builds then depend on the same Backstage version.
+            // from a feed they are not published to. Each build configuration of PostSharp takes the same configuration of
+            // Backstage: the Release pipeline and the Public pipeline of PostSharp are tested separately.
             Dependencies =
             [
                 DevelopmentDependencies.PostSharpEngineering,
-                BackstageDependencies.V2027_0.Backstage.ToDependency(
-                    new ConfigurationSpecific<BuildConfiguration>( BuildConfiguration.Debug, BuildConfiguration.Public, BuildConfiguration.Public ) )
+                BackstageDependencies.V2027_0.Backstage.ToDependency()
             ],
             // Since 2027.0, PostSharp.Sdk holds the reference assemblies that add-ins compile against, and the
             // PostSharp.Compiler.* packages only depend on it. PostSharp.Build.Tools is a private package: the MSBuild SDK

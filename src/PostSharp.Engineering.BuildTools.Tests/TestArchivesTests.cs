@@ -485,12 +485,12 @@ public sealed class TestArchivesTests : IDisposable
         var console = new ConsoleHelper();
 
         Assert.True(
-            TestArchives.TryValidateSource(
+            TestArchives.TryValidateSources(
                 CreateProduct( "build -p:PublishTestArchive=true", ["+:artifacts/tests/*.zip=>artifacts/tests"] ),
                 console ) );
 
-        Assert.False( TestArchives.TryValidateSource( CreateProduct( "build", ["+:artifacts/tests/*.zip=>artifacts/tests"] ), console ) );
-        Assert.False( TestArchives.TryValidateSource( CreateProduct( "build -p:PublishTestArchive=true", null ), console ) );
+        Assert.False( TestArchives.TryValidateSources( CreateProduct( "build", ["+:artifacts/tests/*.zip=>artifacts/tests"] ), console ) );
+        Assert.False( TestArchives.TryValidateSources( CreateProduct( "build -p:PublishTestArchive=true", null ), console ) );
     }
 
     private BuildSettings Settings( BuildConfiguration configuration )

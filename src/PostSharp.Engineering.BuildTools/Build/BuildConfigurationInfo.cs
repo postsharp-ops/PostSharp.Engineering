@@ -35,6 +35,13 @@ namespace PostSharp.Engineering.BuildTools.Build;
 /// nobody builds the configuration locally and gets something other than what ships. <c>sign</c> and the publishing
 /// commands still accept it.
 /// </param>
+/// <param name="DeploymentDependencies">
+/// The build configurations of the same product that the deployments of this configuration wait for, besides its build,
+/// or <c>null</c> for none. A product whose shipped build is tested by a test matrix of its own names the quality gate of
+/// that matrix here, so that nothing is deployed before its tests pass. A dependency without <see cref="SnapshotDependency.ArtifactRules"/>
+/// downloads nothing, which is what an ordering dependency on a quality gate needs; the deployment takes its artifacts from
+/// the build alone. The standalone deployment (<see cref="ExportsToTeamCityDeployWithoutDependencies"/>) ignores them.
+/// </param>
 /// <param name="CustomBuildConfiguration">
 /// The build configuration that replaces the standard <b>Build</b> action, or <c>null</c> for the standard one. A
 /// product whose public build consumes what an earlier build configuration of the same product produced -- PostSharp
@@ -76,4 +83,5 @@ public record BuildConfigurationInfo(
     TimeSpan? SwapTimeout = null,
     AdditionalCiBuildConfiguration? CustomBuildConfiguration = null,
     VersionKind? VersionKind = null,
-    bool SupportsBuild = true );
+    bool SupportsBuild = true,
+    SnapshotDependency[]? DeploymentDependencies = null );

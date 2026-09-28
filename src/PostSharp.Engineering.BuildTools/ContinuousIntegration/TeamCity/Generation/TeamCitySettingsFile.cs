@@ -279,8 +279,9 @@ internal static class TeamCitySettingsFile
         }
 
         // Add product-defined. Those naming a project folder are grouped into a sub-project of that name, so that
-        // a product with dozens of test cells does not present them as one flat list; the rest sit at the root.
-        var folderedConfigurations = new Dictionary<string, List<TeamCityBuildConfiguration>>( StringComparer.Ordinal );
+        // a product with dozens of test cells does not present them as one flat list; the rest sit at the root. A folder
+        // path separated by '/' nests the sub-projects.
+        var rootFolder = new ProjectFolderNode( "", "" );
 
         foreach ( var additional in ciBuildConfigurations )
         {
@@ -293,24 +294,19 @@ internal static class TeamCitySettingsFile
             }
             else
             {
-                if ( !folderedConfigurations.TryGetValue( additional.ProjectFolder, out var configurationsInFolder ) )
+                var folder = rootFolder;
+
+                foreach ( var name in additional.ProjectFolder.Split( '/' ) )
                 {
-                    configurationsInFolder = [];
-                    folderedConfigurations.Add( additional.ProjectFolder, configurationsInFolder );
+                    folder = folder.GetOrAddChild( name );
                 }
 
-                configurationsInFolder.Add( configuration );
+                folder.Configurations.Add( configuration );
+                subProjectConfigurations.Add( configuration );
             }
         }
 
-        foreach ( var folder in folderedConfigurations )
-        {
-            // The object name is the folder name with everything a Kotlin identifier cannot carry removed.
-            var objectName = new string( folder.Key.Where( char.IsLetterOrDigit ).ToArray() );
-
-            subProjects.Add( new TeamCityProject( objectName, folder.Key, folder.Value.ToArray(), [] ) );
-            subProjectConfigurations.AddRange( folder.Value );
-        }
+        subProjects.AddRange( rootFolder.Children.Select( c => c.ToProject() ) );
 
         // Add from extensions.
         foreach ( var extension in product.Extensions )
@@ -625,6 +621,18 @@ internal static class TeamCitySettingsFile
         var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration
             .Where( d => d.ArtifactRules != null )
             .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] );
+
+        // The build configurations of the same product that the product makes the deployments wait for, typically a quality
+        // gate. They download nothing unless they say so.
+        if ( !isStandalone && configurationInfo.DeploymentDependencies != null )
+        {
+            snapshotDependencies = snapshotDependencies.Concat(
+                configurationInfo.DeploymentDependencies.Select(
+                    d => d.ToTeamCitySnapshotDependency(
+                        d.TryGetObjectName( product, productProperties.CiBuildConfigurations )!,
+                        null,
+                        d.ReuseLastSuccessfulBuild ?? false ) ) );
+        }
 
         // Only the primary default deployment carries the cross-product deployment dependencies; the standalone variant
         // and additional named deployments depend on the Build configuration alone.
@@ -1276,5 +1284,60 @@ internal static class TeamCitySettingsFile
                 }
             }
         }
+    }
+    /// <summary>
+    /// A folder of <see cref="AdditionalCiBuildConfiguration.ProjectFolder"/>, which becomes a TeamCity sub-project.
+    /// </summary>
+    private sealed class ProjectFolderNode
+    {
+        private readonly List<ProjectFolderNode> _children = [];
+
+        public ProjectFolderNode( string name, string parentObjectName )
+        {
+            this.Name = name;
+
+            // The object name is the path of the folder with everything a Kotlin identifier cannot carry removed. It carries
+            // the path because every project object is declared at the top level of the settings file, so 'Unit Tests' in
+            // two folders needs two names.
+            this.Segment = new string( name.Where( char.IsLetterOrDigit ).ToArray() );
+            this.ObjectName = parentObjectName + this.Segment;
+        }
+
+        public string Name { get; }
+
+        public string Segment { get; }
+
+        public string ObjectName { get; }
+
+        public List<TeamCityBuildConfiguration> Configurations { get; } = [];
+
+        public IReadOnlyList<ProjectFolderNode> Children => this._children;
+
+        public ProjectFolderNode GetOrAddChild( string name )
+        {
+            var child = this._children.FirstOrDefault( c => string.Equals( c.Name, name, StringComparison.Ordinal ) );
+
+            if ( child == null )
+            {
+                if ( string.IsNullOrWhiteSpace( name ) )
+                {
+                    throw new InvalidOperationException( "A project folder has an empty segment." );
+                }
+
+                child = new ProjectFolderNode( name, this.ObjectName );
+                this._children.Add( child );
+            }
+
+            return child;
+        }
+
+        public TeamCityProject ToProject()
+            => new(
+                this.ObjectName,
+                this.Name,
+                this.Configurations.ToArray(),
+                [],
+                this._children.Select( c => c.ToProject() ).ToArray(),
+                this.Segment );
     }
 }

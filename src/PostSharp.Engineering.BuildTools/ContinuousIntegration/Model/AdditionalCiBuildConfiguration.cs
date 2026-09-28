@@ -89,7 +89,8 @@ public abstract class AdditionalCiBuildConfiguration
     /// <summary>
     /// Gets the display name of the sub-project this configuration belongs to, or <c>null</c> to sit at the root
     /// of the generated project. Configurations that share a folder are grouped into one TeamCity sub-project, so
-    /// that a product with dozens of test cells does not present them as one flat list.
+    /// that a product with dozens of test cells does not present them as one flat list. A path separated by <c>/</c>,
+    /// such as <c>Public/Unit Tests</c>, nests the sub-projects.
     /// </summary>
     public string? ProjectFolder { get; init; }
 

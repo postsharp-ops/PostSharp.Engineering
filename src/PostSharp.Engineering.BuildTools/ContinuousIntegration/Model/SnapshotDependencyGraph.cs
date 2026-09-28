@@ -60,6 +60,8 @@ internal static class SnapshotDependencyGraph
             var configurationInfo = product.Configurations[configuration];
             var customBuildConfiguration = configurationInfo.CustomBuildConfiguration;
 
+            success &= TryValidateDeploymentDependencies( configuration, configurationInfo );
+
             if ( customBuildConfiguration == null )
             {
                 // The stock build step runs 'Build.ps1 test', which refuses a configuration that does not support the build.
@@ -92,6 +94,26 @@ internal static class SnapshotDependencyGraph
         }
 
         return success & TryValidateCycles();
+
+        // A deployment is no node of the graph: nothing depends on it, so it cannot close a cycle. Its targets must exist.
+        bool TryValidateDeploymentDependencies( BuildConfiguration configuration, BuildConfigurationInfo configurationInfo )
+        {
+            var isValid = true;
+
+            foreach ( var dependency in configurationInfo.DeploymentDependencies ?? [] )
+            {
+                if ( dependency.TryGetObjectName( product, configurations ) == null )
+                {
+                    console.WriteError(
+                        $"The deployments of the '{configuration}' build configuration depend on '{dependency}', which is neither an "
+                        + "additional build configuration of the product nor an exported build configuration." );
+
+                    isValid = false;
+                }
+            }
+
+            return isValid;
+        }
 
         bool TryValidateReplacement(
             AdditionalCiBuildConfiguration customBuildConfiguration,
