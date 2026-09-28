@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.Build.Files.NuGet;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
@@ -143,7 +144,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 solutionsToBuild = product.Solutions;
             }
 
-            var solutionSettings = TestArchives.AddBuildProperties( product, settings );
+            var solutionSettings = TestArchives.AddBuildProperties( product, settings, TeamCityHelper.IsTeamCityBuild( settings ) );
 
             foreach ( var solution in solutionsToBuild )
             {

@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Build.Testing;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -358,8 +359,9 @@ public sealed class TestArchivesTests : IDisposable
 
     /// <summary>
     /// The build of the solutions writes the archives when the product publishes them, and only then, so that a product
-    /// without archives does not spend the time of a publication on every test project. A value given on the command line
-    /// is kept.
+    /// without archives does not spend the time of a publication on every test project. On TeamCity, only the build given
+    /// --test-archives writes them, so that the builds that the test agents do not download from do not spend that time
+    /// either. A value given on the command line is kept.
     /// </summary>
     [Fact]
     public void TheBuildWritesTheArchivesOfAProductThatPublishesThem()
@@ -367,13 +369,37 @@ public sealed class TestArchivesTests : IDisposable
         var withArchives = new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }] };
         var withoutArchives = new Product( MetalamaDependencies.V2026_1.Metalama );
 
-        Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, new BuildSettings() ).Properties["PublishTestArchive"] );
-        Assert.False( TestArchives.AddBuildProperties( withoutArchives, new BuildSettings() ).Properties.ContainsKey( "PublishTestArchive" ) );
+        Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, new BuildSettings(), false ).Properties["PublishTestArchive"] );
+        Assert.False( TestArchives.AddBuildProperties( withoutArchives, new BuildSettings(), false ).Properties.ContainsKey( "PublishTestArchive" ) );
+
+        // On TeamCity, only with --test-archives.
+        Assert.False( TestArchives.AddBuildProperties( withArchives, new BuildSettings(), true ).Properties.ContainsKey( "PublishTestArchive" ) );
+        Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, new BuildSettings { PublishTestArchives = true }, true ).Properties["PublishTestArchive"] );
 
         var explicitSettings = new BuildSettings().WithAdditionalProperties(
             ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "false" ) );
 
-        Assert.Equal( "false", TestArchives.AddBuildProperties( withArchives, explicitSettings ).Properties["PublishTestArchive"] );
+        Assert.Equal( "false", TestArchives.AddBuildProperties( withArchives, explicitSettings, false ).Properties["PublishTestArchive"] );
+    }
+
+    /// <summary>
+    /// Only the product build configuration that TestArchivesSourceDependency names writes and publishes the archives. When
+    /// it names an additional build configuration, no product build configuration does.
+    /// </summary>
+    [Fact]
+    public void OnlyTheSourceConfigurationPublishesTheArchives()
+    {
+        var solutions = new Solution[] { new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true } };
+        var fromPublic = new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = solutions };
+        var fromAdditional = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            Solutions = solutions, TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" )
+        };
+
+        Assert.True( TestArchives.IsSourceConfiguration( fromPublic, BuildConfiguration.Public ) );
+        Assert.False( TestArchives.IsSourceConfiguration( fromPublic, BuildConfiguration.Release ) );
+        Assert.False( TestArchives.IsSourceConfiguration( fromAdditional, BuildConfiguration.Public ) );
+        Assert.False( TestArchives.IsSourceConfiguration( new Product( MetalamaDependencies.V2026_1.Metalama ), BuildConfiguration.Public ) );
     }
 
     public void Dispose() => this._directory.Dispose();

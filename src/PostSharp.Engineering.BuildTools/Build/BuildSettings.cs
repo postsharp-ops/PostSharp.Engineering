@@ -160,6 +160,12 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--no-sign" )]
         public bool NoSign { get; set; }
 
+        [Description(
+            "Packs the test applications into test archives. A local build does it by default; a build on TeamCity does it only with this option, "
+            + "which generate-scripts gives to the build configuration that the test agents download the archives from." )]
+        [CommandOption( "--test-archives" )]
+        public bool PublishTestArchives { get; set; }
+
         [Description( "Creates a zip file with all artifacts" )]
         [CommandOption( "--zip" )]
         public bool CreateZip { get; set; }

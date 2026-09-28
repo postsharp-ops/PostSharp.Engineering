@@ -37,12 +37,23 @@ internal static class TestArchives
     /// <summary>
     /// Adds <c>PublishTestArchive=true</c> to the properties of the build of the solutions of a product that publishes test
     /// archives, unless the command line sets it. A build in the IDE does not set it, so it does not spend the time of a
-    /// publication on every build.
+    /// publication on every build. On TeamCity, only the build that the test agents download the archives from writes them:
+    /// it has <see cref="BuildSettings.PublishTestArchives"/>, which <c>generate-scripts</c> gives it.
     /// </summary>
-    public static BuildSettings AddBuildProperties( Product product, BuildSettings settings )
-        => product.PublishesTestArchives && !settings.Properties.ContainsKey( "PublishTestArchive" )
+    public static BuildSettings AddBuildProperties( Product product, BuildSettings settings, bool isTeamCityBuild )
+        => product.PublishesTestArchives
+           && !settings.Properties.ContainsKey( "PublishTestArchive" )
+           && (settings.PublishTestArchives || !isTeamCityBuild)
             ? settings.WithAdditionalProperties( ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "true" ) )
             : settings;
+
+    /// <summary>
+    /// Determines whether a build configuration of the product is the one that <see cref="Product.TestArchivesSourceDependency"/>
+    /// names, which writes and publishes the archives. An additional build configuration that the dependency names does it
+    /// with the arguments and the artifact rules that the product gives it.
+    /// </summary>
+    public static bool IsSourceConfiguration( Product product, BuildConfiguration configuration )
+        => product.PublishesTestArchives && product.TestArchivesSourceDependency.Configuration == configuration;
 
     /// <summary>
     /// Gets the build configuration of the build that publishes the archives, <see cref="Product.TestArchivesSourceDependency"/>: the

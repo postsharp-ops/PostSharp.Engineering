@@ -79,8 +79,9 @@ internal static class TeamCitySettingsFile
             publishedArtifactRules += $@"\n+:{productProperties.LogsDirectory}/**/*=>logs";
             publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
 
-            // The build configurations of the test agents download them one by one.
-            if ( product.PublishesTestArchives )
+            // The build configurations of the test agents download them one by one, from the build that TestArchivesSourceDependency
+            // names. An additional build configuration that it names publishes them with the artifact rules of the product.
+            if ( TestArchives.IsSourceConfiguration( product, configuration ) )
             {
                 publishedArtifactRules += $@"\n+:{TestArchives.Directory}/*.zip=>{TestArchives.Directory}";
             }
@@ -1042,7 +1043,13 @@ internal static class TeamCitySettingsFile
                     dockerSpec: product.DockerSpec ) );
         }
 
-        teamCityBuildSteps.Add( new EngineeringBuildBuildStep( configurationProperties.Configuration, true, product.DockerSpec, context.BuildTimeout ) );
+        teamCityBuildSteps.Add(
+            new EngineeringBuildBuildStep(
+                configurationProperties.Configuration,
+                true,
+                product.DockerSpec,
+                context.BuildTimeout,
+                TestArchives.IsSourceConfiguration( product, configurationProperties.Configuration ) ) );
 
         if ( !product.UseDocker )
         {
