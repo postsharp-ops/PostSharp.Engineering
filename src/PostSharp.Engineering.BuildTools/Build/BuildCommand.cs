@@ -38,11 +38,33 @@ namespace PostSharp.Engineering.BuildTools.Build
             }
         }
 
+        /// <summary>
+        /// Reports an error when the product does not support building the configuration (<see cref="BuildConfigurationInfo.SupportsBuild"/>).
+        /// </summary>
+        internal static bool CheckSupportsBuild( BuildContext context, BuildConfiguration configuration )
+        {
+            if ( context.Product.Configurations[configuration].SupportsBuild )
+            {
+                return true;
+            }
+
+            context.Console.WriteError(
+                $"The {configuration} configuration of {context.Product.ProductName} cannot be built: its build configuration on the build server "
+                + "produces it otherwise (CustomBuildConfiguration). See SupportsBuild in the product definition." );
+
+            return false;
+        }
+
         public static bool Execute( BuildContext context, BuildSettings settings )
         {
             var product = context.Product;
             var configuration = settings.BuildConfiguration;
             var buildConfigurationInfo = product.Configurations[configuration];
+
+            if ( !CheckSupportsBuild( context, configuration ) )
+            {
+                return false;
+            }
 
             // Skip if we have a date tag and a fresh build.
             DateTime dateTag;

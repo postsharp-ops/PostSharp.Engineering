@@ -533,7 +533,10 @@ classDiagram
 
 - **Product**: Root configuration representing a repository
 - **Solution**: A buildable unit (solution, project, or script)
-- **BuildConfigurationInfo**: Configuration-specific settings (Debug, Release, Public)
+- **BuildConfigurationInfo**: Configuration-specific settings (Debug, Release, Public). `SupportsBuild = false` declares
+  that a configuration cannot be built with `Build.ps1 build`, `test` or `prepare`, because its build configuration on
+  the build server (`CustomBuildConfiguration`) produces it otherwise; for example, a public build that signs the
+  packages of the tested Release build instead of building again.
 - **DependencyDefinition**: Reference to another repository/product
 - **Publisher**: Deploys artifacts to feeds, marketplaces, or servers
 - **Swapper**: Blue/green deployment slot swapping

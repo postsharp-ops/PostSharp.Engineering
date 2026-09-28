@@ -62,6 +62,16 @@ internal static class SnapshotDependencyGraph
 
             if ( customBuildConfiguration == null )
             {
+                // The stock build step runs 'Build.ps1 test', which refuses a configuration that does not support the build.
+                if ( !configurationInfo.SupportsBuild && configurationInfo.ExportsToTeamCityBuild )
+                {
+                    console.WriteError(
+                        $"The '{configuration}' build configuration does not support the build (SupportsBuild) but is exported to TeamCity "
+                        + "without a CustomBuildConfiguration, so its generated build step would fail." );
+
+                    success = false;
+                }
+
                 continue;
             }
 

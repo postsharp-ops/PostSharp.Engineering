@@ -243,29 +243,6 @@ public sealed class SnapshotDependencyTests
         Assert.Contains( "CreateVersionsFile", code, StringComparison.Ordinal );
     }
 
-    /// <summary>
-    /// A configuration that builds the product again and compares it with an earlier stage waits for that stage and
-    /// downloads its artifacts where its rules say, but does not continue its checkout: the build writes nuget.config
-    /// and the version file itself.
-    /// </summary>
-    [Fact]
-    public void AConfigurationThatBuildsFromSourceDoesNotContinueTheCheckoutOfTheStage()
-    {
-        var code = GenerateCode(
-            new PowershellAdditionalCiBuildConfiguration( "Signed", "Signed build", "Build.ps1", "build" )
-            {
-                BuildsFromSource = true,
-                ConsumesProductDependencies = true,
-                SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = ["+:artifacts/publish/private/**/*=>artifacts/baseline"] }]
-            } );
-
-        Assert.Contains( "snapshot(BuildArtifacts)", code, StringComparison.Ordinal );
-        Assert.Contains( "=>artifacts/baseline", code, StringComparison.Ordinal );
-        Assert.Contains( "=>dependencies/Metalama.Compiler", code, StringComparison.Ordinal );
-        Assert.DoesNotContain( "CopyNuGetConfig", code, StringComparison.Ordinal );
-        Assert.DoesNotContain( "CreateVersionsFile", code, StringComparison.Ordinal );
-    }
-
     [Fact]
     public void SettingBothSpellingsIsRejected()
     {

@@ -20,6 +20,13 @@ internal class PrepareCommand : BaseCommand<BuildSettings>
         BuildSettings settings,
         [NotNullWhen( true )] out DependenciesConfigurationFile? dependenciesOverrideFile )
     {
+        if ( !BuildCommand.CheckSupportsBuild( context, settings.BuildConfiguration ) )
+        {
+            dependenciesOverrideFile = null;
+
+            return false;
+        }
+
         if ( !settings.NoDependencies )
         {
             if ( !CleanCommand.Execute( context, settings ) )
