@@ -153,11 +153,11 @@ project: it publishes what the build has just written. To keep the archives smal
 
 | Field | Meaning |
 |---|---|
-| `Kind` | `mtp` for a Microsoft.Testing.Platform application, `exe` for any other executable. |
+| `Kind` | `mtp` for a Microsoft.Testing.Platform application, `exe` for any other executable, `ps1` for a PowerShell script that runs the tests itself. |
 | `Entry` | The file to start, relative to the root of the archive. A `.dll` is started with `dotnet exec`, anything else directly. The target writes the `.dll` of a .NET application, because the application host of the build is for the operating system of the build, and the `.exe` of a .NET Framework application. |
 | `Extensions` | The extensions registered in the application, from the `TestingPlatformBuilderHook` items of its build. |
 | `Arguments` | `exe` only. The command line of the application. `{ResultsDirectory}` is replaced with the directory of its results. |
-| `ReportType`, `ReportFile` | `exe` only. The TeamCity `importData` type of the report, such as `gtest`, and its path, in which `{ResultsDirectory}` is replaced. |
+| `ReportType`, `ReportFile` | `exe` and `ps1` only. The TeamCity `importData` type of the reports, such as `gtest`, and their path, in which `{ResultsDirectory}` is replaced and the file name can contain wildcards. |
 | `Prepare` | The file name of the prepare script at the root of the archive, from `TestApplicationPrepareScript`, or `$null`. |
 | `Artifacts` | The build artifacts that the prepare script reads, from `TestApplicationArtifacts`. |
 
@@ -176,6 +176,31 @@ A product writes an archive of the `exe` kind itself, for example for a native t
     ReportFile = '{ResultsDirectory}/results.xml'
 }
 ```
+
+### Archives of the `ps1` kind
+
+A test that is not a .NET application, such as a native test executable that needs files put beside it before it runs,
+is described by a project of its solution that sets `TestApplicationKind` to `ps1`. The archive is still a zip in
+`artifacts/tests` with its `test.psd1`, but instead of a publication of the project it holds a PowerShell script, its
+entry, and the files that the project lists:
+
+```xml
+<PropertyGroup>
+  <TestApplicationKind>ps1</TestApplicationKind>
+  <TestApplicationEntry>RunTest.ps1</TestApplicationEntry>
+  <TestApplicationReportType>gtest</TestApplicationReportType>
+  <TestApplicationReportFile>{ResultsDirectory}/*.xml</TestApplicationReportFile>
+</PropertyGroup>
+<ItemGroup>
+  <TestApplicationFile Include="bin/x64/Release/MyProduct.Native.Tests.exe" ArchivePath="x64/MyProduct.Native.Tests.exe" />
+</ItemGroup>
+```
+
+`RunTests.ps1` runs the script with the PowerShell that runs it, as `RunTest.ps1 -Platform <platform> -ResultsDirectory
+<directory>`, like a [Docker test](docker-tests.md). The script runs the tests and writes its reports into the results
+directory, and the runner imports the reports that `ReportFile` names. A zero exit code is success. The other properties
+of the application, such as the platforms, the tags, a prepare script and the artifacts it reads, apply as they do to a
+test application, and `generate-scripts` plans the archive as it plans any other.
 
 ### Running the archives
 

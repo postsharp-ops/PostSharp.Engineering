@@ -35,6 +35,18 @@
         Items:
             TestApplicationTag              A tag that RunTests.ps1 -Tags and -ExcludeTags select the application by.
 
+        An archive of the ps1 kind (TestApplicationKind=ps1) is described by a project that is not a test application, for
+        tests that are not a .NET application, such as a native test executable. RunTests.ps1 runs its entry, a PowerShell
+        script, with -Platform and -ResultsDirectory, and the script runs the tests. The project gives the archive its
+        files instead of a publication of its own output:
+            TestApplicationKind             ps1. The default is a Microsoft.Testing.Platform application.
+            TestApplicationEntry            The script, relative to the project. It is packed at the root of the archive.
+            TestApplicationReportType       The TeamCity importData type of the reports that the script writes, such as gtest.
+            TestApplicationReportFile       Their path, in which {ResultsDirectory} is replaced, and the file name can contain
+                                            wildcards, for example '{ResultsDirectory}/*.xml'.
+            TestApplicationFile (items)     The files of the archive. The ArchivePath metadata is the path of the file in the
+                                            archive, the file name at the root by default.
+
         Properties of the archive:
             PublishTestArchive              true to produce the archive.
             TestArchiveDirectory            Where the archives go. Defaults to artifacts/tests under the directory of Build.ps1.
@@ -66,7 +78,7 @@
     -->
     <Target Name="PublishTestArchive"
             AfterTargets="Build"
-            Condition="'$(PublishTestArchive)' == 'true' AND '$(IsTestingPlatformApplication)' == 'true' AND '$(TargetFramework)' != '' AND '$(_IsPublishingTestArchive)' != 'true'">
+            Condition="'$(PublishTestArchive)' == 'true' AND ('$(IsTestingPlatformApplication)' == 'true' OR '$(TestApplicationKind)' == 'ps1') AND '$(TargetFramework)' != '' AND '$(_IsPublishingTestArchive)' != 'true'">
 
         <Error Text="The test archive of '$(MSBuildProjectName)' cannot be written: TestArchiveDirectory is not set, and there is no Build.ps1 above '$(MSBuildProjectDirectory)'."
                Condition="'$(TestArchiveDirectory)' == ''" />
@@ -81,6 +93,15 @@
                  the application host of the build is for the operating system of the build and not of the test agent. -->
             <_TestArchiveEntry Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">$(TargetName).exe</_TestArchiveEntry>
             <_TestArchiveEntry Condition="'$(TargetFrameworkIdentifier)' != '.NETFramework'">$(TargetFileName)</_TestArchiveEntry>
+
+            <_TestArchiveKind>mtp</_TestArchiveKind>
+            <_TestArchiveKind Condition="'$(TestApplicationKind)' == 'ps1'">ps1</_TestArchiveKind>
+            <_TestArchiveEntryPath Condition="'$(_TestArchiveKind)' == 'ps1'">$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(TestApplicationEntry)'))</_TestArchiveEntryPath>
+            <_TestArchiveEntry Condition="'$(_TestArchiveKind)' == 'ps1'">$([System.IO.Path]::GetFileName('$(TestApplicationEntry)'))</_TestArchiveEntry>
+            <_TestArchiveReportType>%24null</_TestArchiveReportType>
+            <_TestArchiveReportType Condition="'$(TestApplicationReportType)' != ''">%27$(TestApplicationReportType.Replace("'", "''"))%27</_TestArchiveReportType>
+            <_TestArchiveReportFile>%24null</_TestArchiveReportFile>
+            <_TestArchiveReportFile Condition="'$(TestApplicationReportFile)' != ''">%27$(TestApplicationReportFile.Replace("'", "''"))%27</_TestArchiveReportFile>
 
             <_TestArchiveRunAlone>%24false</_TestArchiveRunAlone>
             <_TestArchiveRunAlone Condition="'$(TestApplicationRunAlone)' == 'true'">%24true</_TestArchiveRunAlone>
@@ -130,7 +151,7 @@
             <_TestArchiveManifestLine Include="%20%20%20%20Name = %27$(AssemblyName)%27" />
             <_TestArchiveManifestLine Include="%20%20%20%20TargetFramework = %27$(TargetFramework)%27" />
             <_TestArchiveManifestLine Include="%20%20%20%20RuntimeIdentifier = %27$(TestApplicationRuntimeIdentifier)%27" />
-            <_TestArchiveManifestLine Include="%20%20%20%20Kind = %27mtp%27" />
+            <_TestArchiveManifestLine Include="%20%20%20%20Kind = %27$(_TestArchiveKind)%27" />
             <_TestArchiveManifestLine Include="%20%20%20%20Entry = %27$(_TestArchiveEntry)%27" />
             <_TestArchiveManifestLine Include="%20%20%20%20Platforms = $(_TestArchivePlatformList)" />
             <_TestArchiveManifestLine Include="%20%20%20%20Extensions = $(_TestArchiveExtensionList)" />
@@ -140,6 +161,8 @@
             <_TestArchiveManifestLine Include="%20%20%20%20Skip = $([MSBuild]::Escape('$(_TestArchiveSkip)'))" />
             <_TestArchiveManifestLine Include="%20%20%20%20Prepare = $([MSBuild]::Escape('$(_TestArchivePrepare)'))" />
             <_TestArchiveManifestLine Include="%20%20%20%20Artifacts = $([MSBuild]::Escape('$(_TestArchiveArtifactList)'))" />
+            <_TestArchiveManifestLine Include="%20%20%20%20ReportType = $([MSBuild]::Escape('$(_TestArchiveReportType)'))" Condition="'$(_TestArchiveKind)' == 'ps1'" />
+            <_TestArchiveManifestLine Include="%20%20%20%20ReportFile = $([MSBuild]::Escape('$(_TestArchiveReportFile)'))" Condition="'$(_TestArchiveKind)' == 'ps1'" />
             <_TestArchiveManifestLine Include="}" />
         </ItemGroup>
 
@@ -150,7 +173,22 @@
              evaluated from the directory of the archive. NoBuild publishes the output that the build has just written. -->
         <MSBuild Projects="$(MSBuildProjectFullPath)"
                  Targets="Publish"
-                 Properties="NoBuild=true;_IsPublishingTestArchive=true;PublishDir=$(_TestArchivePublishDirectory);PublishDocumentationFile=false;PublishReferencesDocumentationFiles=false;SatelliteResourceLanguages=$(_TestArchiveSatelliteResourceLanguages)" />
+                 Properties="NoBuild=true;_IsPublishingTestArchive=true;PublishDir=$(_TestArchivePublishDirectory);PublishDocumentationFile=false;PublishReferencesDocumentationFiles=false;SatelliteResourceLanguages=$(_TestArchiveSatelliteResourceLanguages)"
+                 Condition="'$(_TestArchiveKind)' == 'mtp'" />
+
+        <!-- An archive of the ps1 kind holds its script and the files that the project gives it. -->
+        <Error Text="The test archive of '$(MSBuildProjectName)' is of the ps1 kind, and its entry '$(TestApplicationEntry)' does not exist."
+               Condition="'$(_TestArchiveKind)' == 'ps1' AND ('$(TestApplicationEntry)' == '' OR !Exists('$(_TestArchiveEntryPath)'))" />
+        <ItemGroup Condition="'$(_TestArchiveKind)' == 'ps1'">
+            <_TestArchiveContent Include="@(TestApplicationFile)" />
+            <_TestArchiveContent Condition="'%(_TestArchiveContent.ArchivePath)' == ''">
+                <ArchivePath>%(Filename)%(Extension)</ArchivePath>
+            </_TestArchiveContent>
+        </ItemGroup>
+        <Error Text="The file '%(_TestArchiveContent.FullPath)' of the test archive of '$(MSBuildProjectName)' does not exist."
+               Condition="'%(_TestArchiveContent.FullPath)' != '' AND !Exists('%(_TestArchiveContent.FullPath)')" />
+        <Copy SourceFiles="$(_TestArchiveEntryPath)" DestinationFolder="$(_TestArchivePublishDirectory)" Condition="'$(_TestArchiveKind)' == 'ps1'" />
+        <Copy SourceFiles="@(_TestArchiveContent)" DestinationFiles="@(_TestArchiveContent->'$(_TestArchivePublishDirectory)%(ArchivePath)')" Condition="'$(_TestArchiveKind)' == 'ps1'" />
 
         <PropertyGroup Condition="'$(TestApplicationPrepareScript)' != ''">
             <_TestArchivePrepareScriptPath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(TestApplicationPrepareScript)'))</_TestArchivePrepareScriptPath>
