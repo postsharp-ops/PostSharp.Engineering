@@ -299,11 +299,13 @@ public sealed class TestArchivesTests : IDisposable
                </PropertyGroup>
                <ItemGroup>
                  <TestApplicationFile Include="data.txt" ArchivePath="x64\data.txt" />
+                 <TestApplicationFile Include="readme.txt" />
                </ItemGroup>
              </Project>
              """ );
 
         File.WriteAllText( Path.Combine( projectDirectory, "data.txt" ), "native" );
+        File.WriteAllText( Path.Combine( projectDirectory, "readme.txt" ), "" );
 
         // The script reads the file that the project put into the archive, and writes one report per run.
         File.WriteAllText(
@@ -339,6 +341,9 @@ public sealed class TestArchivesTests : IDisposable
         {
             Assert.NotNull( zip.GetEntry( "RunTest.ps1" ) );
             Assert.NotNull( zip.GetEntry( "x64/data.txt" ) );
+
+            // A file without ArchivePath is at the root of the archive.
+            Assert.NotNull( zip.GetEntry( "readme.txt" ) );
             Assert.Null( zip.GetEntry( "Native.dll" ) );
         }
 
