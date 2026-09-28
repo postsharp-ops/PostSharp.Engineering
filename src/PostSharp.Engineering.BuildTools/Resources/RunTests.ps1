@@ -211,7 +211,7 @@ function Read-ArchiveManifest([string]$archivePath)
 
     $kind = if ($manifest.Kind) { $manifest.Kind } else { 'mtp' }
 
-    if ($kind -notin 'mtp', 'exe')
+    if ($kind -notin 'mtp', 'exe', 'ps1')
     {
         return @{ Error = "The manifest declares the unknown Kind '$kind'." }
     }
@@ -425,12 +425,26 @@ function Get-ApplicationCommand([hashtable]$run, [string]$dotnet)
             $arguments += '--ignore-exit-code', "$ZeroTestsExitCode"
         }
     }
+    elseif ($manifest.Kind -eq 'ps1')
+    {
+        # A script that runs the tests itself. It is told the platform and where to write its results, as the Docker tests
+        # are told the platform.
+        $arguments += '-Platform', $Platform, '-ResultsDirectory', $run.ResultsDirectory
+    }
     else
     {
         $arguments += $manifest.Arguments | Where-Object { $_ } | ForEach-Object { $_.Replace('{ResultsDirectory}', $run.ResultsDirectory) }
     }
 
     $arguments += $ApplicationArguments | Where-Object { $_ }
+
+    if ($manifest.Kind -eq 'ps1')
+    {
+        # The PowerShell that runs this script, so that the application does not depend on what the PATH finds.
+        $powershell = (Get-Process -Id $PID).Path
+
+        return @{ FilePath = $powershell; Arguments = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $entryPath) + $arguments }
+    }
 
     if ($manifest.Entry -like '*.dll')
     {
@@ -755,7 +769,8 @@ function Complete-TestRun([hashtable]$run, [bool]$timedOut)
     }
     elseif ($manifest.ReportFile)
     {
-        @( $manifest.ReportFile.Replace('{ResultsDirectory}', $run.ResultsDirectory) | Where-Object { Test-Path -LiteralPath $_ } )
+        # The file name can contain wildcards, for an application that writes one report per run, such as per platform.
+        @( Get-ChildItem -Path $manifest.ReportFile.Replace('{ResultsDirectory}', $run.ResultsDirectory) -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName } )
     }
     else
     {
@@ -794,7 +809,7 @@ function Complete-TestRun([hashtable]$run, [bool]$timedOut)
         return "the application failed with exit code $exitCode after $duration"
     }
 
-    if (-not $reports -and ($manifest.Kind -eq 'exe' -or $manifest.Extensions -contains 'Microsoft.Testing.Extensions.TrxReport'))
+    if (-not $reports -and ($manifest.ReportFile -or $manifest.Extensions -contains 'Microsoft.Testing.Extensions.TrxReport'))
     {
         return 'the application succeeded but wrote no report'
     }

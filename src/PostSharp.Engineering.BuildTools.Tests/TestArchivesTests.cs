@@ -266,6 +266,93 @@ public sealed class TestArchivesTests : IDisposable
         Assert.Contains( "name=\"Rows(value: 1)\"", report, StringComparison.Ordinal );
     }
 
+    /// <summary>
+    /// A project describes an archive whose entry is a PowerShell script, for tests that are not a .NET application. The
+    /// archive holds the script and the files the project gives it, and the runner runs the script with the platform and the
+    /// results directory, and imports the reports that it names.
+    /// </summary>
+    [Fact]
+    public void AnArchiveOfThePs1KindRunsItsScript()
+    {
+        if ( DockerBuildScript.FindPowerShell() != "pwsh" )
+        {
+            return;
+        }
+
+        File.WriteAllText( Path.Combine( this._directory.Path, "Build.ps1" ), "" );
+        this.WriteDirectoryBuildTargets();
+
+        var projectDirectory = Path.Combine( this._directory.Path, "src", "Native" );
+        Directory.CreateDirectory( projectDirectory );
+
+        File.WriteAllText(
+            Path.Combine( projectDirectory, "Native.csproj" ),
+            $$"""
+             <Project Sdk="Microsoft.NET.Sdk">
+               <PropertyGroup>
+                 <TargetFramework>{{_targetFramework}}</TargetFramework>
+                 <PublishTestArchive>true</PublishTestArchive>
+                 <TestApplicationKind>ps1</TestApplicationKind>
+                 <TestApplicationEntry>RunTest.ps1</TestApplicationEntry>
+                 <TestApplicationReportType>gtest</TestApplicationReportType>
+                 <TestApplicationReportFile>{ResultsDirectory}/*.xml</TestApplicationReportFile>
+               </PropertyGroup>
+               <ItemGroup>
+                 <TestApplicationFile Include="data.txt" ArchivePath="x64\data.txt" />
+                 <TestApplicationFile Include="readme.txt" />
+               </ItemGroup>
+             </Project>
+             """ );
+
+        File.WriteAllText( Path.Combine( projectDirectory, "data.txt" ), "native" );
+        File.WriteAllText( Path.Combine( projectDirectory, "readme.txt" ), "" );
+
+        // The script reads the file that the project put into the archive, and writes one report per run.
+        File.WriteAllText(
+            Path.Combine( projectDirectory, "RunTest.ps1" ),
+            """
+            param([string]$Platform, [string]$ResultsDirectory)
+
+            $data = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'x64/data.txt') -Raw
+            Set-Content -LiteralPath (Join-Path $ResultsDirectory 'arguments.txt') -Value "$Platform $($data.Trim())"
+            Set-Content -LiteralPath (Join-Path $ResultsDirectory 'gtest-x64.xml') -Value '<testsuites tests="1" />'
+            exit 0
+            """ );
+
+        var engDirectory = Path.Combine( this._directory.Path, "eng" );
+        Directory.CreateDirectory( engDirectory );
+
+        File.WriteAllText(
+            Path.Combine( engDirectory, TestArchives.ScriptName ),
+            ReadScript().Replace( "<TEST_RESULTS_PATH>", "artifacts/testResults", StringComparison.Ordinal ),
+            new UTF8Encoding( false ) );
+
+        var (exitCode, output) = Build( Path.Combine( projectDirectory, "Native.csproj" ) );
+        Assert.True( exitCode == 0, output );
+
+        var archive = Path.Combine( this.ArchivesDirectory, $"Native.{_targetFramework}.zip" );
+        var manifest = ReadManifest( archive );
+        Assert.Contains( "Kind = 'ps1'", manifest, StringComparison.Ordinal );
+        Assert.Contains( "Entry = 'RunTest.ps1'", manifest, StringComparison.Ordinal );
+        Assert.Contains( "ReportType = 'gtest'", manifest, StringComparison.Ordinal );
+
+        // The archive holds the script and the files of the project, not a publication of the project.
+        using ( var zip = ZipFile.OpenRead( archive ) )
+        {
+            Assert.NotNull( zip.GetEntry( "RunTest.ps1" ) );
+            Assert.NotNull( zip.GetEntry( "x64/data.txt" ) );
+
+            // A file without ArchivePath is at the root of the archive.
+            Assert.NotNull( zip.GetEntry( "readme.txt" ) );
+            Assert.Null( zip.GetEntry( "Native.dll" ) );
+        }
+
+        (exitCode, output) = this.RunTests( "-Platform win-x64", [] );
+        Assert.True( exitCode == 0, output );
+        Assert.Contains( "gtest-x64.xml' type='gtest']", output, StringComparison.Ordinal );
+        Assert.Equal( "win-x64 native", File.ReadAllText( Path.Combine( this.ResultsDirectory, $"Native.{_targetFramework}", "arguments.txt" ) ).Trim() );
+    }
+
     [Fact]
     public void AFailureOtherThanAFailedTestIsABuildProblem()
     {

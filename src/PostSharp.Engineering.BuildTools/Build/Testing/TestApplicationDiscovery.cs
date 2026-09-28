@@ -268,6 +268,12 @@ internal static class TestApplicationDiscovery
 
     private static bool IsTestApplication( Project project )
     {
+        // A project that describes an archive whose entry is a PowerShell script, which runs the tests itself.
+        if ( string.Equals( project.GetPropertyValue( "TestApplicationKind" ), "ps1", StringComparison.OrdinalIgnoreCase ) )
+        {
+            return true;
+        }
+
         var isTestingPlatformApplication = project.GetPropertyValue( "IsTestingPlatformApplication" );
 
         if ( isTestingPlatformApplication.Length > 0 )
