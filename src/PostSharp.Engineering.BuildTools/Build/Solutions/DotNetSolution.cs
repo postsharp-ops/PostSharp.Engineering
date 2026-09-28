@@ -84,7 +84,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 switch ( context.Product.TestRunner )
                 {
                     case TestRunner.MicrosoftTestingPlatform:
-                        args = TestingPlatform.GetArguments( stagingDirectory, settings.TestsFilter );
+                        args = TestingPlatform.GetArguments( context, stagingDirectory, settings.TestsFilter );
 
                         break;
 
