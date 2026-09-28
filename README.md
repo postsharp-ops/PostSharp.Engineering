@@ -536,8 +536,10 @@ classDiagram
 - **BuildConfigurationInfo**: Configuration-specific settings (Debug, Release, Public). `SupportsBuild = false` declares
   that a configuration cannot be built with `Build.ps1 build`, `test` or `prepare`, because its build configuration on
   the build server (`CustomBuildConfiguration`) produces it otherwise; for example, a public build that signs the
-  packages of the tested Release build instead of building again. `DeploymentDependencies` makes the deployments of a
-  configuration wait for other build configurations of the product, typically the quality gate of the build they deploy.
+  packages of the tested Release build instead of building again. `RunsTestArchives` makes the test agents run the test archives of
+  the build of a configuration, with a set of build configurations per configuration that sets it. `DeploymentDependencies`
+  makes the deployments of a configuration wait for other build configurations of the product, typically the quality gate
+  of the build they deploy.
 - **DependencyDefinition**: Reference to another repository/product
 - **Publisher**: Deploys artifacts to feeds, marketplaces, or servers
 - **Swapper**: Blue/green deployment slot swapping

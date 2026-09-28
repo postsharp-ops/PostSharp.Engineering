@@ -441,20 +441,25 @@ public sealed class TestArchivesTests : IDisposable
 
     /// <summary>
     /// The build of the solutions writes the archives when the product publishes them, and only then, so that a product
-    /// without archives does not spend the time of a publication on every test project. On TeamCity, only the build of the
-    /// configuration that TestArchivesSourceDependency names writes them, so that the builds that the test agents do not
-    /// download from do not spend that time either. A value given on the command line is kept.
+    /// without archives does not spend the time of a publication on every test project. On TeamCity, only the builds of the
+    /// configurations that set RunsTestArchives write them, so that the builds that the test agents do not download from do
+    /// not spend that time either. A value given on the command line is kept.
     /// </summary>
     [Fact]
     public void TheBuildWritesTheArchivesOfAProductThatPublishesThem()
     {
-        var withArchives = new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }] };
+        var withArchives = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
+            Configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Public, c => c with { RunsTestArchives = true } )
+        };
+
         var withoutArchives = new Product( MetalamaDependencies.V2026_1.Metalama );
 
         Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, new BuildSettings(), false ).Properties["PublishTestArchive"] );
         Assert.False( TestArchives.AddBuildProperties( withoutArchives, new BuildSettings(), false ).Properties.ContainsKey( "PublishTestArchive" ) );
 
-        // On TeamCity, only in the build of the source configuration, Public by default.
+        // On TeamCity, only in the build of a configuration that runs the archives.
         Assert.False( TestArchives.AddBuildProperties( withArchives, this.Settings( BuildConfiguration.Release ), true ).Properties.ContainsKey( "PublishTestArchive" ) );
         Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, this.Settings( BuildConfiguration.Public ), true ).Properties["PublishTestArchive"] );
 
@@ -462,35 +467,6 @@ public sealed class TestArchivesTests : IDisposable
             ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "false" ) );
 
         Assert.Equal( "false", TestArchives.AddBuildProperties( withArchives, explicitSettings, false ).Properties["PublishTestArchive"] );
-    }
-
-    /// <summary>
-    /// An additional build configuration that publishes the archives must write them and publish them, which only the product
-    /// can give it.
-    /// </summary>
-    [Fact]
-    public void AnAdditionalSourceConfigurationMustPublishTheArchives()
-    {
-        Product CreateProduct( string arguments, string[]? rules )
-            => new( MetalamaDependencies.V2026_1.Metalama )
-            {
-                Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
-                TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" ),
-                AdditionalCiBuildConfigurations =
-                [
-                    new PowershellAdditionalCiBuildConfiguration( "BuildArtifacts", "Build artifacts", "Build.ps1", arguments ) { ArtifactRules = rules }
-                ]
-            };
-
-        var console = new ConsoleHelper();
-
-        Assert.True(
-            TestArchives.TryValidateSources(
-                CreateProduct( "build -p:PublishTestArchive=true", ["+:artifacts/tests/*.zip=>artifacts/tests"] ),
-                console ) );
-
-        Assert.False( TestArchives.TryValidateSources( CreateProduct( "build", ["+:artifacts/tests/*.zip=>artifacts/tests"] ), console ) );
-        Assert.False( TestArchives.TryValidateSources( CreateProduct( "build -p:PublishTestArchive=true", null ), console ) );
     }
 
     private BuildSettings Settings( BuildConfiguration configuration )
@@ -502,23 +478,20 @@ public sealed class TestArchivesTests : IDisposable
     }
 
     /// <summary>
-    /// Only the product build configuration that TestArchivesSourceDependency names writes and publishes the archives. When
-    /// it names an additional build configuration, no product build configuration does.
+    /// Only the builds of the configurations that set RunsTestArchives write and publish the archives, and only for a product
+    /// that has some.
     /// </summary>
     [Fact]
-    public void OnlyTheSourceConfigurationPublishesTheArchives()
+    public void OnlyTheConfigurationsThatRunTheArchivesPublishThem()
     {
         var solutions = new Solution[] { new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true } };
-        var fromPublic = new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = solutions };
-        var fromAdditional = new Product( MetalamaDependencies.V2026_1.Metalama )
-        {
-            Solutions = solutions, TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" )
-        };
+        var configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Public, c => c with { RunsTestArchives = true } );
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = solutions, Configurations = configurations };
 
-        Assert.True( TestArchives.IsSourceConfiguration( fromPublic, BuildConfiguration.Public ) );
-        Assert.False( TestArchives.IsSourceConfiguration( fromPublic, BuildConfiguration.Release ) );
-        Assert.False( TestArchives.IsSourceConfiguration( fromAdditional, BuildConfiguration.Public ) );
-        Assert.False( TestArchives.IsSourceConfiguration( new Product( MetalamaDependencies.V2026_1.Metalama ), BuildConfiguration.Public ) );
+        Assert.True( TestArchives.IsSourceConfiguration( product, BuildConfiguration.Public ) );
+        Assert.False( TestArchives.IsSourceConfiguration( product, BuildConfiguration.Release ) );
+        Assert.False( TestArchives.IsSourceConfiguration( new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = solutions }, BuildConfiguration.Public ) );
+        Assert.False( TestArchives.IsSourceConfiguration( new Product( MetalamaDependencies.V2026_1.Metalama ) { Configurations = configurations }, BuildConfiguration.Public ) );
     }
 
     public void Dispose() => this._directory.Dispose();

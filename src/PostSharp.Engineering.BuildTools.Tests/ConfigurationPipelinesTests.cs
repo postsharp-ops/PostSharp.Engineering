@@ -45,16 +45,18 @@ public sealed class ConfigurationPipelinesTests
         {
             Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
             TestAgents = [new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty )],
-            TestArchivesSourceDependencies = [new SnapshotDependency( BuildConfiguration.Release ), new SnapshotDependency( BuildConfiguration.Public )],
+            Configurations = Product.DefaultConfigurations
+                .WithValue( BuildConfiguration.Release, c => c with { RunsTestArchives = true } )
+                .WithValue( BuildConfiguration.Public, c => c with { RunsTestArchives = true } ),
             AdditionalCiBuildConfigurations = configurations
         };
 
     /// <summary>
-    /// Each source of the archives gets a set of build configurations of its own, which depends on that source and does not
-    /// collide with the other set.
+    /// Each configuration that runs the archives gets a set of build configurations of its own, which depends on its build and
+    /// does not collide with the other set.
     /// </summary>
     [Fact]
-    public void EachSourceOfTheArchivesGetsItsOwnSetOfCells()
+    public void EachConfigurationThatRunsTheArchivesGetsItsOwnSetOfCells()
     {
         var cells = TestArchiveCells.Create( CreateProductWithTwoSources(), [Application( "Common", "net10.0" )] );
 
@@ -79,16 +81,37 @@ public sealed class ConfigurationPipelinesTests
     }
 
     /// <summary>
-    /// Both sources build and publish the archives.
+    /// Both configurations build and publish the archives.
     /// </summary>
     [Fact]
-    public void EverySourceConfigurationPublishesTheArchives()
+    public void EveryConfigurationThatRunsTheArchivesPublishesThem()
     {
         var product = CreateProductWithTwoSources();
 
         Assert.True( TestArchives.IsSourceConfiguration( product, BuildConfiguration.Release ) );
         Assert.True( TestArchives.IsSourceConfiguration( product, BuildConfiguration.Public ) );
         Assert.False( TestArchives.IsSourceConfiguration( product, BuildConfiguration.Debug ) );
+    }
+
+    /// <summary>
+    /// Test agents without a configuration that runs the archives are an error, because they would have nothing to run.
+    /// </summary>
+    [Fact]
+    public void TestAgentsNeedAConfigurationThatRunsTheArchives()
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            GenerateDockerfiles = false,
+            OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows ),
+            Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
+            TestAgents = [new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty )]
+        };
+
+        Assert.False( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
     }
 
     /// <summary>

@@ -37,7 +37,7 @@ public sealed class TestArchiveCellsTests
         => new( MetalamaDependencies.V2026_1.Metalama )
         {
             Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }], TestAgents = agents,
-            TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" )
+            Configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Public, c => c with { RunsTestArchives = true } )
         };
 
     /// <summary>
@@ -125,7 +125,7 @@ public sealed class TestArchiveCellsTests
             {
                 Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
                 TestAgents = [new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty )],
-                TestArchivesSourceDependency = new SnapshotDependency( BuildConfiguration.Release ),
+                Configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Release, c => c with { RunsTestArchives = true } ),
                 AdditionalCiBuildConfigurations = configurations
             };
 

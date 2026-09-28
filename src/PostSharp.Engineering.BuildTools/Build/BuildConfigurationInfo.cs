@@ -35,6 +35,13 @@ namespace PostSharp.Engineering.BuildTools.Build;
 /// nobody builds the configuration locally and gets something other than what ships. <c>sign</c> and the publishing
 /// commands still accept it.
 /// </param>
+/// <param name="RunsTestArchives">
+/// Determines whether the test agents of the product (<see cref="Product.TestAgents"/>) run the test archives of the build
+/// of this configuration. The build then writes and publishes the archives, and <c>generate-scripts</c> creates the build
+/// configurations of the test agents, which depend on it. When several configurations set it, each gets its own set of
+/// them: their identifiers start with the name of the configuration, and their project folders are nested in a folder of
+/// that name. A product that tests both the build of its development workflow and the build that it ships sets it on both.
+/// </param>
 /// <param name="DeploymentDependencies">
 /// The build configurations of the same product that the deployments of this configuration wait for, besides its build,
 /// or <c>null</c> for none. A product whose shipped build is tested by a test matrix of its own names the quality gate of
@@ -84,4 +91,5 @@ public record BuildConfigurationInfo(
     AdditionalCiBuildConfiguration? CustomBuildConfiguration = null,
     VersionKind? VersionKind = null,
     bool SupportsBuild = true,
+    bool RunsTestArchives = false,
     SnapshotDependency[]? DeploymentDependencies = null );

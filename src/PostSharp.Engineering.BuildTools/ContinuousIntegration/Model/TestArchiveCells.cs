@@ -27,9 +27,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 /// again would be in no build configuration: <see cref="TestArchives.Verify"/> fails the build in that case.
 /// </para>
 /// <para>
-/// A product with several sources of the archives (<see cref="Product.TestArchivesSourceDependencies"/>) gets one set of
-/// build configurations per source. The identifiers of a set start with the name of its source, and its project folders are
-/// nested in a folder of that name.
+/// A product whose archives are run for several build configurations (<see cref="Build.BuildConfigurationInfo.RunsTestArchives"/>)
+/// gets one set of build configurations per configuration. The identifiers of a set start with the name of its configuration,
+/// and its project folders are nested in a folder of that name.
 /// </para>
 /// </remarks>
 internal static class TestArchiveCells
@@ -40,14 +40,14 @@ internal static class TestArchiveCells
 
     public static ImmutableArray<AdditionalCiBuildConfiguration> Create( Product product, IReadOnlyList<TestApplication> applications )
     {
-        var sources = product.EffectiveTestArchivesSourceDependencies;
+        var configurations = product.TestArchivesConfigurations;
 
-        if ( sources.Length == 1 )
+        if ( configurations.Length == 1 )
         {
-            return Create( product, applications, sources[0], null );
+            return Create( product, applications, new SnapshotDependency( configurations[0] ), null );
         }
 
-        return [..sources.SelectMany( s => Create( product, applications, s, ToIdentifier( s.ConfigurationId ?? s.Configuration!.Value.ToString() ) ) )];
+        return [..configurations.SelectMany( c => Create( product, applications, new SnapshotDependency( c ), c.ToString() ) )];
     }
 
     /// <param name="setName">The name of the set of build configurations, which prefixes their identifiers and names the folder

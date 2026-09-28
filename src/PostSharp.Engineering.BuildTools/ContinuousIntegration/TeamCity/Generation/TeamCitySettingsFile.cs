@@ -79,9 +79,8 @@ internal static class TeamCitySettingsFile
             publishedArtifactRules += $@"\n+:{productProperties.LogsDirectory}/**/*=>logs";
             publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
 
-            // The build configurations of the test agents download them one by one, from the build that TestArchivesSourceDependency
-            // names. An additional build configuration that it names publishes them with the artifact rules of the product. The
-            // rule also applies to the CustomBuildConfiguration that replaces the build of this configuration.
+            // The build configurations of the test agents download the archives one by one, from the build of each configuration
+            // that sets RunsTestArchives. The rule also applies to the CustomBuildConfiguration that replaces that build.
             if ( TestArchives.IsSourceConfiguration( product, configuration ) )
             {
                 publishedArtifactRules += $@"\n+:{TestArchives.Directory}/*.zip=>{TestArchives.Directory}";

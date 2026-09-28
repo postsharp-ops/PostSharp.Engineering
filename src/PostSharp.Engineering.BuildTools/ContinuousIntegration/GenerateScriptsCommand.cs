@@ -39,28 +39,14 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 return false;
             }
 
-            // The projects are evaluated in the configuration of each build that publishes the archives, because a target
+            // The projects are evaluated in each configuration whose archives the test agents run, because a target
             // framework, an assembly name or a skip reason can depend on it.
-            var sourceConfigurations = new List<BuildConfiguration>();
+            var sourceConfigurations = product.TestArchivesConfigurations;
 
-            foreach ( var source in product.EffectiveTestArchivesSourceDependencies )
+            if ( sourceConfigurations.IsEmpty )
             {
-                if ( !TestArchives.TryGetSourceConfiguration( product, source, out var sourceConfiguration ) )
-                {
-                    context.Console.WriteError(
-                        $"The test archives are published by the build configuration '{source.ConfigurationId}', which the product does not declare." );
+                context.Console.WriteError( "The product declares TestAgents but no build configuration sets RunsTestArchives, so they have no archives to run." );
 
-                    return false;
-                }
-
-                if ( !sourceConfigurations.Contains( sourceConfiguration ) )
-                {
-                    sourceConfigurations.Add( sourceConfiguration );
-                }
-            }
-
-            if ( !TestArchives.TryValidateSources( product, context.Console ) )
-            {
                 return false;
             }
 
