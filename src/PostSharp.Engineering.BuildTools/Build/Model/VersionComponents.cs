@@ -22,6 +22,7 @@ internal record VersionComponents
         int patchNumber,
         string versionSuffix,
         BuildConfiguration configuration,
+        VersionKind kind,
         Product product )
     {
         this.MainVersion = mainVersion;
@@ -29,7 +30,7 @@ internal record VersionComponents
         this.PatchNumber = patchNumber;
         this.VersionSuffix = versionSuffix;
 
-        this.PreviewVersionSuffix = configuration == BuildConfiguration.Public ? "preview" : this.VersionSuffix;
+        this.PreviewVersionSuffix = kind == VersionKind.Public ? "preview" : this.VersionSuffix;
         this.PackageVersionWithoutSuffix = this.PatchNumber == 0 ? this.VersionPrefix : this.VersionPrefix + "." + this.PatchNumber;
 
         // Metalama.Compiler, because of Arcade, requires the version number to be decomposed in a prefix, patch number, and suffix.
@@ -118,7 +119,7 @@ internal record VersionComponents
             inheritedMainVersion = null;
         }
 
-        var versionSpec = settings.GetVersionSpec( configuration );
+        var versionSpec = settings.GetVersionSpec( context.Product, configuration );
 
         return TryCompute( context, configuration, mainVersionFile, inheritedMainVersion, versionSpec, settings.UserName, out version );
     }
@@ -140,7 +141,7 @@ internal record VersionComponents
             settings.BuildConfiguration,
             mainVersionFile,
             null,
-            settings.GetVersionSpec( settings.BuildConfiguration ),
+            settings.GetVersionSpec( context.Product, settings.BuildConfiguration ),
             settings.UserName,
             out version );
     }
@@ -241,7 +242,7 @@ internal record VersionComponents
                 throw new InvalidOperationException();
         }
 
-        version = new VersionComponents( mainVersion, versionPrefix, patchNumber, versionSuffix, configuration, product );
+        version = new VersionComponents( mainVersion, versionPrefix, patchNumber, versionSuffix, configuration, versionSpec.Kind, product );
 
         return true;
     }

@@ -1,10 +1,12 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Immutable;
 using System.IO;
@@ -109,6 +111,28 @@ public sealed class TestArchiveCellsTests
         Assert.Equal(
             ["+:artifacts/tests/Caching.net10.0.zip=>artifacts/tests", "+:artifacts/tests/Common.net10.0.zip=>artifacts/tests"],
             linux.SnapshotDependencies!.Single().ArtifactRules! );
+    }
+
+    /// <summary>
+    /// A cell that downloads the archives from a product build configuration reads the artifact layout of that
+    /// configuration, which is what the validation of the dependency graph requires.
+    /// </summary>
+    [Fact]
+    public void ACellOfAProductConfigurationReadsItsLayout()
+    {
+        Product CreateReleaseProduct( AdditionalCiBuildConfiguration[] configurations )
+            => new( MetalamaDependencies.V2026_1.Metalama )
+            {
+                Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
+                TestAgents = [new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty )],
+                TestArchivesSourceDependency = new SnapshotDependency( BuildConfiguration.Release ),
+                AdditionalCiBuildConfigurations = configurations
+            };
+
+        var cells = TestArchiveCells.Create( CreateReleaseProduct( [] ), [Application( "Common", "net10.0", _everywhere )] );
+
+        Assert.Equal( BuildConfiguration.Release, cells.Single( c => c.Id == "TestWinX64Net100" ).BuildSnapshotDependency );
+        Assert.True( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateReleaseProduct( [..cells] ) ) );
     }
 
     [Fact]

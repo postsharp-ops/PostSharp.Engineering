@@ -93,7 +93,9 @@ new MsbuildSolution( @"Patterns\MyProduct.sln" ) { ContainsTestApplications = tr
 ```
 
 `Build.ps1 build` then passes `PublishTestArchive=true` to the build of the solutions, unless the command line sets
-it. A build in the IDE does not set it, so it does not spend the time of a publication on every build. The clean step
+it. A build in the IDE does not set it, so it does not spend the time of a publication on every build. On TeamCity,
+`Build.ps1 build` writes the archives only in the build configuration that the test agents download them from: see
+[The build configurations](#the-build-configurations). The clean step
 deletes `artifacts/tests`, so that the archive of a test project that was removed or renamed is not run again, and
 `generate-scripts` writes `eng/RunTests.ps1`.
 
@@ -230,7 +232,7 @@ configurations:
 ```csharp
 var product = new Product( dependency )
 {
-    TestArchivesSourceDependency = new SnapshotDependency( "BuildArtifacts" ),   // defaults to the public build
+    TestArchivesSourceDependency = new SnapshotDependency( BuildConfiguration.Release ),   // the tested build; the default is Public
     TestAgents =
     [
         new TestAgent( "win-x64", "UnitTestWinX64", "Unit Tests Windows x64", windowsContainerRequirements )
@@ -275,9 +277,17 @@ A build configuration downloads exactly the archives it runs, one artifact rule 
 and the artifacts that their prepare scripts read, each to its own path. It downloads nothing else of the build: no other
 package, and none of the artifacts of the products this product depends on. It runs
 `eng/RunTests.ps1 -Platform <platform>`, in a container when the requirements of the agent are those of a container
-host, and publishes the test results directory. The build that publishes the archives publishes
-`artifacts/tests/*.zip`; PostSharp.Engineering adds that rule to the product build configurations, and a product that
-names another build configuration adds it there.
+host, and publishes the test results directory.
+
+Only the build that `TestArchivesSourceDependency` names writes and publishes the archives. When it names a product build
+configuration, the public build by default, `Build.ps1 build` of that configuration writes them, and PostSharp.Engineering
+gives its build configuration, or the `CustomBuildConfiguration` that replaces it, the rule `artifacts/tests/*.zip`. When
+it names an additional build configuration, the product gives that configuration `-p:PublishTestArchive=true` and the
+rule, and `generate-scripts` fails when either is missing. The other builds of the product do not spend the time of writing the archives, nor the space of publishing them.
+
+A product that tests one build and ships another, signed one names the tested build here. To ship what it tested, it
+gives the tested configuration the version of the public build (`BuildConfigurationInfo.VersionKind`, see the README),
+and compares the two builds.
 
 ### Staying current
 
