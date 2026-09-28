@@ -28,6 +28,13 @@ namespace PostSharp.Engineering.BuildTools.Build;
 /// configuration other than <see cref="BuildConfiguration.Public"/> always has a local version, so that it never puts a
 /// package of a public version in the package cache.
 /// </param>
+/// <param name="SupportsBuild">
+/// Determines whether <c>Build.ps1 build</c>, <c>test</c> and <c>prepare</c> accept this configuration. A product sets it
+/// to <c>false</c> for a configuration that its build configuration on the build server (<see cref="CustomBuildConfiguration"/>)
+/// produces otherwise, for example a public build that signs the packages of another build instead of building, so that
+/// nobody builds the configuration locally and gets something other than what ships. <c>sign</c> and the publishing
+/// commands still accept it.
+/// </param>
 /// <param name="CustomBuildConfiguration">
 /// The build configuration that replaces the standard <b>Build</b> action, or <c>null</c> for the standard one. A
 /// product whose public build consumes what an earlier build configuration of the same product produced -- PostSharp
@@ -68,4 +75,5 @@ public record BuildConfigurationInfo(
     TimeSpan? DeploymentTimeout = null,
     TimeSpan? SwapTimeout = null,
     AdditionalCiBuildConfiguration? CustomBuildConfiguration = null,
-    VersionKind? VersionKind = null );
+    VersionKind? VersionKind = null,
+    bool SupportsBuild = true );

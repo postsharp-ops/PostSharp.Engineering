@@ -18,6 +18,11 @@ internal class TestCommand : BaseCommand<BuildSettings>
 
     public static bool Execute( BuildContext context, BuildSettings settings )
     {
+        if ( !BuildCommand.CheckSupportsBuild( context, settings.BuildConfiguration ) )
+        {
+            return false;
+        }
+
         if ( !settings.NoDependencies && !BuildCommand.Execute( context, settings ) )
         {
             return false;
