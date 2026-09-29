@@ -138,13 +138,16 @@ public static partial class PostSharpDependencies
                 [
                     DevelopmentDependencies.PostSharpEngineering.ToDependency(),
 
-                    // As for the documentation, the only configuration PostSharp exports is the public one, and an
-                    // unpinned dependency would resolve the debug build type, which is never generated.
+                    // The harness tests the release build of PostSharp, not the public one. This line publishes
+                    // from the release branch, which is updated only when the line is deployed, so a harness pinned to
+                    // the public build would keep testing the last deployed build. The release build runs on the
+                    // development branch. The dependency is pinned in every configuration, because an unpinned
+                    // dependency would resolve the debug build type, which this line does not generate.
                     PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Public,
-                            BuildConfiguration.Public,
-                            BuildConfiguration.Public ) )
+                            BuildConfiguration.Release,
+                            BuildConfiguration.Release,
+                            BuildConfiguration.Release ) )
                 ]
             };
 
