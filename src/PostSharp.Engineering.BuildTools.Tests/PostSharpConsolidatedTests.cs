@@ -58,41 +58,43 @@ public class PostSharpConsolidatedTests
     }
 
     /// <summary>
-    /// The consolidated build has no source code, so it is not versioned, and it owns a TeamCity project beneath the
-    /// project of the line and a VCS root named after the repository and the version, as the other repositories of the
-    /// line do.
+    /// The consolidated build has no source code, so it is not versioned. In the 2026.0 and 2027.0 lines, it owns a
+    /// TeamCity project beneath the project of the line and a VCS root named after the repository and the version, as
+    /// the other repositories of these lines do.
     /// </summary>
-    [Fact]
-    public void TheConsolidatedProductOf20270_FollowsTheLayoutOfTheLine()
+    [Theory]
+    [InlineData( "2026.0" )]
+    [InlineData( "2027.0" )]
+    public void TheConsolidatedProductOfTheNestedLines_FollowsTheLayoutOfTheLine( string version )
     {
-        var definition = PostSharpDependencies.V2027_0.Consolidated;
+        var definition = version == "2026.0" ? PostSharpDependencies.V2026_0.Consolidated : PostSharpDependencies.V2027_0.Consolidated;
+        var versionWithoutDots = version.Replace( ".", "", StringComparison.Ordinal );
 
         Assert.False( definition.IsVersioned );
-        Assert.Equal( "PostSharpGitHub_PostSharp20270_PostSharpConsolidated", definition.CiConfiguration.ProjectId.Id );
-        Assert.Equal( "PostSharpGitHub_PostSharp20270", definition.CiConfiguration.ProjectId.ParentId );
-        Assert.Equal( "PostSharpGitHub_PostSharpConsolidated20270", definition.CiConfiguration.VcsRootId );
+        Assert.Equal( $"PostSharpGitHub_PostSharp{versionWithoutDots}_PostSharpConsolidated", definition.CiConfiguration.ProjectId.Id );
+        Assert.Equal( $"PostSharpGitHub_PostSharp{versionWithoutDots}", definition.CiConfiguration.ProjectId.ParentId );
+        Assert.Equal( $"PostSharpGitHub_PostSharpConsolidated{versionWithoutDots}", definition.CiConfiguration.VcsRootId );
         Assert.Equal( "PostSharpGitHub", definition.CiConfiguration.VcsRootProjectId );
+        Assert.Equal( $"develop/{version}", definition.Branch );
+        Assert.Equal( $"release/{version}", definition.ReleaseBranch );
         Assert.Equal( "https://github.com/PostSharp/PostSharp.Consolidated.git", definition.VcsRepository.HttpUrl );
     }
 
     /// <summary>
-    /// The 2024.0 and 2026.0 lines are flat: each repository owns a TeamCity project beneath the PostSharp project,
-    /// named after the repository and the version, and a VCS root with the same identifier.
+    /// The 2024.0 line is flat: each repository owns a TeamCity project beneath the PostSharp project, named after the
+    /// repository and the version, and a VCS root with the same identifier.
     /// </summary>
-    [Theory]
-    [InlineData( "2024.0" )]
-    [InlineData( "2026.0" )]
-    public void TheConsolidatedProductOfTheFlatLines_FollowsTheLayoutOfTheLine( string version )
+    [Fact]
+    public void TheConsolidatedProductOfTheFlatLine_FollowsTheLayoutOfTheLine()
     {
-        var definition = version == "2024.0" ? PostSharpDependencies.V2024_0.Consolidated : PostSharpDependencies.V2026_0.Consolidated;
-        var versionWithoutDots = version.Replace( ".", "", StringComparison.Ordinal );
+        var definition = PostSharpDependencies.V2024_0.Consolidated;
 
         Assert.False( definition.IsVersioned );
-        Assert.Equal( $"PostSharpGitHub_PostSharpConsolidated{versionWithoutDots}", definition.CiConfiguration.ProjectId.Id );
+        Assert.Equal( "PostSharpGitHub_PostSharpConsolidated20240", definition.CiConfiguration.ProjectId.Id );
         Assert.Equal( "PostSharpGitHub", definition.CiConfiguration.ProjectId.ParentId );
-        Assert.Equal( $"PostSharpGitHub_PostSharpConsolidated{versionWithoutDots}", definition.CiConfiguration.VcsRootId );
-        Assert.Equal( $"develop/{version}", definition.Branch );
-        Assert.Equal( $"release/{version}", definition.ReleaseBranch );
+        Assert.Equal( "PostSharpGitHub_PostSharpConsolidated20240", definition.CiConfiguration.VcsRootId );
+        Assert.Equal( "develop/2024.0", definition.Branch );
+        Assert.Equal( "release/2024.0", definition.ReleaseBranch );
         Assert.Equal( "https://github.com/PostSharp/PostSharp.Consolidated.git", definition.VcsRepository.HttpUrl );
     }
 
@@ -113,7 +115,7 @@ public class PostSharpConsolidatedTests
     /// Backstage exists only since 2027.0, so the earlier lines consolidate their own repositories and nothing else.
     /// </summary>
     [Fact]
-    public void TheConsolidatedProductsOfTheFlatLines_ConsolidateTheProductsOfTheLine()
+    public void TheConsolidatedProductsBefore20270_ConsolidateTheProductsOfTheLine()
     {
         Assert.Equal( [PostSharpDependencies.V2024_0.PostSharp], PostSharpDependencies.V2024_0.Consolidated.SourceDependencies );
 

@@ -30,9 +30,8 @@ public static partial class PostSharpDependencies
 
         /// <summary>
         /// The TeamCity project of this line. It carries no build configuration of its own: it contains one project
-        /// per repository of the line, the arrangement the Metalama lines already use. The 2024.0 and 2026.0 lines
-        /// are flat instead -- their line project is the project of the PostSharp repository -- so the identifier of
-        /// a build configuration of this line has one segment more than the same configuration of the previous one.
+        /// per repository of the line, the arrangement the Metalama lines and the 2026.0 line use. The 2024.0 line is
+        /// flat instead -- its line project is the project of the PostSharp repository.
         /// </summary>
         private static readonly string _lineProjectId =
             TeamCityHelper.GetProjectIdWithParentProjectId( $"{_projectName} {Family.Version}", _parentProjectId ).Id;

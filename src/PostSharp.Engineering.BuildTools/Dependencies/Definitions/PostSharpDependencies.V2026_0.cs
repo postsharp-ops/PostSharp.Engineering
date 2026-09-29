@@ -32,16 +32,33 @@ public static partial class PostSharpDependencies
                 ConsolidatedProjectName = "PostSharp.Consolidated"
             };
 
+        /// <summary>
+        /// The TeamCity project of this line. It carries no build configuration of its own: it contains one project
+        /// per repository of the line, as the 2027.0 line does. The 2024.0 line is flat instead -- its line project is
+        /// the project of the PostSharp repository.
+        /// </summary>
+        private static readonly string _lineProjectId =
+            TeamCityHelper.GetProjectIdWithParentProjectId( $"{_projectName} {Family.Version}", _parentProjectId ).Id;
+
         private static TeamCityProjectId GetProjectId( string dependencyName )
-            => TeamCityHelper.GetProjectIdWithParentProjectId( $"{dependencyName} {Family.Version}", _parentProjectId );
+            => TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, _lineProjectId );
+
+        /// <summary>
+        /// The identifier of the VCS root of a repository of this line. The roots are stored in the PostSharp project
+        /// and named after the repository and the version, rather than in the line project as the per-repository
+        /// projects would imply. That is where they exist on TeamCity, and the generated settings address them by
+        /// identifier, so the identifier has to be the one TeamCity carries.
+        /// </summary>
+        private static string GetVcsRootId( string dependencyName )
+            => TeamCityHelper.GetProjectIdWithParentProjectId( $"{dependencyName} {Family.Version}", _parentProjectId ).Id;
 
         /// <summary>
         /// A repository of this line: it builds from the development branch, publishes from the release branch, and
-        /// owns a TeamCity project and a VCS root named after itself and the version.
+        /// owns a TeamCity project named after itself beneath the project of the line.
         /// </summary>
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
-            public PostSharpDependencyDefinition( string dependencyName, bool isVersioned = true )
+            public PostSharpDependencyDefinition( string dependencyName, bool isVersioned = true, string? vcsRootId = null )
                 : base(
                     Family,
                     dependencyName,
@@ -51,7 +68,8 @@ public static partial class PostSharpDependencies
                     TeamCityHelper.CreateConfiguration(
                         GetProjectId( dependencyName ),
                         isVersioned,
-                        vcsRootId: GetProjectId( dependencyName ).Id ),
+                        vcsRootProjectId: _parentProjectId,
+                        vcsRootId: vcsRootId ?? GetVcsRootId( dependencyName ) ),
                     isVersioned ) { }
         }
 
@@ -73,7 +91,13 @@ public static partial class PostSharpDependencies
 
         /// <summary>The documentation site, which documents this line and is built against its packages.</summary>
         public static DependencyDefinition PostSharpDocumentation { get; } =
-            new PostSharpDependencyDefinition( $"{_projectName}.Documentation", isVersioned: false )
+            new PostSharpDependencyDefinition(
+                $"{_projectName}.Documentation",
+                isVersioned: false,
+
+                // The root of this repository predates the per-line naming: its identifier carries no version, although
+                // its name does.
+                vcsRootId: $"{_parentProjectId}_{_projectName}Documentation" )
             {
                 Dependencies =
                 [

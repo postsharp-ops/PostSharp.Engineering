@@ -29,7 +29,7 @@ public static partial class BackstageDependencies
 
         /// <summary>
         /// Gets the TeamCity project of a product of this line. The family is laid out flat, as the PostSharp 2024.0
-        /// and 2026.0 lines are: it has no project for the version line, so each product owns a project named after
+        /// line is: it has no project for the version line, so each product owns a project named after
         /// itself and the version directly beneath the <c>Backstage</c> project, which is also where the VCS roots of
         /// the family are stored.
         /// </summary>
