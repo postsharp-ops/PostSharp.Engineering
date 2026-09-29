@@ -18,8 +18,9 @@
     An archive does not hold the files that the application takes from NuGet packages. Its manifest lists them, and this
     script puts them in place after it extracts the archive. It takes each package from the NuGet cache of this host when
     the cache has the same package, or else from its URL on nuget.org, or else, for a package that a build of the product
-    or of a dependency publishes, from -PackagesPath, to which the build configuration downloads it. It checks the SHA-512
-    of every package it does not take from the cache.
+    or of a dependency publishes, from -PackagesPath, to which the build configuration downloads it. It takes a package by
+    its identifier and version only: it does not check its hash, because a build of the product signs the packages that
+    ship after the archives have recorded them, which changes the nupkg but not its identifier or version.
 
     The only requirements on the host are PowerShell 7.5 and the runtime that each application targets: the .NET
     runtime for a .NET application, the .NET Framework for a .NET Framework application. The .NET SDK is not needed.
@@ -248,28 +249,22 @@ function Read-ArchiveManifest([string]$archivePath)
     }
 }
 
-# The SHA-512 of a file, in the base64 form of the .nupkg.sha512 file that NuGet writes beside a package.
-function Get-PackageHash([string]$path)
-{
-    return [System.Convert]::ToBase64String([System.Convert]::FromHexString((Get-FileHash -LiteralPath $path -Algorithm SHA512).Hash))
-}
-
 # Finds a package that the manifest of an archive lists, and returns where its files are: the directory of the package in
-# the NuGet cache, or a nupkg whose hash has been checked. A package that cannot be found is returned with an Error, which
-# fails the archives that need it and not the others.
+# the NuGet cache, or a nupkg. A package that cannot be found is returned with an Error, which fails the archives that need
+# it and not the others.
 function Get-Package([hashtable]$package)
 {
     $id = $package.Id
     $version = $package.Version
     $name = "$id.$version.nupkg"
 
-    # The NuGet cache holds the extracted package, and its .sha512 file gives the hash of the nupkg it was extracted from.
-    # NuGet writes that file after the other files, so an interrupted extraction is not used.
+    # The NuGet cache holds the extracted package. NuGet writes the .sha512 file after the other files, so its presence
+    # means that the extraction completed, and an interrupted extraction is not used.
     $cacheRoot = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path ([Environment]::GetFolderPath('UserProfile')) '.nuget' 'packages' }
     $cacheDirectory = Join-Path $cacheRoot $id $version
     $cacheHash = Join-Path $cacheDirectory "$name.sha512"
 
-    if ((Test-Path -LiteralPath $cacheHash) -and (Get-Content -LiteralPath $cacheHash -Raw).Trim() -eq $package.Sha512)
+    if (Test-Path -LiteralPath $cacheHash)
     {
         return @{ Directory = $cacheDirectory }
     }
@@ -295,7 +290,7 @@ function Get-Package([hashtable]$package)
     {
         $file = Join-Path $Path 'run' 'packages' $name
 
-        if (-not (Test-Path -LiteralPath $file) -or (Get-PackageHash $file) -ne $package.Sha512)
+        if (-not (Test-Path -LiteralPath $file))
         {
             New-Item -ItemType Directory -Path (Split-Path $file) -Force | Out-Null
             $temporaryFile = "$file.download"
@@ -314,13 +309,6 @@ function Get-Package([hashtable]$package)
 
             Move-Item -LiteralPath $temporaryFile -Destination $file -Force
         }
-    }
-
-    $hash = Get-PackageHash $file
-
-    if ($hash -ne $package.Sha512)
-    {
-        return @{ Error = "The package '$id' $version in '$file' has the SHA-512 $hash, and the manifest expects $( $package.Sha512 )." }
     }
 
     return @{ File = $file }

@@ -293,7 +293,6 @@ public sealed class TestArchiveCellsTests
                           @{
                               Id = '{{package}}'
                               Version = '1.0.1'
-                              Sha512 = 'x'
                               Url = $null
                               Files = @() } )
                   }

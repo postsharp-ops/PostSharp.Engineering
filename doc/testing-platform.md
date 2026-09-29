@@ -145,13 +145,15 @@ the name of the product, or of the dependency. See [The build configurations](#t
 
 For each package, the runner takes the first of these that exists:
 
-1. The NuGet cache of the host (`NUGET_PACKAGES`, or `~/.nuget/packages`), when its `<id>.<version>.nupkg.sha512` file
-   gives the hash of the manifest. A local run finds every package there.
+1. The NuGet cache of the host (`NUGET_PACKAGES`, or `~/.nuget/packages`), when it holds the package, which its
+   `<id>.<version>.nupkg.sha512` file shows: NuGet writes it last. A local run finds every package there.
 2. For a package without a URL, the nupkg under `artifacts/test-packages` (`-PackagesPath`).
 3. The URL, downloaded once per run to `artifacts/tests/run/packages`.
 
-It checks the SHA-512 of every nupkg that it does not take from the cache, and gets each package once for all the
-archives of the run. An archive whose package cannot be found fails, and the others run.
+It takes a package by its identifier and version, and does not check the hash of the nupkg: a Public build signs the
+packages that ship after the archives have recorded them, which changes the nupkg but not what the archive takes from
+it. It gets each package once for all the archives of the run. An archive whose package cannot be found fails, and the
+others run.
 
 ### The manifest
 
@@ -176,7 +178,6 @@ archives of the run. An archive whose package cannot be found fails, and the oth
         @{
             Id = 'xunit.v3.core'
             Version = '3.0.0'
-            Sha512 = '<base64>'
             Url = 'https://api.nuget.org/v3-flatcontainer/xunit.v3.core/3.0.0/xunit.v3.core.3.0.0.nupkg'
             Files = @(
                 @{ Path = 'lib/net8.0/xunit.v3.core.dll'; Target = 'xunit.v3.core.dll' } )
