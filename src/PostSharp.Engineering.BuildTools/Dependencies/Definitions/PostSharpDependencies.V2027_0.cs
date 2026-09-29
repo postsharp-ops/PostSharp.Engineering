@@ -23,9 +23,8 @@ public static partial class PostSharpDependencies
                 GitHubAppConnectionId = GitHubAppConnections.PostSharp,
                 UpstreamProductFamily = V2026_0.Family,
 
-                // This line is the first one of the product to have a consolidated product. Its repositories
-                // therefore bump their version and deploy together, and they publish from the release branch
-                // instead of the development branch.
+                // The repositories of the line bump their version and deploy together, and they publish from the
+                // release branch instead of the development branch.
                 ConsolidatedProjectName = "PostSharp.Consolidated"
             };
 
@@ -74,11 +73,10 @@ public static partial class PostSharpDependencies
         /// <summary>The compiler and the pattern libraries.</summary>
         public static DependencyDefinition PostSharp { get; } = new PostSharpDependencyDefinition( _projectName )
         {
-            // Unlike the previous lines, this one is consolidated, so its builds are chained: the consolidated build and
-            // the other repositories of the line take a TeamCity snapshot dependency on this build and restore its
-            // packages from its artifacts instead of from the package feed. Setting GenerateSnapshotDependency to false,
-            // as the 2024.0 and 2026.0 lines do, would leave the consolidated build unchained from the product it
-            // consolidates.
+            // The line is consolidated, so its builds are chained: the consolidated build and the other repositories of
+            // the line take a TeamCity snapshot dependency on this build and restore its packages from its artifacts
+            // instead of from the package feed. Setting GenerateSnapshotDependency to false would leave the consolidated
+            // build unchained from the product it consolidates.
             //
             // Backstage is the shared licensing, telemetry and configuration library that the compiler is built
             // on since 2027.0. It belongs to another family, which is why the family of this line declares it as a
