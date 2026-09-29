@@ -355,8 +355,9 @@ public sealed class TestArchivesTests : IDisposable
 
     /// <summary>
     /// The files that the application takes from a package are not in the archive. The runner puts them in place from the
-    /// NuGet cache or from the packages that the build configuration downloaded, checks the hash of a nupkg, and fails an
-    /// archive whose package it cannot find. The package comes from a local source, so the test needs no network.
+    /// NuGet cache or from the packages that the build configuration downloaded, takes a nupkg that differs from the one of
+    /// the build (a Public build signs the packages that ship after the archives have recorded them), and fails an archive
+    /// whose package it cannot find. The package comes from a local source, so the test needs no network.
     /// </summary>
     [Fact]
     public void ThePackageFilesAreTakenFromTheCacheOrTheDownloadedPackages()
@@ -463,6 +464,7 @@ public sealed class TestArchivesTests : IDisposable
         var manifest = ReadManifest( archive );
         Assert.Contains( "Id = 'greeting'", manifest, StringComparison.Ordinal );
         Assert.Contains( "Url = $null", manifest, StringComparison.Ordinal );
+        Assert.DoesNotContain( "Sha512", manifest, StringComparison.Ordinal );
         Assert.Contains( $"@{{ Path = 'lib/{_targetFramework}/Greeting.dll'; Target = 'Greeting.dll' }}", manifest, StringComparison.Ordinal );
 
         // The restore graph names the package, with the key of its source in nuget.config.
@@ -501,11 +503,18 @@ public sealed class TestArchivesTests : IDisposable
         Assert.True( exitCode == 0, output );
         Assert.Equal( "from the package", File.ReadAllText( greeting ) );
 
-        // A nupkg that is not the one of the build is refused.
-        File.AppendAllText( downloaded, "tampered" );
+        // A nupkg that is not byte for byte the one of the build is taken too: a Public build signs the packages that ship
+        // after the archives have recorded them, and a signature adds an entry to the nupkg.
+        using ( var zip = ZipFile.Open( downloaded, ZipArchiveMode.Update ) )
+        {
+            using var writer = new StreamWriter( zip.CreateEntry( ".signature.p7s" ).Open() );
+            writer.Write( "not a signature" );
+        }
+
+        File.Delete( greeting );
         (exitCode, output) = this.RunTests( "", new Dictionary<string, string>( emptyCache ) );
-        Assert.Equal( 1, exitCode );
-        Assert.Contains( "has the SHA-512", output, StringComparison.Ordinal );
+        Assert.True( exitCode == 0, output );
+        Assert.Equal( "from the package", File.ReadAllText( greeting ) );
 
         // A package that was not downloaded names the command that updates the list of the packages to download.
         File.Delete( downloaded );

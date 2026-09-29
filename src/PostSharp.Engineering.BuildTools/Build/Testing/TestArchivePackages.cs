@@ -263,7 +263,7 @@ internal static class TestArchivePackages
         // TestArchive.targets writes the fields of a package on consecutive lines, in this order.
         return
         [
-            ..Regex.Matches( reader.ReadToEnd(), @"Id = '([^']+)'\s+Version = '[^']*'\s+Sha512 = '[^']*'\s+Url = \$null" )
+            ..Regex.Matches( reader.ReadToEnd(), @"Id = '([^']+)'\s+Version = '[^']*'\s+Url = \$null" )
                 .Select( m => m.Groups[1].Value )
                 .Distinct( StringComparer.Ordinal )
                 .Order( StringComparer.Ordinal )

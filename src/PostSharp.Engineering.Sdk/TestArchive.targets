@@ -249,10 +249,12 @@
 
     <!--
         Gets the files of a publication that come from a package, and writes the Packages key of the manifest. For each
-        package, it gives the identifier and version that name its directory in the package root, the SHA-512 of the nupkg,
-        the URL of the nupkg when the package comes from nuget.org, and each file as its path in the package and its path
-        in the application. NuGet writes the hash to <id>.<version>.nupkg.sha512 and the source to .nupkg.metadata, beside
-        each package that it extracts. The task uses no JSON library, because it also runs in the MSBuild of Visual Studio.
+        package, it gives the identifier and version that name its directory in the package root, the URL of the nupkg when
+        the package comes from nuget.org, and each file as its path in the package and its path in the application. NuGet
+        writes the source to .nupkg.metadata beside each package that it extracts. The manifest carries no hash of the
+        nupkg: a build of the product signs the packages that ship after the archives have recorded them, and the runner
+        takes a package by its identifier and version. The task uses no JSON library, because it also runs in the MSBuild
+        of Visual Studio.
     -->
     <UsingTask TaskName="GetTestArchivePackages"
                TaskFactory="RoslynCodeTaskFactory"
@@ -317,18 +319,13 @@ foreach ( var package in packages )
     var version = package.Key.Split( '/' )[1];
     var metadataPath = Path.Combine( root, id, version, ".nupkg.metadata" );
 
-    // The contentHash of .nupkg.metadata leaves out the signature of a signed package, so it is not the hash of the nupkg
-    // that the runner downloads. The .sha512 file is.
-    var hashPath = Path.Combine( root, id, version, id + "." + version + ".nupkg.sha512" );
-
-    if ( !File.Exists( metadataPath ) || !File.Exists( hashPath ) )
+    if ( !File.Exists( metadataPath ) )
     {
-        Log.LogError( "The test archive cannot reference the package '{0}' {1}: '{2}' or '{3}' does not exist.", id, version, metadataPath, hashPath );
+        Log.LogError( "The test archive cannot reference the package '{0}' {1}: '{2}' does not exist.", id, version, metadataPath );
 
         continue;
     }
 
-    var hash = File.ReadAllText( hashPath ).Trim();
     var source = Regex.Match( File.ReadAllText( metadataPath ), "\"source\"\\s*:\\s*\"([^\"]+)\"" ).Groups[1].Value;
 
     var url = string.Equals( source.TrimEnd( '/' ), nugetOrgSource, StringComparison.OrdinalIgnoreCase )
@@ -339,7 +336,6 @@ foreach ( var package in packages )
     manifest.AppendLine( "        @{" );
     manifest.AppendLine( "            Id = " + quote( id ) );
     manifest.AppendLine( "            Version = " + quote( version ) );
-    manifest.AppendLine( "            Sha512 = " + quote( hash ) );
     manifest.AppendLine( "            Url = " + url );
     manifest.Append( "            Files = @(" );
 
