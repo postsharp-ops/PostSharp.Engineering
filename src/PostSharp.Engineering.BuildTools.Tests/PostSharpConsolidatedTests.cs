@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -10,8 +11,8 @@ using Xunit;
 namespace PostSharp.Engineering.BuildTools.Tests;
 
 /// <summary>
-/// The 2027.0 line of PostSharp is the first one with a consolidated product. Declaring one changes how the whole line
-/// is bumped, published and laid out on TeamCity, and none of that is checked by the compiler.
+/// Every line of PostSharp has a consolidated product. Declaring one changes how the whole line is bumped, published and
+/// laid out on TeamCity, and none of that is checked by the compiler.
 /// </summary>
 public class PostSharpConsolidatedTests
 {
@@ -20,23 +21,35 @@ public class PostSharpConsolidatedTests
     /// from the release branch rather than from the development branch.
     /// </summary>
     [Fact]
-    public void The20270Line_IsConsolidatedAndThePreviousOnesAreNot()
+    public void EveryLine_IsConsolidated()
     {
-        Assert.True( PostSharpDependencies.V2027_0.Family.HasConsolidatedProduct );
-        Assert.Equal( "PostSharp.Consolidated", PostSharpDependencies.V2027_0.Family.ConsolidatedProjectName );
-        Assert.True( PostSharpDependencies.V2027_0.Consolidated.IsConsolidated );
+        (ProductFamily Family, DependencyDefinition Consolidated)[] lines =
+        [
+            (PostSharpDependencies.V2024_0.Family, PostSharpDependencies.V2024_0.Consolidated),
+            (PostSharpDependencies.V2026_0.Family, PostSharpDependencies.V2026_0.Consolidated),
+            (PostSharpDependencies.V2027_0.Family, PostSharpDependencies.V2027_0.Consolidated)
+        ];
 
-        Assert.False( PostSharpDependencies.V2024_0.Family.HasConsolidatedProduct );
-        Assert.False( PostSharpDependencies.V2026_0.Family.HasConsolidatedProduct );
+        foreach ( var (family, consolidated) in lines )
+        {
+            Assert.True( family.HasConsolidatedProduct );
+            Assert.Equal( "PostSharp.Consolidated", family.ConsolidatedProjectName );
+            Assert.True( consolidated.IsConsolidated );
+            Assert.Same( family, consolidated.ProductFamily );
+        }
     }
 
     /// <summary>
-    /// A consolidated line publishes from the release branch because it is consolidated. The earlier lines are not,
-    /// so their products opt in explicitly: a deployment from develop would publish commits the release branch never saw.
+    /// A consolidated line publishes from the release branch because it is consolidated: a deployment from develop
+    /// would publish commits the release branch never saw. No product needs to opt in explicitly.
     /// </summary>
     [Fact]
     public void ThePostSharpProducts_PublishFromTheReleaseBranchInEveryLine()
     {
+        Assert.False( PostSharpDependencies.V2024_0.PostSharp.PublishesFromReleaseBranch );
+        Assert.False( PostSharpDependencies.V2026_0.PostSharp.PublishesFromReleaseBranch );
+        Assert.False( PostSharpDependencies.V2026_0.PostSharpDocumentation.PublishesFromReleaseBranch );
+
         Assert.Equal( "release/2027.0", PostSharpDependencies.V2027_0.PostSharp.PublishingBranch );
         Assert.Equal( "release/2027.0", PostSharpDependencies.V2027_0.PostSharpDocumentation.PublishingBranch );
         Assert.Equal( "release/2026.0", PostSharpDependencies.V2026_0.PostSharp.PublishingBranch );
@@ -50,7 +63,7 @@ public class PostSharpConsolidatedTests
     /// line do.
     /// </summary>
     [Fact]
-    public void TheConsolidatedProduct_FollowsTheLayoutOfTheLine()
+    public void TheConsolidatedProductOf20270_FollowsTheLayoutOfTheLine()
     {
         var definition = PostSharpDependencies.V2027_0.Consolidated;
 
@@ -60,6 +73,73 @@ public class PostSharpConsolidatedTests
         Assert.Equal( "PostSharpGitHub_PostSharpConsolidated20270", definition.CiConfiguration.VcsRootId );
         Assert.Equal( "PostSharpGitHub", definition.CiConfiguration.VcsRootProjectId );
         Assert.Equal( "https://github.com/PostSharp/PostSharp.Consolidated.git", definition.VcsRepository.HttpUrl );
+    }
+
+    /// <summary>
+    /// The 2024.0 and 2026.0 lines are flat: each repository owns a TeamCity project beneath the PostSharp project,
+    /// named after the repository and the version, and a VCS root with the same identifier.
+    /// </summary>
+    [Theory]
+    [InlineData( "2024.0" )]
+    [InlineData( "2026.0" )]
+    public void TheConsolidatedProductOfTheFlatLines_FollowsTheLayoutOfTheLine( string version )
+    {
+        var definition = version == "2024.0" ? PostSharpDependencies.V2024_0.Consolidated : PostSharpDependencies.V2026_0.Consolidated;
+        var versionWithoutDots = version.Replace( ".", "", StringComparison.Ordinal );
+
+        Assert.False( definition.IsVersioned );
+        Assert.Equal( $"PostSharpGitHub_PostSharpConsolidated{versionWithoutDots}", definition.CiConfiguration.ProjectId.Id );
+        Assert.Equal( "PostSharpGitHub", definition.CiConfiguration.ProjectId.ParentId );
+        Assert.Equal( $"PostSharpGitHub_PostSharpConsolidated{versionWithoutDots}", definition.CiConfiguration.VcsRootId );
+        Assert.Equal( $"develop/{version}", definition.Branch );
+        Assert.Equal( $"release/{version}", definition.ReleaseBranch );
+        Assert.Equal( "https://github.com/PostSharp/PostSharp.Consolidated.git", definition.VcsRepository.HttpUrl );
+    }
+
+    /// <summary>
+    /// The TeamCity identifiers of PostSharp 2024.0 are now computed by a helper. The generated settings address the
+    /// existing project and VCS root by identifier, so the identifiers must not change.
+    /// </summary>
+    [Fact]
+    public void ThePostSharpProductOf20240_KeepsItsTeamCityIdentifiers()
+    {
+        var definition = PostSharpDependencies.V2024_0.PostSharp;
+
+        Assert.Equal( "PostSharpGitHub_PostSharp20240", definition.CiConfiguration.ProjectId.Id );
+        Assert.Equal( "PostSharpGitHub_PostSharp20240", definition.CiConfiguration.VcsRootId );
+    }
+
+    /// <summary>
+    /// Backstage exists only since 2027.0, so the earlier lines consolidate their own repositories and nothing else.
+    /// </summary>
+    [Fact]
+    public void TheConsolidatedProductsOfTheFlatLines_ConsolidateTheProductsOfTheLine()
+    {
+        Assert.Equal( [PostSharpDependencies.V2024_0.PostSharp], PostSharpDependencies.V2024_0.Consolidated.SourceDependencies );
+
+        Assert.Equal(
+            ["PostSharp.Engineering", "PostSharp"],
+            PostSharpDependencies.V2024_0.Consolidated.Dependencies.Select( d => d.Definition.Name ) );
+
+        Assert.Equal(
+            [PostSharpDependencies.V2026_0.PostSharp, PostSharpDependencies.V2026_0.PostSharpDocumentation],
+            PostSharpDependencies.V2026_0.Consolidated.SourceDependencies );
+
+        Assert.Equal(
+            ["PostSharp.Engineering", "PostSharp", "PostSharp.Documentation"],
+            PostSharpDependencies.V2026_0.Consolidated.Dependencies.Select( d => d.Definition.Name ) );
+    }
+
+    /// <summary>
+    /// The consolidated product of a line is merged from the consolidated product of the previous line. The upstream
+    /// merge resolves that product by name.
+    /// </summary>
+    [Fact]
+    public void TheConsolidatedProducts_AreMergedFromThePreviousLine()
+    {
+        Assert.Null( PostSharpDependencies.V2024_0.Consolidated.UpstreamProduct );
+        Assert.Same( PostSharpDependencies.V2024_0.Consolidated, PostSharpDependencies.V2026_0.Consolidated.UpstreamProduct );
+        Assert.Same( PostSharpDependencies.V2026_0.Consolidated, PostSharpDependencies.V2027_0.Consolidated.UpstreamProduct );
     }
 
     /// <summary>
@@ -94,17 +174,19 @@ public class PostSharpConsolidatedTests
 
     /// <summary>
     /// The consolidated build chains the builds it consolidates through TeamCity snapshot dependencies, and a
-    /// dependency that generates none is not chained. This is the difference between this line and the previous ones,
-    /// where the PostSharp packages are restored from the package feed instead.
+    /// dependency that generates none is not chained. The consolidated deployment would then not deploy it.
     /// </summary>
     [Fact]
-    public void TheProductsOf20270_AreChained()
+    public void TheProductsOfEveryLine_AreChained()
     {
         Assert.True( PostSharpDependencies.V2027_0.PostSharp.GenerateSnapshotDependency );
         Assert.True( PostSharpDependencies.V2027_0.PostSharpDocumentation.GenerateSnapshotDependency );
         Assert.True( BackstageDependencies.V2027_0.Backstage.GenerateSnapshotDependency );
 
-        Assert.False( PostSharpDependencies.V2026_0.PostSharp.GenerateSnapshotDependency );
+        Assert.True( PostSharpDependencies.V2026_0.PostSharp.GenerateSnapshotDependency );
+        Assert.True( PostSharpDependencies.V2026_0.PostSharpDocumentation.GenerateSnapshotDependency );
+
+        Assert.True( PostSharpDependencies.V2024_0.PostSharp.GenerateSnapshotDependency );
     }
 
     /// <summary>

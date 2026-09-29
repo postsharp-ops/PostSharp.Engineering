@@ -25,7 +25,11 @@ public static partial class PostSharpDependencies
                 // Changes flow from the 2024.0 line into this one. Declaring the upstream is what generates the
                 // 'Upstream Merge' build configuration and the 'Check pending upstream changes' step on the
                 // publishing configurations.
-                UpstreamProductFamily = V2024_0.Family
+                UpstreamProductFamily = V2024_0.Family,
+
+                // The consolidated product bumps the version and deploys the line. It is also what makes the products
+                // of the line publish from the release branch instead of the development branch.
+                ConsolidatedProjectName = "PostSharp.Consolidated"
             };
 
         private static TeamCityProjectId GetProjectId( string dependencyName )
@@ -54,12 +58,10 @@ public static partial class PostSharpDependencies
         /// <summary>The compiler and the pattern libraries.</summary>
         public static DependencyDefinition PostSharp { get; } = new PostSharpDependencyDefinition( _projectName )
         {
-            GenerateSnapshotDependency = false,
-
-            // The line has no consolidated product, but it releases like one: 'Prepare Deployment' advances the
-            // release branch to develop, 'Deploy [Public]' publishes from the release branch, and 'Finalize
-            // Deployment' tags it and merges it back. Without this, the deployment would be expected on develop.
-            PublishesFromReleaseBranch = true,
+            // The line is consolidated, so its builds are chained: the consolidated build and the other repositories of
+            // the line take a TeamCity snapshot dependency on this build and restore its packages from its artifacts
+            // instead of from the package feed. Setting GenerateSnapshotDependency to false would leave the
+            // consolidated deployment unchained from the product it deploys.
             Dependencies = [DevelopmentDependencies.PostSharpEngineering],
 
             // The packages this repository builds. The default is the product name followed by ".*", which would claim
@@ -73,8 +75,6 @@ public static partial class PostSharpDependencies
         public static DependencyDefinition PostSharpDocumentation { get; } =
             new PostSharpDependencyDefinition( $"{_projectName}.Documentation", isVersioned: false )
             {
-                // Released the same way as PostSharp: see the comment there.
-                PublishesFromReleaseBranch = true,
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering.ToDependency(),
@@ -112,6 +112,30 @@ public static partial class PostSharpDependencies
                             BuildConfiguration.Public,
                             BuildConfiguration.Public ) )
                 ]
+            };
+
+        /// <summary>
+        /// The consolidated product of the line. It builds no code of its own: it chains the builds of the
+        /// repositories it lists, bumps their version in one operation, and deploys them together. Unlike the 2027.0
+        /// line, this line is not built against Backstage, so Backstage is not part of this build.
+        /// </summary>
+        public static DependencyDefinition Consolidated { get; } =
+            new PostSharpDependencyDefinition( $"{_projectName}.Consolidated", isVersioned: false )
+            {
+                IsConsolidated = true,
+                Dependencies =
+                [
+                    DevelopmentDependencies.PostSharpEngineering.ToDependency(),
+
+                    // As for the documentation and the SDK tests, PostSharp exports only its public build.
+                    PostSharp.ToDependency(
+                        new ConfigurationSpecific<BuildConfiguration>(
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public ) ),
+                    PostSharpDocumentation.ToDependency()
+                ],
+                SourceDependencies = [PostSharp, PostSharpDocumentation]
             };
     }
 }
