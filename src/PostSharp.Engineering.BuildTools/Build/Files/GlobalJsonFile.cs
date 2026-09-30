@@ -3,6 +3,8 @@
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.IO;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace PostSharp.Engineering.BuildTools.Build.Files;
 
@@ -91,4 +93,51 @@ internal static class GlobalJsonFile
                 }
               """.TrimEnd()
             : "";
+
+    /// <summary>
+    /// The directory, relative to the repository, from which <c>dotnet test</c> runs a solution whose
+    /// <see cref="Solution.TestRunner"/> is <see cref="TestRunner.MicrosoftTestingPlatform"/> in a product whose tests use
+    /// VSTest. See <see cref="WriteTestingPlatformDirectory"/>.
+    /// </summary>
+    internal static readonly string TestingPlatformDirectory = Path.Combine( "artifacts", "testing-platform" );
+
+    /// <summary>
+    /// Writes a <c>global.json</c> that selects the mode of Microsoft.Testing.Platform into <see cref="TestingPlatformDirectory"/>,
+    /// and returns the full path of that directory.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The mode of <c>dotnet test</c> is chosen by the <c>global.json</c> nearest to the working directory, and the
+    /// <c>global.json</c> of a product whose tests use VSTest selects no mode. The file is written under the artifacts
+    /// directory, which is not under source control, rather than beside the solution.
+    /// </para>
+    /// <para>
+    /// The file is a copy of the <c>global.json</c> of the repository with a <c>test</c> section, so that <c>dotnet</c>
+    /// selects the same .NET SDK from this directory as from the repository. MSBuild still resolves the SDKs of the
+    /// projects from the <c>global.json</c> above each project.
+    /// </para>
+    /// </remarks>
+    internal static string WriteTestingPlatformDirectory( BuildContext context )
+    {
+        var repositoryGlobalJsonPath = Path.Combine( context.RepoDirectory, "global.json" );
+
+        var globalJson = File.Exists( repositoryGlobalJsonPath )
+            ? JsonNode.Parse(
+                  File.ReadAllText( repositoryGlobalJsonPath ),
+                  documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true } )
+              ?.AsObject() ?? new JsonObject()
+            : new JsonObject();
+
+        globalJson["test"] = new JsonObject { ["runner"] = "Microsoft.Testing.Platform" };
+
+        var directory = Path.Combine( context.RepoDirectory, TestingPlatformDirectory );
+        Directory.CreateDirectory( directory );
+
+        TextFileHelper.WriteIfDifferent(
+            Path.Combine( directory, "global.json" ),
+            globalJson.ToJsonString( new JsonSerializerOptions { WriteIndented = true } ),
+            context );
+
+        return directory;
+    }
 }

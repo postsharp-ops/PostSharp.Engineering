@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
@@ -35,11 +35,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public override bool Test( BuildContext context, BuildSettings settings )
         {
-            switch ( context.Product.TestRunner )
+            if ( !this.TryGetTestRunner( context, out var testRunner ) )
+            {
+                return false;
+            }
+
+            switch ( testRunner )
             {
                 // The test applications that the build of the solution wrote are run by dotnet test, which reports them. The
                 // Test target of the solution would fail on every project that does not define one.
-                case TestRunner.MicrosoftTestingPlatform:
+                case Model.TestRunner.MicrosoftTestingPlatform:
                     return TestingPlatform.Test( context, settings, this, Path.Combine( context.RepoDirectory, this.SolutionPath ) );
 
                 default:

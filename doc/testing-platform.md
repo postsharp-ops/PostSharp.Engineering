@@ -38,6 +38,28 @@ The mode applies to every `dotnet test` whose working directory is under the rep
 keep VSTest, such as a test that runs `dotnet test` on projects of its own, has a `global.json` of its own, without that
 section: `dotnet` uses the `global.json` nearest to its working directory.
 
+### A solution of test applications in a product that uses VSTest
+
+A product whose tests use VSTest can contain one solution of test applications, for instance platform tests that the
+test agents run on other platforms. The .NET SDK 10 refuses to run a Microsoft.Testing.Platform application in the mode
+of VSTest, and refuses a solution that contains one. Such a solution therefore sets its own `TestRunner`, which overrides
+the one of the product for that solution only:
+
+```csharp
+new DotNetSolution( "PlatformTests.sln" ) { TestRunner = TestRunner.MicrosoftTestingPlatform, ContainsTestApplications = true }
+```
+
+`Build.ps1 test` then runs `dotnet test` for that solution with the options of Microsoft.Testing.Platform described
+below, and imports its reports as those of Microsoft.Testing.Platform. Because the `global.json` of the repository selects
+no mode, `dotnet test` runs from `artifacts/testing-platform`, where `Build.ps1` writes a copy of that `global.json` with
+the `test` section. The copy keeps the SDK of the repository; MSBuild still resolves the SDKs of the projects from the
+`global.json` above each project.
+
+The other solutions keep VSTest. The solution of test applications must contain no VSTest test project, because the
+mode applies to the whole `dotnet test` command. The reverse is not supported: when the product uses
+Microsoft.Testing.Platform, its `global.json` selects that mode for every `dotnet test` of the repository, so a solution
+cannot set `TestRunner` to `VSTest`.
+
 `Build.ps1 test` then passes the options of that mode to `dotnet test`:
 
 | Option | Why |

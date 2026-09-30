@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
 using Newtonsoft.Json;
@@ -174,7 +174,7 @@ public abstract class TestableSolution : Solution
             foreach ( var file in this.GetTestResultFiles() )
             {
                 TeamCityHelper.SendImportDataMessage(
-                    context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform ? TestingPlatform.ReportType : "vstest",
+                    this.GetTestRunner( context.Product ) == Model.TestRunner.MicrosoftTestingPlatform ? TestingPlatform.ReportType : "vstest",
                     file.Replace( Path.DirectorySeparatorChar, '/' ),
                     Path.GetFileName( projectOrSolution ),
                     false );

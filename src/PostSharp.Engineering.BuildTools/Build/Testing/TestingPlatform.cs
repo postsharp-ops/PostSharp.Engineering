@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Solutions;
@@ -16,8 +16,9 @@ using System.Xml.Linq;
 namespace PostSharp.Engineering.BuildTools.Build.Testing;
 
 /// <summary>
-/// Runs the tests of a product whose <see cref="Product.TestRunner"/> is <see cref="TestRunner.MicrosoftTestingPlatform"/>
-/// with <c>dotnet test</c> in the mode of Microsoft.Testing.Platform, and reports them.
+/// Runs the tests of a solution whose test platform (<see cref="Solution.TestRunner"/>, or else <see cref="Product.TestRunner"/>)
+/// is <see cref="TestRunner.MicrosoftTestingPlatform"/> with <c>dotnet test</c> in the mode of Microsoft.Testing.Platform,
+/// and reports them.
 /// </summary>
 internal static class TestingPlatform
 {
@@ -201,7 +202,8 @@ internal static class TestingPlatform
                 "test",
                 $"--no-build {arguments}",
                 true,
-                logName: solution.Name );
+                logName: solution.Name,
+                testRunner: TestRunner.MicrosoftTestingPlatform );
         }
         finally
         {

@@ -115,7 +115,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets the test platform of the product, which is the mode of <c>dotnet test</c> in its repository. With
         /// <see cref="Model.TestRunner.MicrosoftTestingPlatform"/>, the generated <c>global.json</c> selects that mode, and
-        /// <c>Build.ps1 test</c> runs the test applications of the solutions with it. See <c>doc/testing-platform.md</c>.
+        /// <c>Build.ps1 test</c> runs the test applications of the solutions with it. A solution can override it with
+        /// <see cref="Solution.TestRunner"/>. See <c>doc/testing-platform.md</c>.
         /// </summary>
         public TestRunner TestRunner { get; init; }
 
