@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using System.Collections.Immutable;
 
@@ -39,6 +39,17 @@ internal sealed record TestApplication(
     /// ps1 kind, which publishes nothing.
     /// </summary>
     public string ProjectAssetsFile { get; init; } = "";
+
+    /// <summary>
+    /// Gets the moniker of the target framework of the application (<c>TargetFrameworkMoniker</c>), for instance
+    /// <c>.NETFramework,Version=v4.8</c>, or an empty string when it is not known.
+    /// </summary>
+    /// <remarks>
+    /// The restore graph (<c>project.assets.json</c>) names the target of a .NET Framework application by this moniker and
+    /// not by <see cref="TargetFramework"/>, whereas it names the target of a .NET 5 or later application by the short name
+    /// of the framework, which is <see cref="TargetFramework"/>. See <see cref="TestArchivePackages"/>.
+    /// </remarks>
+    public string TargetFrameworkMoniker { get; init; } = "";
 
     /// <summary>
     /// Gets the packages of the application that the build configurations download from the builds that publish them, as
