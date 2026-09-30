@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
 using System;
@@ -45,9 +45,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <para>
         /// This lets a product whose tests use VSTest contain a solution of Microsoft.Testing.Platform test applications,
         /// for instance a solution of platform tests that the test agents also run. The .NET SDK 10 refuses to run such an
-        /// application in the mode of VSTest, so <c>Build.ps1 test</c> runs <c>dotnet test</c> for this solution in the mode
-        /// of Microsoft.Testing.Platform, from a directory whose <c>global.json</c> selects that mode. See
-        /// <c>doc/testing-platform.md</c>.
+        /// application in the mode of VSTest, and only a <c>global.json</c> selects the other mode. <c>Build.ps1 test</c>
+        /// therefore does not run <c>dotnet test</c> for this solution: it builds the test archives of the solution and runs
+        /// those that apply to the platform of the build host with <c>RunTests.ps1</c>, as the test agents do. The solution
+        /// must set <see cref="ContainsTestApplications"/>. See <c>doc/testing-platform.md</c>.
         /// </para>
         /// <para>
         /// The reverse is not supported: when <see cref="Product.TestRunner"/> is
@@ -61,6 +62,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// Gets the test platform that runs the tests of the solution: <see cref="TestRunner"/>, or else the one of the product.
         /// </summary>
         internal TestRunner GetTestRunner( Product product ) => this.TestRunner ?? product.TestRunner;
+
+        /// <summary>
+        /// Gets a value indicating whether <c>Build.ps1 test</c> runs the test archives of the solution on the build host
+        /// instead of running <c>dotnet test</c>. See <see cref="TestRunner"/>.
+        /// </summary>
+        internal bool RunsTestArchivesOnHost( Product product )
+            => this.GetTestRunner( product ) == Model.TestRunner.MicrosoftTestingPlatform && product.TestRunner == Model.TestRunner.VSTest;
 
         /// <summary>
         /// Gets the test platform that runs the tests of the solution, and reports an error when the solution sets a test

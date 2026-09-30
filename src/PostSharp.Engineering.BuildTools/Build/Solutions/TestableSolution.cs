@@ -101,7 +101,17 @@ public abstract class TestableSolution : Solution
 
     public override bool Build( BuildContext context, BuildSettings settings ) => this.RunBuildOrTest( context, settings, test: false );
 
-    public override bool Test( BuildContext context, BuildSettings settings ) => this.RunBuildOrTest( context, settings, test: true );
+    public override bool Test( BuildContext context, BuildSettings settings )
+    {
+        if ( !this.TryGetTestRunner( context, out _ ) )
+        {
+            return false;
+        }
+
+        return this.RunsTestArchivesOnHost( context.Product )
+            ? TestArchives.RunOnHost( context, settings, this )
+            : this.RunBuildOrTest( context, settings, test: true );
+    }
 
     /// <summary>
     /// Reads the <c>test.json</c> of the scenario, if any, then executes one run per matrix entry.
@@ -174,7 +184,7 @@ public abstract class TestableSolution : Solution
             foreach ( var file in this.GetTestResultFiles() )
             {
                 TeamCityHelper.SendImportDataMessage(
-                    this.GetTestRunner( context.Product ) == Model.TestRunner.MicrosoftTestingPlatform ? TestingPlatform.ReportType : "vstest",
+                    context.Product.TestRunner == Model.TestRunner.MicrosoftTestingPlatform ? TestingPlatform.ReportType : "vstest",
                     file.Replace( Path.DirectorySeparatorChar, '/' ),
                     Path.GetFileName( projectOrSolution ),
                     false );

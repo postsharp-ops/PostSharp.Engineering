@@ -35,12 +35,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public override bool Test( BuildContext context, BuildSettings settings )
         {
-            if ( !this.TryGetTestRunner( context, out var testRunner ) )
+            if ( !this.TryGetTestRunner( context, out _ ) )
             {
                 return false;
             }
 
-            switch ( testRunner )
+            if ( this.RunsTestArchivesOnHost( context.Product ) )
+            {
+                return TestArchives.RunOnHost( context, settings, this );
+            }
+
+            switch ( context.Product.TestRunner )
             {
                 // The test applications that the build of the solution wrote are run by dotnet test, which reports them. The
                 // Test target of the solution would fail on every project that does not define one.

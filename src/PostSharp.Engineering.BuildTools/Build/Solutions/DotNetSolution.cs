@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Testing;
@@ -81,15 +81,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
                 verb = "test";
 
-                if ( !this.TryGetTestRunner( context, out var testRunner ) )
-                {
-                    exitCode = -1;
-                    output = "";
-
-                    return false;
-                }
-
-                switch ( testRunner )
+                switch ( context.Product.TestRunner )
                 {
                     case Model.TestRunner.MicrosoftTestingPlatform:
                         if ( !TestingPlatform.TryGetArguments( context, settings, projectOrSolution, stagingDirectory, out var testingPlatformArguments ) )
@@ -142,30 +134,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                     exitCode = 0;
                     output = "";
 
-                    return DotNetHelper.Run(
-                        context,
-                        settings,
-                        projectOrSolution,
-                        verb,
-                        args,
-                        true,
-                        invocationOptions,
-                        logName,
-                        this.GetTestRunner( context.Product ) );
+                    return DotNetHelper.Run( context, settings, projectOrSolution, verb, args, true, invocationOptions, logName );
                 }
 
-                return DotNetHelper.Run(
-                    context,
-                    settings,
-                    projectOrSolution,
-                    verb,
-                    args,
-                    true,
-                    out exitCode,
-                    out output,
-                    invocationOptions,
-                    logName,
-                    this.GetTestRunner( context.Product ) );
+                return DotNetHelper.Run( context, settings, projectOrSolution, verb, args, true, out exitCode, out output, invocationOptions, logName );
             }
             finally
             {
@@ -188,7 +160,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
             foreach ( var file in TestResultsStaging.Publish( context.Console, stagingDirectory, resultsDirectory, runKey ) )
             {
-                if ( this.GetTestRunner( context.Product ) == Model.TestRunner.MicrosoftTestingPlatform )
+                if ( context.Product.TestRunner == Model.TestRunner.MicrosoftTestingPlatform )
                 {
                     TestingPlatform.NameDataRows( context, file );
                 }

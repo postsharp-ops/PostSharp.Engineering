@@ -2,7 +2,6 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 using System;
@@ -23,11 +22,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string arguments = "",
             bool addConfigurationFlag = false,
             ToolInvocationOptions? options = null,
-            string? logName = null,
-            TestRunner? testRunner = null )
+            string? logName = null )
         {
-            var effectiveTestRunner = testRunner ?? context.Product.TestRunner;
-            var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag, logName, effectiveTestRunner );
+            var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag, logName );
 
             options = AddSimulatedContinuousIntegrationEnvironmentVariables( settings, options );
 
@@ -35,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                GetWorkingDirectory( context, projectOrSolution, command, effectiveTestRunner ),
+                GetWorkingDirectory( context, projectOrSolution, command ),
                 options );
         }
 
@@ -49,11 +46,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             out int exitCode,
             out string output,
             ToolInvocationOptions? options = null,
-            string? logName = null,
-            TestRunner? testRunner = null )
+            string? logName = null )
         {
-            var effectiveTestRunner = testRunner ?? context.Product.TestRunner;
-            var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag, logName, effectiveTestRunner );
+            var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag, logName );
 
             options = AddSimulatedContinuousIntegrationEnvironmentVariables( settings, options );
 
@@ -61,7 +56,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                GetWorkingDirectory( context, projectOrSolution, command, effectiveTestRunner ),
+                GetWorkingDirectory( context, projectOrSolution, command ),
                 out exitCode,
                 out output,
                 options );
@@ -69,24 +64,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         // The mode of dotnet test is chosen by the global.json nearest to the working directory. Build.ps1 starts this program
         // from the engineering directory, whose global.json pins the SDK of the program and names no test runner, so dotnet
-        // test runs from the repository root, where the global.json that selects Microsoft.Testing.Platform is. When only the
-        // solution uses Microsoft.Testing.Platform, the global.json of the repository selects VSTest, so dotnet test runs from
-        // a directory whose global.json selects Microsoft.Testing.Platform. See Solution.TestRunner.
-        private static string GetWorkingDirectory( BuildContext context, string projectOrSolution, string command, TestRunner testRunner )
-        {
-            if ( command != "test" || testRunner != TestRunner.MicrosoftTestingPlatform )
-            {
-                return context.GetWorkingDirectory( projectOrSolution );
-            }
-            else if ( context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform )
-            {
-                return context.RepoDirectory;
-            }
-            else
-            {
-                return GlobalJsonFile.WriteTestingPlatformDirectory( context );
-            }
-        }
+        // test runs from the repository root, where the global.json that selects Microsoft.Testing.Platform is.
+        private static string GetWorkingDirectory( BuildContext context, string projectOrSolution, string command )
+            => command == "test" && context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform
+                ? context.RepoDirectory
+                : context.GetWorkingDirectory( projectOrSolution );
 
         private static ToolInvocationOptions? AddSimulatedContinuousIntegrationEnvironmentVariables( BuildSettings settings, ToolInvocationOptions? options )
         {
@@ -113,8 +95,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string command,
             string arguments,
             bool addConfigurationFlag,
-            string? logName,
-            TestRunner testRunner )
+            string? logName )
         {
             var argsBuilder = new StringBuilder();
 
@@ -138,7 +119,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             // In the mode of Microsoft.Testing.Platform, dotnet test takes no positional argument: the solution or the project is
             // given by an option, and an argument it does not know is passed to the test applications, which refuse it.
-            if ( command == "test" && !isTestDllCommand && testRunner == TestRunner.MicrosoftTestingPlatform )
+            if ( command == "test" && !isTestDllCommand && context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform )
             {
                 var extension = Path.GetExtension( projectOrSolution );
 

@@ -42,23 +42,25 @@ section: `dotnet` uses the `global.json` nearest to its working directory.
 
 A product whose tests use VSTest can contain one solution of test applications, for instance platform tests that the
 test agents run on other platforms. The .NET SDK 10 refuses to run a Microsoft.Testing.Platform application in the mode
-of VSTest, and refuses a solution that contains one. Such a solution therefore sets its own `TestRunner`, which overrides
-the one of the product for that solution only:
+of VSTest, and only a `global.json` selects the other mode. Such a solution therefore sets its own `TestRunner`, which
+overrides the one of the product for that solution only, and `ContainsTestApplications`:
 
 ```csharp
 new DotNetSolution( "PlatformTests.sln" ) { TestRunner = TestRunner.MicrosoftTestingPlatform, ContainsTestApplications = true }
 ```
 
-`Build.ps1 test` then runs `dotnet test` for that solution with the options of Microsoft.Testing.Platform described
-below, and imports its reports as those of Microsoft.Testing.Platform. Because the `global.json` of the repository selects
-no mode, `dotnet test` runs from `artifacts/testing-platform`, where `Build.ps1` writes a copy of that `global.json` with
-the `test` section. The copy keeps the SDK of the repository; MSBuild still resolves the SDKs of the projects from the
-`global.json` above each project.
+`Build.ps1 test` does not run `dotnet test` for that solution. It builds the solution with `PublishTestArchive=true`, so
+that its archives exist in every configuration, and runs its archives with `RunTests.ps1` on the build host, as the test
+agents run them: only the archives whose `TestApplicationPlatforms` include the platform of the host run, and the script
+fails when none does. The script writes the TRX reports into the test results directory and reports them to TeamCity. A
+test filter is ignored for the solution, with a warning.
 
-The other solutions keep VSTest. The solution of test applications must contain no VSTest test project, because the
-mode applies to the whole `dotnet test` command. The reverse is not supported: when the product uses
-Microsoft.Testing.Platform, its `global.json` selects that mode for every `dotnet test` of the repository, so a solution
-cannot set `TestRunner` to `VSTest`.
+The same script runs the tests locally, after a build: `./eng/RunTests.ps1`, optionally with `-Name` to select archives
+and `-ApplicationArguments` to pass options to the applications. A test application is also an executable that can run
+by itself, for instance with `dotnet run --project`.
+
+The reverse is not supported: when the product uses Microsoft.Testing.Platform, its `global.json` selects that mode for
+every `dotnet test` of the repository, so a solution cannot set `TestRunner` to `VSTest`.
 
 `Build.ps1 test` then passes the options of that mode to `dotnet test`:
 
