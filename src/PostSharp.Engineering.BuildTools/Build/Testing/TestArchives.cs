@@ -98,6 +98,17 @@ internal static class TestArchives
                 $"The test filter is ignored for the solution '{solution.Name}', whose test applications run from test archives." );
         }
 
+        // The archives must be those of this build: an archive that an earlier build left would test other code.
+        if ( settings.Properties.TryGetValue( "PublishTestArchive", out var publishTestArchive )
+             && !(bool.TryParse( publishTestArchive, out var isPublishing ) && isPublishing) )
+        {
+            context.Console.WriteError(
+                $"The tests of the solution '{solution.Name}' run from its test archives, which the property PublishTestArchive={publishTestArchive} "
+                + "prevents the build from writing." );
+
+            return false;
+        }
+
         var buildSettings = settings.Properties.ContainsKey( "PublishTestArchive" )
             ? settings
             : settings.WithAdditionalProperties( ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "true" ) );
@@ -128,7 +139,7 @@ internal static class TestArchives
         return ToolInvocationHelper.InvokePowershell( context.Console, $"\"{scriptPath}\"", $"-Name {names}", context.RepoDirectory );
     }
 
-    private static string GetListPath( BuildContext context ) =>Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, ListFileName );
+    private static string GetListPath( BuildContext context ) => Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, ListFileName );
 
     /// <summary>
     /// Writes the list of the archives that <c>generate-scripts</c> planned the build configurations from, each with the

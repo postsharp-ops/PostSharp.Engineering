@@ -51,6 +51,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// must set <see cref="ContainsTestApplications"/>. See <c>doc/testing-platform.md</c>.
         /// </para>
         /// <para>
+        /// A <see cref="Solutions.ManySolutions"/> cannot set this property, because the solutions of its scenarios are
+        /// created at run time and use the test platform of the product.
+        /// </para>
+        /// <para>
         /// The reverse is not supported: when <see cref="Product.TestRunner"/> is
         /// <see cref="Model.TestRunner.MicrosoftTestingPlatform"/>, the <c>global.json</c> of the repository selects that mode
         /// for every <c>dotnet test</c> of the repository, so a solution cannot use <see cref="Model.TestRunner.VSTest"/>.
