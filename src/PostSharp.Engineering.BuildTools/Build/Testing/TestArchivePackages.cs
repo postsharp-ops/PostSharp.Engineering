@@ -14,15 +14,17 @@ using System.Xml.Linq;
 namespace PostSharp.Engineering.BuildTools.Build.Testing;
 
 /// <summary>
-/// The packages of the test applications that the test agents cannot download from nuget.org: the packages that this product
+/// The packages of the test applications that the test agents cannot download from a feed: the packages that this product
 /// and the products it depends on build. See <c>doc/testing-platform.md</c>.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A test archive does not hold the files that its application takes from NuGet packages: <c>TestArchive.targets</c> lists
-/// them in the manifest, and <c>RunTests.ps1</c> gets each package from the NuGet cache of the agent, from nuget.org, or from
-/// <see cref="Directory"/>. A package of another source is one that a build of this product or of a dependency publishes in
-/// its artifacts, and the build configuration of a test agent downloads it from that build.
+/// them in the manifest, and <c>RunTests.ps1</c> gets each package from the NuGet cache of the agent, from a feed, or from
+/// <see cref="Directory"/>. A feed is a source of <c>nuget.config</c> whose value is an HTTP URL: nuget.org, or a feed that
+/// <c>nuget.base.config</c> declares. Every other source is a local directory, to which the configuration generator points
+/// the source of this product and of each dependency. A package of such a source is one that a build of this product or of a
+/// dependency publishes in its artifacts, and the build configuration of a test agent downloads it from that build.
 /// </para>
 /// <para>
 /// A download rule names the package, and not its version, which changes with every build, so <c>generate-scripts</c>
@@ -41,10 +43,8 @@ internal static class TestArchivePackages
     /// </summary>
     public const string Directory = "artifacts/test-packages";
 
-    private const string _nuGetOrgSource = "https://api.nuget.org/v3/index.json";
-
     /// <summary>
-    /// A package of another source than nuget.org.
+    /// A package that a build of this product or of a dependency publishes, which no feed serves.
     /// </summary>
     /// <param name="Id">The identifier, in the case of the restore graph, which is the case of the file name of the package.</param>
     /// <param name="Producer">The key of the source of the package in <c>nuget.config</c>: the name of this product, or the key
@@ -151,12 +151,22 @@ internal static class TestArchivePackages
             static string Normalize( string value ) => value.Replace( '\\', '/' ).TrimEnd( '/' ).ToLowerInvariant();
         }
 
-        public bool IsNuGetOrg( string key )
-            => this._sources.TryGetValue( key, out var value ) && value.TrimEnd( '/' ).Equals( _nuGetOrgSource, StringComparison.OrdinalIgnoreCase );
+        /// <summary>
+        /// Determines whether a source is a feed, from which a test agent downloads a package itself, as opposed to the local
+        /// directory of the artifacts of a build.
+        /// </summary>
+        /// <remarks>
+        /// The configuration generator writes the source of this product and of each dependency as a directory, and copies
+        /// the other sources from <c>nuget.base.config</c>. A source whose value is an HTTP URL is therefore a feed that no
+        /// build of the product or of a dependency publishes, such as nuget.org or a mirror of the feeds of a vendor.
+        /// </remarks>
+        public bool IsFeed( string key )
+            => this._sources.TryGetValue( key, out var value )
+               && (value.StartsWith( "https://", StringComparison.OrdinalIgnoreCase ) || value.StartsWith( "http://", StringComparison.OrdinalIgnoreCase ));
     }
 
     /// <summary>
-    /// Gets the packages of an application that do not come from nuget.org, from the <c>project.assets.json</c> file that
+    /// Gets the packages of an application that do not come from a feed, from the <c>project.assets.json</c> file that
     /// the restore of its project wrote.
     /// </summary>
     public static bool TryGetPackages( ConsoleHelper console, Sources sources, TestApplication application, out ImmutableArray<Package> packages )
@@ -224,7 +234,7 @@ internal static class TestArchivePackages
                 continue;
             }
 
-            if ( !sources.IsNuGetOrg( source ) )
+            if ( !sources.IsFeed( source ) )
             {
                 builder.Add( new Package( id, version, source ) );
             }
@@ -254,10 +264,10 @@ internal static class TestArchivePackages
                  && group.EnumerateObject().Any( f => !f.Name.EndsWith( "/_._", StringComparison.Ordinal ) ) );
 
     /// <summary>
-    /// Gets the identifiers, in lower case, of the packages without a URL that the manifest of an archive lists, which the
-    /// runner takes from <see cref="Directory"/>.
+    /// Gets the identifiers, in lower case, of the packages without a URL or a feed that the manifest of an archive lists, which
+    /// the runner takes from <see cref="Directory"/>.
     /// </summary>
-    public static ImmutableArray<string> GetPackagesWithoutUrl( string archivePath )
+    public static ImmutableArray<string> GetPackagesWithoutFeed( string archivePath )
     {
         using var archive = ZipFile.OpenRead( archivePath );
         var entry = archive.GetEntry( "test.psd1" );
@@ -269,10 +279,11 @@ internal static class TestArchivePackages
 
         using var reader = new StreamReader( entry.Open() );
 
-        // TestArchive.targets writes the fields of a package on consecutive lines, in this order.
+        // TestArchive.targets writes the fields of a package on consecutive lines, in this order. An archive that an earlier
+        // version wrote has no Feed field, which means that the package has no feed.
         return
         [
-            ..Regex.Matches( reader.ReadToEnd(), @"Id = '([^']+)'\s+Version = '[^']*'\s+Url = \$null" )
+            ..Regex.Matches( reader.ReadToEnd(), @"Id = '([^']+)'\s+Version = '[^']*'\s+Url = \$null(?!\s+Feed = ')" )
                 .Select( m => m.Groups[1].Value )
                 .Distinct( StringComparer.Ordinal )
                 .Order( StringComparer.Ordinal )

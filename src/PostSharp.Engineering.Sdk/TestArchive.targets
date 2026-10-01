@@ -15,8 +15,9 @@
 
         The files that the publication takes from NuGet packages are not in the archive. The Packages key of the manifest
         lists them, with the package they come from, and RunTests.ps1 puts them in place before it runs the application:
-        from the NuGet cache of the agent, from nuget.org, or, for a package that a build of the product or of a dependency
-        publishes, from artifacts/test-packages, to which the build configuration downloads it. See doc/testing-platform.md.
+        from the NuGet cache of the agent, from nuget.org or another feed of nuget.config, or, for a package that a build of
+        the product or of a dependency publishes, from artifacts/test-packages, to which the build configuration downloads
+        it. See doc/testing-platform.md.
 
         Properties that describe the application, read by the archive and by generate-scripts (Build.ps1 test runs
         dotnet test, which does not read them):
@@ -250,8 +251,12 @@
     <!--
         Gets the files of a publication that come from a package, and writes the Packages key of the manifest. For each
         package, it gives the identifier and version that name its directory in the package root, the URL of the nupkg when
-        the package comes from nuget.org, and each file as its path in the package and its path in the application. NuGet
-        writes the source to .nupkg.metadata beside each package that it extracts. The manifest carries no hash of the
+        the package comes from nuget.org, the service index of the feed when the package comes from another HTTP feed, and
+        each file as its path in the package and its path in the application. NuGet writes the source to .nupkg.metadata
+        beside each package that it extracts. The task does not resolve the address of the package on another feed,
+        because only nuget.org has a well-known address, and an MSBuild task must not depend on the network. RunTests.ps1
+        reads the address from the service index. A package of a local directory has neither, because it is published by a
+        build of the product or of a dependency. The manifest carries no hash of the
         nupkg: a build of the product signs the packages that ship after the archives have recorded them, and the runner
         takes a package by its identifier and version. The task uses no JSON library, because it also runs in the MSBuild
         of Visual Studio.
@@ -328,15 +333,23 @@ foreach ( var package in packages )
 
     var source = Regex.Match( File.ReadAllText( metadataPath ), "\"source\"\\s*:\\s*\"([^\"]+)\"" ).Groups[1].Value;
 
-    var url = string.Equals( source.TrimEnd( '/' ), nugetOrgSource, StringComparison.OrdinalIgnoreCase )
+    var isNuGetOrg = string.Equals( source.TrimEnd( '/' ), nugetOrgSource, StringComparison.OrdinalIgnoreCase );
+
+    var isFeed = source.StartsWith( "https://", StringComparison.OrdinalIgnoreCase )
+                 || source.StartsWith( "http://", StringComparison.OrdinalIgnoreCase );
+
+    var url = isNuGetOrg
         ? quote( nugetOrgPackages + id + "/" + version + "/" + id + "." + version + ".nupkg" )
         : "$null";
+
+    var feed = isFeed && !isNuGetOrg ? quote( source ) : "$null";
 
     manifest.AppendLine();
     manifest.AppendLine( "        @{" );
     manifest.AppendLine( "            Id = " + quote( id ) );
     manifest.AppendLine( "            Version = " + quote( version ) );
     manifest.AppendLine( "            Url = " + url );
+    manifest.AppendLine( "            Feed = " + feed );
     manifest.Append( "            Files = @(" );
 
     foreach ( var file in package.Value.OrderBy( f => f.Value, StringComparer.Ordinal ) )
