@@ -56,6 +56,89 @@ internal static class TestArchives
     public static bool IsSourceConfiguration( Product product, BuildConfiguration configuration )
         => product.PublishesTestArchives && product.Configurations[configuration].RunsTestArchives;
 
+    /// <summary>
+    /// Runs the tests of a solution whose <see cref="Solution.TestRunner"/> is <see cref="TestRunner.MicrosoftTestingPlatform"/>
+    /// in a product whose tests use VSTest: builds the test archives of the solution, and runs the archives that apply to the
+    /// platform of the build host with <see cref="ScriptName"/>, as the test agents run them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The .NET SDK 10 refuses to run a Microsoft.Testing.Platform application in the mode of VSTest, and only a
+    /// <c>global.json</c> selects the other mode, so <c>dotnet test</c> cannot run these applications in such a product.
+    /// </para>
+    /// <para>
+    /// The solution is built with <c>PublishTestArchive=true</c> here, because the build of the product writes the archives
+    /// only in some configurations (see <see cref="AddBuildProperties"/>). The script reports the results to TeamCity and
+    /// writes the TRX reports into the test results directory of the product.
+    /// </para>
+    /// </remarks>
+    public static bool RunOnHost( BuildContext context, BuildSettings settings, Solution solution )
+    {
+        if ( !solution.ContainsTestApplications )
+        {
+            context.Console.WriteError(
+                $"The solution '{solution.Name}' sets TestRunner to Microsoft.Testing.Platform in a product whose tests use VSTest, so its "
+                + "tests run from test archives, but it does not set ContainsTestApplications." );
+
+            return false;
+        }
+
+        var scriptPath = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, ScriptName );
+
+        if ( !File.Exists( scriptPath ) )
+        {
+            context.Console.WriteError( $"The script '{scriptPath}' does not exist. Run 'Build.ps1 generate-scripts'." );
+
+            return false;
+        }
+
+        if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+        {
+            context.Console.WriteWarning(
+                $"The test filter is ignored for the solution '{solution.Name}', whose test applications run from test archives." );
+        }
+
+        // The archives must be those of this build: an archive that an earlier build left would test other code.
+        if ( settings.Properties.TryGetValue( "PublishTestArchive", out var publishTestArchive )
+             && !(bool.TryParse( publishTestArchive, out var isPublishing ) && isPublishing) )
+        {
+            context.Console.WriteError(
+                $"The tests of the solution '{solution.Name}' run from its test archives, which the property PublishTestArchive={publishTestArchive} "
+                + "prevents the build from writing." );
+
+            return false;
+        }
+
+        var buildSettings = settings.Properties.ContainsKey( "PublishTestArchive" )
+            ? settings
+            : settings.WithAdditionalProperties( ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "true" ) );
+
+        if ( !solution.Build( context, buildSettings ) )
+        {
+            return false;
+        }
+
+        var solutionPath = Path.Combine( context.RepoDirectory, solution.SolutionPath );
+
+        if ( !TestApplicationDiscovery.TryDiscover( context, settings.BuildConfiguration, solutionPath, out var applications ) )
+        {
+            return false;
+        }
+
+        if ( applications.IsEmpty )
+        {
+            context.Console.WriteError( $"The solution '{solution.Name}' contains no Microsoft.Testing.Platform test application." );
+
+            return false;
+        }
+
+        // The script reads a comma-separated list from the command line, and runs only the archives that apply to the platform
+        // of the host; it fails when none applies.
+        var names = string.Join( ",", applications.Select( a => a.ArchiveName ).Distinct( StringComparer.OrdinalIgnoreCase ) );
+
+        return ToolInvocationHelper.InvokePowershell( context.Console, $"\"{scriptPath}\"", $"-Name {names}", context.RepoDirectory );
+    }
+
     private static string GetListPath( BuildContext context ) => Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, ListFileName );
 
     /// <summary>

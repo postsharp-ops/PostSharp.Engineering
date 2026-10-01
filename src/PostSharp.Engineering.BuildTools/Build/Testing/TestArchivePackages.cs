@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -191,11 +191,12 @@ internal static class TestArchivePackages
         var libraries = root.GetProperty( "libraries" );
 
         // The target of the framework, and the targets of the framework and a runtime identifier, which the restore of an
-        // application with a runtime identifier adds, and of which the publication uses one.
+        // application with a runtime identifier adds, and of which the publication uses one. The restore graph names the
+        // target of a .NET Framework application by the moniker of the framework (.NETFramework,Version=v4.8) and the target
+        // of a .NET 5 or later application by the short name of the framework (net8.0), so both names are accepted.
         var names = root.GetProperty( "targets" )
             .EnumerateObject()
-            .Where( t => t.Name.Equals( application.TargetFramework, StringComparison.OrdinalIgnoreCase )
-                         || t.Name.StartsWith( application.TargetFramework + "/", StringComparison.OrdinalIgnoreCase ) )
+            .Where( t => IsTargetOf( t.Name, application.TargetFramework ) || IsTargetOf( t.Name, application.TargetFrameworkMoniker ) )
             .SelectMany( t => t.Value.EnumerateObject() )
             .Where( l => l.Value.TryGetProperty( "type", out var type ) && type.GetString() == "package" && HasFilesToPublish( l.Value ) )
             .Select( l => l.Name )
@@ -233,6 +234,14 @@ internal static class TestArchivePackages
 
         return success;
     }
+
+    /// <summary>
+    /// Determines whether a target of the restore graph is the one of a framework, with or without a runtime identifier.
+    /// </summary>
+    internal static bool IsTargetOf( string targetName, string framework )
+        => framework.Length > 0
+           && (targetName.Equals( framework, StringComparison.OrdinalIgnoreCase )
+               || targetName.StartsWith( framework + "/", StringComparison.OrdinalIgnoreCase ));
 
     private static readonly string[] _publishedAssetGroups = ["runtime", "native", "runtimeTargets", "resource", "contentFiles"];
 

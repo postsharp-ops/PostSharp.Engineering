@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
 using System;
@@ -36,6 +36,63 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// solution of a repository would cost time for nothing. See <c>doc/testing-platform.md</c>.
         /// </summary>
         public bool ContainsTestApplications { get; init; }
+
+        /// <summary>
+        /// Gets the test platform that runs the tests of the solution, when it differs from <see cref="Product.TestRunner"/>.
+        /// The default value, <c>null</c>, means that the solution uses the test platform of the product.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This lets a product whose tests use VSTest contain a solution of Microsoft.Testing.Platform test applications,
+        /// for instance a solution of platform tests that the test agents also run. The .NET SDK 10 refuses to run such an
+        /// application in the mode of VSTest, and only a <c>global.json</c> selects the other mode. <c>Build.ps1 test</c>
+        /// therefore does not run <c>dotnet test</c> for this solution: it builds the test archives of the solution and runs
+        /// those that apply to the platform of the build host with <c>RunTests.ps1</c>, as the test agents do. The solution
+        /// must set <see cref="ContainsTestApplications"/>. See <c>doc/testing-platform.md</c>.
+        /// </para>
+        /// <para>
+        /// A <see cref="Solutions.ManySolutions"/> cannot set this property, because the solutions of its scenarios are
+        /// created at run time and use the test platform of the product.
+        /// </para>
+        /// <para>
+        /// The reverse is not supported: when <see cref="Product.TestRunner"/> is
+        /// <see cref="Model.TestRunner.MicrosoftTestingPlatform"/>, the <c>global.json</c> of the repository selects that mode
+        /// for every <c>dotnet test</c> of the repository, so a solution cannot use <see cref="Model.TestRunner.VSTest"/>.
+        /// </para>
+        /// </remarks>
+        public TestRunner? TestRunner { get; init; }
+
+        /// <summary>
+        /// Gets the test platform that runs the tests of the solution: <see cref="TestRunner"/>, or else the one of the product.
+        /// </summary>
+        internal TestRunner GetTestRunner( Product product ) => this.TestRunner ?? product.TestRunner;
+
+        /// <summary>
+        /// Gets a value indicating whether <c>Build.ps1 test</c> runs the test archives of the solution on the build host
+        /// instead of running <c>dotnet test</c>. See <see cref="TestRunner"/>.
+        /// </summary>
+        internal bool RunsTestArchivesOnHost( Product product )
+            => this.GetTestRunner( product ) == Model.TestRunner.MicrosoftTestingPlatform && product.TestRunner == Model.TestRunner.VSTest;
+
+        /// <summary>
+        /// Gets the test platform that runs the tests of the solution, and reports an error when the solution sets a test
+        /// platform that the product does not support. See <see cref="TestRunner"/>.
+        /// </summary>
+        internal bool TryGetTestRunner( BuildContext context, out TestRunner testRunner )
+        {
+            testRunner = this.GetTestRunner( context.Product );
+
+            if ( testRunner == Model.TestRunner.VSTest && context.Product.TestRunner == Model.TestRunner.MicrosoftTestingPlatform )
+            {
+                context.Console.WriteError(
+                    $"The solution '{this.Name}' sets TestRunner to VSTest, but the product uses Microsoft.Testing.Platform, whose "
+                    + "global.json selects that mode for every 'dotnet test' of the repository." );
+
+                return false;
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether a call to the <see cref="Pack"/> method should be explicitly preceded by

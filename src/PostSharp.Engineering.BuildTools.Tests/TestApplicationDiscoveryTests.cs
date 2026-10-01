@@ -176,6 +176,10 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
         // A .NET Framework application runs on Windows, and its default runtime identifier does not name its archive.
         Assert.Equal( ["win-x64", "win-arm64"], applications.Single( a => a.ArchiveName == "Xunit.net48" ).Platforms.ToArray() );
 
+        // The restore graph names the target of a .NET Framework application by this moniker (see TestArchivePackagesTargetTests).
+        Assert.Equal( ".NETFramework,Version=v4.8", applications.Single( a => a.ArchiveName == "Xunit.net48" ).TargetFrameworkMoniker );
+        Assert.Equal( ".NETCoreApp,Version=v8.0", net8.TargetFrameworkMoniker );
+
         var windows = applications.Single( a => a.ArchiveName == "MSTest.net8.0-windows" );
         Assert.Equal( ["win-x64", "win-arm64"], windows.Platforms.ToArray() );
         Assert.Equal( "Not today", windows.Skip );

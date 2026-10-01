@@ -48,7 +48,18 @@ public abstract class ManySolutions : Solution
 
     public override bool Build( BuildContext context, BuildSettings settings ) => this.BuildOrTest( context, settings, false, "Building" );
 
-    public override bool Test( BuildContext context, BuildSettings settings ) => this.BuildOrTest( context, settings, true, "Testing" );
+    public override bool Test( BuildContext context, BuildSettings settings )
+    {
+        // The solutions of the scenarios are created at run time and use the test platform of the product.
+        if ( this.TestRunner != null )
+        {
+            context.Console.WriteError( $"The solution '{this.Name}' sets TestRunner, which is not supported for a set of solutions." );
+
+            return false;
+        }
+
+        return this.BuildOrTest( context, settings, true, "Testing" );
+    }
 
     public override bool Pack( BuildContext context, BuildSettings settings ) => throw new NotSupportedException();
 

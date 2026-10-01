@@ -83,7 +83,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
                 switch ( context.Product.TestRunner )
                 {
-                    case TestRunner.MicrosoftTestingPlatform:
+                    case Model.TestRunner.MicrosoftTestingPlatform:
                         if ( !TestingPlatform.TryGetArguments( context, settings, projectOrSolution, stagingDirectory, out var testingPlatformArguments ) )
                         {
                             exitCode = -1;
@@ -160,7 +160,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
             foreach ( var file in TestResultsStaging.Publish( context.Console, stagingDirectory, resultsDirectory, runKey ) )
             {
-                if ( context.Product.TestRunner == TestRunner.MicrosoftTestingPlatform )
+                if ( context.Product.TestRunner == Model.TestRunner.MicrosoftTestingPlatform )
                 {
                     TestingPlatform.NameDataRows( context, file );
                 }

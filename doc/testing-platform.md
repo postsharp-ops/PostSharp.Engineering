@@ -38,6 +38,30 @@ The mode applies to every `dotnet test` whose working directory is under the rep
 keep VSTest, such as a test that runs `dotnet test` on projects of its own, has a `global.json` of its own, without that
 section: `dotnet` uses the `global.json` nearest to its working directory.
 
+### A solution of test applications in a product that uses VSTest
+
+A product whose tests use VSTest can contain one solution of test applications, for instance platform tests that the
+test agents run on other platforms. The .NET SDK 10 refuses to run a Microsoft.Testing.Platform application in the mode
+of VSTest, and only a `global.json` selects the other mode. Such a solution therefore sets its own `TestRunner`, which
+overrides the one of the product for that solution only, and `ContainsTestApplications`:
+
+```csharp
+new DotNetSolution( "PlatformTests.sln" ) { TestRunner = TestRunner.MicrosoftTestingPlatform, ContainsTestApplications = true }
+```
+
+`Build.ps1 test` does not run `dotnet test` for that solution. It builds the solution with `PublishTestArchive=true`, so
+that its archives exist in every configuration, and runs its archives with `RunTests.ps1` on the build host, as the test
+agents run them: only the archives whose `TestApplicationPlatforms` include the platform of the host run, and the script
+fails when none does. The script writes the TRX reports into the test results directory and reports them to TeamCity. A
+test filter is ignored for the solution, with a warning.
+
+The same script runs the tests locally, after a build: `./eng/RunTests.ps1`, optionally with `-Name` to select archives
+and `-ApplicationArguments` to pass options to the applications. A test application is also an executable that can run
+by itself, for instance with `dotnet run --project`.
+
+The reverse is not supported: when the product uses Microsoft.Testing.Platform, its `global.json` selects that mode for
+every `dotnet test` of the repository, so a solution cannot set `TestRunner` to `VSTest`.
+
 `Build.ps1 test` then passes the options of that mode to `dotnet test`:
 
 | Option | Why |

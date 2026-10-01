@@ -1,4 +1,4 @@
-// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Exceptions;
@@ -265,7 +265,8 @@ internal static class TestApplicationDiscovery
                 skip.Length == 0 ? null : skip,
                 Split( project.GetPropertyValue( "TestApplicationArtifacts" ) ).Select( x => x.Replace( '\\', '/' ) ).Distinct().ToImmutableArray() )
             {
-                ProjectAssetsFile = IsScript( project ) ? "" : project.GetPropertyValue( "ProjectAssetsFile" )
+                ProjectAssetsFile = IsScript( project ) ? "" : project.GetPropertyValue( "ProjectAssetsFile" ),
+                TargetFrameworkMoniker = project.GetPropertyValue( "TargetFrameworkMoniker" )
             } );
     }
 
