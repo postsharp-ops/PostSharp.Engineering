@@ -449,7 +449,7 @@ by the build that caused it.
 What the command is, is the agent's business. On the Linux agents:
 
 ```sh
-# /opt/buildAgent/bin/chown-all.sh   (root:root, 0755)
+# /usr/local/sbin/teamcity-chown-all   (root:root, 0755)
 #!/bin/sh
 set -eu
 for d in /opt/buildAgent/work/*/; do
@@ -459,17 +459,24 @@ done
 
 ```sudoers
 # /etc/sudoers.d/teamcity-chown-all   (0440, validate with visudo -cf)
-teamcity ALL=(root) NOPASSWD: /opt/buildAgent/bin/chown-all.sh
+teamcity ALL=(root) NOPASSWD: /usr/local/sbin/teamcity-chown-all
 ```
 
 ```properties
 # /opt/buildAgent/conf/buildAgent.properties
-env.BUILDAGENT_CLEANUP_SCRIPT=sudo /opt/buildAgent/bin/chown-all.sh
+env.BUILDAGENT_CLEANUP_SCRIPT=sudo /usr/local/sbin/teamcity-chown-all
 ```
 
 Grant the **script**, never the tool. `NOPASSWD: /bin/chown`, or a wildcard argument, is passwordless root.
 The script therefore takes no arguments and hardcodes what it operates on, and its ownership and permissions
 are the security boundary: if the agent user can write it, the grant is root.
+
+Keep the script outside `/opt/buildAgent`. A TeamCity agent upgrade deletes and recreates `/opt/buildAgent/bin`,
+so a script stored there disappears at the next upgrade. The upgrade runs as the agent user, which also shows
+that the agent user can write to that directory. A user who can write to a directory can replace any file in
+it, including a file owned by root, so a script stored there is not protected by its own ownership.
+`/usr/local/sbin` is owned by root and is not modified by TeamCity or by the package manager. The
+`/opt/buildAgent/conf` directory is preserved by an upgrade, so the property above stays in place.
 
 A failure is reported and does not fail the build. This is hygiene, and a build that would otherwise pass
 should not be failed by it.
