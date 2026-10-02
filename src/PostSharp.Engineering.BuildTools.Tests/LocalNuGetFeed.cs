@@ -14,9 +14,21 @@ using System.Threading.Tasks;
 namespace PostSharp.Engineering.BuildTools.Tests;
 
 /// <summary>
-/// A NuGet v3 feed served over HTTP on the loopback interface, from the nupkg files of a directory. It implements the service
-/// index and the package base address resource, which is what a restore and <c>RunTests.ps1</c> use.
+/// A test-only NuGet v3 feed, served over HTTP on the loopback interface from the nupkg files of a directory. No build and no
+/// product uses it.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <c>TestArchivesTests</c> uses this feed to test the packages of a feed other than nuget.org without network access. A
+/// restore from this feed records an HTTP source for the package, as a restore from a mirror such as
+/// <c>roslyn-consolidated</c> does. The test then verifies that the manifest of the test archive names the feed, and that
+/// <c>RunTests.ps1</c> downloads the package from it.
+/// </para>
+/// <para>
+/// The feed implements only what a restore and <c>RunTests.ps1</c> request: the service index, and the package base address
+/// resource, which lists the versions of a package and serves its nupkg.
+/// </para>
+/// </remarks>
 internal sealed class LocalNuGetFeed : IDisposable
 {
     private readonly HttpListener _listener;
