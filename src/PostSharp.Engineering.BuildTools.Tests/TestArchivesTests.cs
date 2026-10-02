@@ -464,6 +464,9 @@ public sealed class TestArchivesTests : IDisposable
         var manifest = ReadManifest( archive );
         Assert.Contains( "Id = 'greeting'", manifest, StringComparison.Ordinal );
         Assert.Contains( "Url = $null", manifest, StringComparison.Ordinal );
+
+        // A local source is not a feed: a build publishes the package.
+        Assert.Contains( "Feed = $null", manifest, StringComparison.Ordinal );
         Assert.DoesNotContain( "Sha512", manifest, StringComparison.Ordinal );
         Assert.Contains( $"@{{ Path = 'lib/{_targetFramework}/Greeting.dll'; Target = 'Greeting.dll' }}", manifest, StringComparison.Ordinal );
 
@@ -522,6 +525,141 @@ public sealed class TestArchivesTests : IDisposable
         Assert.Equal( 1, exitCode );
         Assert.Contains( "is not in", output, StringComparison.Ordinal );
         Assert.Contains( "generate-scripts", output, StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// A package of an HTTP feed other than nuget.org, such as a mirror that <c>nuget.base.config</c> declares, is
+    /// downloaded by the runner from that feed. No build publishes it, so it is not in the list of the packages that the build
+    /// configurations download. Before, the source of the package was taken for a dependency, and <c>generate-scripts</c>
+    /// failed because no dependency has that key.
+    /// </summary>
+    [Fact]
+    public void ThePackageFilesOfAnotherFeedAreDownloadedFromTheFeed()
+    {
+        if ( DockerBuildScript.FindPowerShell() != "pwsh" )
+        {
+            return;
+        }
+
+        File.WriteAllText( Path.Combine( this._directory.Path, "Build.ps1" ), "" );
+        this.WriteDirectoryBuildTargets();
+
+        var cache = Path.Combine( this._directory.Path, "cache" );
+        var packed = Path.Combine( this._directory.Path, "packed" );
+        var environment = new Dictionary<string, string> { ["NUGET_PACKAGES"] = cache };
+
+        // The library, packed into a directory that the feed serves.
+        var libraryDirectory = Path.Combine( this._directory.Path, "src", "Greeting" );
+        Directory.CreateDirectory( libraryDirectory );
+
+        File.WriteAllText(
+            Path.Combine( libraryDirectory, "Greeting.csproj" ),
+            $"""
+             <Project Sdk="Microsoft.NET.Sdk">
+               <PropertyGroup>
+                 <TargetFramework>{_targetFramework}</TargetFramework>
+                 <Version>1.0.1</Version>
+               </PropertyGroup>
+             </Project>
+             """ );
+
+        File.WriteAllText( Path.Combine( libraryDirectory, "Greeting.cs" ), "public static class Greeting { public static string Get() => \"from the feed\"; }" );
+
+        var (exitCode, output) = Run( "dotnet", $"pack \"{libraryDirectory}\" -nologo -o \"{packed}\" -nodeReuse:false -p:UseSharedCompilation=false", libraryDirectory, environment );
+        Assert.True( exitCode == 0, output );
+
+        using var feed = new LocalNuGetFeed( packed );
+
+        File.WriteAllText(
+            Path.Combine( this._directory.Path, "nuget.config" ),
+            $"""
+             <configuration>
+               <packageSources>
+                 <clear />
+                 <add key="mirror" value="{feed.ServiceIndex}" allowInsecureConnections="true" />
+               </packageSources>
+             </configuration>
+             """ );
+
+        // The application, which writes what the library returns.
+        var projectDirectory = Path.Combine( this._directory.Path, "src", "Probe" );
+        Directory.CreateDirectory( projectDirectory );
+
+        File.WriteAllText(
+            Path.Combine( projectDirectory, "Probe.csproj" ),
+            $"""
+             <Project Sdk="Microsoft.NET.Sdk">
+               <PropertyGroup>
+                 <OutputType>Exe</OutputType>
+                 <TargetFramework>{_targetFramework}</TargetFramework>
+                 <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
+                 <PublishTestArchive>true</PublishTestArchive>
+               </PropertyGroup>
+               <ItemGroup>
+                 <PackageReference Include="Greeting" Version="1.0.1" />
+               </ItemGroup>
+             </Project>
+             """ );
+
+        File.WriteAllText(
+            Path.Combine( projectDirectory, "Program.cs" ),
+            """
+            using System.IO;
+
+            var resultsDirectory = args[System.Array.IndexOf( args, "--results-directory" ) + 1];
+            File.WriteAllText( Path.Combine( resultsDirectory, "greeting.txt" ), Greeting.Get() );
+            """ );
+
+        var engDirectory = Path.Combine( this._directory.Path, "eng" );
+        Directory.CreateDirectory( engDirectory );
+
+        File.WriteAllText(
+            Path.Combine( engDirectory, TestArchives.ScriptName ),
+            ReadScript().Replace( "<TEST_RESULTS_PATH>", "artifacts/testResults", StringComparison.Ordinal ),
+            new UTF8Encoding( false ) );
+
+        (exitCode, output) = Run(
+            "dotnet",
+            $"build \"{projectDirectory}\" -nologo -nodeReuse:false -p:UseSharedCompilation=false",
+            projectDirectory,
+            environment,
+            blockedEnvironmentVariables: ["TEAMCITY_VERSION"] );
+
+        Assert.True( exitCode == 0, output );
+
+        // The manifest names the feed of the package, and no URL, which only nuget.org has.
+        var archive = Path.Combine( this.ArchivesDirectory, $"Probe.{_targetFramework}.zip" );
+        var manifest = ReadManifest( archive );
+        Assert.Contains( "Id = 'greeting'", manifest, StringComparison.Ordinal );
+        Assert.Contains( "Url = $null", manifest, StringComparison.Ordinal );
+        Assert.Contains( $"Feed = '{feed.ServiceIndex}'", manifest, StringComparison.Ordinal );
+        Assert.Empty( TestArchivePackages.GetPackagesWithoutFeed( archive ) );
+
+        // No build configuration downloads the package, because no build publishes it.
+        var application = new TestApplication(
+            Path.Combine( projectDirectory, "Probe.csproj" ),
+            "Probe",
+            _targetFramework,
+            "",
+            ["win-x64"],
+            [],
+            false,
+            null,
+            [] ) { ProjectAssetsFile = Path.Combine( projectDirectory, "obj", "project.assets.json" ) };
+
+        var context = TestBuildContext.Create( this._directory.Path );
+        Assert.True( TestArchivePackages.Sources.TryLoad( context, out var sources ) );
+        Assert.True( TestArchivePackages.TryGetPackages( context.Console, sources, application, out var packages ) );
+        Assert.Empty( packages );
+
+        // On an agent whose cache does not have the package, the runner downloads it from the feed.
+        var emptyCache = new Dictionary<string, string> { ["NUGET_PACKAGES"] = Path.Combine( this._directory.Path, "empty-cache" ) };
+        feed.DownloadedPackages.Clear();
+
+        (exitCode, output) = this.RunTests( "", emptyCache );
+        Assert.True( exitCode == 0, output );
+        Assert.Equal( "from the feed", File.ReadAllText( Path.Combine( this.ResultsDirectory, $"Probe.{_targetFramework}", "greeting.txt" ) ) );
+        Assert.Contains( "/flat/greeting/1.0.1/greeting.1.0.1.nupkg", feed.DownloadedPackages );
     }
 
     [Fact]

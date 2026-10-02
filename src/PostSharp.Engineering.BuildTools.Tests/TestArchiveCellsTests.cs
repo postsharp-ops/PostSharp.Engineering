@@ -197,7 +197,7 @@ public sealed class TestArchiveCellsTests
     }
 
     /// <summary>
-    /// The packages that NuGet restored from a source other than nuget.org, and that have a file to publish in the restore
+    /// The packages that NuGet restored from a source other than a feed, and that have a file to publish in the restore
     /// graph of the target framework, are named after each archive with the key of their source in nuget.config, which the
     /// package source mapping gives. A package added without regenerating the build configurations would be downloaded by
     /// none of them.
@@ -217,11 +217,13 @@ public sealed class TestArchiveCellsTests
                 <clear />
                 <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
                 <add key="Backstage" value="C:\artifacts\Backstage" />
+                <add key="mirror" value="https://feeds.example.com/mirror/v3/index.json" />
               </packageSources>
               <packageSourceMapping>
                 <clear />
                 <packageSource key="nuget.org"><package pattern="*" /></packageSource>
                 <packageSource key="Backstage"><package pattern="Backstage*" /><package pattern="Product" /></packageSource>
+                <packageSource key="mirror"><package pattern="Vendor.*" /></packageSource>
               </packageSourceMapping>
             </configuration>
             """ );
@@ -239,6 +241,7 @@ public sealed class TestArchiveCellsTests
                   "net48": {
                     "Backstage/1.0.1": { "type": "package", "runtime": { "lib/net472/Backstage.dll": {} } },
                     "xunit.v3/3.0.0": { "type": "package", "runtime": { "lib/net472/xunit.v3.dll": {} } },
+                    "Vendor.Compiler/5.0.0": { "type": "package", "runtime": { "lib/netstandard2.0/Vendor.Compiler.dll": {} } },
                     "Product/2.0.0": { "type": "package", "runtime": { "lib/netstandard1.0/_._": {} }, "build": { "build/Product.targets": {} } },
                     "Common/1.0.0": { "type": "project" }
                   },
@@ -253,6 +256,7 @@ public sealed class TestArchiveCellsTests
                   "Backstage/1.0.1": { "type": "package", "path": "backstage/1.0.1" },
                   "Backstage.Tools/1.0.1": { "type": "package", "path": "backstage.tools/1.0.1" },
                   "xunit.v3/3.0.0": { "type": "package", "path": "xunit.v3/3.0.0" },
+                  "Vendor.Compiler/5.0.0": { "type": "package", "path": "vendor.compiler/5.0.0" },
                   "Backstage.Other/1.0.0": { "type": "package", "path": "backstage.other/1.0.0" },
                   "Product/2.0.0": { "type": "package", "path": "product/2.0.0" },
                   "Common/1.0.0": { "type": "project", "path": "../Common/Common.csproj" }
@@ -274,12 +278,13 @@ public sealed class TestArchiveCellsTests
             File.ReadAllText( Path.Combine( directory.Path, "eng", "test-archives.txt" ) ),
             StringComparison.Ordinal );
 
-        // The archive takes a file from a package of another source.
+        // The archive takes a file from a package of another source. An archive that an earlier version wrote has no Feed
+        // field.
         var archives = Path.Combine( directory.Path, "artifacts", "tests" );
         Directory.CreateDirectory( archives );
         var archive = Path.Combine( archives, "Client.net48.zip" );
 
-        void WriteArchive( string package )
+        void WriteArchive( string package, string? feedLine = null )
         {
             File.Delete( archive );
 
@@ -294,6 +299,7 @@ public sealed class TestArchiveCellsTests
                               Id = '{{package}}'
                               Version = '1.0.1'
                               Url = $null
+                              {{feedLine}}
                               Files = @() } )
                   }
                   """ );
@@ -302,8 +308,18 @@ public sealed class TestArchiveCellsTests
         WriteArchive( "backstage" );
         Assert.True( TestArchives.Verify( context, [application] ) );
 
+        WriteArchive( "backstage", "Feed = $null" );
+        Assert.True( TestArchives.Verify( context, [application] ) );
+
+        // A package of a feed is downloaded by the runner, so the list does not need to name it.
+        WriteArchive( "vendor.compiler", "Feed = 'https://feeds.example.com/mirror/v3/index.json'" );
+        Assert.True( TestArchives.Verify( context, [application] ) );
+
         // A package that the archive takes from another source and that the restore graph does not show fails the build.
         WriteArchive( "product" );
+        Assert.False( TestArchives.Verify( context, [application] ) );
+
+        WriteArchive( "product", "Feed = $null" );
         Assert.False( TestArchives.Verify( context, [application] ) );
 
         // A package that the list does not name fails the build.

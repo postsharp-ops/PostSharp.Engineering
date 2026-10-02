@@ -161,9 +161,13 @@ This covers every way a package file reaches the output: the runtime, native and
 props of a package add. The dependency file is generated before that point, so it still names these files, and the
 runner puts them back at the same paths.
 
-A package that NuGet restored from nuget.org is given its URL, and the runner downloads it. Any other package is one that
-a build of the product, or of a product it depends on, publishes in its private artifacts: its source in `nuget.config`
-is the directory of those artifacts. The build configuration of a test agent downloads it from that build, through an
+A package that NuGet restored from nuget.org is given its URL, and the runner downloads it. A package that NuGet restored
+from another feed, which is a source of `nuget.config` whose value is an HTTP URL, such as a mirror that
+`nuget.base.config` declares, is given the service index of the feed. The runner reads the package base address from that
+index and downloads the package from it. The test agents must therefore be able to read such a feed without credentials.
+Any other package is one that a build of the product, or of a product it depends on, publishes in its private artifacts:
+its source in `nuget.config` is the directory of those artifacts, because the configuration generator writes the source of
+the product and of each dependency as a directory. The build configuration of a test agent downloads it from that build, through an
 artifact dependency, to `artifacts/test-packages/<source>`, where `<source>` is the key of the source in `nuget.config`:
 the name of the product, or of the dependency. See [The build configurations](#the-build-configurations).
 
@@ -171,8 +175,9 @@ For each package, the runner takes the first of these that exists:
 
 1. The NuGet cache of the host (`NUGET_PACKAGES`, or `~/.nuget/packages`), when it holds the package, which its
    `<id>.<version>.nupkg.sha512` file shows: NuGet writes it last. A local run finds every package there.
-2. For a package without a URL, the nupkg under `artifacts/test-packages` (`-PackagesPath`).
-3. The URL, downloaded once per run to `artifacts/tests/run/packages`.
+2. For a package without a URL or a feed, the nupkg under `artifacts/test-packages` (`-PackagesPath`).
+3. The URL, or the address that the service index of the feed gives, downloaded once per run to
+   `artifacts/tests/run/packages`. The runner reads the service index of each feed once per run.
 
 It takes a package by its identifier and version, and does not check the hash of the nupkg: a Public build signs the
 packages that ship after the archives have recorded them, which changes the nupkg but not what the archive takes from
@@ -203,6 +208,7 @@ others run.
             Id = 'xunit.v3.core'
             Version = '3.0.0'
             Url = 'https://api.nuget.org/v3-flatcontainer/xunit.v3.core/3.0.0/xunit.v3.core.3.0.0.nupkg'
+            Feed = $null
             Files = @(
                 @{ Path = 'lib/net8.0/xunit.v3.core.dll'; Target = 'xunit.v3.core.dll' } )
         } )
@@ -218,7 +224,7 @@ others run.
 | `ReportType`, `ReportFile` | `exe` and `ps1` only. The TeamCity `importData` type of the reports, such as `gtest`, and their path, in which `{ResultsDirectory}` is replaced and the file name can contain wildcards. |
 | `Prepare` | The file name of the prepare script at the root of the archive, from `TestApplicationPrepareScript`, or `$null`. |
 | `Artifacts` | The build artifacts that the prepare script reads, from `TestApplicationArtifacts`. |
-| `Packages` | The files that the application takes from packages, which are not in the archive: for each package, its identifier and version in lower case, the SHA-512 of the nupkg in base64, its URL on nuget.org or `$null` for a package that a build publishes, and each file as its path in the package and its path in the application. See [The files of packages](#the-files-of-packages). |
+| `Packages` | The files that the application takes from packages, which are not in the archive: for each package, its identifier and version in lower case, its URL on nuget.org or `$null`, the service index of the feed for a package of another feed or `$null`, and each file as its path in the package and its path in the application. See [The files of packages](#the-files-of-packages). |
 
 The other fields are the properties of [Describing a test application](#describing-a-test-application).
 
@@ -361,7 +367,7 @@ It evaluates each target framework, in each build configuration that sets `RunsT
 `Build.ps1 list-test-applications` shows what it finds.
 
 It then restores these solutions, in the configuration that the repository was prepared in, and reads from the
-`project.assets.json` file of each project the packages that the application needs and that are not from nuget.org: the
+`project.assets.json` file of each project the packages that the application needs and that are not from a feed: the
 packages of the restore graph that have a file to publish, with the source that the package source mapping of
 `nuget.config` gives them. The restore needs the packages of the product, so `generate-scripts` runs after a
 `Build.ps1 build`.
@@ -384,7 +390,7 @@ application is not downloaded. A composite configuration, `RunAllTestArchives`, 
 
 A build configuration downloads exactly the archives it runs, one artifact rule per archive, from the build of its configuration,
 and the artifacts that their prepare scripts read, each to its own path. It also downloads the packages of its
-applications that are not from nuget.org, from the build that publishes them: the build of its configuration for a
+applications that are not from a feed, from the build that publishes them: the build of its configuration for a
 package of the product, and, through a snapshot dependency of its own, the build of the dependency that the build of the
 product used for a package of a dependency. A rule names a package and not its version, which changes with every build:
 `+:artifacts/publish/private/<id>.*.nupkg=>artifacts/test-packages/<source>`. Such a pattern also matches a package whose
@@ -431,7 +437,7 @@ packages that its build configurations download from the builds that publish the
 `Build.ps1 build` fails when the archives it writes differ from that list: an archive missing from the list is run by no
 build configuration, and a listed archive that the build did not write fails the download of the configurations that run
 it. The same applies to the packages of each archive, which change when a package reference does. The build also fails
-when a manifest takes a file from a package that is not from nuget.org and that the list does not name: a file that the
+when a manifest takes a file from a package that is not from a feed and that the list does not name: a file that the
 props of a package add, which the restore graph does not show.
 
 ## Options of the archives

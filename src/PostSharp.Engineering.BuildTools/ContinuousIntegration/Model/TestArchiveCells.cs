@@ -199,7 +199,7 @@ internal static class TestArchiveCells
 
         var configuration = source.Configuration!.Value;
 
-        // The packages that are not from nuget.org, grouped by the build that publishes them: this product, or a dependency.
+        // The packages that are not from a feed, grouped by the build that publishes them: this product, or a dependency.
         var packagesByProducer = applications.SelectMany( a => a.Packages )
             .Select( TestArchivePackages.Package.ParseReference )
             .Distinct()
