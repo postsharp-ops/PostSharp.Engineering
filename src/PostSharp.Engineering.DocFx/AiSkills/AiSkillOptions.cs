@@ -24,8 +24,8 @@ public sealed record AiSkillOptions
     public required string DisplayName { get; init; }
 
     /// <summary>
-    /// Gets the description of the marketplace as a whole. The plugin description comes from the
-    /// <c>description:</c> field of the <c>SKILL.md</c> front matter instead.
+    /// Gets the description of the marketplace as a whole, also used as the short description of the Codex plugin.
+    /// The plugin description comes from the <c>description:</c> field of the <c>SKILL.md</c> front matter instead.
     /// </summary>
     public required string MarketplaceDescription { get; init; }
 
@@ -60,7 +60,7 @@ public sealed record AiSkillOptions
     public string PackageFilePattern => $"{this.ZipFilePrefix}.*.zip";
 
     /// <summary>
-    /// Gets the name of the owner of the marketplace and the author of the Codex plugin.
+    /// Gets the name of the owner of the marketplace, and the author and developer of the Codex plugin.
     /// </summary>
     public string OwnerName { get; init; } = "PostSharp Technologies";
 
