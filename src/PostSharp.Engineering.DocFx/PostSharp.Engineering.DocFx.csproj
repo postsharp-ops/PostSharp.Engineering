@@ -21,6 +21,11 @@
     <ItemGroup>
         <InternalsVisibleTo Include="PostSharp.Engineering.DocFx.Tests" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!-- The helper scripts that AiSkillSolution writes into every skill. -->
+        <EmbeddedResource Include="AiSkills/Scripts/*" LogicalName="AiSkills.Scripts.%(Filename)%(Extension)" />
+    </ItemGroup>
     
     <ItemGroup>
       <ProjectReference Include="..\PostSharp.Engineering.BuildTools\PostSharp.Engineering.BuildTools.csproj" />

@@ -24,6 +24,8 @@ namespace PostSharp.Engineering.DocFx.AiSkills;
 [PublicAPI]
 public class AiSkillSolution : Solution
 {
+    private const string _scriptResourcePrefix = "AiSkills.Scripts.";
+
     private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     private readonly AiSkillOptions _options;
@@ -138,7 +140,9 @@ public class AiSkillSolution : Solution
                 console.WriteMessage( $"Copied {this._options.CodeDirectory}/." );
             }
 
-            // 6. Helper scripts and assets bundled with the skill.
+            // 6. Helper scripts and assets. The product-neutral scripts come from this assembly; a repository can add
+            // its own scripts, or override ours, in its scripts directory.
+            WriteBundledScripts( Path.Combine( skillDir, "scripts" ) );
             CopyDirectory( Path.Combine( skillSourceDir, "scripts" ), Path.Combine( skillDir, "scripts" ), "*" );
             CopyDirectory( Path.Combine( skillSourceDir, "assets" ), Path.Combine( skillDir, "assets" ), "*" );
 
@@ -259,6 +263,20 @@ public class AiSkillSolution : Solution
         };
 
         WriteJson( Path.Combine( codexPluginConfigDir, "plugin.json" ), plugin );
+    }
+
+    private static void WriteBundledScripts( string scriptsDir )
+    {
+        var assembly = typeof(AiSkillSolution).Assembly;
+
+        Directory.CreateDirectory( scriptsDir );
+
+        foreach ( var resourceName in assembly.GetManifestResourceNames().Where( n => n.StartsWith( _scriptResourcePrefix, StringComparison.Ordinal ) ) )
+        {
+            using var resource = assembly.GetManifestResourceStream( resourceName )!;
+            using var file = File.Create( Path.Combine( scriptsDir, resourceName.Substring( _scriptResourcePrefix.Length ) ) );
+            resource.CopyTo( file );
+        }
     }
 
     private static void WriteJson( string path, object value ) => File.WriteAllText( path, JsonSerializer.Serialize( value, _jsonOptions ) );

@@ -67,7 +67,8 @@ public sealed record AiSkillOptions
 
     /// <summary>
     /// Gets the repository directory holding the hand-written <c>SKILL.md</c> and <c>README.md</c>, and the
-    /// optional <c>scripts</c> and <c>assets</c> subdirectories copied into the skill.
+    /// optional <c>scripts</c> and <c>assets</c> subdirectories copied into the skill. The <c>find-api</c> and <c>find-doc</c>
+    /// scripts (Python and PowerShell) are always included; a file of the same name in <c>scripts</c> overrides them.
     /// </summary>
     public string SkillSourceDirectory { get; init; } = "claude";
 
