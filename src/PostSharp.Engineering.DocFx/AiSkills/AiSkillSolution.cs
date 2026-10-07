@@ -136,17 +136,15 @@ public class AiSkillSolution : Solution
             // 4. Conceptual documentation, verbatim. It keeps its repository-relative path so that the paths in index.yml resolve.
             var contentSourceDir = Path.Combine( repoDir, this._options.ContentDirectory );
             var contentDestDir = Path.Combine( skillDir, this._options.ContentDirectory );
-            // The index is generated first, because it gives the articles that the toc lists.
+            // The index is generated first, because it gives the articles to include.
             var indexGenerator = new SkillIndexGenerator( repoDir, this._options.ContentDirectory, this._options.TocPath, console );
-            var index = indexGenerator.GenerateIndex();
+            var index = indexGenerator.GenerateIndex( this._options.IncludeOnlyReachableArticles );
 
             Func<string, bool>? articleFilter = null;
 
             if ( this._options.IncludeOnlyReachableArticles )
             {
-                var reachableArticlePaths = indexGenerator.GetReachableArticlePaths();
-
-                articleFilter = relativePath => reachableArticlePaths.Contains(
+                articleFilter = relativePath => indexGenerator.IncludedArticlePaths.Contains(
                     Path.Combine( this._options.ContentDirectory, relativePath ).Replace( '\\', '/' ) );
             }
 

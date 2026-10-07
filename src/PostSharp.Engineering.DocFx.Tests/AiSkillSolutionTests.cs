@@ -59,8 +59,6 @@ public sealed class AiSkillSolutionTests : IDisposable
         Assert.True( File.Exists( Path.Combine( marketplaceDirectory, "README.md" ) ) );
         Assert.Contains( "This skill pertains to Sample 2027.0.", File.ReadAllText( Path.Combine( skillDirectory, "SKILL.md" ) ), StringComparison.Ordinal );
         Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "sub", "details.md" ) ) );
-        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "linked.md" ) ) );
-        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "linked2.md" ) ) );
         Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "toc.yml" ) ) );
 
         // The bundled scripts are written, and the repository's own scripts are added to them.
@@ -81,8 +79,9 @@ public sealed class AiSkillSolutionTests : IDisposable
         Assert.Contains( "summary: Details summary, after the intro.", index, StringComparison.Ordinal );
         Assert.Contains( "uid: details", index, StringComparison.Ordinal );
 
-        // By default, every article is copied, including the ones that the toc does not list.
+        // By default, every article is copied, including the ones that the toc does not list, and the index lists them too.
         Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "orphan.md" ) ) );
+        Assert.Contains( "path: docs/orphan.md", index, StringComparison.Ordinal );
         Assert.Contains( "keywords: a, b", index, StringComparison.Ordinal );
 
         // The plugin description is taken from SKILL.md.
@@ -126,7 +125,18 @@ public sealed class AiSkillSolutionTests : IDisposable
         Assert.False( File.Exists( Path.Combine( skillDirectory, "docs", "orphan.md" ) ) );
         Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "intro.md" ) ) );
         Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "sub", "details.md" ) ) );
+        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "linked.md" ) ) );
+        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "linked2.md" ) ) );
         Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "toc.yml" ) ) );
+
+        // The index lists the included articles that the toc does not list, so that an xref to them can be resolved.
+        var index = File.ReadAllText( Path.Combine( skillDirectory, "index.yml" ) );
+        Assert.Contains( "path: docs/linked.md", index, StringComparison.Ordinal );
+        Assert.Contains( "path: docs/linked2.md", index, StringComparison.Ordinal );
+        Assert.DoesNotContain( "orphan", index, StringComparison.Ordinal );
+
+        // An article without a title is named after its uid.
+        Assert.Contains( "name: linked2", index, StringComparison.Ordinal );
     }
 
     [Fact]

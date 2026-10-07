@@ -38,10 +38,13 @@ internal class SkillIndexGenerator
     }
 
     /// <summary>
-    /// Gets the repository-relative paths, with forward slashes, of the articles that the toc lists and of the articles
-    /// that they link to with an xref, transitively. Call it after <see cref="GenerateIndex"/>.
+    /// Gets the repository-relative paths, with forward slashes, of the articles that the skill includes.
+    /// It is populated by <see cref="GenerateIndex"/>.
     /// </summary>
-    public HashSet<string> GetReachableArticlePaths()
+    public IReadOnlySet<string> IncludedArticlePaths { get; private set; } = new HashSet<string>();
+
+    // The articles that the toc lists, and the articles that they link to with an xref, transitively.
+    private HashSet<string> GetReachableArticlePaths()
     {
         var reachable = new HashSet<string>( this._tocArticlePaths, StringComparer.OrdinalIgnoreCase );
         var queue = new Queue<string>( this._tocArticlePaths );
@@ -66,7 +69,12 @@ internal class SkillIndexGenerator
         return reachable;
     }
 
-    public string GenerateIndex()
+    /// <summary>
+    /// Generates the content of <c>index.yml</c>: the tree of the toc, followed by the included articles that the toc does
+    /// not list, so that an xref to any included article can be resolved.
+    /// </summary>
+    /// <param name="includeOnlyReachableArticles">Whether only the reachable articles are included, or all the articles.</param>
+    public string GenerateIndex( bool includeOnlyReachableArticles )
     {
         // Step 1: Scan all Markdown files and extract front matter
         this.ScanMarkdownFiles();
@@ -75,7 +83,31 @@ internal class SkillIndexGenerator
         var tocPath = Path.Combine( this._repoDir, this._tocPath );
         var indexItems = this.ParseTocFile( tocPath );
 
-        // Step 3: Serialize to YAML
+        // Step 3: Add the included articles that the toc does not list.
+        this.IncludedArticlePaths = includeOnlyReachableArticles
+            ? this.GetReachableArticlePaths()
+            : new HashSet<string>( this._linkedUidsByPath.Keys, StringComparer.OrdinalIgnoreCase );
+
+        var unlistedItems = this._pathByUid
+            .Where( p => this.IncludedArticlePaths.Contains( p.Value ) && !this._tocArticlePaths.Contains( p.Value ) )
+            .OrderBy( p => p.Value, StringComparer.Ordinal )
+            .Select(
+                p => new IndexItem
+                {
+                    Name = string.IsNullOrWhiteSpace( this._metadataByUid[p.Key].Title ) ? p.Key : this._metadataByUid[p.Key].Title,
+                    Uid = p.Key,
+                    Path = p.Value,
+                    Summary = this._metadataByUid[p.Key].Summary,
+                    Keywords = this._metadataByUid[p.Key].Keywords
+                } )
+            .ToList();
+
+        if ( unlistedItems.Count > 0 )
+        {
+            indexItems.Add( new IndexItem { Name = "Articles not listed in the table of contents", Items = unlistedItems } );
+        }
+
+        // Step 4: Serialize to YAML
         var serializer = new SerializerBuilder()
             .WithNamingConvention( CamelCaseNamingConvention.Instance )
             .ConfigureDefaultValuesHandling( DefaultValuesHandling.OmitNull )
@@ -242,6 +274,8 @@ internal class SkillIndexGenerator
     private class MarkdownMetadata
     {
         public string? Uid { get; set; }
+
+        public string? Title { get; set; }
 
         public string? Summary { get; set; }
 
