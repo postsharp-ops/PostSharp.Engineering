@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Utilities;
+using System.Text.RegularExpressions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -19,6 +20,9 @@ internal class SkillIndexGenerator
     private readonly ConsoleHelper _console;
     private readonly Dictionary<string, MarkdownMetadata> _metadataByUid = new();
     private readonly Dictionary<string, string> _pathByUid = new();
+
+    // Both delimiters must be complete lines, so that a value containing "---" does not end the front matter.
+    private static readonly Regex _frontMatterRegex = new( @"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(\r?\n|\z)", RegexOptions.Singleline | RegexOptions.Compiled );
 
     public SkillIndexGenerator( string repoDir, string contentDirectory, string tocPath, ConsoleHelper console )
     {
@@ -77,19 +81,14 @@ internal class SkillIndexGenerator
             var content = File.ReadAllText( filePath );
 
             // Check for YAML front matter (starts with ---)
-            if ( !content.StartsWith( "---", StringComparison.Ordinal ) )
+            var match = _frontMatterRegex.Match( content );
+
+            if ( !match.Success )
             {
                 return null;
             }
 
-            var endIndex = content.IndexOf( "---", 3, StringComparison.Ordinal );
-
-            if ( endIndex < 0 )
-            {
-                return null;
-            }
-
-            var frontMatter = content.Substring( 3, endIndex - 3 ).Trim();
+            var frontMatter = match.Groups[1].Value;
 
             var deserializer = new DeserializerBuilder()
                 .WithNamingConvention( CamelCaseNamingConvention.Instance )
@@ -104,12 +103,15 @@ internal class SkillIndexGenerator
         }
     }
 
+    // A missing or invalid toc throws, so that the build fails instead of publishing an incomplete index.
     private List<IndexItem> ParseTocFile( string tocPath )
     {
         if ( !File.Exists( tocPath ) )
         {
-            return new List<IndexItem>();
+            throw new FileNotFoundException( $"The toc file '{tocPath}' does not exist.", tocPath );
         }
+
+        TocRoot? tocRoot;
 
         try
         {
@@ -120,21 +122,19 @@ internal class SkillIndexGenerator
                 .IgnoreUnmatchedProperties()
                 .Build();
 
-            var tocRoot = deserializer.Deserialize<TocRoot>( content );
-
-            if ( tocRoot?.Items == null )
-            {
-                return new List<IndexItem>();
-            }
-
-            return this.ConvertTocItems( tocRoot.Items, Path.GetDirectoryName( tocPath )! );
+            tocRoot = deserializer.Deserialize<TocRoot>( content );
         }
         catch ( Exception ex )
         {
-            this._console.WriteWarning( $"Failed to parse {tocPath}: {ex.Message}" );
+            throw new InvalidOperationException( $"Failed to parse '{tocPath}': {ex.Message}", ex );
+        }
 
+        if ( tocRoot?.Items == null )
+        {
             return new List<IndexItem>();
         }
+
+        return this.ConvertTocItems( tocRoot.Items, Path.GetDirectoryName( tocPath )! );
     }
 
     private List<IndexItem> ConvertTocItems( List<TocItem> tocItems, string currentDir )

@@ -30,6 +30,10 @@ public class AiSkillSolution : Solution
 
     private readonly AiSkillOptions _options;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AiSkillSolution"/> class.
+    /// </summary>
+    /// <param name="options">The description of the skill and the plugin, and the locations of their sources in the repository.</param>
     public AiSkillSolution( AiSkillOptions options ) : base( "AI Skill" )
     {
         this._options = options;
@@ -61,6 +65,9 @@ public class AiSkillSolution : Solution
 
     private string GetPluginDirectory( string marketplaceOutputDir ) => Path.Combine( marketplaceOutputDir, "plugins", this._options.PluginName );
 
+    /// <summary>
+    /// Builds the marketplace under <c>artifacts/marketplace</c>, with the version of the product family in the manifests.
+    /// </summary>
     public override bool Build( BuildContext context, BuildSettings settings )
         => this.Build( context.RepoDirectory, context.Product.ProductFamily.Version, context.Console );
 
@@ -308,6 +315,10 @@ public class AiSkillSolution : Solution
         => relativePath.Split( Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar )
             .Any( segment => segment.Equals( "obj", StringComparison.OrdinalIgnoreCase ) || segment.Equals( "bin", StringComparison.OrdinalIgnoreCase ) );
 
+    /// <summary>
+    /// Builds the marketplace with the full package version in the manifests, and zips it to
+    /// <c>artifacts/publish/private/{ZipFilePrefix}.{PackageVersion}.zip</c>.
+    /// </summary>
     public override bool Pack( BuildContext context, BuildSettings settings )
     {
         if ( !this.Build( context, settings ) )
@@ -367,7 +378,13 @@ public class AiSkillSolution : Solution
         }
     }
 
+    /// <summary>
+    /// Does nothing: the solution has nothing to restore.
+    /// </summary>
     public override bool Restore( BuildContext context, BuildSettings settings ) => true;
 
+    /// <summary>
+    /// Does nothing: the generator is tested in PostSharp.Engineering, not in the repositories that use it.
+    /// </summary>
     public override bool Test( BuildContext context, BuildSettings settings ) => true;
 }

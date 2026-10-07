@@ -93,6 +93,29 @@ public sealed class AiSkillSolutionTests : IDisposable
         Assert.True( File.Exists( Path.Combine( marketplaceDirectory, ".claude-plugin", "marketplace.json" ) ) );
     }
 
+    [Fact]
+    public void Build_FailsWhenTheTocIsMissing()
+    {
+        this.BuildSampleSkill();
+        File.Delete( Path.Combine( this._repoDirectory, "docs", "toc.yml" ) );
+
+        Assert.False( new AiSkillSolution( CreateOptions() ).Build( this._repoDirectory, "2027.0", new ConsoleHelper() ) );
+    }
+
+    [Fact]
+    public void Build_KeepsFrontMatterValuesThatContainDashes()
+    {
+        this.BuildSampleSkill();
+        this.WriteFile( "docs/intro.md", "---\nuid: intro\nsummary: Before---after.\n---\n# Intro\n" );
+
+        Assert.True( new AiSkillSolution( CreateOptions() ).Build( this._repoDirectory, "2027.0", new ConsoleHelper() ) );
+
+        var index = File.ReadAllText(
+            Path.Combine( this._repoDirectory, "artifacts", "marketplace", "plugins", "sample", "skills", "sample", "index.yml" ) );
+
+        Assert.Contains( "summary: Before---after.", index, StringComparison.Ordinal );
+    }
+
     // The Python and PowerShell variants of each script must behave the same. A variant whose interpreter is not
     // installed is not tested.
     [Theory]
@@ -190,7 +213,13 @@ public sealed class AiSkillSolutionTests : IDisposable
         this.WriteFile( "artifacts/api/Legacy.Type.yml", "items:\n- uid: Legacy.Type\n" );
         this.WriteFile( "artifacts/api/.manifest", """{"Sample.Type": "Sample.Type.yml", "Legacy.Type": "Legacy.Type.yml"}""" );
 
-        var options = new AiSkillOptions
+        Assert.True( new AiSkillSolution( CreateOptions() ).Build( this._repoDirectory, "2027.0", new ConsoleHelper() ) );
+
+        return Path.Combine( this._repoDirectory, "artifacts", "marketplace", "plugins", "sample", "skills", "sample" );
+    }
+
+    private static AiSkillOptions CreateOptions()
+        => new()
         {
             PluginName = "sample",
             DisplayName = "Sample",
@@ -204,11 +233,6 @@ public sealed class AiSkillSolutionTests : IDisposable
             TocPath = "docs/toc.yml",
             ApiRelocations = _relocations
         };
-
-        Assert.True( new AiSkillSolution( options ).Build( this._repoDirectory, "2027.0", new ConsoleHelper() ) );
-
-        return Path.Combine( this._repoDirectory, "artifacts", "marketplace", "plugins", "sample", "skills", "sample" );
-    }
 
     private void WriteFile( string relativePath, string content )
     {

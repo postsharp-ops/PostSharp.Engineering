@@ -59,10 +59,20 @@ public sealed record AiSkillOptions
     /// </summary>
     public string PackageFilePattern => $"{this.ZipFilePrefix}.*.zip";
 
+    /// <summary>
+    /// Gets the name of the owner of the marketplace and the author of the Codex plugin.
+    /// </summary>
     public string OwnerName { get; init; } = "PostSharp Technologies";
 
+    /// <summary>
+    /// Gets the contact email of the owner of the marketplace and the author of the Codex plugin.
+    /// </summary>
     public string OwnerEmail { get; init; } = "hello@postsharp.net";
 
+    /// <summary>
+    /// Gets the category under which the Codex plugin directory lists the plugin. It is free text shown as is,
+    /// for instance <c>Developer Tools</c>.
+    /// </summary>
     public string Category { get; init; } = "Developer Tools";
 
     /// <summary>
