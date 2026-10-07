@@ -136,7 +136,19 @@ public class AiSkillSolution : Solution
             // 4. Conceptual documentation, verbatim. It keeps its repository-relative path so that the paths in index.yml resolve.
             var contentSourceDir = Path.Combine( repoDir, this._options.ContentDirectory );
             var contentDestDir = Path.Combine( skillDir, this._options.ContentDirectory );
-            CopyDirectory( contentSourceDir, contentDestDir, "*.md" );
+            // The index is generated first, because it gives the articles to include.
+            var indexGenerator = new SkillIndexGenerator( repoDir, this._options.ContentDirectory, this._options.TocPath, console );
+            var index = indexGenerator.GenerateIndex( this._options.IncludeOnlyReachableArticles );
+
+            Func<string, bool>? articleFilter = null;
+
+            if ( this._options.IncludeOnlyReachableArticles )
+            {
+                articleFilter = relativePath => indexGenerator.IncludedArticlePaths.Contains(
+                    Path.Combine( this._options.ContentDirectory, relativePath ).Replace( '\\', '/' ) );
+            }
+
+            CopyDirectory( contentSourceDir, contentDestDir, "*.md", articleFilter );
             CopyDirectory( contentSourceDir, contentDestDir, "*.yml" );
             console.WriteMessage( $"Copied {this._options.ContentDirectory}/." );
 
@@ -157,8 +169,7 @@ public class AiSkillSolution : Solution
             this.CopyApiDocumentation( console, Path.Combine( repoDir, this._options.ApiDirectory ), Path.Combine( skillDir, "api" ) );
 
             // 8. index.yml.
-            var indexGenerator = new SkillIndexGenerator( repoDir, this._options.ContentDirectory, this._options.TocPath, console );
-            File.WriteAllText( Path.Combine( skillDir, "index.yml" ), indexGenerator.GenerateIndex() );
+            File.WriteAllText( Path.Combine( skillDir, "index.yml" ), index );
             console.WriteMessage( "Generated index.yml." );
 
             console.WriteSuccess( $"The AI skill marketplace was created at {marketplaceOutputDir}." );
@@ -297,7 +308,7 @@ public class AiSkillSolution : Solution
 
     private static void WriteJson( string path, object value ) => File.WriteAllText( path, JsonSerializer.Serialize( value, _jsonOptions ) );
 
-    private static void CopyDirectory( string sourceDir, string destDir, string pattern )
+    private static void CopyDirectory( string sourceDir, string destDir, string pattern, Func<string, bool>? filter = null )
     {
         if ( !Directory.Exists( sourceDir ) )
         {
@@ -309,7 +320,7 @@ public class AiSkillSolution : Solution
             var relativePath = Path.GetRelativePath( sourceDir, file );
 
             // Skip build outputs (e.g. compiler-generated .cs files under obj/).
-            if ( IsInBuildOutputDirectory( relativePath ) )
+            if ( IsInBuildOutputDirectory( relativePath ) || (filter != null && !filter( relativePath )) )
             {
                 continue;
             }

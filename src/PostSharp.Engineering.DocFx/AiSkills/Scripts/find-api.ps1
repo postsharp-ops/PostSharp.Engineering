@@ -81,6 +81,9 @@ $manifestPath = Join-Path (Join-Path $root 'api') '.manifest'
 $manifest = [System.IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
 $entries = @($manifest.PSObject.Properties)
 
+# A trailing '*' denotes all the overloads in a docfx xref; the manifest has no entry for it.
+$Query = $Query.TrimEnd('*')
+
 # Exact UID match first; otherwise case-insensitive substring match.
 $found = @($entries | Where-Object { $_.Name -ceq $Query })
 

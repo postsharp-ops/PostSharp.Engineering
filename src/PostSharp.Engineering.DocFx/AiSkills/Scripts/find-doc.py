@@ -5,9 +5,12 @@ Usage (from the skill root directory, i.e. the directory containing index.yml):
     python scripts/find-doc.py <keyword> [<keyword> ...]
     python scripts/find-doc.py cache invalidation
     python scripts/find-doc.py "getting started"
+    python scripts/find-doc.py <article-uid>
 
-Searches article titles, summaries, keywords, and paths in index.yml and prints
-the matching articles with their file paths, ready to be read.
+Searches article titles, uids, summaries, keywords, and paths in index.yml and
+prints the matching articles with their file paths, ready to be read. A single
+keyword that equals the uid of an article returns only that article, which
+resolves an <xref:uid> link.
 
 Requires Python 3 and no third-party packages. If Python is unavailable, fall
 back to: grep -i -B3 "<keyword>" index.yml (each entry lists name, path,
@@ -33,7 +36,7 @@ def parse_index(text: str) -> list[dict]:
     records: list[dict] = []
     current: dict = {}
     for line in text.splitlines():
-        m = re.match(r"^\s*-?\s*(name|path|summary|keywords):\s*(.*)$", line)
+        m = re.match(r"^\s*-?\s*(name|uid|path|summary|keywords):\s*(.*)$", line)
         if not m:
             continue
         key, value = m.group(1), m.group(2).strip().strip("'\"")
@@ -56,13 +59,17 @@ def main() -> int:
     records = parse_index((root / "index.yml").read_text(encoding="utf-8"))
 
     def matches(record: dict) -> bool:
-        haystack = " ".join(record.get(k, "") for k in ("name", "path", "summary", "keywords")).lower()
+        haystack = " ".join(record.get(k, "") for k in ("name", "uid", "path", "summary", "keywords")).lower()
         return all(t in haystack for t in terms)
 
-    hits = [r for r in records if matches(r)]
+    hits = [r for r in records if len(terms) == 1 and r.get("uid", "").lower() == terms[0]]
+    if not hits:
+        hits = [r for r in records if matches(r)]
 
     for r in hits[:MAX_RESULTS]:
         print(f"- {r.get('name', '?')}")
+        if r.get("uid"):
+            print(f"  uid: {r['uid']}")
         if r.get("path"):
             print(f"  path: {r['path']}")
         if r.get("summary"):
