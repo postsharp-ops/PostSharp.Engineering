@@ -20,8 +20,13 @@ internal class SkillIndexGenerator
     private readonly ConsoleHelper _console;
     private readonly Dictionary<string, MarkdownMetadata> _metadataByUid = new();
     private readonly Dictionary<string, string> _pathByUid = new();
+    private readonly HashSet<string> _tocArticlePaths = new( StringComparer.OrdinalIgnoreCase );
+    private readonly Dictionary<string, List<string>> _linkedUidsByPath = new( StringComparer.OrdinalIgnoreCase );
 
     // Both delimiters must be complete lines, so that a value containing "---" does not end the front matter.
+    // Matches both <xref:uid> and [text](xref:uid#anchor).
+    private static readonly Regex _xrefRegex = new( @"xref:([A-Za-z0-9_.`\-]+)", RegexOptions.Compiled );
+
     private static readonly Regex _frontMatterRegex = new( @"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(\r?\n|\z)", RegexOptions.Singleline | RegexOptions.Compiled );
 
     public SkillIndexGenerator( string repoDir, string contentDirectory, string tocPath, ConsoleHelper console )
@@ -30,6 +35,35 @@ internal class SkillIndexGenerator
         this._contentDirectory = contentDirectory;
         this._tocPath = tocPath;
         this._console = console;
+    }
+
+    /// <summary>
+    /// Gets the repository-relative paths, with forward slashes, of the articles that the toc lists and of the articles
+    /// that they link to with an xref, transitively. Call it after <see cref="GenerateIndex"/>.
+    /// </summary>
+    public HashSet<string> GetReachableArticlePaths()
+    {
+        var reachable = new HashSet<string>( this._tocArticlePaths, StringComparer.OrdinalIgnoreCase );
+        var queue = new Queue<string>( this._tocArticlePaths );
+
+        while ( queue.TryDequeue( out var path ) )
+        {
+            if ( !this._linkedUidsByPath.TryGetValue( path, out var linkedUids ) )
+            {
+                continue;
+            }
+
+            foreach ( var uid in linkedUids )
+            {
+                // API uids and external uids have no article, so they are not in the dictionary.
+                if ( this._pathByUid.TryGetValue( uid, out var linkedPath ) && reachable.Add( linkedPath ) )
+                {
+                    queue.Enqueue( linkedPath );
+                }
+            }
+        }
+
+        return reachable;
     }
 
     public string GenerateIndex()
@@ -61,24 +95,26 @@ internal class SkillIndexGenerator
 
         foreach ( var file in Directory.GetFiles( contentDir, "*.md", SearchOption.AllDirectories ) )
         {
-            var metadata = ParseMarkdownFrontMatter( file );
+            var content = File.ReadAllText( file );
+            var metadata = ParseMarkdownFrontMatter( content );
+            var relativePath = Path.GetRelativePath( this._repoDir, file ).Replace( '\\', '/' );
 
             if ( metadata != null && !string.IsNullOrEmpty( metadata.Uid ) )
             {
-                var relativePath = Path.GetRelativePath( this._repoDir, file ).Replace( '\\', '/' );
                 this._metadataByUid[metadata.Uid] = metadata;
                 this._pathByUid[metadata.Uid] = relativePath;
             }
+
+            this._linkedUidsByPath[relativePath] = _xrefRegex.Matches( content ).Select( m => m.Groups[1].Value.TrimEnd( '*' ) ).Distinct().ToList();
         }
 
         this._console.WriteMessage( $"Scanned {this._metadataByUid.Count} Markdown files with UIDs" );
     }
 
-    private static MarkdownMetadata? ParseMarkdownFrontMatter( string filePath )
+    private static MarkdownMetadata? ParseMarkdownFrontMatter( string content )
     {
         try
         {
-            var content = File.ReadAllText( filePath );
 
             // Check for YAML front matter (starts with ---)
             var match = _frontMatterRegex.Match( content );
@@ -145,12 +181,15 @@ internal class SkillIndexGenerator
         {
             var indexItem = new IndexItem { Name = tocItem.Name };
 
-            // If there's a topicUid, look up the metadata
+            // If there's a topicUid, look up the metadata. The uid lets an agent resolve an <xref:uid> link to the article.
             if ( !string.IsNullOrEmpty( tocItem.TopicUid ) )
             {
+                indexItem.Uid = tocItem.TopicUid;
+
                 if ( this._pathByUid.TryGetValue( tocItem.TopicUid, out var path ) )
                 {
                     indexItem.Path = path;
+                    this._tocArticlePaths.Add( path );
                 }
 
                 if ( this._metadataByUid.TryGetValue( tocItem.TopicUid, out var metadata ) )
@@ -158,6 +197,14 @@ internal class SkillIndexGenerator
                     indexItem.Summary = metadata.Summary;
                     indexItem.Keywords = metadata.Keywords;
                 }
+            }
+
+            // An href to an article lists it like a topicUid does.
+            if ( !string.IsNullOrEmpty( tocItem.Href ) && tocItem.Href.EndsWith( ".md", StringComparison.OrdinalIgnoreCase ) )
+            {
+                var articlePath = Path.GetRelativePath( this._repoDir, Path.Combine( currentDir, tocItem.Href ) ).Replace( '\\', '/' );
+                indexItem.Path ??= articlePath;
+                this._tocArticlePaths.Add( articlePath );
             }
 
             // If there's an href to another toc.yml, recurse into it
@@ -223,6 +270,8 @@ internal class SkillIndexGenerator
     private class IndexItem
     {
         public string? Name { get; set; }
+
+        public string? Uid { get; set; }
 
         public string? Path { get; set; }
 

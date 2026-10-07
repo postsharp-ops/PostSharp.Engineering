@@ -59,6 +59,8 @@ public sealed class AiSkillSolutionTests : IDisposable
         Assert.True( File.Exists( Path.Combine( marketplaceDirectory, "README.md" ) ) );
         Assert.Contains( "This skill pertains to Sample 2027.0.", File.ReadAllText( Path.Combine( skillDirectory, "SKILL.md" ) ), StringComparison.Ordinal );
         Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "sub", "details.md" ) ) );
+        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "linked.md" ) ) );
+        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "linked2.md" ) ) );
         Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "toc.yml" ) ) );
 
         // The bundled scripts are written, and the repository's own scripts are added to them.
@@ -76,7 +78,11 @@ public sealed class AiSkillSolutionTests : IDisposable
         var index = File.ReadAllText( Path.Combine( skillDirectory, "index.yml" ) );
         Assert.Contains( "path: docs/intro.md", index, StringComparison.Ordinal );
         Assert.Contains( "path: docs/sub/details.md", index, StringComparison.Ordinal );
-        Assert.Contains( "summary: Details summary.", index, StringComparison.Ordinal );
+        Assert.Contains( "summary: Details summary, after the intro.", index, StringComparison.Ordinal );
+        Assert.Contains( "uid: details", index, StringComparison.Ordinal );
+
+        // By default, every article is copied, including the ones that the toc does not list.
+        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "orphan.md" ) ) );
         Assert.Contains( "keywords: a, b", index, StringComparison.Ordinal );
 
         // The plugin description is taken from SKILL.md.
@@ -105,6 +111,22 @@ public sealed class AiSkillSolutionTests : IDisposable
         Assert.Equal( "ON_INSTALL", codexEntry.GetProperty( "policy" ).GetProperty( "authentication" ).GetString() );
         Assert.Equal( "Developer Tools", codexEntry.GetProperty( "category" ).GetString() );
         Assert.True( File.Exists( Path.Combine( marketplaceDirectory, ".claude-plugin", "marketplace.json" ) ) );
+    }
+
+    [Fact]
+    public void Build_IncludeOnlyReachableArticles_SkipsTheUnreachableArticles()
+    {
+        this.BuildSampleSkill();
+
+        Assert.True(
+            new AiSkillSolution( CreateOptions() with { IncludeOnlyReachableArticles = true } ).Build( this._repoDirectory, "2027.0", new ConsoleHelper() ) );
+
+        var skillDirectory = Path.Combine( this._repoDirectory, "artifacts", "marketplace", "plugins", "sample", "skills", "sample" );
+
+        Assert.False( File.Exists( Path.Combine( skillDirectory, "docs", "orphan.md" ) ) );
+        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "intro.md" ) ) );
+        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "sub", "details.md" ) ) );
+        Assert.True( File.Exists( Path.Combine( skillDirectory, "docs", "toc.yml" ) ) );
     }
 
     [Fact]
@@ -148,8 +170,14 @@ public sealed class AiSkillSolutionTests : IDisposable
         AssertScript( language, skillDirectory, "find-api", ["sample.ty"], 0, "match(es)", "api/Sample.Type.yml" );
         AssertScript( language, skillDirectory, "find-api", ["Type"], 0, "api/migration/Legacy.Type.yml" );
         AssertScript( language, skillDirectory, "find-api", ["ZzzNotAnApi"], 1, "No API matching" );
+
+        // A docfx overload xref ends with '*'.
+        AssertScript( language, skillDirectory, "find-api", ["Sample.Type*"], 0, "1 match(es)", "- uid: Sample.Type" );
         AssertScript( language, skillDirectory, "find-doc", ["details", "summary"], 0, "path: docs/sub/details.md", "1 match(es)" );
         AssertScript( language, skillDirectory, "find-doc", ["zzznotadoc"], 1, "0 match(es)" );
+
+        // "intro" is in the summary of the details article too, but a single keyword equal to a uid returns only that article.
+        AssertScript( language, skillDirectory, "find-doc", ["intro"], 0, "uid: intro", "path: docs/intro.md", "1 match(es)" );
     }
 
     public enum ScriptLanguage
@@ -220,8 +248,13 @@ public sealed class AiSkillSolutionTests : IDisposable
         this.WriteFile( "claude/SKILL.md", "---\nname: sample\ndescription: Sample skill description.\n---\nThis skill pertains to Sample <version>.\n" );
         this.WriteFile( "claude/README.md", "# Sample marketplace\n" );
         this.WriteFile( "claude/scripts/extra.py", "print('hello')\n" );
-        this.WriteFile( "docs/intro.md", "---\nuid: intro\nsummary: Introduction summary.\n---\n# Intro\n" );
-        this.WriteFile( "docs/sub/details.md", "---\nuid: details\nsummary: Details summary.\nkeywords: \"a, b\"\n---\n# Details\n" );
+        this.WriteFile( "docs/intro.md", "---\nuid: intro\nsummary: Introduction summary.\n---\n# Intro\n\nSee <xref:linked> and <xref:Sample.Type>.\n" );
+        this.WriteFile( "docs/sub/details.md", "---\nuid: details\nsummary: Details summary, after the intro.\nkeywords: \"a, b\"\n---\n# Details\n" );
+        this.WriteFile( "docs/orphan.md", "---\nuid: orphan\nsummary: Not in the toc.\n---\n# Orphan\n" );
+
+        // Not in the toc either, but the intro links to it, and it links to linked2.
+        this.WriteFile( "docs/linked.md", "---\nuid: linked\nsummary: Linked.\n---\n# Linked\n\nSee [next](xref:linked2#section).\n" );
+        this.WriteFile( "docs/linked2.md", "---\nuid: linked2\nsummary: Linked twice.\n---\n# Linked twice\n" );
         this.WriteFile( "docs/toc.yml", "items:\n- name: Intro\n  topicUid: intro\n  items:\n  - name: Details\n    topicUid: details\n" );
         this.WriteFile( "artifacts/api/Sample.Type.yml", "items:\n- uid: Sample.Type\n  summary: Sample type summary.\nreferences:\n- uid: System.Object\n" );
         this.WriteFile( "artifacts/api/Legacy.Type.yml", "items:\n- uid: Legacy.Type\n" );

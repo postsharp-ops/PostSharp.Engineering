@@ -88,6 +88,13 @@ public sealed record AiSkillOptions
     public required string ContentDirectory { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether only the reachable articles are copied into the skill: the articles that the toc
+    /// lists, and the articles that they link to with an xref, transitively. When <c>false</c>, every Markdown file of
+    /// <see cref="ContentDirectory"/> is copied. Set it when the content directory holds stubs or orphan articles.
+    /// </summary>
+    public bool IncludeOnlyReachableArticles { get; init; }
+
+    /// <summary>
     /// Gets the path of the root <c>toc.yml</c>, relative to the repository, from which <c>index.yml</c> is built.
     /// </summary>
     public required string TocPath { get; init; }

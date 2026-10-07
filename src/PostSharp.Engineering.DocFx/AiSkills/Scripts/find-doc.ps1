@@ -11,7 +11,8 @@ anywhere as long as this script stays in the skill's scripts/ directory.
 
 Searches article titles, summaries, keywords, and paths in index.yml and prints
 the matching articles with their file paths, ready to be read. All keywords must
-match (AND semantics).
+match (AND semantics). A single keyword that equals the uid of an article returns
+only that article, which resolves an <xref:uid> link.
 
 .EXAMPLE
 powershell -File scripts/find-doc.ps1 cache invalidation
@@ -58,7 +59,7 @@ $current = $null
 foreach ($rawLine in ($indexText -split "`n")) {
     $line = $rawLine.TrimEnd("`r")
 
-    if ($line -match '^\s*-?\s*(name|path|summary|keywords):\s*(.*)$') {
+    if ($line -match '^\s*-?\s*(name|uid|path|summary|keywords):\s*(.*)$') {
         $key = $Matches[1]
         $value = $Matches[2].Trim().Trim('"').Trim("'")
 
@@ -82,24 +83,36 @@ if ($null -ne $current) {
 
 $terms = @($Keywords | ForEach-Object { $_.ToLowerInvariant() })
 
-$hits = @($records | Where-Object {
-    $record = $_
-    $haystack = (@('name', 'path', 'summary', 'keywords') | ForEach-Object { $record[$_] }) -join ' '
-    $haystack = $haystack.ToLowerInvariant()
-    $allMatch = $true
+$hits = @()
 
-    foreach ($term in $terms) {
-        if (-not $haystack.Contains($term)) {
-            $allMatch = $false
-            break
+if ($terms.Count -eq 1) {
+    $hits = @($records | Where-Object { $_['uid'] -and $_['uid'].ToLowerInvariant() -eq $terms[0] })
+}
+
+if ($hits.Count -eq 0) {
+    $hits = @($records | Where-Object {
+        $record = $_
+        $haystack = (@('name', 'uid', 'path', 'summary', 'keywords') | ForEach-Object { $record[$_] }) -join ' '
+        $haystack = $haystack.ToLowerInvariant()
+        $allMatch = $true
+
+        foreach ($term in $terms) {
+            if (-not $haystack.Contains($term)) {
+                $allMatch = $false
+                break
+            }
         }
-    }
 
-    $allMatch
-})
+        $allMatch
+    })
+}
 
 foreach ($hit in ($hits | Select-Object -First $MaxResults)) {
     Write-Output "- $($hit['name'])"
+
+    if ($hit['uid']) {
+        Write-Output "  uid: $($hit['uid'])"
+    }
 
     if ($hit['path']) {
         Write-Output "  path: $($hit['path'])"
