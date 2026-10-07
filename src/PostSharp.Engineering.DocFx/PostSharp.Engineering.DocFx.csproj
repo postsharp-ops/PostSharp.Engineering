@@ -14,6 +14,12 @@
         <PackageReference Include="Docfx.MarkdigEngine.Extensions" />
         <PackageReference Include="HtmlAgilityPack" />
         <PackageReference Include="PKT.LZStringCSharp" />
+        <!-- Used by AiSkillSolution. The version must match the one DocFx depends on. -->
+        <PackageReference Include="YamlDotNet" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="PostSharp.Engineering.DocFx.Tests" />
     </ItemGroup>
     
     <ItemGroup>
