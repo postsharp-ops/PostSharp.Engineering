@@ -15,6 +15,7 @@
     <PackageVersion Include="Docfx.MarkdigEngine.Extensions" Version="$(DocFxVersion)" />
     <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.0" />
     <PackageVersion Include="PKT.LZStringCSharp" Version="2.1.0" />
+    <PackageVersion Include="YamlDotNet" Version="16.3.0" /> <!-- Must respect the DocFx version. -->
     <PackageVersion Include="AWSSDK.S3" Version="3.7.406.3" />
     <PackageVersion Include="Azure.Identity" Version="1.13.1" />
     <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.7.0" />

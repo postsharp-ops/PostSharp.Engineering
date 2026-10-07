@@ -17,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostSharp.Engineering.BuildTools.Tests", "src\PostSharp.Engineering.BuildTools.Tests\PostSharp.Engineering.BuildTools.Tests.csproj", "{500C0F23-7CC8-4B59-9792-E0040EAEC806}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostSharp.Engineering.DocFx.Tests", "src\PostSharp.Engineering.DocFx.Tests\PostSharp.Engineering.DocFx.Tests.csproj", "{6D1E379C-6710-487A-B9C1-789C951EC457}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -99,12 +101,25 @@ Global
 		{500C0F23-7CC8-4B59-9792-E0040EAEC806}.Release|x64.Build.0 = Release|Any CPU
 		{500C0F23-7CC8-4B59-9792-E0040EAEC806}.Release|x86.ActiveCfg = Release|Any CPU
 		{500C0F23-7CC8-4B59-9792-E0040EAEC806}.Release|x86.Build.0 = Release|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Debug|x64.Build.0 = Debug|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Debug|x86.Build.0 = Debug|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Release|x64.ActiveCfg = Release|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Release|x64.Build.0 = Release|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Release|x86.ActiveCfg = Release|Any CPU
+		{6D1E379C-6710-487A-B9C1-789C951EC457}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{500C0F23-7CC8-4B59-9792-E0040EAEC806} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{6D1E379C-6710-487A-B9C1-789C951EC457} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {EE2C48C5-7AD7-4852-A39D-A3C5C94000A9}
