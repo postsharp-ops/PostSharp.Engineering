@@ -89,7 +89,21 @@ public sealed class AiSkillSolutionTests : IDisposable
             File.ReadAllText( Path.Combine( marketplaceDirectory, "plugins", "sample", ".codex-plugin", "plugin.json" ) ) );
 
         Assert.Equal( "https://github.com/example/Sample.AI.Skills", codexPluginJson.RootElement.GetProperty( "repository" ).GetString() );
-        Assert.True( File.Exists( Path.Combine( marketplaceDirectory, ".agents", "plugins", "marketplace.json" ) ) );
+
+        // Codex reads the presentation fields from interface, not from the top level.
+        var codexInterface = codexPluginJson.RootElement.GetProperty( "interface" );
+        Assert.Equal( "Sample", codexInterface.GetProperty( "displayName" ).GetString() );
+        Assert.Equal( "Developer Tools", codexInterface.GetProperty( "category" ).GetString() );
+        Assert.False( codexPluginJson.RootElement.TryGetProperty( "displayName", out _ ) );
+
+        // Codex requires the policy and the category of each marketplace entry.
+        using var codexMarketplaceJson = JsonDocument.Parse(
+            File.ReadAllText( Path.Combine( marketplaceDirectory, ".agents", "plugins", "marketplace.json" ) ) );
+
+        var codexEntry = codexMarketplaceJson.RootElement.GetProperty( "plugins" )[0];
+        Assert.Equal( "AVAILABLE", codexEntry.GetProperty( "policy" ).GetProperty( "installation" ).GetString() );
+        Assert.Equal( "ON_INSTALL", codexEntry.GetProperty( "policy" ).GetProperty( "authentication" ).GetString() );
+        Assert.Equal( "Developer Tools", codexEntry.GetProperty( "category" ).GetString() );
         Assert.True( File.Exists( Path.Combine( marketplaceDirectory, ".claude-plugin", "marketplace.json" ) ) );
     }
 
