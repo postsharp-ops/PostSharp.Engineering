@@ -224,7 +224,8 @@ public class AiSkillSolution : Solution
     private void GenerateCodexMarketplaceJson( string codexMarketplaceDir, string description )
     {
         // OpenAI Codex marketplace catalog (https://developers.openai.com/codex/plugins/build).
-        // Local plugin sources are resolved relative to the repository root.
+        // Local plugin sources are resolved relative to the repository root. Codex requires the policy and the
+        // category of each entry; the plugin has no connected service, so authentication never actually happens.
         var marketplace = new
         {
             name = this._options.PluginName,
@@ -236,6 +237,7 @@ public class AiSkillSolution : Solution
                     name = this._options.PluginName,
                     description,
                     source = $"./plugins/{this._options.PluginName}",
+                    policy = new { installation = "AVAILABLE", authentication = "ON_INSTALL" },
                     category = this._options.Category
                 }
             }
@@ -254,7 +256,8 @@ public class AiSkillSolution : Solution
     private void GenerateCodexPluginJson( string codexPluginConfigDir, string version, string description )
     {
         // Codex requires .codex-plugin/plugin.json and does not fall back to .claude-plugin/plugin.json.
-        // The skills/ layout is shared with Claude Code.
+        // The skills/ layout is shared with Claude Code. In this compatibility format, the presentation fields go
+        // under interface (https://developers.openai.com/plugins/deploy/submission).
         var plugin = new
         {
             name = this._options.PluginName,
@@ -265,8 +268,14 @@ public class AiSkillSolution : Solution
             repository = this._options.RepositoryUrl,
             keywords = this._options.Keywords.ToArray(),
             skills = "./skills/",
-            displayName = this._options.DisplayName,
-            category = this._options.Category
+            @interface = new
+            {
+                displayName = this._options.DisplayName,
+                shortDescription = this._options.MarketplaceDescription,
+                developerName = this._options.OwnerName,
+                category = this._options.Category,
+                websiteURL = this._options.Homepage
+            }
         };
 
         WriteJson( Path.Combine( codexPluginConfigDir, "plugin.json" ), plugin );
