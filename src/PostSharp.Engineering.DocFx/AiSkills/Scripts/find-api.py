@@ -52,7 +52,8 @@ def main() -> int:
         print(__doc__)
         return 1
 
-    query = args[0]
+    # A trailing '*' denotes all the overloads in a docfx xref; the manifest has no entry for it.
+    query = args[0].rstrip("*")
     root = find_skill_root()
     manifest = json.loads((root / "api" / ".manifest").read_text(encoding="utf-8"))
 
