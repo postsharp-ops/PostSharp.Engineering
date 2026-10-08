@@ -113,15 +113,15 @@ public static partial class PostSharpDependencies
                 [
                     DevelopmentDependencies.PostSharpEngineering.ToDependency(),
 
-                    // This line publishes from the release branch, so its public builds are produced on
-                    // release/2027.0, and the newest public build left on develop/2027.0 is older than the released
-                    // packages. Look the public builds up on the publishing branch instead.
+                    // The debug and release builds of the documentation take the release build of PostSharp, which
+                    // runs on the development branch. This line publishes from the release branch, which is updated
+                    // only when the line is deployed, so the public build left on the development branch is older
+                    // than the current packages. This line generates no debug build of PostSharp.
                     PostSharp.ToDependency(
-                            new ConfigurationSpecific<BuildConfiguration>(
-                                BuildConfiguration.Public,
-                                BuildConfiguration.Public,
-                                BuildConfiguration.Public ) )
-                        .WithPublishingBranch()
+                        new ConfigurationSpecific<BuildConfiguration>(
+                            BuildConfiguration.Release,
+                            BuildConfiguration.Release,
+                            BuildConfiguration.Public ) )
                 ]
             };
 
