@@ -112,11 +112,16 @@ public static partial class PostSharpDependencies
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering.ToDependency(),
+
+                    // This line publishes from the release branch, so its public builds are produced on
+                    // release/2027.0, and the newest public build left on develop/2027.0 is older than the released
+                    // packages. Look the public builds up on the publishing branch instead.
                     PostSharp.ToDependency(
-                        new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Public,
-                            BuildConfiguration.Public,
-                            BuildConfiguration.Public ) )
+                            new ConfigurationSpecific<BuildConfiguration>(
+                                BuildConfiguration.Public,
+                                BuildConfiguration.Public,
+                                BuildConfiguration.Public ) )
+                        .WithPublishingBranch()
                 ]
             };
 
