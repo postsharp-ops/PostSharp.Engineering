@@ -112,10 +112,15 @@ public static partial class PostSharpDependencies
                 Dependencies =
                 [
                     DevelopmentDependencies.PostSharpEngineering.ToDependency(),
+
+                    // The debug and release builds of the documentation take the release build of PostSharp, which
+                    // runs on the development branch. This line publishes from the release branch, which is updated
+                    // only when the line is deployed, so the public build left on the development branch is older
+                    // than the current packages. This line generates no debug build of PostSharp.
                     PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Public,
-                            BuildConfiguration.Public,
+                            BuildConfiguration.Release,
+                            BuildConfiguration.Release,
                             BuildConfiguration.Public ) )
                 ]
             };
