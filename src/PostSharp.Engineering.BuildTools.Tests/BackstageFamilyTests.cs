@@ -19,7 +19,7 @@ public class BackstageFamilyTests
 {
     /// <summary>
     /// The family has no project for the version line: every product owns a project named after itself and the
-    /// version directly beneath the family project, as the PostSharp 2024.0 and 2026.0 lines do. These identifiers
+    /// version directly beneath the family project. These identifiers
     /// are the ones the TeamCity server carries, and every repository that depends on a product of this family
     /// addresses its build configurations by them, so they are asserted literally.
     /// </summary>

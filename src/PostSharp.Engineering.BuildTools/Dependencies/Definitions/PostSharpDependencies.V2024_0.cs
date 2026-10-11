@@ -1,10 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 
@@ -21,23 +18,18 @@ public static partial class PostSharpDependencies
     [PublicAPI]
     public static class V2024_0
     {
+        // The line has a single repository -- it has no documentation --, so it is not consolidated: PostSharp bumps
+        // its own version. Declaring a consolidated project name would remove the version bump configuration of
+        // PostSharp and chain its deployment to a consolidated build that does not exist on TeamCity for this line.
         public static ProductFamily Family { get; } =
-            new( _projectName, "2024.0", DevelopmentDependencies.Family )
-            {
-                GitHubAppConnectionId = GitHubAppConnections.PostSharp,
-
-                // The consolidated product bumps the version and deploys the line. It is also what makes the products
-                // of the line publish from the release branch instead of the development branch.
-                ConsolidatedProjectName = "PostSharp.Consolidated"
-            };
+            new( _projectName, "2024.0", DevelopmentDependencies.Family ) { GitHubAppConnectionId = GitHubAppConnections.PostSharp };
 
         /// <summary>
-        /// Gets the identifier of the TeamCity project of a repository of this line. The line has no TeamCity project
-        /// of its own: each repository has a project named after itself and the version, beneath the PostSharp project,
-        /// and its VCS root has the same identifier.
+        /// The TeamCity project of this line. It carries no build configuration of its own: it contains one project
+        /// per repository of the line, as the 2026.0 and 2027.0 lines do.
         /// </summary>
-        private static TeamCityProjectId GetProjectId( string dependencyName )
-            => TeamCityHelper.GetProjectIdWithParentProjectId( $"{dependencyName} {Family.Version}", _parentProjectId );
+        private static readonly string _lineProjectId =
+            TeamCityHelper.GetProjectIdWithParentProjectId( $"{_projectName} {Family.Version}", _parentProjectId ).Id;
 
         /// <summary>
         /// The compiler and the pattern libraries. The upstream merge resolves the upstream of a product by its
@@ -51,12 +43,19 @@ public static partial class PostSharpDependencies
             $"release/{Family.Version}",
             new GitHubRepository( _projectName, _projectName ),
             TeamCityHelper.CreateConfiguration(
-                GetProjectId( _projectName ),
-                vcsRootId: GetProjectId( _projectName ).Id ) )
+                TeamCityHelper.GetProjectIdWithParentProjectId( _projectName, _lineProjectId ),
+
+                // The VCS root predates the per-repository project: it is stored in the PostSharp project and carries
+                // the identifier of the line project. The generated settings address it by identifier.
+                vcsRootProjectId: _parentProjectId,
+                vcsRootId: _lineProjectId ) )
         {
-            // The line is consolidated, so its builds are chained: the consolidated build takes a TeamCity snapshot
-            // dependency on the build and on the deployment of this product. Setting GenerateSnapshotDependency to
-            // false would leave the consolidated deployment unchained from the product it deploys.
+            // The line is not consolidated, but it releases like one: 'Prepare Deployment' advances the release branch
+            // to develop, 'Deploy [Public]' publishes from the release branch, and 'Finalize Deployment' closes the
+            // release. The PostSharp repository defines the first and last of these configurations itself. Without
+            // this, the publishing branch would resolve to develop and 'publish' would refuse to run on the release
+            // branch.
+            PublishesFromReleaseBranch = true,
             Dependencies = [DevelopmentDependencies.PostSharpEngineering],
 
             // The packages this repository builds. The default is the product name followed by ".*", which would claim
@@ -64,38 +63,6 @@ public static partial class PostSharpDependencies
             // artifact directory, where they are not, and a restore against the generated nuget.config fails NU1101.
             PackagePatterns = ["PostSharp", "PostSharp.Redist", "PostSharp.Compiler.*", "PostSharp.Patterns.*"],
             AutoUpdateVersion = false
-        };
-
-        /// <summary>
-        /// The consolidated product of the line. It builds no code of its own: it chains the build of PostSharp, bumps
-        /// its version and deploys it. Unlike the 2027.0 line, this line is not built against Backstage, so Backstage is
-        /// not part of this build.
-        /// </summary>
-        public static DependencyDefinition Consolidated { get; } = new(
-            Family,
-            $"{_projectName}.Consolidated",
-            $"develop/{Family.Version}",
-            $"release/{Family.Version}",
-            new GitHubRepository( $"{_projectName}.Consolidated", _projectName ),
-            TeamCityHelper.CreateConfiguration(
-                GetProjectId( $"{_projectName}.Consolidated" ),
-                false,
-                vcsRootId: GetProjectId( $"{_projectName}.Consolidated" ).Id ),
-            false )
-        {
-            IsConsolidated = true,
-            Dependencies =
-            [
-                DevelopmentDependencies.PostSharpEngineering.ToDependency(),
-
-                // PostSharp exports only its public build -- the signed distribution.
-                PostSharp.ToDependency(
-                    new ConfigurationSpecific<BuildConfiguration>(
-                        BuildConfiguration.Public,
-                        BuildConfiguration.Public,
-                        BuildConfiguration.Public ) )
-            ],
-            SourceDependencies = [PostSharp]
         };
     }
 }
