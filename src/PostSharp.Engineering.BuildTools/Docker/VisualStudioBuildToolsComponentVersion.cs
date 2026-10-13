@@ -133,6 +133,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     /// <see cref="v17_14_39"/>. 17.14 is the servicing baseline of the Dev17 Release channel, and the only Dev17 line
     /// still served.
     /// </summary>
+
     // ReSharper disable once InconsistentNaming
     public static VisualStudioBuildToolsComponentVersion v17_14 => v17_14_39;
 
@@ -141,6 +142,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     /// <see cref="v18_9_2"/>. 18.9 is the lowest Dev18 line that officially supports targeting <c>net10.0</c>. The
     /// Dev18 Release channel rolls forward rather than servicing a baseline, so a later line exists on it.
     /// </summary>
+
     // ReSharper disable once InconsistentNaming
     public static VisualStudioBuildToolsComponentVersion v18_9 => v18_9_2;
 
@@ -148,6 +150,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     /// Gets the build of the Visual Studio (Dev18) 18.11 line that this class carries, currently
     /// <see cref="v18_11_0"/>. 18.11 is served by the Preview channel, and is the pre-release of Visual Studio 2027.
     /// </summary>
+
     // ReSharper disable once InconsistentNaming
     public static VisualStudioBuildToolsComponentVersion v18_11 => v18_11_0;
 
@@ -160,6 +163,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     [Obsolete(
         "Visual Studio services only the latest build of a servicing baseline, so 17.14.15 receives no further fix. Use v17_14.",
         DiagnosticId = UnservicedBuildDiagnosticId )]
+
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v17_14_15 = new(
         "17.14.15",
@@ -172,6 +176,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     [Obsolete(
         "Visual Studio services only the latest build of a servicing baseline, so 17.14.23 receives no further fix. Use v17_14.",
         DiagnosticId = UnservicedBuildDiagnosticId )]
+
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v17_14_23 = new(
         "17.14.23",
@@ -184,6 +189,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     [Obsolete(
         "Use v17_14, which resolves to the build currently carried for the 17.14 baseline.",
         DiagnosticId = SpecificBuildDiagnosticId )]
+
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v17_14_39 = new(
         "17.14.39",
@@ -201,6 +207,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     [Obsolete(
         "The Dev18 Stable channel no longer serves 18.0.0, and it predates the net10.0 targeting support of 18.9. Use v18_9.",
         DiagnosticId = UnservicedBuildDiagnosticId )]
+
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v18_0_0 = new(
         "18.0.0",
@@ -219,6 +226,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     [Obsolete(
         "Use v18_9, which resolves to the build currently carried for the 18.9 line, or LatestStable.",
         DiagnosticId = SpecificBuildDiagnosticId )]
+
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v18_9_2 = new(
         "18.9.2",
@@ -238,6 +246,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     [Obsolete(
         "Use v18_11, which resolves to the build currently carried for the 18.11 line, or LatestPreview.",
         DiagnosticId = SpecificBuildDiagnosticId )]
+
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v18_11_0 = new(
         "18.11.12202.211",

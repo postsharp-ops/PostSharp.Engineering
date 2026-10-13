@@ -8,6 +8,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.IO;
 using Xunit;
 
@@ -67,6 +68,7 @@ public class DeploymentTests
     public void GetPublishDeploymentNames_ReturnsDistinctNamesAndExcludesInertPublishers()
     {
         var configuration = new BuildConfigurationInfo(
+
             // The SSH publisher is inert at publish time, so its "ssh" deployment is not a b-publish target.
             PublicPublishers: [new TestPublisher { DeploymentName = "web" }, new SshPublisher( "h", "u", "/d" )],
             PrivatePublishers: [new TestPublisher(), new TestPublisher { DeploymentName = "web" }] );
@@ -111,10 +113,7 @@ public class DeploymentTests
             objectName,
             "develop/2023.2",
             "SomeVcsId",
-            BuildAgentRequirements.Default )
-        {
-            IsDeployment = true, BuildSteps = []
-        };
+            BuildAgentRequirements.Default ) { IsDeployment = true, BuildSteps = [] };
 
     // A "Deploy All" is composite (no build agent requirements) and aggregates the individual deployments through
     // snapshot dependencies, so triggering it deploys them all.
@@ -136,19 +135,21 @@ public class DeploymentTests
         deployAll.GenerateTeamcityCode( writer );
         var code = writer.ToString();
 
-        Assert.Contains( "type = Type.COMPOSITE", code, System.StringComparison.Ordinal );
-        Assert.Contains( "snapshot(PublicDeployment_Web)", code, System.StringComparison.Ordinal );
-        Assert.Contains( "snapshot(PublicDeployment_Api)", code, System.StringComparison.Ordinal );
+        Assert.Contains( "type = Type.COMPOSITE", code, StringComparison.Ordinal );
+        Assert.Contains( "snapshot(PublicDeployment_Web)", code, StringComparison.Ordinal );
+        Assert.Contains( "snapshot(PublicDeployment_Api)", code, StringComparison.Ordinal );
     }
 
     // The deployments and swaps of a build configuration are placed in a sub-project, which TeamCity renders as a folder.
     [Fact]
     public void DeploymentsSubProject_IsGeneratedAsANestedProject()
     {
-        var buildConfiguration = new TeamCityBuildConfiguration( "PublicBuild", "Build [Public]", "develop/2023.2", "SomeVcsId", BuildAgentRequirements.Default )
-        {
-            BuildSteps = []
-        };
+        var buildConfiguration = new TeamCityBuildConfiguration(
+            "PublicBuild",
+            "Build [Public]",
+            "develop/2023.2",
+            "SomeVcsId",
+            BuildAgentRequirements.Default ) { BuildSteps = [] };
 
         var deployAll = new TeamCityBuildConfiguration( "PublicDeployAll", "Deploy All [Public]", "develop/2023.2", "SomeVcsId" ) { BuildSteps = [] };
 
@@ -165,13 +166,13 @@ public class DeploymentTests
         var code = writer.ToString();
 
         // The root project references the sub-project, which is emitted as its own Project object holding the deployments.
-        Assert.Contains( "subProject(PublicDeployments)", code, System.StringComparison.Ordinal );
-        Assert.Contains( "object PublicDeployments : Project({", code, System.StringComparison.Ordinal );
-        Assert.Contains( "name = \"Deployments [Public]\"", code, System.StringComparison.Ordinal );
-        Assert.Contains( "buildType(PublicDeployAll)", code, System.StringComparison.Ordinal );
-        Assert.Contains( "buildType(PublicDeployment_Web)", code, System.StringComparison.Ordinal );
+        Assert.Contains( "subProject(PublicDeployments)", code, StringComparison.Ordinal );
+        Assert.Contains( "object PublicDeployments : Project({", code, StringComparison.Ordinal );
+        Assert.Contains( "name = \"Deployments [Public]\"", code, StringComparison.Ordinal );
+        Assert.Contains( "buildType(PublicDeployAll)", code, StringComparison.Ordinal );
+        Assert.Contains( "buildType(PublicDeployment_Web)", code, StringComparison.Ordinal );
 
         // The individual deployment object definitions are emitted too.
-        Assert.Contains( "object PublicDeployment_Api : BuildType({", code, System.StringComparison.Ordinal );
+        Assert.Contains( "object PublicDeployment_Api : BuildType({", code, StringComparison.Ordinal );
     }
 }

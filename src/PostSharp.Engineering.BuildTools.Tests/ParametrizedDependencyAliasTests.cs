@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using System;
 using System.Linq;
 using Xunit;
 
@@ -62,6 +63,7 @@ public class ParametrizedDependencyAliasTests
     public void Composes_ConfigurationMappingPlusAliasPlusLastSuccessful()
     {
         var definition = MetalamaDependencies.V2026_0.Metalama;
+
         var publicMapping = new ConfigurationSpecific<BuildConfiguration>(
             BuildConfiguration.Public,
             BuildConfiguration.Public,
@@ -121,7 +123,7 @@ public class ParametrizedDependencyAliasTests
         Assert.Null( dependencies.SingleOrDefault( d => d.Key == "Other" ) );
 
         // Documents the throw that the Name fallback (now removed) would have produced.
-        Assert.Throws<System.InvalidOperationException>( () => dependencies.SingleOrDefault( d => d.Name == definition.Name ) );
+        Assert.Throws<InvalidOperationException>( () => dependencies.SingleOrDefault( d => d.Name == definition.Name ) );
     }
 
     [Fact]

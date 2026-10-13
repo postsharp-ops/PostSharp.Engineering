@@ -2,6 +2,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using PostSharp.Engineering.McpApprovalServer.Services;
+using System;
 
 namespace PostSharp.Engineering.McpApprovalServer.ViewModels;
 
@@ -25,7 +26,7 @@ public partial class MainViewModel : ObservableObject
         this.UpdateState();
     }
 
-    private void OnQueueChanged( object? sender, System.EventArgs e )
+    private void OnQueueChanged( object? sender, EventArgs e )
     {
         this.UpdateState();
     }

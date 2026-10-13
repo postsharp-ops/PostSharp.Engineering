@@ -23,8 +23,7 @@ public sealed class TestArchivePackagesTargetTests
     [InlineData( "net8.0/win-x64", "net8.0" )]
     [InlineData( ".NETFramework,Version=v4.8", ".NETFramework,Version=v4.8" )]
     [InlineData( ".NETFramework,Version=v4.8/win-x86", ".NETFramework,Version=v4.8" )]
-    public void TheTargetOfTheFrameworkIsFound( string targetName, string framework )
-        => Assert.True( TestArchivePackages.IsTargetOf( targetName, framework ) );
+    public void TheTargetOfTheFrameworkIsFound( string targetName, string framework ) => Assert.True( TestArchivePackages.IsTargetOf( targetName, framework ) );
 
     [Theory]
     [InlineData( ".NETFramework,Version=v4.8", "net48" )]
@@ -98,7 +97,9 @@ public sealed class TestArchivePackagesTargetTests
         Assert.Equal( ["feed/Greeting"], packages.Select( p => p.Reference ).ToArray() );
 
         // Without the moniker, as before the fix, the package is not found.
-        Assert.True( TestArchivePackages.TryGetPackages( context.Console, sources, application with { TargetFrameworkMoniker = "" }, out var packagesWithoutMoniker ) );
+        Assert.True(
+            TestArchivePackages.TryGetPackages( context.Console, sources, application with { TargetFrameworkMoniker = "" }, out var packagesWithoutMoniker ) );
+
         Assert.Empty( packagesWithoutMoniker );
     }
 }

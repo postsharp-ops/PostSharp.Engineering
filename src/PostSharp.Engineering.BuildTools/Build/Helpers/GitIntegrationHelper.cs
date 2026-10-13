@@ -148,7 +148,7 @@ internal static class GitIntegrationHelper
 
         return true;
     }
-    
+
     /// <summary>
     /// Commits only the MainVersion.props file without bumping the main version.
     /// Used when the main version is broken and must be fixed.
@@ -211,7 +211,8 @@ internal static class GitIntegrationHelper
         if ( exitCode != 0 )
         {
             // No prior release tags exist for this version - this is the first release.
-            context.Console.WriteMessage( $"No prior release tags found matching pattern '{globMatch}'. This appears to be the first release of version {mainVersionFile.Release}." );
+            context.Console.WriteMessage(
+                $"No prior release tags found matching pattern '{globMatch}'. This appears to be the first release of version {mainVersionFile.Release}." );
 
             hasBumpSinceLastDeployment = true;
             hasChangesSinceLastDeployment = true;

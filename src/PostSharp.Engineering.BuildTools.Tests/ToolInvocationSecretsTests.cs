@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
+using System;
 using System.Collections.Immutable;
 using System.IO;
 using Xunit;
@@ -32,13 +33,13 @@ public class ToolInvocationSecretsTests
 
         var redacted = WithSecret( _password ).Redact( commandLine );
 
-        Assert.DoesNotContain( _password, redacted, System.StringComparison.Ordinal );
-        Assert.Contains( "Password='***'", redacted, System.StringComparison.Ordinal );
+        Assert.DoesNotContain( _password, redacted, StringComparison.Ordinal );
+        Assert.Contains( "Password='***'", redacted, StringComparison.Ordinal );
 
         // The rest of the line has to survive, or the log stops being useful for diagnosing the failure that
         // printed it.
-        Assert.Contains( "-verb:sync", redacted, System.StringComparison.Ordinal );
-        Assert.Contains( "UserName='$site'", redacted, System.StringComparison.Ordinal );
+        Assert.Contains( "-verb:sync", redacted, StringComparison.Ordinal );
+        Assert.Contains( "UserName='$site'", redacted, StringComparison.Ordinal );
     }
 
     [Fact]
@@ -126,7 +127,7 @@ public class ToolInvocationSecretsTests
 
         Assert.False( succeeded );
         Assert.NotEmpty( console.Captured );
-        Assert.DoesNotContain( _password, console.Captured, System.StringComparison.Ordinal );
-        Assert.Contains( "***", console.Captured, System.StringComparison.Ordinal );
+        Assert.DoesNotContain( _password, console.Captured, StringComparison.Ordinal );
+        Assert.Contains( "***", console.Captured, StringComparison.Ordinal );
     }
 }

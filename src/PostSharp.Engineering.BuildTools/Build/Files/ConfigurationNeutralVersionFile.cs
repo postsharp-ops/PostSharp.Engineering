@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -54,7 +55,7 @@ internal static class ConfigurationNeutralVersionFile
         // Convert Windows path to WSL: C:\path -> /mnt/c/path
         if ( path is [_, ':', _, ..] && (path[2] == '\\' || path[2] == '/') )
         {
-            var drive = char.ToLower( path[0], System.Globalization.CultureInfo.InvariantCulture );
+            var drive = char.ToLower( path[0], CultureInfo.InvariantCulture );
             var remainder = path.Substring( 2 ).Replace( "\\", "/", StringComparison.Ordinal );
 
             return $"/mnt/{drive}{remainder}";
@@ -80,8 +81,7 @@ internal static class ConfigurationNeutralVersionFile
             return null;
         }
 
-        return Path.GetFullPath(
-            Path.Combine( dependencySource.GetResolvedLocalPath( context, dependencyName ), dependencyName + ".Import.props" ) );
+        return Path.GetFullPath( Path.Combine( dependencySource.GetResolvedLocalPath( context, dependencyName ), dependencyName + ".Import.props" ) );
     }
 
     public static void Write(

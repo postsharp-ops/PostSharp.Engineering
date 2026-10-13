@@ -94,8 +94,7 @@ internal static class TestArchives
 
         if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
         {
-            context.Console.WriteWarning(
-                $"The test filter is ignored for the solution '{solution.Name}', whose test applications run from test archives." );
+            context.Console.WriteWarning( $"The test filter is ignored for the solution '{solution.Name}', whose test applications run from test archives." );
         }
 
         // The archives must be those of this build: an archive that an earlier build left would test other code.
@@ -257,9 +256,9 @@ internal static class TestArchives
         // The packages of the archives that the build wrote and the list names.
         var differentPackages = actual.Intersect( expected.Keys )
             .Where( a => !packagesByArchive.GetValueOrDefault( a, [] )
-                .Select( p => p.Reference )
-                .Order( StringComparer.Ordinal )
-                .SequenceEqual( expected[a], StringComparer.Ordinal ) )
+                        .Select( p => p.Reference )
+                        .Order( StringComparer.Ordinal )
+                        .SequenceEqual( expected[a], StringComparer.Ordinal ) )
             .Order( StringComparer.Ordinal )
             .ToList();
 

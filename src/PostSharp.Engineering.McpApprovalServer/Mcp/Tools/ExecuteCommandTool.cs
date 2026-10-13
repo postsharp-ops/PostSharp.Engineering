@@ -63,7 +63,7 @@ public sealed class ExecuteCommandTool
         this._logger?.LogInfo( $"Working Directory: {workingDirectory}" );
         this._logger?.LogInfo( $"Purpose: {claimedPurpose}" );
         this._logger?.LogInfo( $"Git Branch: {branch}" );
-        
+
         try
         {
             // 1. Check if this exact command was previously approved
@@ -137,7 +137,7 @@ public sealed class ExecuteCommandTool
             }
 
             // 7. Record in history
-            this._history.Record( sessionId, command, workingDirectory,  branch, claimedPurpose, approved, result );
+            this._history.Record( sessionId, command, workingDirectory, branch, claimedPurpose, approved, result );
 
             return result;
         }

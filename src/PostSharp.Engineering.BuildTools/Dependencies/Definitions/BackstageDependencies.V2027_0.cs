@@ -95,8 +95,7 @@ public static partial class BackstageDependencies
                 // As for Backstage, the packages carry the vendor prefix that the product name used by the build system
                 // omits. The pattern overlaps the "SharpCrafters.Backstage*" of Backstage, which is what package source
                 // mapping resolves by longest prefix, so these packages are taken from this product and not from that one.
-                PackagePatterns = ["SharpCrafters.Backstage.LicenseServer*"],
-                Dependencies = [DevelopmentDependencies.PostSharpEngineering, Backstage]
+                PackagePatterns = ["SharpCrafters.Backstage.LicenseServer*"], Dependencies = [DevelopmentDependencies.PostSharpEngineering, Backstage]
             };
     }
 }

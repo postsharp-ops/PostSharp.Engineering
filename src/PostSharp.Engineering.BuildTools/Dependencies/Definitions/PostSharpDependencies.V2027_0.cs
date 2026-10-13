@@ -88,6 +88,7 @@ public static partial class PostSharpDependencies
                 DevelopmentDependencies.PostSharpEngineering,
                 BackstageDependencies.V2027_0.Backstage.ToDependency()
             ],
+
             // Since 2027.0, PostSharp.Sdk holds the reference assemblies that add-ins compile against, and the
             // PostSharp.Compiler.* packages only depend on it. PostSharp.Build.Tools is a private package: the MSBuild SDK
             // of the build tasks and the test tools, which the tests import from the artifacts of the build.

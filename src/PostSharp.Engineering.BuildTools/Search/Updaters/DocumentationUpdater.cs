@@ -52,7 +52,12 @@ internal class DocumentationUpdater : CollectionUpdater
             {
                 context.Console.WriteMessage( $"Indexing single page '{settings.SingleArticleUrl}' to '{targetCollection}' collection." );
 
-                return await siteIndexer.IndexArticlesAsync( targetCollection, this._source, this._products, [settings.SingleArticleUrl], settings.Incremental );
+                return await siteIndexer.IndexArticlesAsync(
+                    targetCollection,
+                    this._source,
+                    this._products,
+                    [settings.SingleArticleUrl],
+                    settings.Incremental );
             }
             else if ( settings.Incremental )
             {
@@ -97,7 +102,7 @@ internal class DocumentationUpdater : CollectionUpdater
         // A page is (re)crawled when it is new, or when the sitemap reports a newer lastmod than what we stored.
         // Pages without a lastmod in the sitemap (0) are only crawled when new; the periodic full rebuild reconciles the rest.
         var changed = sitemapByUrl
-            .Where( kv => !storedByUrl.TryGetValue( kv.Key, out var stored ) || ( kv.Value > 0 && kv.Value > stored ) )
+            .Where( kv => !storedByUrl.TryGetValue( kv.Key, out var stored ) || (kv.Value > 0 && kv.Value > stored) )
             .Select( kv => kv.Key )
             .ToList();
 

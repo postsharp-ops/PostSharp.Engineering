@@ -6,12 +6,15 @@ using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 
@@ -22,7 +25,7 @@ internal static class TeamCitySettingsFile
     internal static bool TryWrite( BuildContext context, IReadOnlyList<AdditionalCiBuildConfiguration>? generatedConfigurations = null )
     {
         var product = context.Product;
-        IReadOnlyList<AdditionalCiBuildConfiguration> ciBuildConfigurations = [..product.AdditionalCiBuildConfigurations, ..generatedConfigurations ?? []];
+        IReadOnlyList<AdditionalCiBuildConfiguration> ciBuildConfigurations = [.. product.AdditionalCiBuildConfigurations, .. generatedConfigurations ?? []];
         context.Console.WriteHeading( "Generating build integration scripts" );
 
         // A dependency between build configurations of the same product names its target by identifier, so a typo or
@@ -108,7 +111,7 @@ internal static class TeamCitySettingsFile
             // deployment configuration. Publishers without an explicit DeploymentName join the "default" group, while SSH
             // publishers join the "ssh" group by default. SSH publishers are inert markers deployed by native TeamCity
             // SSH runners; non-SSH publishers deploy through the 'b publish' step.
-            var allPublishers = ( configurationInfo.PublicPublishers ?? [] ).Concat( configurationInfo.PrivatePublishers ?? [] ).ToList();
+            var allPublishers = (configurationInfo.PublicPublishers ?? []).Concat( configurationInfo.PrivatePublishers ?? [] ).ToList();
 
             var deploymentGroups = allPublishers
                 .GroupBy( p => p.EffectiveDeploymentName, StringComparer.Ordinal )
@@ -474,11 +477,10 @@ internal static class TeamCitySettingsFile
             names.Add( sourceRepository.Name );
         }
 
-        return repositoriesByOwner.Select(
-            owner => new GitHubAppBuildScopedTokenSettings(
-                connectionsByOwner[owner.Key],
-                [..owner.Value],
-                "env." + GitHubRepository.GetTokenEnvironmentVariableName( owner.Key ) ) );
+        return repositoriesByOwner.Select( owner => new GitHubAppBuildScopedTokenSettings(
+                                               connectionsByOwner[owner.Key],
+                                               [.. owner.Value],
+                                               "env." + GitHubRepository.GetTokenEnvironmentVariableName( owner.Key ) ) );
     }
 
     /// <summary>
@@ -644,11 +646,10 @@ internal static class TeamCitySettingsFile
         if ( !isStandalone && configurationInfo.DeploymentDependencies != null )
         {
             snapshotDependencies = snapshotDependencies.Concat(
-                configurationInfo.DeploymentDependencies.Select(
-                    d => d.ToTeamCitySnapshotDependency(
-                        d.TryGetObjectName( product, productProperties.CiBuildConfigurations )!,
-                        null,
-                        d.ReuseLastSuccessfulBuild ?? false ) ) );
+                configurationInfo.DeploymentDependencies.Select( d => d.ToTeamCitySnapshotDependency(
+                                                                     d.TryGetObjectName( product, productProperties.CiBuildConfigurations )!,
+                                                                     null,
+                                                                     d.ReuseLastSuccessfulBuild ?? false ) ) );
         }
 
         // Only the primary default deployment carries the cross-product deployment dependencies; the standalone variant
@@ -658,7 +659,7 @@ internal static class TeamCitySettingsFile
             // Aliased + LastSuccessful deps must be excluded: we don't snapshot-depend on them for the consumer's build,
             // and the same applies to deployment.
             var parametrizedDeploymentDependencies = product.ParametrizedDependencies
-                .Where( d => d.ArtifactPickup == Dependencies.Model.DependencyArtifactPickup.Snapshot )
+                .Where( d => d.ArtifactPickup == DependencyArtifactPickup.Snapshot )
                 .Select( d => d.Definition );
 
             snapshotDependencies = snapshotDependencies.Concat(
@@ -724,7 +725,7 @@ internal static class TeamCitySettingsFile
     /// </summary>
     internal static string ToObjectNameSuffix( string deploymentName )
     {
-        var parts = System.Text.RegularExpressions.Regex.Split( deploymentName, "[^A-Za-z0-9]+" )
+        var parts = Regex.Split( deploymentName, "[^A-Za-z0-9]+" )
             .Where( p => p.Length > 0 )
             .Select( p => char.ToUpperInvariant( p[0] ) + p.Substring( 1 ) );
 
@@ -752,11 +753,7 @@ internal static class TeamCitySettingsFile
             $"{configurationProperties.Configuration}DeployAll",
             $"Deploy All [{configurationProperties.Configuration}]",
             productProperties.DefaultBranch,
-            productProperties.VcsId )
-        {
-            BuildSteps = [],
-            SnapshotDependencies = snapshotDependencies
-        };
+            productProperties.VcsId ) { BuildSteps = [], SnapshotDependencies = snapshotDependencies };
     }
 
     /// <summary>
@@ -776,11 +773,7 @@ internal static class TeamCitySettingsFile
             $"{configurationProperties.Configuration}SwapAll",
             $"Swap All [{configurationProperties.Configuration}]",
             productProperties.DeploymentBranch,
-            productProperties.VcsId )
-        {
-            BuildSteps = [],
-            SnapshotDependencies = snapshotDependencies
-        };
+            productProperties.VcsId ) { BuildSteps = [], SnapshotDependencies = snapshotDependencies };
     }
 
     /// <summary>
@@ -808,7 +801,7 @@ internal static class TeamCitySettingsFile
             + "Expand-Archive -LiteralPath $archive.FullName -DestinationPath $destination -Force; "
             + "& (Join-Path $destination 'deploy.ps1')";
 
-        var encodedCommand = Convert.ToBase64String( System.Text.Encoding.Unicode.GetBytes( script ) );
+        var encodedCommand = Convert.ToBase64String( Encoding.Unicode.GetBytes( script ) );
 
         return $"pwsh -NoProfile -ExecutionPolicy Bypass -EncodedCommand {encodedCommand}";
     }
@@ -830,7 +823,7 @@ internal static class TeamCitySettingsFile
             // deduplicated by build type.
             snapshotDependencies =
                 product.ParametrizedDependencies
-                    .Where( d => d.ArtifactPickup == Dependencies.Model.DependencyArtifactPickup.Snapshot
+                    .Where( d => d.ArtifactPickup == DependencyArtifactPickup.Snapshot
                                  && d.Definition.GenerateSnapshotDependency
                                  && d.Definition.UpstreamProduct != null )
                     .Select( d => d.Definition )
@@ -995,7 +988,7 @@ internal static class TeamCitySettingsFile
         // the product's own graph is keyed on this build configuration. Keeping only the same-product entries and then
         // adding the product's graph avoids emitting the same build type twice under artifact rules that need not even
         // agree.
-        var snapshotDependencies = ( generated.SnapshotDependencies ?? [] )
+        var snapshotDependencies = (generated.SnapshotDependencies ?? [])
             .Where( d => !d.IsAbsoluteId )
             .Concat( configurationProperties.SnapshotDependenciesForBuildConfiguration )
             .ToArray();
@@ -1302,6 +1295,7 @@ internal static class TeamCitySettingsFile
             }
         }
     }
+
     /// <summary>
     /// A folder of <see cref="AdditionalCiBuildConfiguration.ProjectFolder"/>, which becomes a TeamCity sub-project.
     /// </summary>

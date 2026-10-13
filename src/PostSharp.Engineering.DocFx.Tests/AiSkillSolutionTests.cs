@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using PostSharp.Engineering.DocFx.AiSkills;
 using System;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
@@ -13,7 +14,7 @@ namespace PostSharp.Engineering.DocFx.Tests;
 
 public sealed class AiSkillSolutionTests : IDisposable
 {
-    private static readonly ImmutableArray<AiSkillApiRelocation> _relocations = [new AiSkillApiRelocation( "Legacy.", "migration" )];
+    private static readonly ImmutableArray<AiSkillApiRelocation> _relocations = [new( "Legacy.", "migration" )];
 
     private readonly string _repoDirectory = Path.Combine( Path.GetTempPath(), "AiSkillSolutionTests", Guid.NewGuid().ToString( "N" ) );
 
@@ -33,7 +34,8 @@ public sealed class AiSkillSolutionTests : IDisposable
     [Fact]
     public void StripRenderingSections_RemovesReferencesAndMemberLayout()
     {
-        const string yaml = "### YamlMime:ManagedReference\nitems:\n- uid: A\n  summary: Kept.\nreferences:\n- uid: B\n  name: B\nmemberLayout: SeparatePages\n";
+        const string yaml =
+            "### YamlMime:ManagedReference\nitems:\n- uid: A\n  summary: Kept.\nreferences:\n- uid: B\n  name: B\nmemberLayout: SeparatePages\n";
 
         var stripped = ApiDocTransformer.StripRenderingSections( yaml );
 
@@ -156,8 +158,7 @@ public sealed class AiSkillSolutionTests : IDisposable
 
         Assert.True( new AiSkillSolution( CreateOptions() ).Build( this._repoDirectory, "2027.0", new ConsoleHelper() ) );
 
-        var index = File.ReadAllText(
-            Path.Combine( this._repoDirectory, "artifacts", "marketplace", "plugins", "sample", "skills", "sample", "index.yml" ) );
+        var index = File.ReadAllText( Path.Combine( this._repoDirectory, "artifacts", "marketplace", "plugins", "sample", "skills", "sample", "index.yml" ) );
 
         Assert.Contains( "summary: Before---after.", index, StringComparison.Ordinal );
     }
@@ -207,18 +208,25 @@ public sealed class AiSkillSolutionTests : IDisposable
         var scriptPath = Path.Combine( skillDirectory, "scripts", script + (language == ScriptLanguage.Python ? ".py" : ".ps1") );
         string[] interpreterArguments = language == ScriptLanguage.Python ? [scriptPath] : ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath];
 
-        Assert.True( TryRun( language, skillDirectory, [..interpreterArguments, ..arguments], out var exitCode, out var output ), $"Cannot run {script}." );
+        Assert.True( TryRun( language, skillDirectory, [.. interpreterArguments, .. arguments], out var exitCode, out var output ), $"Cannot run {script}." );
         Assert.True( exitCode == expectedExitCode, $"{script} {string.Join( ' ', arguments )} exited with {exitCode}:\n{output}" );
 
         foreach ( var fragment in expectedFragments )
         {
-            Assert.True( output.Contains( fragment, StringComparison.OrdinalIgnoreCase ), $"{script} {string.Join( ' ', arguments )} did not print '{fragment}':\n{output}" );
+            Assert.True(
+                output.Contains( fragment, StringComparison.OrdinalIgnoreCase ),
+                $"{script} {string.Join( ' ', arguments )} did not print '{fragment}':\n{output}" );
         }
     }
 
     // A missing interpreter fails to start; the Windows Store shim of Python starts but returns an error.
     private static bool IsInterpreterAvailable( ScriptLanguage language )
-        => TryRun( language, Path.GetTempPath(), language == ScriptLanguage.Python ? ["--version"] : ["-NoProfile", "-Command", "exit 0"], out var exitCode, out _ )
+        => TryRun(
+               language,
+               Path.GetTempPath(),
+               language == ScriptLanguage.Python ? ["--version"] : ["-NoProfile", "-Command", "exit 0"],
+               out var exitCode,
+               out _ )
            && exitCode == 0;
 
     private static bool TryRun( ScriptLanguage language, string workingDirectory, string[] arguments, out int exitCode, out string output )
@@ -244,7 +252,7 @@ public sealed class AiSkillSolutionTests : IDisposable
 
             return true;
         }
-        catch ( System.ComponentModel.Win32Exception )
+        catch ( Win32Exception )
         {
             exitCode = -1;
             output = "";

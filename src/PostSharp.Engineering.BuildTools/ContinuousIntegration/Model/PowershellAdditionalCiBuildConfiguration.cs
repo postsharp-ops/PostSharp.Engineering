@@ -108,22 +108,19 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
             var defaultArtifactRules = $"+:{buildArtifactsDirectory}/**/*=>{buildArtifactsDirectory}";
 
             snapshotDependencies = declaredSnapshotDependencies
-                .Select(
-                    d => d.ToTeamCitySnapshotDependency(
-                        d.TryGetObjectName( product, productProperties.CiBuildConfigurations )
-                        ?? throw new KeyNotFoundException(
-                            $"The '{this.Id}' build configuration depends on '{d}', which the product does not declare." ),
-                        defaultArtifactRules,
-                        this.EffectiveReuseLastSuccessfulBuild ) )
+                .Select( d => d.ToTeamCitySnapshotDependency(
+                             d.TryGetObjectName( product, productProperties.CiBuildConfigurations )
+                             ?? throw new KeyNotFoundException( $"The '{this.Id}' build configuration depends on '{d}', which the product does not declare." ),
+                             defaultArtifactRules,
+                             this.EffectiveReuseLastSuccessfulBuild ) )
                 .ToList();
 
             snapshotDependencies.AddRange(
-                productDependencies.Select(
-                    d => new TeamCitySnapshotDependency(
-                        d.Definition.CiConfiguration.BuildTypes[d.Configuration],
-                        true,
-                        $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
-                        ReuseBuilds: reuseBuilds ) ) );
+                productDependencies.Select( d => new TeamCitySnapshotDependency(
+                                                d.Definition.CiConfiguration.BuildTypes[d.Configuration],
+                                                true,
+                                                $"+:{d.Definition.GetPrivateArtifactsDirectory( d.Configuration ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Key}",
+                                                ReuseBuilds: reuseBuilds ) ) );
 
             // Both steps below read a file that a stage of this product published, so they belong to a configuration
             // that waits for such a stage. A configuration that takes only the artifacts of other products has no

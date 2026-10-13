@@ -152,7 +152,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
                 // Resolve links and junctions.
                 var realPath = FileSystemHelper.GetFinalPath( gitIgnorePath );
-                
+
                 return Path.GetDirectoryName( realPath );
             }
             else

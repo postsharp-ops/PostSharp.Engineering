@@ -53,7 +53,10 @@ internal class ConfigurationProperties
     /// Creates the snapshot dependency of a build configuration of the product on the build of a dependency, which takes
     /// the same build of the dependency as the build of the product in the same chain.
     /// </summary>
-    public static TeamCitySnapshotDependency CreateDependencySnapshot( DependencyConfiguration dependency, BuildConfiguration configuration, string artifactRules )
+    public static TeamCitySnapshotDependency CreateDependencySnapshot(
+        DependencyConfiguration dependency,
+        BuildConfiguration configuration,
+        string artifactRules )
         => new(
             dependency.Definition.CiConfiguration.BuildTypes[dependency.Configuration],
             true,

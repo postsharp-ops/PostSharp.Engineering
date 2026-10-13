@@ -198,10 +198,11 @@ internal sealed class LocalNuGetFeed : IDisposable
         Resource[] Items );
 
     private sealed record Resource(
-        [property: JsonPropertyName( "@id" )]
-        string Id,
+        [property: JsonPropertyName( "@id" )] string Id,
         [property: JsonPropertyName( "@type" )]
         string Type );
 
-    private sealed record Versions( [property: JsonPropertyName( "versions" )] string[] Items );
+    private sealed record Versions(
+        [property: JsonPropertyName( "versions" )]
+        string[] Items );
 }

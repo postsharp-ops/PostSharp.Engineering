@@ -121,9 +121,9 @@ public class UpdateSearchProductExtension : ProductExtension
             var configurationInfo = context.Product.Configurations[configuration];
 
             var name = this.CustomBuildConfigurationName
-                       ?? ( hasMultipleCollections
+                       ?? (hasMultipleCollections
                            ? $"Update Search {this.Source} [{configuration}]"
-                           : $"Update Search [{configuration}]" );
+                           : $"Update Search [{configuration}]");
 
             var dependencies = configurationInfo.ExportsToTeamCityDeploy
                 ? new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) }

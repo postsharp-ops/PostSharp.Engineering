@@ -45,7 +45,9 @@ internal static class TestArchiveCells
         => Create( product, _ => applications );
 
     /// <param name="getApplications">Gets the applications discovered in a configuration.</param>
-    public static ImmutableArray<AdditionalCiBuildConfiguration> Create( Product product, Func<BuildConfiguration, IReadOnlyList<TestApplication>> getApplications )
+    public static ImmutableArray<AdditionalCiBuildConfiguration> Create(
+        Product product,
+        Func<BuildConfiguration, IReadOnlyList<TestApplication>> getApplications )
     {
         var configurations = product.TestArchivesConfigurations;
 
@@ -54,7 +56,7 @@ internal static class TestArchiveCells
             return Create( product, getApplications( configurations[0] ), new SnapshotDependency( configurations[0] ), null );
         }
 
-        return [..configurations.SelectMany( c => Create( product, getApplications( c ), new SnapshotDependency( c ), c.ToString() ) )];
+        return [.. configurations.SelectMany( c => Create( product, getApplications( c ), new SnapshotDependency( c ), c.ToString() ) )];
     }
 
     /// <param name="setName">The name of the set of build configurations, which prefixes their identifiers and names the folder
@@ -109,7 +111,7 @@ internal static class TestArchiveCells
                     cells.Select( c => c.Id ).ToArray() ) { ProjectFolder = setName } );
         }
 
-        return [..cells];
+        return [.. cells];
     }
 
     // A part of a TeamCity identifier, which a Kotlin object carries too: letters and digits, the first one in upper case.
@@ -147,7 +149,11 @@ internal static class TestArchiveCells
     // rule names the package and not its version, which changes with every build: <id>.*.nupkg. It would also match a package
     // whose identifier starts with <id> and a dot, such as <id>.Tools, so such a package of the same producer, known from the
     // other applications, is excluded unless it is needed too.
-    private static string[] GetPackageRules( string producer, string artifactsDirectory, IReadOnlyList<string> ids, IReadOnlyList<TestApplication> allApplications )
+    private static string[] GetPackageRules(
+        string producer,
+        string artifactsDirectory,
+        IReadOnlyList<string> ids,
+        IReadOnlyList<TestApplication> allApplications )
     {
         var knownIds = allApplications.SelectMany( a => a.Packages )
             .Select( TestArchivePackages.Package.ParseReference )
@@ -160,15 +166,14 @@ internal static class TestArchiveCells
 
         string[] rules =
         [
-            ..ids.Select( id => $"+:{artifactsDirectory}/{id}.*.nupkg=>{destination}" ),
-            ..ids.SelectMany(
-                    id => knownIds.Where(
-                        k => k.StartsWith( id + ".", StringComparison.OrdinalIgnoreCase ) && !ids.Contains( k, StringComparer.OrdinalIgnoreCase ) ) )
+            .. ids.Select( id => $"+:{artifactsDirectory}/{id}.*.nupkg=>{destination}" ),
+            .. ids.SelectMany( id => knownIds.Where( k => k.StartsWith( id + ".", StringComparison.OrdinalIgnoreCase )
+                                                          && !ids.Contains( k, StringComparer.OrdinalIgnoreCase ) ) )
                 .Distinct( StringComparer.OrdinalIgnoreCase )
                 .Select( k => $"-:{artifactsDirectory}/{k}.*.nupkg" )
         ];
 
-        return [..rules.Order( StringComparer.Ordinal )];
+        return [.. rules.Order( StringComparer.Ordinal )];
     }
 
     private static TestArchivesCiBuildConfiguration CreateCell(

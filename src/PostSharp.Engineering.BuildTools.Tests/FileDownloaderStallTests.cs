@@ -59,36 +59,35 @@ public sealed class FileDownloaderStallTests : IDisposable
     /// never completes.
     /// </summary>
     private void StartServer( int chunks, TimeSpan delay, bool stallForever )
-        => _ = Task.Run(
-            async () =>
+        => _ = Task.Run( async () =>
+        {
+            try
             {
-                try
+                var context = await this._listener.GetContextAsync();
+                var response = context.Response;
+                response.StatusCode = 200;
+                response.SendChunked = true;
+
+                for ( var i = 0; i < chunks; i++ )
                 {
-                    var context = await this._listener.GetContextAsync();
-                    var response = context.Response;
-                    response.StatusCode = 200;
-                    response.SendChunked = true;
-
-                    for ( var i = 0; i < chunks; i++ )
-                    {
-                        await Task.Delay( delay );
-                        await response.OutputStream.WriteAsync( new byte[1024] );
-                        await response.OutputStream.FlushAsync();
-                    }
-
-                    if ( stallForever )
-                    {
-                        // Never close: the client must decide on its own that nothing is coming.
-                        await Task.Delay( Timeout.InfiniteTimeSpan );
-                    }
-
-                    response.Close();
+                    await Task.Delay( delay );
+                    await response.OutputStream.WriteAsync( new byte[1024] );
+                    await response.OutputStream.FlushAsync();
                 }
-                catch ( Exception )
+
+                if ( stallForever )
                 {
-                    // The listener is torn down at the end of the test; nothing to report.
+                    // Never close: the client must decide on its own that nothing is coming.
+                    await Task.Delay( Timeout.InfiniteTimeSpan );
                 }
-            } );
+
+                response.Close();
+            }
+            catch ( Exception )
+            {
+                // The listener is torn down at the end of the test; nothing to report.
+            }
+        } );
 
     private async Task<(bool Succeeded, TimeSpan Elapsed)> DownloadAsync( TimeSpan stallTimeout )
     {

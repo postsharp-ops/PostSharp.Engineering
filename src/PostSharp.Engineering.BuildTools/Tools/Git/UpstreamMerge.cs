@@ -577,7 +577,7 @@ internal static class UpstreamMerge
         // another commit may have been pushed to the downstream branch in the meantime. Pull it before pushing,
         // otherwise the push would be rejected as non-fast-forward. A single attempt does not close the window:
         // yet another commit can be pushed between our pull and our push, so the whole sequence is retried.
-        for ( var attempt = 1; ; attempt++ )
+        for ( var attempt = 1;; attempt++ )
         {
             context.Console.WriteMessage( "" );
 

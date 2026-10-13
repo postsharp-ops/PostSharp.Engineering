@@ -77,9 +77,9 @@ internal sealed class RootPrologComponent : ContainerComponent
                   FROM ${OS_IMAGE_REPOSITORY}:${WINDOWS_VERSION}
                   """
                 : $$"""
-                  ARG OS_IMAGE={{this._baseImage}}
-                  FROM ${OS_IMAGE}
-                  """;
+                    ARG OS_IMAGE={{this._baseImage}}
+                    FROM ${OS_IMAGE}
+                    """;
 
             writer.WriteLine(
                 $$"""

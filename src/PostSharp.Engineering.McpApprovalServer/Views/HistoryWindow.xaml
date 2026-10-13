@@ -9,34 +9,34 @@
 
     <Window.Resources>
         <Style x:Key="HeaderStyle" TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#2D2D30"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="BorderBrush" Value="#3F3F46"/>
-            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Background" Value="#2D2D30" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="BorderBrush" Value="#3F3F46" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
         </Style>
 
         <Style x:Key="CellStyle" TargetType="DataGridCell">
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#D4D4D4"/>
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#D4D4D4" />
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#264F78"/>
+                    <Setter Property="Background" Value="#264F78" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <Style x:Key="RowStyle" TargetType="DataGridRow">
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="#252526" />
+            <Setter Property="BorderThickness" Value="0" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#2A2D2E"/>
+                    <Setter Property="Background" Value="#2A2D2E" />
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#264F78"/>
+                    <Setter Property="Background" Value="#264F78" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -44,9 +44,9 @@
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -55,7 +55,7 @@
                    FontSize="16"
                    FontWeight="SemiBold"
                    Foreground="#FFFFFF"
-                   Margin="0,0,0,10"/>
+                   Margin="0,0,0,10" />
 
         <!-- History Table -->
         <DataGrid Grid.Row="1"
@@ -84,9 +84,9 @@
                                     Width="140">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
-                            <Setter Property="FontFamily" Value="Consolas"/>
-                            <Setter Property="FontSize" Value="12"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="FontFamily" Value="Consolas" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
@@ -96,17 +96,17 @@
                                     Width="80">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
-                            <Setter Property="FontWeight" Value="Bold"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="Bold" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Status}" Value="APPROVED">
-                                    <Setter Property="Foreground" Value="#4EC9B0"/>
+                                    <Setter Property="Foreground" Value="#4EC9B0" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="REJECTED">
-                                    <Setter Property="Foreground" Value="#F14C4C"/>
+                                    <Setter Property="Foreground" Value="#F14C4C" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="PENDING">
-                                    <Setter Property="Foreground" Value="#DCDCAA"/>
+                                    <Setter Property="Foreground" Value="#DCDCAA" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -118,10 +118,10 @@
                                     Width="300">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
-                            <Setter Property="FontFamily" Value="Consolas"/>
-                            <Setter Property="FontSize" Value="12"/>
-                            <Setter Property="TextWrapping" Value="Wrap"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="FontFamily" Value="Consolas" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
@@ -131,9 +131,9 @@
                                     Width="180">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
-                            <Setter Property="FontSize" Value="12"/>
-                            <Setter Property="TextWrapping" Value="Wrap"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
@@ -143,11 +143,11 @@
                                     Width="200">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
-                            <Setter Property="FontFamily" Value="Consolas"/>
-                            <Setter Property="FontSize" Value="11"/>
-                            <Setter Property="TextWrapping" Value="Wrap"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Foreground" Value="#9CDCFE"/>
+                            <Setter Property="FontFamily" Value="Consolas" />
+                            <Setter Property="FontSize" Value="11" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Foreground" Value="#9CDCFE" />
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
@@ -157,10 +157,10 @@
                                     Width="120">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
-                            <Setter Property="FontFamily" Value="Consolas"/>
-                            <Setter Property="FontSize" Value="12"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Foreground" Value="#CE9178"/>
+                            <Setter Property="FontFamily" Value="Consolas" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Foreground" Value="#CE9178" />
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
@@ -170,10 +170,10 @@
                                     Width="50">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
-                            <Setter Property="FontFamily" Value="Consolas"/>
-                            <Setter Property="FontSize" Value="12"/>
-                            <Setter Property="HorizontalAlignment" Value="Center"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="FontFamily" Value="Consolas" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="HorizontalAlignment" Value="Center" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
@@ -192,7 +192,7 @@
                     Background="#0E639C"
                     Foreground="White"
                     BorderThickness="0"
-                    Cursor="Hand"/>
+                    Cursor="Hand" />
         </StackPanel>
     </Grid>
 </Window>

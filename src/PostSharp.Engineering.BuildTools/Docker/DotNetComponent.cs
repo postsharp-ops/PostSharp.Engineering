@@ -59,8 +59,7 @@ public sealed class DotNetComponent : ContainerComponent
                 DotNetComponentKind.Sdk => "",
                 DotNetComponentKind.DotNetRuntime => " --runtime dotnet",
                 DotNetComponentKind.AspNetCoreRuntime => " --runtime aspnetcore",
-                _ => throw new InvalidOperationException(
-                    $"'{this.DotNetComponentKind}' is not available on Linux." )
+                _ => throw new InvalidOperationException( $"'{this.DotNetComponentKind}' is not available on Linux." )
             };
 
             writer.WriteLine(

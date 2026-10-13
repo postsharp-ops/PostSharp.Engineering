@@ -129,9 +129,12 @@ public class DockerTimestampContextTests
     {
         var script = DockerBuildScript.Text;
 
-        Assert.DoesNotContain( """
-                               Join-Path $dockerContextDirectory "claude"
-                               """, script, StringComparison.Ordinal );
+        Assert.DoesNotContain(
+            """
+            Join-Path $dockerContextDirectory "claude"
+            """,
+            script,
+            StringComparison.Ordinal );
 
         // The copy is staged per built image, from the Dockerfile actually being built.
         Assert.Contains( "Copy-TimestampToContext $dfPath", script, StringComparison.Ordinal );

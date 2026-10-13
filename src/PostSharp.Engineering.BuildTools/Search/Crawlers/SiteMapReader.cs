@@ -29,8 +29,7 @@ internal class SiteMapReader
     /// <summary>
     /// Returns the URLs of a sitemap. Kept for backward compatibility; see <see cref="GetEntriesAsync"/> for last-modification times.
     /// </summary>
-    public async Task<IReadOnlyList<string>> GetDocumentsAsync( string url )
-        => (await this.GetEntriesAsync( url )).Select( e => e.Url ).ToList();
+    public async Task<IReadOnlyList<string>> GetDocumentsAsync( string url ) => (await this.GetEntriesAsync( url )).Select( e => e.Url ).ToList();
 
     /// <summary>
     /// Returns the entries of a sitemap, including the <c>lastmod</c> time when present.

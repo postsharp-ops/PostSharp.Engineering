@@ -10,8 +10,7 @@ namespace PostSharp.Engineering.BuildTools.Tools.GitHub;
 [PublicAPI]
 internal class GetGitHubAppTokenSettings : BaseBuildSettings
 {
-    [Description(
-        "A repository the token must reach, as owner/name. Repeatable, including across owners. Defaults to the repository of the current product." )]
+    [Description( "A repository the token must reach, as owner/name. Repeatable, including across owners. Defaults to the repository of the current product." )]
     [CommandOption( "-r|--repository" )]
     public string[] Repositories { get; protected set; } = [];
 

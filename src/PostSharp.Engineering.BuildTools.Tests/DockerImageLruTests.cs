@@ -33,8 +33,7 @@ public class DockerImageLruTests
     /// timestamp only.
     /// </summary>
     private static string Row( string id, string repository, string tag, DateTime created, string size )
-        => FormattableString.Invariant(
-            $"sha256:{id}|{repository}|{tag}|{created:yyyy-MM-dd HH:mm:ss} +0200 CEST|{size}" );
+        => FormattableString.Invariant( $"sha256:{id}|{repository}|{tag}|{created:yyyy-MM-dd HH:mm:ss} +0200 CEST|{size}" );
 
     /// <summary>
     /// Runs <c>Get-EvictionCandidates</c> over the given image rows and usage records, and returns the identifiers in
@@ -64,36 +63,36 @@ public class DockerImageLruTests
             // `docker` is shadowed by a function: PowerShell resolves a function before a native command, so the real
             // engine is never contacted. $LASTEXITCODE is assigned explicitly because only native commands set it.
             var script = $$"""
-                          $ErrorActionPreference = 'Stop'
-                          $global:LASTEXITCODE = 0
+                           $ErrorActionPreference = 'Stop'
+                           $global:LASTEXITCODE = 0
 
-                          function docker
-                          {
-                              $joined = $args -join ' '
-                              if ( $joined -like 'image ls*' ) { $global:LASTEXITCODE = 0; return @({{rowLiterals}}) }
-                              if ( $joined -like 'ps *' ) { $global:LASTEXITCODE = 0; return @() }
-                              throw "The test stub was asked for an unexpected docker command: $joined"
-                          }
+                           function docker
+                           {
+                               $joined = $args -join ' '
+                               if ( $joined -like 'image ls*' ) { $global:LASTEXITCODE = 0; return @({{rowLiterals}}) }
+                               if ( $joined -like 'ps *' ) { $global:LASTEXITCODE = 0; return @() }
+                               throw "The test stub was asked for an unexpected docker command: $joined"
+                           }
 
-                          function Get-ImageUsageDirectory
-                          {
-                              return '{{DockerBuildScript.Escape( usageDirectory )}}'
-                          }
+                           function Get-ImageUsageDirectory
+                           {
+                               return '{{DockerBuildScript.Escape( usageDirectory )}}'
+                           }
 
-                          {{DockerBuildScript.ExtractFunction( "ConvertFrom-DockerSize" )}}
+                           {{DockerBuildScript.ExtractFunction( "ConvertFrom-DockerSize" )}}
 
-                          {{DockerBuildScript.ExtractFunction( "Get-ImageUsageRecords" )}}
+                           {{DockerBuildScript.ExtractFunction( "Get-ImageUsageRecords" )}}
 
-                          {{DockerBuildScript.ExtractFunction( "Get-EvictionCandidates" )}}
+                           {{DockerBuildScript.ExtractFunction( "Get-EvictionCandidates" )}}
 
-                          $keep = [System.Collections.Generic.HashSet[string]]::new( [StringComparer]::OrdinalIgnoreCase )
-                          $candidates = Get-EvictionCandidates $keep (Get-Date).AddHours(-2)
+                           $keep = [System.Collections.Generic.HashSet[string]]::new( [StringComparer]::OrdinalIgnoreCase )
+                           $candidates = Get-EvictionCandidates $keep (Get-Date).AddHours(-2)
 
-                          foreach ( $candidate in $candidates )
-                          {
-                              Write-Output "CANDIDATE $( $candidate.Id ) $( $candidate.References -join ',' )"
-                          }
-                          """;
+                           foreach ( $candidate in $candidates )
+                           {
+                               Write-Output "CANDIDATE $( $candidate.Id ) $( $candidate.References -join ',' )"
+                           }
+                           """;
 
             var output = DockerBuildScript.Run( executable, script );
 
@@ -200,10 +199,7 @@ public class DockerImageLruTests
                 Row( _mirrored, "registry.home/windows-servercore", "ltsc2025", now.AddDays( -30 ), "6GB" ),
                 Row( _mirrored, "mcr.microsoft.com/windows/servercore", "ltsc2025", now.AddDays( -30 ), "6GB" )
             ],
-            new Dictionary<string, string?>
-            {
-                [_mirrored] = UsageRecord( now.AddDays( -3 ), "registry.home/windows-servercore:ltsc2025" )
-            } );
+            new Dictionary<string, string?> { [_mirrored] = UsageRecord( now.AddDays( -3 ), "registry.home/windows-servercore:ltsc2025" ) } );
 
         var candidate = Assert.Single( candidates );
 

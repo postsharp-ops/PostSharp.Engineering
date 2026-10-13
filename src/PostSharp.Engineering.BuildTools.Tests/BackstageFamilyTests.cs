@@ -168,8 +168,7 @@ public class BackstageFamilyTests
         Assert.True( BackstageDependencies.V2027_0.Family.TryGetDependencyDefinition( "Backstage", out var backstage ) );
         Assert.Same( BackstageDependencies.V2027_0.Backstage, backstage );
 
-        Assert.True(
-            BackstageDependencies.V2027_0.Family.TryGetDependencyDefinition( "Backstage.LicenseServer", out var licenseServer ) );
+        Assert.True( BackstageDependencies.V2027_0.Family.TryGetDependencyDefinition( "Backstage.LicenseServer", out var licenseServer ) );
 
         Assert.Same( BackstageDependencies.V2027_0.BackstageLicenseServer, licenseServer );
     }

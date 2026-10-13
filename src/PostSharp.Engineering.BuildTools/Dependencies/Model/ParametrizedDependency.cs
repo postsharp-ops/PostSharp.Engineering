@@ -52,9 +52,10 @@ public record ParametrizedDependency
     /// Underscores are removed because the key of a transitive dependency that inherits an alias separates the
     /// discriminator with one. See <see cref="GetAliasForTransitiveDependency"/>.
     /// </remarks>
-    public string KeyWithoutDot => this.Alias != null
-        ? this.Alias.Replace( ".", "", StringComparison.Ordinal ).Replace( "_", "", StringComparison.Ordinal )
-        : this.Definition.NameWithoutDot;
+    public string KeyWithoutDot
+        => this.Alias != null
+            ? this.Alias.Replace( ".", "", StringComparison.Ordinal ).Replace( "_", "", StringComparison.Ordinal )
+            : this.Definition.NameWithoutDot;
 
     /// <summary>
     /// Returns the consumer-side alias that a transitive dependency defined by <paramref name="transitiveDefinition"/>
@@ -149,8 +150,7 @@ public static class ParametrizedDependencyExtensions
     /// <summary>
     /// Returns a copy of <paramref name="dependency"/> with the specified consumer-side <paramref name="alias"/>.
     /// </summary>
-    public static ParametrizedDependency WithAlias( this ParametrizedDependency dependency, string alias )
-        => dependency with { Alias = alias };
+    public static ParametrizedDependency WithAlias( this ParametrizedDependency dependency, string alias ) => dependency with { Alias = alias };
 
     /// <summary>
     /// Returns a copy of <paramref name="dependency"/> with <see cref="ParametrizedDependency.ArtifactPickup"/> set to
@@ -164,6 +164,5 @@ public static class ParametrizedDependencyExtensions
     /// <see cref="DependencyDefinition.PublishingBranch"/> instead of <see cref="DependencyDefinition.Branch"/>.
     /// See <see cref="ParametrizedDependency.UsesPublishingBranch"/>.
     /// </summary>
-    public static ParametrizedDependency WithPublishingBranch( this ParametrizedDependency dependency )
-        => dependency with { UsesPublishingBranch = true };
+    public static ParametrizedDependency WithPublishingBranch( this ParametrizedDependency dependency ) => dependency with { UsesPublishingBranch = true };
 }

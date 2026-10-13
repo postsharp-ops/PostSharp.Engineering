@@ -41,7 +41,7 @@ public class GitHubAppBuildScopedTokenTests
                 (GitHubRepository) _consolidated.DependencyDefinition.VcsRepository,
                 _consolidated.DependencyDefinition.EffectiveGitHubAppConnectionId!,
                 buildConfiguration,
-                [..additionalRepositories] )
+                [.. additionalRepositories] )
             .ToArray();
 
     /// <summary>
@@ -161,7 +161,7 @@ public class GitHubAppBuildScopedTokenTests
 
             buildConfiguration.GitHubAppBuildScopedTokens =
             [
-                new GitHubAppBuildScopedTokenSettings( GitHubAppConnections.Metalama, [..GetTargetRepositories( buildConfiguration )] )
+                new GitHubAppBuildScopedTokenSettings( GitHubAppConnections.Metalama, [.. GetTargetRepositories( buildConfiguration )] )
             ];
 
             var writer = new StringWriter();
@@ -174,7 +174,7 @@ public class GitHubAppBuildScopedTokenTests
     private static string GenerateCode( params GitHubAppBuildScopedTokenSettings[] settings )
     {
         var buildConfiguration = CreateBuildConfiguration( [] );
-        buildConfiguration.GitHubAppBuildScopedTokens = [..settings];
+        buildConfiguration.GitHubAppBuildScopedTokens = [.. settings];
 
         var writer = new StringWriter();
         buildConfiguration.GenerateTeamcityCode( writer );
@@ -266,8 +266,7 @@ public class GitHubAppBuildScopedTokenTests
     [InlineData( "PostSharp" )]
     public void ForeignOrganization_GetsATokenOfItsOwn( string line )
     {
-        var product = new Product(
-            line == "Metalama" ? MetalamaDependencies.V2027_0.Consolidated : PostSharpDependencies.V2027_0.Consolidated );
+        var product = new Product( line == "Metalama" ? MetalamaDependencies.V2027_0.Consolidated : PostSharpDependencies.V2027_0.Consolidated );
 
         var buildConfiguration = CreateBuildConfiguration( new ProductProperties( product ).SourceDependencies );
 
@@ -294,7 +293,7 @@ public class GitHubAppBuildScopedTokenTests
         var product = new Product( MetalamaDependencies.V2027_0.Consolidated );
         var buildConfiguration = CreateBuildConfiguration( new ProductProperties( product ).SourceDependencies );
 
-        var code = GenerateCode( [..CreateAllSettings( product, buildConfiguration )] );
+        var code = GenerateCode( [.. CreateAllSettings( product, buildConfiguration )] );
 
         Assert.Equal( 2, code.Split( "gitHubAppBuildScopedToken {", StringSplitOptions.None ).Length - 1 );
 

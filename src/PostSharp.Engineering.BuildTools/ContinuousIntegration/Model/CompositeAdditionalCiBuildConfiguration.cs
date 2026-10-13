@@ -34,8 +34,8 @@ public class CompositeAdditionalCiBuildConfiguration : AdditionalCiBuildConfigur
     public IReadOnlyList<string> DependencyIds { get; }
 
     internal override TeamCityBuildConfiguration TeamCityBuildConfiguration(
-        ProductProperties productProperties,
-        IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations )
+            ProductProperties productProperties,
+            IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations )
 
         // The build agent requirements are deliberately left null: that is what makes the generated configuration
         // composite, and a composite that carried any build step would be rejected when the code is written.
@@ -61,7 +61,7 @@ public class CompositeAdditionalCiBuildConfiguration : AdditionalCiBuildConfigur
     /// what puts them in reach of the validation that rejects an unknown identifier or a cycle.
     /// </summary>
     internal override ImmutableArray<SnapshotDependency> GetSnapshotDependencies()
-        => [..this.DependencyIds.Select( id => new SnapshotDependency( id ) { ArtifactRules = [] } )];
+        => [.. this.DependencyIds.Select( id => new SnapshotDependency( id ) { ArtifactRules = [] } )];
 
     /// <summary>
     /// Always <c>false</c>. A composite waits for its children and downloads nothing from them, and reusing their

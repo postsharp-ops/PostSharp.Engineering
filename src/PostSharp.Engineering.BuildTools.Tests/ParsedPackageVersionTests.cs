@@ -49,8 +49,7 @@ public class ParsedPackageVersionTests
     public void RejectsInvalidVersions( string input ) => Assert.False( ParsedPackageVersion.TryParse( input, out _ ) );
 
     [Fact]
-    public void FullStringKeepsMetadata()
-        => Assert.Equal( "1.0.0-beta+sha.abc", ParsedPackageVersion.Parse( "1.0.0-beta+sha.abc" ).ToFullString() );
+    public void FullStringKeepsMetadata() => Assert.Equal( "1.0.0-beta+sha.abc", ParsedPackageVersion.Parse( "1.0.0-beta+sha.abc" ).ToFullString() );
 
     [Theory]
     [InlineData( "1.0.0", "1.0.1" )]

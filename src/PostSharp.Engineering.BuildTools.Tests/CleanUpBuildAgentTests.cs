@@ -160,42 +160,42 @@ public sealed class CleanUpBuildAgentTests : IDisposable
         var script = WslShell.ToWslPath( this._script );
 
         var shell = $$"""
-                     # Proof that a shell ran this at all, for a development machine that has wsl.exe but no
-                     # distribution behind it: there wsl.exe starts, prints a message of its own and exits without
-                     # running anything, which no exit code tells apart from a real result.
-                     echo WSL-RAN-THE-SCRIPT
+                      # Proof that a shell ran this at all, for a development machine that has wsl.exe but no
+                      # distribution behind it: there wsl.exe starts, prints a message of its own and exits without
+                      # running anything, which no exit code tells apart from a real result.
+                      echo WSL-RAN-THE-SCRIPT
 
-                     set -e
-                     command -v docker >/dev/null || exit 111
-                     command -v pwsh >/dev/null || exit 111
+                      set -e
+                      command -v docker >/dev/null || exit 111
+                      command -v pwsh >/dev/null || exit 111
 
-                     # On the Linux file system, not under /mnt: a Windows drive shows every file as belonging to the
-                     # WSL user whatever the container did, which is the very thing under test.
-                     CACHE=$(mktemp -d /tmp/cleanup-agent-XXXXXX)
-                     mkdir -p "$CACHE/other.package/1.0"
+                      # On the Linux file system, not under /mnt: a Windows drive shows every file as belonging to the
+                      # WSL user whatever the container did, which is the very thing under test.
+                      CACHE=$(mktemp -d /tmp/cleanup-agent-XXXXXX)
+                      mkdir -p "$CACHE/other.package/1.0"
 
-                     # An earlier build's container extracts a package as root, as it does on the Linux agent.
-                     docker run --rm -v "$CACHE:$CACHE" busybox sh -c "mkdir -p $CACHE/testproduct/1.0 && echo stale > $CACHE/testproduct/1.0/p.nupkg" >/dev/null 2>&1
+                      # An earlier build's container extracts a package as root, as it does on the Linux agent.
+                      docker run --rm -v "$CACHE:$CACHE" busybox sh -c "mkdir -p $CACHE/testproduct/1.0 && echo stale > $CACHE/testproduct/1.0/p.nupkg" >/dev/null 2>&1
 
-                     echo "OWNER=$(stat -c %u "$CACHE/testproduct") RUNNING-AS=$(id -u)"
+                      echo "OWNER=$(stat -c %u "$CACHE/testproduct") RUNNING-AS=$(id -u)"
 
-                     # The exit code of each run is the subject, so a non-zero one must not end this script.
-                     set +e
+                      # The exit code of each run is the subject, so a non-zero one must not end this script.
+                      set +e
 
-                     echo "--- as the agent of a build that restores in a container ---"
-                     pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE" -DeferToContainer
-                     echo "DEFERRING-EXIT=$?"
+                      echo "--- as the agent of a build that restores in a container ---"
+                      pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE" -DeferToContainer
+                      echo "DEFERRING-EXIT=$?"
 
-                     echo "--- as the agent of a build that restores on the agent ---"
-                     pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE"
-                     echo "NATIVE-EXIT=$?"
+                      echo "--- as the agent of a build that restores on the agent ---"
+                      pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE"
+                      echo "NATIVE-EXIT=$?"
 
-                     echo "--- as the container ---"
-                     pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE" -InContainer
-                     echo "CONTAINER-EXIT=$?"
+                      echo "--- as the container ---"
+                      pwsh -NoProfile -File "{{script}}" -NuGetCacheDirectory "$CACHE" -InContainer
+                      echo "CONTAINER-EXIT=$?"
 
-                     docker run --rm -v "$CACHE:$CACHE" busybox rm -rf "$CACHE" >/dev/null 2>&1 || true
-                     """;
+                      docker run --rm -v "$CACHE:$CACHE" busybox rm -rf "$CACHE" >/dev/null 2>&1 || true
+                      """;
 
         if ( !WslShell.TryRun( shell, out var exitCode, out var output )
              || !output.Contains( "WSL-RAN-THE-SCRIPT", StringComparison.Ordinal )

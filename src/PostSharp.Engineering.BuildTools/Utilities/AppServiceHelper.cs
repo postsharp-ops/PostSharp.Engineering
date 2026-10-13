@@ -86,8 +86,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             targetSlot ??= ProductionSlotName;
 
-            context.Console.WriteMessage(
-                $"Swapping the '{sourceSlot}' slot of the '{siteName}' app service into '{targetSlot}'." );
+            context.Console.WriteMessage( $"Swapping the '{sourceSlot}' slot of the '{siteName}' app service into '{targetSlot}'." );
 
             var args = CreateSwapArgs( subscriptionId, resourceGroupName, siteName, sourceSlot, targetSlot );
 

@@ -27,7 +27,10 @@ public sealed class SupportsBuildTests : IDisposable
         };
 
     private static PowershellAdditionalCiBuildConfiguration CreatePublicBuild()
-        => new( "PublicBuild", "Build [Public]", "eng/PublicBuild.ps1", "" ) { SnapshotDependencies = [new SnapshotDependency( BuildConfiguration.Release )], BuildSnapshotDependency = BuildConfiguration.Release };
+        => new( "PublicBuild", "Build [Public]", "eng/PublicBuild.ps1", "" )
+        {
+            SnapshotDependencies = [new SnapshotDependency( BuildConfiguration.Release )], BuildSnapshotDependency = BuildConfiguration.Release
+        };
 
     [Fact]
     public void TheBuildRefusesAConfigurationThatDoesNotSupportIt()

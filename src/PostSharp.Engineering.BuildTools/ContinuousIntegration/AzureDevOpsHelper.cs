@@ -61,10 +61,7 @@ public static class AzureDevOpsHelper
 
                 var pullRequest = new GitPullRequest()
                 {
-                    SourceRefName = $"refs/heads/{sourceBranch}",
-                    TargetRefName = $"refs/heads/{targetBranch}",
-                    Title = title,
-                    Description = body
+                    SourceRefName = $"refs/heads/{sourceBranch}", TargetRefName = $"refs/heads/{targetBranch}", Title = title, Description = body
                 };
 
                 console.WriteMessage( "Creating a pull request." );

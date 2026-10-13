@@ -19,10 +19,7 @@ public sealed class GlobalJsonTestRunnerTests
     {
         using var directory = new TempDirectory();
 
-        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
-        {
-            DotNetSdkVersion = new DotNetSdkVersion( "10.0.100" ), TestRunner = testRunner
-        };
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama ) { DotNetSdkVersion = new DotNetSdkVersion( "10.0.100" ), TestRunner = testRunner };
 
         Assert.True( GlobalJsonFile.TryWrite( TestBuildContext.Create( directory.Path, product ) ) );
 

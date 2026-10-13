@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using System;
 using System.Collections.Generic;
@@ -28,14 +29,11 @@ public sealed class AdditionalConfigurationArtifactsTests
 
     private static string GenerateCode( string[]? artifactRules )
     {
-        var configuration = new PowershellAdditionalCiBuildConfiguration( "Nightly", "Nightly job", "Run.ps1", "-Something" )
-        {
-            ArtifactRules = artifactRules
-        };
+        var configuration = new PowershellAdditionalCiBuildConfiguration( "Nightly", "Nightly job", "Run.ps1", "-Something" ) { ArtifactRules = artifactRules };
 
         var teamCityConfiguration = configuration.TeamCityBuildConfiguration(
             new ProductProperties( _product ),
-            new Dictionary<BuildConfiguration, PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.TeamCityBuildConfiguration>() );
+            new Dictionary<BuildConfiguration, TeamCityBuildConfiguration>() );
 
         var writer = new StringWriter();
         teamCityConfiguration.GenerateTeamcityCode( writer );
@@ -44,8 +42,7 @@ public sealed class AdditionalConfigurationArtifactsTests
     }
 
     [Fact]
-    public void AConfigurationThatDeclaresNothingPublishesNothing()
-        => Assert.DoesNotContain( "artifactRules", GenerateCode( null ), StringComparison.Ordinal );
+    public void AConfigurationThatDeclaresNothingPublishesNothing() => Assert.DoesNotContain( "artifactRules", GenerateCode( null ), StringComparison.Ordinal );
 
     [Fact]
     public void ADeclaredRuleReachesTheGeneratedConfiguration()

@@ -40,7 +40,7 @@ public sealed class ClaudeProgressGuardTests : IDisposable
 
     private static string ReadResource()
     {
-        var assembly = typeof(BuildTools.EnvironmentVariableNames).Assembly;
+        var assembly = typeof(EnvironmentVariableNames).Assembly;
 
         var name = assembly.GetManifestResourceNames().Single( n => n.EndsWith( "RunClaude.ps1", StringComparison.Ordinal ) );
 
@@ -89,10 +89,7 @@ public sealed class ClaudeProgressGuardTests : IDisposable
 
         try
         {
-            var startInfo = new ProcessStartInfo( "pwsh" )
-            {
-                RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
-            };
+            var startInfo = new ProcessStartInfo( "pwsh" ) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
 
             startInfo.ArgumentList.Add( "-NoProfile" );
             startInfo.ArgumentList.Add( "-NonInteractive" );

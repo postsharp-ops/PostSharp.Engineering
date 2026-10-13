@@ -59,8 +59,7 @@ namespace PostSharp.Engineering.BuildTools
 
                     root.AddCommand<SignCommand>( "sign" )
                         .WithData( data )
-                        .WithDescription(
-                            "Signs build artifacts, for a product whose public build does not run the standard build step" );
+                        .WithDescription( "Signs build artifacts, for a product whose public build does not run the standard build step" );
 
                     root.AddCommand<GenerateScriptsCommand>( "generate-scripts" )
                         .WithData( data )
@@ -150,7 +149,7 @@ namespace PostSharp.Engineering.BuildTools
                             dependencies.AddCommand<UpdateEngineeringCommand>( "update-eng" )
                                 .WithData( data )
                                 .WithDescription( "Updates PostSharp.Engineering in global.json and Versions.props." );
-                            
+
                             dependencies.AddCommand<PrepareDependenciesCommand>( "prepare" )
                                 .WithData( data )
                                 .WithDescription( "Generates the dependency files with the current settings." );

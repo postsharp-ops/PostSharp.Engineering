@@ -158,6 +158,7 @@ public static partial class MetalamaDependencies
                     "Metalama.Patterns.Caching.Backends.Redis",
                     "Metalama.Licensing"
                 ],
+
                 // Metalama.Premium merges the Backstage assemblies into its licensing build task, so it needs the package
                 // source mapping and the version of Backstage in addition to those of Metalama.
                 Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama, BackstageDependencies.V2027_0.Backstage]
@@ -212,7 +213,10 @@ public static partial class MetalamaDependencies
                 MetalamaGitHubOrganization.Metalama,
                 false,
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
-                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" ) { Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama, MetalamaPremium] };
+                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" )
+            {
+                Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama, MetalamaPremium]
+            };
 
         public static DependencyDefinition MetalamaPerformance { get; } =
             new MetalamaDependencyDefinition(

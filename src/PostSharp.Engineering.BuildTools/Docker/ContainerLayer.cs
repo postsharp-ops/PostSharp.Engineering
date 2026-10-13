@@ -79,11 +79,11 @@ public static class ContainerLayers
     /// </remarks>
     public static readonly IReadOnlyList<ContainerLayer> StandardChain =
     [
-        new ContainerLayer( Vs17 ),
-        new ContainerLayer( Vs18, Vs17 ),
-        new ContainerLayer( Build, Vs18 ),
-        new ContainerLayer( ClaudePre, Build ),
-        new ContainerLayer( Claude, ClaudePre )
+        new( Vs17 ),
+        new( Vs18, Vs17 ),
+        new( Build, Vs18 ),
+        new( ClaudePre, Build ),
+        new( Claude, ClaudePre )
     ];
 
     public static ContainerLayer Get( string name )

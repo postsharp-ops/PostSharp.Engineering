@@ -64,8 +64,8 @@ internal class FileDownloader : IDisposable
                         new RemainingTimeColumn(),
                         new ElapsedTimeColumn(),
                         new SpinnerColumn() )
-                    .StartAsync(
-                        ctx => new FileDownloader( files, httpClient, ctx, console, cancellationToken, effectiveStallTimeout, verbose ).DownloadAsync() ),
+                    .StartAsync( ctx => new FileDownloader( files, httpClient, ctx, console, cancellationToken, effectiveStallTimeout, verbose )
+                                     .DownloadAsync() ),
                 cancellationToken );
         }
         else
@@ -142,7 +142,8 @@ internal class FileDownloader : IDisposable
                     if ( this._verbose )
                     {
                         this._console.WriteMessage(
-                            FormattableString.Invariant( $"FAIL {file.Description} on attempt {attempt + 1} of {_maxRetries + 1}: {e.GetType().Name}: {e.Message}" ) );
+                            FormattableString.Invariant(
+                                $"FAIL {file.Description} on attempt {attempt + 1} of {_maxRetries + 1}: {e.GetType().Name}: {e.Message}" ) );
                     }
 
                     if ( attempt < _maxRetries && !this._cancellationToken.IsCancellationRequested )

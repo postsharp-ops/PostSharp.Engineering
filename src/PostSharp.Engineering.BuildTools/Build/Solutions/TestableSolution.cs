@@ -34,8 +34,7 @@ public abstract class TestableSolution : Solution
     /// <summary>
     /// Gets the full path of the project or solution, with links and junctions resolved.
     /// </summary>
-    protected string GetFinalSolutionPath( BuildContext context )
-        => FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
+    protected string GetFinalSolutionPath( BuildContext context ) => FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
 
     protected ToolInvocationOptions CreateInvocationOptions() => new( this.EnvironmentVariables );
 
@@ -75,7 +74,7 @@ public abstract class TestableSolution : Solution
     {
         lock ( this._testResultFiles )
         {
-            return [..this._testResultFiles];
+            return [.. this._testResultFiles];
         }
     }
 
@@ -370,6 +369,5 @@ public abstract class TestableSolution : Solution
     /// Makes a matrix entry name usable as a file name. Names come from <c>test.json</c>, i.e. from a scenario author
     /// rather than from this code, so they cannot be assumed to be free of path characters.
     /// </summary>
-    private static string SanitizeFileName( string name )
-        => string.Join( "_", name.Split( Path.GetInvalidFileNameChars() ) );
+    private static string SanitizeFileName( string name ) => string.Join( "_", name.Split( Path.GetInvalidFileNameChars() ) );
 }

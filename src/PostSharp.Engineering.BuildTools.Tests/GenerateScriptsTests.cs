@@ -60,9 +60,7 @@ public class GenerateScriptsTests
     private static Product CreateProduct( params DockerTestsAdditionalCiBuildConfiguration[] configurations )
         => new( MetalamaDependencies.V2026_1.Metalama )
         {
-            GenerateTeamCitySettings = false,
-            GenerateDockerfiles = false,
-            AdditionalCiBuildConfigurations = [..configurations]
+            GenerateTeamCitySettings = false, GenerateDockerfiles = false, AdditionalCiBuildConfigurations = [.. configurations]
         };
 
     /// <summary>
@@ -131,7 +129,9 @@ public class GenerateScriptsTests
         {
             var product = new Product( MetalamaDependencies.V2026_1.Metalama )
             {
-                GenerateTeamCitySettings = false, GenerateDockerfiles = false, Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }]
+                GenerateTeamCitySettings = false,
+                GenerateDockerfiles = false,
+                Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }]
             };
 
             Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
@@ -158,8 +158,9 @@ public class GenerateScriptsTests
             new DockerTestsAdditionalCiBuildConfiguration( "A", "A", DockerTestPlatform.LinuxX64, "Tests/One" ),
             new DockerTestsAdditionalCiBuildConfiguration( "B", "B", DockerTestPlatform.WindowsX64, "Tests/Two" ) );
 
-        var exception = Assert.Throws<InvalidOperationException>(
-            () => GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+        var exception = Assert.Throws<InvalidOperationException>( () => GenerateScriptsCommand.Execute(
+                                                                      TestBuildContext.Create( directory.Path, product ),
+                                                                      new CommonCommandSettings() ) );
 
         Assert.Contains( "Tests/One", exception.Message, StringComparison.Ordinal );
         Assert.Contains( "Tests/Two", exception.Message, StringComparison.Ordinal );

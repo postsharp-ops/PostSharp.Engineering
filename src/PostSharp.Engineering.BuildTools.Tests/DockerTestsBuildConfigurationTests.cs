@@ -129,8 +129,7 @@ public sealed class DockerTestsBuildConfigurationTests
     [Fact]
     public void OnePlatformGainsNoComposite()
     {
-        var configurations = DockerTestsAdditionalCiBuildConfiguration.WithCompositeConfiguration(
-            CreateConfiguration( DockerTestPlatform.LinuxX64 ) );
+        var configurations = DockerTestsAdditionalCiBuildConfiguration.WithCompositeConfiguration( CreateConfiguration( DockerTestPlatform.LinuxX64 ) );
 
         Assert.Empty( configurations.OfType<CompositeAdditionalCiBuildConfiguration>() );
         Assert.Single( configurations );

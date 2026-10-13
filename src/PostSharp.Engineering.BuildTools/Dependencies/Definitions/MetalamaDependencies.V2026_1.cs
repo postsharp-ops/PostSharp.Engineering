@@ -59,9 +59,7 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2026.1", DevelopmentDependencies.Family, PostSharpDependencies.V2026_0.Family )
         {
-            UpstreamProductFamily = V2026_0.Family,
-            ConsolidatedProjectName = "Metalama.Consolidated",
-            GitHubAppConnectionId = GitHubAppConnections.Metalama
+            UpstreamProductFamily = V2026_0.Family, ConsolidatedProjectName = "Metalama.Consolidated", GitHubAppConnectionId = GitHubAppConnections.Metalama
 
             // DownstreamProductFamily = V2026_2.Family
         };
@@ -191,7 +189,10 @@ public static partial class MetalamaDependencies
                 MetalamaGitHubOrganization.Metalama,
                 false,
                 parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
-                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" ) { Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama, MetalamaPremium] };
+                vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" )
+            {
+                Dependencies = [DevelopmentDependencies.PostSharpEngineering, Metalama, MetalamaPremium]
+            };
 
         public static DependencyDefinition MetalamaPerformance { get; } =
             new MetalamaDependencyDefinition(

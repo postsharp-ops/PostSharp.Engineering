@@ -219,10 +219,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                         // The label is what scopes the removal to the containers of this build. Removing every
                         // container of the agent would take out a build running beside this one.
                         "-After -BuildLabel %system.teamcity.buildType.id%_%build.number%",
-                        null )
-                    {
-                        ExecutionMode = BuildStepExecutionMode.Always
-                    } );
+                        null ) { ExecutionMode = BuildStepExecutionMode.Always } );
             }
 
             var buildParameters = new List<BuildConfigurationParameter>();
@@ -502,6 +499,5 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
                   })
                   """ );
         }
-
     }
 }

@@ -288,21 +288,21 @@ public sealed class TestArchivesTests : IDisposable
         File.WriteAllText(
             Path.Combine( projectDirectory, "Native.csproj" ),
             $$"""
-             <Project Sdk="Microsoft.NET.Sdk">
-               <PropertyGroup>
-                 <TargetFramework>{{_targetFramework}}</TargetFramework>
-                 <PublishTestArchive>true</PublishTestArchive>
-                 <TestApplicationKind>ps1</TestApplicationKind>
-                 <TestApplicationEntry>RunTest.ps1</TestApplicationEntry>
-                 <TestApplicationReportType>gtest</TestApplicationReportType>
-                 <TestApplicationReportFile>{ResultsDirectory}/*.xml</TestApplicationReportFile>
-               </PropertyGroup>
-               <ItemGroup>
-                 <TestApplicationFile Include="data.txt" ArchivePath="x64\data.txt" />
-                 <TestApplicationFile Include="readme.txt" />
-               </ItemGroup>
-             </Project>
-             """ );
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <TargetFramework>{{_targetFramework}}</TargetFramework>
+                  <PublishTestArchive>true</PublishTestArchive>
+                  <TestApplicationKind>ps1</TestApplicationKind>
+                  <TestApplicationEntry>RunTest.ps1</TestApplicationEntry>
+                  <TestApplicationReportType>gtest</TestApplicationReportType>
+                  <TestApplicationReportFile>{ResultsDirectory}/*.xml</TestApplicationReportFile>
+                </PropertyGroup>
+                <ItemGroup>
+                  <TestApplicationFile Include="data.txt" ArchivePath="x64\data.txt" />
+                  <TestApplicationFile Include="readme.txt" />
+                </ItemGroup>
+              </Project>
+              """ );
 
         File.WriteAllText( Path.Combine( projectDirectory, "data.txt" ), "native" );
         File.WriteAllText( Path.Combine( projectDirectory, "readme.txt" ), "" );
@@ -401,9 +401,16 @@ public sealed class TestArchivesTests : IDisposable
              </Project>
              """ );
 
-        File.WriteAllText( Path.Combine( libraryDirectory, "Greeting.cs" ), "public static class Greeting { public const string Text = \"from the package\"; public static string Get() => Text; }" );
+        File.WriteAllText(
+            Path.Combine( libraryDirectory, "Greeting.cs" ),
+            "public static class Greeting { public const string Text = \"from the package\"; public static string Get() => Text; }" );
 
-        var (exitCode, output) = Run( "dotnet", $"pack \"{libraryDirectory}\" -nologo -o \"{feed}\" -nodeReuse:false -p:UseSharedCompilation=false", libraryDirectory, environment );
+        var (exitCode, output) = Run(
+            "dotnet",
+            $"pack \"{libraryDirectory}\" -nologo -o \"{feed}\" -nodeReuse:false -p:UseSharedCompilation=false",
+            libraryDirectory,
+            environment );
+
         Assert.True( exitCode == 0, output );
 
         // The application, which writes what the library returns.
@@ -563,9 +570,16 @@ public sealed class TestArchivesTests : IDisposable
              </Project>
              """ );
 
-        File.WriteAllText( Path.Combine( libraryDirectory, "Greeting.cs" ), "public static class Greeting { public static string Get() => \"from the feed\"; }" );
+        File.WriteAllText(
+            Path.Combine( libraryDirectory, "Greeting.cs" ),
+            "public static class Greeting { public static string Get() => \"from the feed\"; }" );
 
-        var (exitCode, output) = Run( "dotnet", $"pack \"{libraryDirectory}\" -nologo -o \"{packed}\" -nodeReuse:false -p:UseSharedCompilation=false", libraryDirectory, environment );
+        var (exitCode, output) = Run(
+            "dotnet",
+            $"pack \"{libraryDirectory}\" -nologo -o \"{packed}\" -nodeReuse:false -p:UseSharedCompilation=false",
+            libraryDirectory,
+            environment );
+
         Assert.True( exitCode == 0, output );
 
         using var feed = new LocalNuGetFeed( packed );
@@ -774,11 +788,14 @@ public sealed class TestArchivesTests : IDisposable
         Assert.False( TestArchives.AddBuildProperties( withoutArchives, new BuildSettings(), false ).Properties.ContainsKey( "PublishTestArchive" ) );
 
         // On TeamCity, only in the build of a configuration that runs the archives.
-        Assert.False( TestArchives.AddBuildProperties( withArchives, this.Settings( BuildConfiguration.Release ), true ).Properties.ContainsKey( "PublishTestArchive" ) );
-        Assert.Equal( "true", TestArchives.AddBuildProperties( withArchives, this.Settings( BuildConfiguration.Public ), true ).Properties["PublishTestArchive"] );
+        Assert.False(
+            TestArchives.AddBuildProperties( withArchives, this.Settings( BuildConfiguration.Release ), true ).Properties.ContainsKey( "PublishTestArchive" ) );
 
-        var explicitSettings = new BuildSettings().WithAdditionalProperties(
-            ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "false" ) );
+        Assert.Equal(
+            "true",
+            TestArchives.AddBuildProperties( withArchives, this.Settings( BuildConfiguration.Public ), true ).Properties["PublishTestArchive"] );
+
+        var explicitSettings = new BuildSettings().WithAdditionalProperties( ImmutableDictionary<string, string>.Empty.Add( "PublishTestArchive", "false" ) );
 
         Assert.Equal( "false", TestArchives.AddBuildProperties( withArchives, explicitSettings, false ).Properties["PublishTestArchive"] );
     }
@@ -804,8 +821,14 @@ public sealed class TestArchivesTests : IDisposable
 
         Assert.True( TestArchives.IsSourceConfiguration( product, BuildConfiguration.Public ) );
         Assert.False( TestArchives.IsSourceConfiguration( product, BuildConfiguration.Release ) );
-        Assert.False( TestArchives.IsSourceConfiguration( new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = solutions }, BuildConfiguration.Public ) );
-        Assert.False( TestArchives.IsSourceConfiguration( new Product( MetalamaDependencies.V2026_1.Metalama ) { Configurations = configurations }, BuildConfiguration.Public ) );
+
+        Assert.False(
+            TestArchives.IsSourceConfiguration( new Product( MetalamaDependencies.V2026_1.Metalama ) { Solutions = solutions }, BuildConfiguration.Public ) );
+
+        Assert.False(
+            TestArchives.IsSourceConfiguration(
+                new Product( MetalamaDependencies.V2026_1.Metalama ) { Configurations = configurations },
+                BuildConfiguration.Public ) );
     }
 
     public void Dispose() => this._directory.Dispose();

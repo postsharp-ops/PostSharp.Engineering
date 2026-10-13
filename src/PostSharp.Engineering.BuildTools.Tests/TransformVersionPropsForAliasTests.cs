@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Dependencies;
+using System;
 using System.IO;
 using System.Xml.Linq;
 using Xunit;
@@ -13,7 +14,10 @@ public class TransformVersionPropsForAliasTests
     public void RenamesProducerPrefixedProperties()
     {
         using var directory = new TempDirectory();
-        var sourceFile = directory.WriteFile( "source.props", """
+
+        var sourceFile = directory.WriteFile(
+            "source.props",
+            """
             <Project>
                 <PropertyGroup>
                     <MetalamaVersion>0.5.220</MetalamaVersion>
@@ -42,7 +46,10 @@ public class TransformVersionPropsForAliasTests
         // Transitive Feed dependency version properties (e.g. <PostSharpEngineeringVersion>) and properties whose suffix
         // is not in the curated list (<MetalamaCompilerVersion>) must NOT be renamed.
         using var directory = new TempDirectory();
-        var sourceFile = directory.WriteFile( "source.props", """
+
+        var sourceFile = directory.WriteFile(
+            "source.props",
+            """
             <Project>
                 <PropertyGroup>
                     <MetalamaVersion>0.5.220</MetalamaVersion>
@@ -60,7 +67,7 @@ public class TransformVersionPropsForAliasTests
         var propertyGroup = document.Root!.Element( "PropertyGroup" )!;
 
         Assert.Equal( "0.5.220", propertyGroup.Element( "Metalama20260Version" )?.Value );
-        Assert.Equal( "1.0.0", propertyGroup.Element( "MetalamaCompilerVersion" )?.Value ); // unchanged
+        Assert.Equal( "1.0.0", propertyGroup.Element( "MetalamaCompilerVersion" )?.Value );          // unchanged
         Assert.Equal( "2026.0.500", propertyGroup.Element( "PostSharpEngineeringVersion" )?.Value ); // unchanged
         Assert.Null( propertyGroup.Element( "Metalama20260CompilerVersion" ) );
     }
@@ -69,7 +76,10 @@ public class TransformVersionPropsForAliasTests
     public void RenamesItemTypes()
     {
         using var directory = new TempDirectory();
-        var sourceFile = directory.WriteFile( "source.props", """
+
+        var sourceFile = directory.WriteFile(
+            "source.props",
+            """
             <Project>
                 <ItemGroup>
                     <MetalamaDependencies Include="PostSharp.Engineering">
@@ -103,7 +113,10 @@ public class TransformVersionPropsForAliasTests
         Directory.CreateDirectory( nestedDirectory );
 
         var sourceFile = Path.Combine( nestedDirectory, "source.props" );
-        File.WriteAllText( sourceFile, """
+
+        File.WriteAllText(
+            sourceFile,
+            """
             <Project>
                 <Import Project="../target.props" Condition="Exists('../target.props')"/>
             </Project>
@@ -118,18 +131,21 @@ public class TransformVersionPropsForAliasTests
         var projectAttribute = importElement.Attribute( "Project" )!.Value;
 
         Assert.True( Path.IsPathRooted( projectAttribute ), $"Expected absolute path, got '{projectAttribute}'" );
-        Assert.EndsWith( "target.props", projectAttribute, System.StringComparison.Ordinal );
+        Assert.EndsWith( "target.props", projectAttribute, StringComparison.Ordinal );
 
         // Condition's path is also absolutized.
         var condition = importElement.Attribute( "Condition" )!.Value;
-        Assert.DoesNotContain( "../target.props", condition, System.StringComparison.Ordinal );
+        Assert.DoesNotContain( "../target.props", condition, StringComparison.Ordinal );
     }
 
     [Fact]
     public void IsIdempotentOnAlreadyTransformedFile()
     {
         using var directory = new TempDirectory();
-        var sourceFile = directory.WriteFile( "source.props", """
+
+        var sourceFile = directory.WriteFile(
+            "source.props",
+            """
             <Project>
                 <PropertyGroup>
                     <Metalama20260Version>0.5.220</Metalama20260Version>
@@ -150,13 +166,13 @@ public class TransformVersionPropsForAliasTests
     }
 }
 
-internal sealed class TempDirectory : System.IDisposable
+internal sealed class TempDirectory : IDisposable
 {
     public string Path { get; }
 
     public TempDirectory()
     {
-        this.Path = System.IO.Path.Combine( System.IO.Path.GetTempPath(), "ps-eng-tests-" + System.Guid.NewGuid().ToString( "N" ) );
+        this.Path = System.IO.Path.Combine( System.IO.Path.GetTempPath(), "ps-eng-tests-" + Guid.NewGuid().ToString( "N" ) );
         Directory.CreateDirectory( this.Path );
     }
 
@@ -164,6 +180,7 @@ internal sealed class TempDirectory : System.IDisposable
     {
         var path = System.IO.Path.Combine( this.Path, name );
         File.WriteAllText( path, content );
+
         return path;
     }
 
@@ -171,7 +188,11 @@ internal sealed class TempDirectory : System.IDisposable
     {
         if ( Directory.Exists( this.Path ) )
         {
-            try { Directory.Delete( this.Path, true ); } catch { /* best-effort */ }
+            try { Directory.Delete( this.Path, true ); }
+            catch
+            {
+                /* best-effort */
+            }
         }
     }
 }

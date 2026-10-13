@@ -38,8 +38,7 @@ public partial class App : Application
             }
             else
             {
-                TraceLogger.Logger.Error(
-                    $"AppDomain.UnhandledException (IsTerminating={args.IsTerminating}): {args.ExceptionObject ?? "<null>"}" );
+                TraceLogger.Logger.Error( $"AppDomain.UnhandledException (IsTerminating={args.IsTerminating}): {args.ExceptionObject ?? "<null>"}" );
             }
         };
 

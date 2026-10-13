@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -298,7 +299,7 @@ internal static class ArtifactSigner
 
                 foreach ( var file in files )
                 {
-                    var entryName = ordinal.ToString( System.Globalization.CultureInfo.InvariantCulture )
+                    var entryName = ordinal.ToString( CultureInfo.InvariantCulture )
                                     + Path.GetExtension( file );
 
                     entryNames.Add( entryName, file );
@@ -328,8 +329,7 @@ internal static class ArtifactSigner
                     {
                         // The sign service returns the archive it was given, so an unknown entry means it rewrote
                         // the layout. Signing the wrong file back over a product binary is worse than failing.
-                        context.Console.WriteError(
-                            $"The signed archive contains an unexpected entry '{entry.FullName}'." );
+                        context.Console.WriteError( $"The signed archive contains an unexpected entry '{entry.FullName}'." );
 
                         return false;
                     }
@@ -397,11 +397,7 @@ internal static class ArtifactSigner
     /// </remarks>
     private static bool TryGetCredential( BuildContext context )
     {
-        var missing = new[]
-            {
-                EnvironmentVariableNames.AzureClientId, EnvironmentVariableNames.AzureTenantId,
-                EnvironmentVariableNames.AzureClientSecret
-            }
+        var missing = new[] { EnvironmentVariableNames.AzureClientId, EnvironmentVariableNames.AzureTenantId, EnvironmentVariableNames.AzureClientSecret }
             .Where( name => string.IsNullOrEmpty( Environment.GetEnvironmentVariable( name ) ) )
             .ToList();
 

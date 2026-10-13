@@ -141,10 +141,12 @@ public class S3PublisherTests
 
         Assert.Equal( "release/**", configuration.PackageFileName.ToString() );
 
-        var initialized = new S3PublisherConfiguration( "unused", RegionEndpoint.EUWest1, "download-sharpcrafters-com", "postsharp/v1.0/" )
-        {
-            PackageFileName = "release/**"
-        };
+        var initialized =
+            new S3PublisherConfiguration(
+                "unused",
+                RegionEndpoint.EUWest1,
+                "download-sharpcrafters-com",
+                "postsharp/v1.0/" ) { PackageFileName = "release/**" };
 
         Assert.Equal( "release/**", initialized.Files.ToString() );
     }

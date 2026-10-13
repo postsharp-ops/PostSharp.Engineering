@@ -77,7 +77,7 @@ public sealed class ConfigurationPipelinesTests
             Assert.Equal( [cell.Id], composite.GetSnapshotDependencies().Select( d => d.ConfigurationId ).ToArray() );
         }
 
-        Assert.True( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateProductWithTwoSources( [..cells] ) ) );
+        Assert.True( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateProductWithTwoSources( [.. cells] ) ) );
     }
 
     /// <summary>
@@ -225,7 +225,9 @@ public sealed class ConfigurationPipelinesTests
         using var directory = new TempDirectory();
 
         Assert.True(
-            GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, CreateProductWithGatedDeployment( "PublicGate" ) ), new CommonCommandSettings() ) );
+            GenerateScriptsCommand.Execute(
+                TestBuildContext.Create( directory.Path, CreateProductWithGatedDeployment( "PublicGate" ) ),
+                new CommonCommandSettings() ) );
 
         var settings = File.ReadAllText( Path.Combine( directory.Path, ".teamcity", "settings.kts" ) );
 

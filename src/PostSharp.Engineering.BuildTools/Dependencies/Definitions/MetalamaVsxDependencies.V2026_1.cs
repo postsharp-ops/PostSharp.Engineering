@@ -56,6 +56,7 @@ public static partial class MetalamaVsxDependencies
                 MetalamaDependencies.V2026_1.Metalama
                     .ToDependency( _metalamaConfigurations )
                     .WithLastSuccessfulOnly(),
+
                 // Metalama 2026.0 is released: it still builds daily on develop/2026.0, but it publishes only from
                 // release/2026.0, and the newest public build left on develop/2026.0 is old enough that TeamCity has
                 // cleaned up its artifacts. Look its builds up on the publishing branch instead.
@@ -64,6 +65,7 @@ public static partial class MetalamaVsxDependencies
                     .WithAlias( "Metalama20260" )
                     .WithPublishingBranch()
                     .WithLastSuccessfulOnly(),
+
                 // PostSharp exports only its public build -- the signed distribution -- so that is the configuration
                 // to resolve, whichever configuration this product is itself built in.
                 PostSharpDependencies.V2026_0.PostSharp.ToDependency(

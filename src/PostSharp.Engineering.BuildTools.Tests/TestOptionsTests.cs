@@ -2,6 +2,7 @@
 
 using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build.Solutions;
+using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
@@ -85,8 +86,8 @@ public class TestOptionsTests
     {
         var options = new TestOptions
         {
-            Properties = new() { ["UseSharedCompilation"] = "true" },
-            Matrix = [new TestMatrixEntry { Properties = new() { ["UseSharedCompilation"] = "false" } }]
+            Properties = new Dictionary<string, string> { ["UseSharedCompilation"] = "true" },
+            Matrix = [new TestMatrixEntry { Properties = new Dictionary<string, string> { ["UseSharedCompilation"] = "false" } }]
         };
 
         var run = Assert.Single( options.GetRuns() );
