@@ -25,7 +25,15 @@ var product = new Product( DevelopmentDependencies.PostSharpEngineering )
     },
     Solutions =
     [
-        new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true }
+        new DotNetSolution( "PostSharp.Engineering.sln" )
+        {
+            SupportsTestCoverage = true,
+            CanFormatCode = true,
+
+            // The XML formatter wraps a long property element onto several lines, which adds the line breaks and the
+            // indentation to the property value: TestArchive.targets then wrote archives to a path containing a newline.
+            FormatExclusions = [@"src\PostSharp.Engineering.Sdk\**\*.props", @"src\PostSharp.Engineering.Sdk\**\*.targets"]
+        }
     ],
     Configurations = Product.DefaultConfigurations
         .WithValue( BuildConfiguration.Debug, c => c with { ExportsToTeamCityBuild = false } )
