@@ -26,9 +26,9 @@ public sealed class TimestampComponent : ContainerComponent
     {
         writer.WriteLine(
             $$"""
-            # Cache invalidation layer - changes when -Update is used
-            COPY .g/{{TimestampFileName}} C:\docker-context\{{TimestampFileName}}
-            RUN Write-Host "PostSharp.Engineering build timestamp: $(Get-Content C:\docker-context\{{TimestampFileName}})"
-            """ );
+              # Cache invalidation layer - changes when -Update is used
+              COPY .g/{{TimestampFileName}} C:\docker-context\{{TimestampFileName}}
+              RUN Write-Host "PostSharp.Engineering build timestamp: $(Get-Content C:\docker-context\{{TimestampFileName}})"
+              """ );
     }
 }

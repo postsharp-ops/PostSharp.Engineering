@@ -8,6 +8,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Globalization;
 using System.IO;
+using System.Text;
 
 namespace PostSharp.Engineering.BuildTools.Build.Solutions;
 
@@ -82,7 +83,7 @@ public class MSBuildProjectSolution : TestableSolution
         var binaryLogFilePath = Path.Combine( logsDirectory, $"{logName}.{target}.binlog" );
         var textLogFilePath = Path.Combine( logsDirectory, $"{logName}.{target}.log" );
 
-        var argsBuilder = new System.Text.StringBuilder();
+        var argsBuilder = new StringBuilder();
 
         argsBuilder.Append(
             CultureInfo.InvariantCulture,

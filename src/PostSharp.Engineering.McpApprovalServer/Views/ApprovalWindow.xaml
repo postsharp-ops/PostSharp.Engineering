@@ -64,7 +64,8 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Command:" FontWeight="Bold" Margin="0,5" VerticalAlignment="Top" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Command:" FontWeight="Bold" Margin="0,5"
+                       VerticalAlignment="Top" />
             <TextBox Grid.Row="0" Grid.Column="1"
                      Text="{Binding Command, Mode=OneWay}"
                      IsReadOnly="True"
@@ -129,7 +130,8 @@
                                        Foreground="{Binding CombinedRiskBrush}"
                                        FontWeight="Bold" />
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Recommendation:" FontWeight="Bold" Margin="0,5,0,0" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Recommendation:" FontWeight="Bold"
+                                       Margin="0,5,0,0" />
                             <TextBlock Grid.Row="1" Grid.Column="1"
                                        Text="{Binding CombinedAssessment.Recommendation}"
                                        Foreground="{Binding CombinedRecommendationBrush}"
@@ -166,7 +168,8 @@
                                        Foreground="{Binding AiRiskBrush}"
                                        FontWeight="Bold" />
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Recommendation:" FontWeight="Bold" Margin="0,5,0,0" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Recommendation:" FontWeight="Bold"
+                                       Margin="0,5,0,0" />
                             <TextBlock Grid.Row="1" Grid.Column="1"
                                        Text="{Binding AiAssessment.Recommendation}"
                                        Foreground="{Binding AiRecommendationBrush}"
@@ -204,14 +207,16 @@
                                        Foreground="{Binding RegexRiskBrush}"
                                        FontWeight="Bold" />
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Recommendation:" FontWeight="Bold" Margin="0,5,0,0" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Recommendation:" FontWeight="Bold"
+                                       Margin="0,5,0,0" />
                             <TextBlock Grid.Row="1" Grid.Column="1"
                                        Text="{Binding RegexAssessment.Recommendation}"
                                        Foreground="{Binding RegexRecommendationBrush}"
                                        FontWeight="Bold"
                                        Margin="0,5,0,0" />
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Rule Name:" FontWeight="Bold" Margin="0,5,0,0"
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Rule Name:" FontWeight="Bold"
+                                       Margin="0,5,0,0"
                                        Visibility="{Binding HasRuleName, Converter={StaticResource BoolToVisibility}}" />
                             <TextBlock Grid.Row="2" Grid.Column="1"
                                        Text="{Binding RegexAssessment.RuleName}"

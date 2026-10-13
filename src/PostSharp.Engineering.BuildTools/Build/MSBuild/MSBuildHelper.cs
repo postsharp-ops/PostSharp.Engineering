@@ -231,13 +231,13 @@ internal static class MSBuildHelper
         }
 
         if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                vsWherePath,
-                @"-products * -requires Microsoft.Component.MSBuild -latest -find MSBuild\**\Bin\MSBuild.exe",
-                Environment.CurrentDirectory,
-                out var exitCode,
-                out var output,
-                new ToolInvocationOptions { FilterOutput = false } )
+                 context.Console,
+                 vsWherePath,
+                 @"-products * -requires Microsoft.Component.MSBuild -latest -find MSBuild\**\Bin\MSBuild.exe",
+                 Environment.CurrentDirectory,
+                 out var exitCode,
+                 out var output,
+                 new ToolInvocationOptions { FilterOutput = false } )
              || exitCode != 0 )
         {
             context.Console.WriteWarning( $"'{vsWherePath}' failed with exit code {exitCode}." );

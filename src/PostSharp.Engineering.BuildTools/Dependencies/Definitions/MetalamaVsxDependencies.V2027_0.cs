@@ -19,8 +19,7 @@ public static partial class MetalamaVsxDependencies
     {
         public static ProductFamily Family { get; } = new( _projectName, "2027.0", DevelopmentDependencies.Family, MetalamaDependencies.V2027_0.Family )
         {
-            UpstreamProductFamily = V2026_1.Family,
-            GitHubAppConnectionId = GitHubAppConnections.Metalama
+            UpstreamProductFamily = V2026_1.Family, GitHubAppConnectionId = GitHubAppConnections.Metalama
 
             // DownstreamProductFamily = V2027_1.Family
         };
@@ -60,6 +59,7 @@ public static partial class MetalamaVsxDependencies
                 MetalamaDependencies.V2027_0.Metalama
                     .ToDependency( _metalamaConfigurations )
                     .WithLastSuccessfulOnly(),
+
                 // Metalama 2026.1 is still under development, so its public builds are on develop/2026.1 and can be
                 // resolved there. Once 2026.1 is released and TeamCity has cleaned up the artifacts of that branch,
                 // add WithPublishingBranch() here, as the 2026.1 family does for Metalama 2026.0.
@@ -67,6 +67,7 @@ public static partial class MetalamaVsxDependencies
                     .ToDependency( _metalamaConfigurations )
                     .WithAlias( "Metalama20261" )
                     .WithLastSuccessfulOnly(),
+
                 // PostSharp 2026.0, not 2027.0. PostSharp 2027.0 has no branch and no build configuration yet, so a
                 // reference to it would resolve to a build that does not exist and the dependency could not be fetched.
                 // Move this to PostSharpDependencies.V2027_0 once that family produces a signed distribution.

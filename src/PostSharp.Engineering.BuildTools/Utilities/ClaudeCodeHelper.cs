@@ -147,6 +147,7 @@ internal static class ClaudeCodeHelper
         {
             console.WriteError(
                 "Claude CLI not found on PATH. Install it via 'npm i -g @anthropic-ai/claude-code' or the native installer from https://claude.com/claude-code." );
+
             prBodyText = "";
 
             return false;

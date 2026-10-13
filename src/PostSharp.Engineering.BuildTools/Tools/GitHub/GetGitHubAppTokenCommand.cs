@@ -91,8 +91,7 @@ internal class GetGitHubAppTokenCommand : BaseCommand<GetGitHubAppTokenSettings>
             names.Add( parts[1] );
         }
 
-        var outputFile = Path.GetFullPath(
-            settings.OutputFile ?? Path.Combine( context.RepoDirectory, "artifacts", "github-app-tokens.env" ) );
+        var outputFile = Path.GetFullPath( settings.OutputFile ?? Path.Combine( context.RepoDirectory, "artifacts", "github-app-tokens.env" ) );
 
         var lines = new StringBuilder();
 
@@ -105,7 +104,7 @@ internal class GetGitHubAppTokenCommand : BaseCommand<GetGitHubAppTokenSettings>
             try
             {
                 token = tokenSource
-                    .GetInstallationTokenAsync( owner, [..names], context.CancellationToken )
+                    .GetInstallationTokenAsync( owner, [.. names], context.CancellationToken )
                     .ConfigureAwait( false )
                     .GetAwaiter()
                     .GetResult();
@@ -120,8 +119,7 @@ internal class GetGitHubAppTokenCommand : BaseCommand<GetGitHubAppTokenSettings>
             var variableName = GetVariableName( owner );
             lines.AppendLine( CultureInfo.InvariantCulture, $"{variableName}={token.Token}" );
 
-            console.WriteMessage(
-                $"{variableName} reaches {string.Join( ", ", names.Select( n => $"{owner}/{n}" ) )} until {token.ExpiresOn:u}." );
+            console.WriteMessage( $"{variableName} reaches {string.Join( ", ", names.Select( n => $"{owner}/{n}" ) )} until {token.ExpiresOn:u}." );
         }
 
         var directory = Path.GetDirectoryName( outputFile );

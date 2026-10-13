@@ -61,7 +61,7 @@ public sealed class VisualStudioBuildToolsComponentVersionTests
             .Where( p => p.PropertyType == typeof(VisualStudioBuildToolsComponentVersion) )
             .ToArray();
 
-    private static MemberInfo[] GetVersionMembers() => [..GetBuildFields(), ..GetSelectorProperties()];
+    private static MemberInfo[] GetVersionMembers() => [.. GetBuildFields(), .. GetSelectorProperties()];
 
     private static VisualStudioBuildToolsComponentVersion GetVersion( string name )
     {

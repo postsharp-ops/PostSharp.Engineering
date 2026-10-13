@@ -32,7 +32,10 @@ internal sealed record TestApplication(
     /// <summary>
     /// Gets the name of the archive of the application, without the extension, as <c>TestArchive.targets</c> writes it.
     /// </summary>
-    public string ArchiveName => this.RuntimeIdentifier.Length == 0 ? $"{this.AssemblyName}.{this.TargetFramework}" : $"{this.AssemblyName}.{this.TargetFramework}.{this.RuntimeIdentifier}";
+    public string ArchiveName
+        => this.RuntimeIdentifier.Length == 0
+            ? $"{this.AssemblyName}.{this.TargetFramework}"
+            : $"{this.AssemblyName}.{this.TargetFramework}.{this.RuntimeIdentifier}";
 
     /// <summary>
     /// Gets the full path of the <c>project.assets.json</c> file of the project, or an empty string for an archive of the

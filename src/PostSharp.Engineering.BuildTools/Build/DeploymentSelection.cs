@@ -44,8 +44,7 @@ internal static class DeploymentSelection
 
         if ( validateExists && !deploymentNames.Contains( requestedDeploymentName, StringComparer.Ordinal ) )
         {
-            console.WriteError(
-                $"Unknown deployment '{requestedDeploymentName}'. Available deployments: {string.Join( ", ", deploymentNames )}." );
+            console.WriteError( $"Unknown deployment '{requestedDeploymentName}'. Available deployments: {string.Join( ", ", deploymentNames )}." );
 
             return false;
         }

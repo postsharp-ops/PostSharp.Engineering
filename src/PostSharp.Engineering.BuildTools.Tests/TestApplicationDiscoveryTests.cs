@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using Xunit;
@@ -63,18 +64,17 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
              """ );
     }
 
-    private bool Discover( string[] projects, out System.Collections.Immutable.ImmutableArray<TestApplication> applications )
+    private bool Discover( string[] projects, out ImmutableArray<TestApplication> applications )
     {
-        var lines = projects.SelectMany(
-            p => new[]
-            {
-                $"Project(\"{{9A19103F-16F7-4668-BE54-9A1E7A4F7556}}\") = \"{p}\", \"{p}\\{p}.csproj\", \"{{{Guid.NewGuid().ToString().ToUpperInvariant()}}}\"",
-                "EndProject"
-            } );
+        var lines = projects.SelectMany( p => new[]
+        {
+            $"Project(\"{{9A19103F-16F7-4668-BE54-9A1E7A4F7556}}\") = \"{p}\", \"{p}\\{p}.csproj\", \"{{{Guid.NewGuid().ToString().ToUpperInvariant()}}}\"",
+            "EndProject"
+        } );
 
         File.WriteAllLines(
             Path.Combine( this._directory.Path, "Probe.sln" ),
-            ["Microsoft Visual Studio Solution File, Format Version 12.00", ..lines, "Global", "EndGlobal"] );
+            ["Microsoft Visual Studio Solution File, Format Version 12.00", .. lines, "Global", "EndGlobal"] );
 
         var product = new Product( MetalamaDependencies.V2026_1.Metalama )
         {
@@ -164,8 +164,9 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
         Assert.Equal( ["win-arm64"], applications.Single( a => a.ArchiveName == "Arm64.net48.win-arm64" ).Platforms.ToArray() );
         Assert.Equal( ["win-x64", "win-arm64"], applications.Single( a => a.ArchiveName == "X86.net48.win-x86" ).Platforms.ToArray() );
 
-
-        Assert.Equal( ["Arm64.net48.win-arm64", "MSTest.net8.0-windows", "X86.net48.win-x86", "Xunit.net48", "Xunit.net8.0"], applications.Select( a => a.ArchiveName ).Order( StringComparer.Ordinal ).ToArray() );
+        Assert.Equal(
+            ["Arm64.net48.win-arm64", "MSTest.net8.0-windows", "X86.net48.win-x86", "Xunit.net48", "Xunit.net8.0"],
+            applications.Select( a => a.ArchiveName ).Order( StringComparer.Ordinal ).ToArray() );
 
         var net8 = applications.Single( a => a.ArchiveName == "Xunit.net8.0" );
         Assert.Equal( ["win-x64", "win-arm64", "linux-x64", "linux-arm64", "osx-x64", "osx-arm64"], net8.Platforms.ToArray() );

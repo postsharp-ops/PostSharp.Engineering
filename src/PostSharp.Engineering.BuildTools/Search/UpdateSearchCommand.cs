@@ -102,8 +102,10 @@ internal class UpdateSearchCommand : BaseCommand<UpdateSearchCommandSettings>
                         // Nothing live yet: fall back to a full build (reset staging, then swap the alias).
                         // The updater's incremental path treats an empty collection as "everything is new".
                         targetCollection = $"{alias}A";
+
                         console.WriteMessage(
                             $"No live '{alias}' collection found; performing a full build into '{targetCollection}' instead of an incremental update." );
+
                         doReset = true;
                         doSwap = true;
                     }

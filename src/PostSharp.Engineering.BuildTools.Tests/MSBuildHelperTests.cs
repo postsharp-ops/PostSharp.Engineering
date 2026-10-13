@@ -34,21 +34,19 @@ public sealed class MSBuildHelperTests
         var exceptions = new ConcurrentBag<Exception>();
 
         var threads = Enumerable.Range( 0, threadCount )
-            .Select(
-                _ => new Thread(
-                    () =>
-                    {
-                        barrier.SignalAndWait();
+            .Select( _ => new Thread( () =>
+            {
+                barrier.SignalAndWait();
 
-                        try
-                        {
-                            MSBuildHelper.InitializeLocator();
-                        }
-                        catch ( Exception e )
-                        {
-                            exceptions.Add( e );
-                        }
-                    } ) )
+                try
+                {
+                    MSBuildHelper.InitializeLocator();
+                }
+                catch ( Exception e )
+                {
+                    exceptions.Add( e );
+                }
+            } ) )
             .ToArray();
 
         foreach ( var thread in threads )

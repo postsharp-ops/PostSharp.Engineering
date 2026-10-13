@@ -209,8 +209,7 @@ public sealed class GitHubAppTokenSourceTests
         using ( source )
         using ( client )
         {
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => source.GetInstallationTokenAsync( "someone-else", "Secret" ) );
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>( () => source.GetInstallationTokenAsync( "someone-else", "Secret" ) );
 
             Assert.Contains( "someone-else/Secret", exception.Message, StringComparison.Ordinal );
             Assert.Contains( "404", exception.Message, StringComparison.Ordinal );

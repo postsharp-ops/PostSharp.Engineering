@@ -196,8 +196,7 @@ public class SshDeploymentTests
             "SomeVcsId",
             BuildAgentRequirements.Default )
         {
-            IsSshAgentRequired = true,
-            BuildSteps = [new SshExecBuildStep( "SshExec_0", "e", "cmd", "host", "deployer", 22 )]
+            IsSshAgentRequired = true, BuildSteps = [new SshExecBuildStep( "SshExec_0", "e", "cmd", "host", "deployer", 22 )]
         };
 
         var writer = new StringWriter();

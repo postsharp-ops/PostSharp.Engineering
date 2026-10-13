@@ -16,13 +16,11 @@ namespace PostSharp.Engineering.BuildTools.Build;
 [PublicAPI]
 public class SignCommandSettings : BaseBuildSettings
 {
-    [Description(
-        "Directory holding the files to sign. Defaults to the public artifacts directory of the build configuration." )]
+    [Description( "Directory holding the files to sign. Defaults to the public artifacts directory of the build configuration." )]
     [CommandOption( "--directory" )]
     public string? Directory { get; init; }
 
-    [Description(
-        "File name pattern to sign in the directory, repeatable. Defaults to the package and extension kinds the sign service takes directly." )]
+    [Description( "File name pattern to sign in the directory, repeatable. Defaults to the package and extension kinds the sign service takes directly." )]
     [CommandOption( "--input" )]
     public string[]? Filters { get; init; }
 
@@ -79,8 +77,7 @@ internal class SignCommand : BaseCommand<SignCommandSettings>
         {
             if ( settings.Directory != null || settings.Filters is { Length: > 0 } )
             {
-                context.Console.WriteError(
-                    "Naming the files to sign cannot be combined with --directory or --input, which select them." );
+                context.Console.WriteError( "Naming the files to sign cannot be combined with --directory or --input, which select them." );
 
                 return false;
             }
@@ -115,8 +112,9 @@ internal class SignCommand : BaseCommand<SignCommandSettings>
     /// directory of whichever build step happens to be running.
     /// </summary>
     private static ImmutableArray<string> ReadPaths( IEnumerable<string> lines )
-        => [
-            ..lines.Select( line => line.Trim() )
+        =>
+        [
+            .. lines.Select( line => line.Trim() )
                 .Where( line => line.Length > 0 )
                 .Select( Path.GetFullPath )
         ];

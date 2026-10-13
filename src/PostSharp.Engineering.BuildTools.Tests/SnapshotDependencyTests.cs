@@ -35,7 +35,7 @@ public sealed class SnapshotDependencyTests
             [
                 new PowershellAdditionalCiBuildConfiguration( "BuildArtifacts", "Build artifacts", "Build.ps1", "build" ),
                 new PowershellAdditionalCiBuildConfiguration( "BuildDistribution", "Build distribution", "Build.ps1", "dist" ),
-                ..configurations
+                .. configurations
             ]
         };
 
@@ -78,10 +78,7 @@ public sealed class SnapshotDependencyTests
                 BuildSnapshotDependency = BuildConfiguration.Public,
                 SnapshotDependencies =
                 [
-                    new SnapshotDependency( "BuildArtifacts" )
-                    {
-                        ArtifactRules = ["+:a/**/*=>a", "+:b-*.7z!**=>"], CleanDestination = false
-                    }
+                    new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = ["+:a/**/*=>a", "+:b-*.7z!**=>"], CleanDestination = false }
                 ]
             } );
 
@@ -172,10 +169,7 @@ public sealed class SnapshotDependencyTests
     public void TheBuildSnapshotDependencyShortcutStillWorksAlone()
     {
         var code = GenerateCode(
-            new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" )
-            {
-                BuildSnapshotDependency = BuildConfiguration.Debug
-            } );
+            new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" ) { BuildSnapshotDependency = BuildConfiguration.Debug } );
 
         Assert.Contains( "snapshot(DebugBuild)", code, StringComparison.Ordinal );
         Assert.Contains( "artifacts(DebugBuild)", code, StringComparison.Ordinal );
@@ -200,10 +194,7 @@ public sealed class SnapshotDependencyTests
     public void AStageThatBuildsTheProductTakesTheArtifactsOfItsDependencies()
     {
         var code = GenerateCode(
-            new PowershellAdditionalCiBuildConfiguration( "Build", "Build the product", "Build.ps1", "build" )
-            {
-                ConsumesProductDependencies = true
-            } );
+            new PowershellAdditionalCiBuildConfiguration( "Build", "Build the product", "Build.ps1", "build" ) { ConsumesProductDependencies = true } );
 
         Assert.Contains( "=>dependencies/Metalama.Compiler", code, StringComparison.Ordinal );
 
@@ -287,8 +278,7 @@ public sealed class SnapshotDependencyTests
             IsValid(
                 new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" )
                 {
-                    BuildSnapshotDependency = BuildConfiguration.Public,
-                    SnapshotDependencies = [new SnapshotDependency( BuildConfiguration.Debug )]
+                    BuildSnapshotDependency = BuildConfiguration.Public, SnapshotDependencies = [new SnapshotDependency( BuildConfiguration.Debug )]
                 } ) );
 
     [Fact]
@@ -334,8 +324,7 @@ public sealed class SnapshotDependencyTests
             IsValid(
                 new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" )
                 {
-                    ReuseLastSuccessfulBuild = true,
-                    SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = [] }]
+                    ReuseLastSuccessfulBuild = true, SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = [] }]
                 } ) );
 
         // Either one alone is meaningful.
@@ -350,8 +339,7 @@ public sealed class SnapshotDependencyTests
             IsValid(
                 new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" )
                 {
-                    ReuseLastSuccessfulBuild = true,
-                    SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = ["+:a=>a"] }]
+                    ReuseLastSuccessfulBuild = true, SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = ["+:a=>a"] }]
                 } ) );
     }
 
@@ -389,9 +377,7 @@ public sealed class SnapshotDependencyTests
 
     [Fact]
     public void ADuplicateIdentifierIsRejected()
-        => Assert.False(
-            IsValid(
-                new PowershellAdditionalCiBuildConfiguration( "BuildArtifacts", "A second one", "Build.ps1", "build" ) ) );
+        => Assert.False( IsValid( new PowershellAdditionalCiBuildConfiguration( "BuildArtifacts", "A second one", "Build.ps1", "build" ) ) );
 
     /// <summary>
     /// A composite aggregates its children, so its edges belong in the graph too, and an unknown identifier there is

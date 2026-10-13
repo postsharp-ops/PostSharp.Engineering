@@ -26,7 +26,8 @@ internal sealed class TestArchivesCiBuildConfiguration : PowershellAdditionalCiB
 {
     public TestArchivesCiBuildConfiguration( string id, string name, string arguments ) : base( id, name, TestArchives.ScriptName, arguments ) { }
 
-    internal override string GetScriptPath( ProductProperties productProperties ) => $"{productProperties.Product.EngineeringDirectory}/{TestArchives.ScriptName}";
+    internal override string GetScriptPath( ProductProperties productProperties )
+        => $"{productProperties.Product.EngineeringDirectory}/{TestArchives.ScriptName}";
 
     internal override bool PreparesBuildEnvironment => false;
 
@@ -44,10 +45,9 @@ internal sealed class TestArchivesCiBuildConfiguration : PowershellAdditionalCiB
     internal override IReadOnlyList<TeamCitySnapshotDependency> GetProductDependencySnapshots( Product product )
         => this.PackageArtifactRules
             .OrderBy( r => r.Key, StringComparer.Ordinal )
-            .Select(
-                r => ConfigurationProperties.CreateDependencySnapshot(
-                    TestArchiveCells.GetDependency( product, this.ArtifactsConfiguration, r.Key ),
-                    this.ArtifactsConfiguration,
-                    string.Join( @"\n", r.Value ) ) )
+            .Select( r => ConfigurationProperties.CreateDependencySnapshot(
+                         TestArchiveCells.GetDependency( product, this.ArtifactsConfiguration, r.Key ),
+                         this.ArtifactsConfiguration,
+                         string.Join( @"\n", r.Value ) ) )
             .ToList();
 }

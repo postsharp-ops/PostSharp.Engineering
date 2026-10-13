@@ -32,12 +32,13 @@ public sealed class TestArchiveCellsTests
         string[]? tags = null,
         string? skip = null,
         string[]? artifacts = null )
-        => new( $"C:\\src\\{name}\\{name}.csproj", name, targetFramework, "", [..platforms], [..tags ?? []], false, skip, [..artifacts ?? []] );
+        => new( $"C:\\src\\{name}\\{name}.csproj", name, targetFramework, "", [.. platforms], [.. tags ?? []], false, skip, [.. artifacts ?? []] );
 
     private static Product CreateProduct( params TestAgent[] agents )
         => new( MetalamaDependencies.V2026_1.Metalama )
         {
-            Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }], TestAgents = agents,
+            Solutions = [new DotNetSolution( "Tests.sln" ) { ContainsTestApplications = true }],
+            TestAgents = agents,
             Configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Public, c => c with { RunsTestArchives = true } )
         };
 
@@ -67,7 +68,9 @@ public sealed class TestArchiveCellsTests
             ],
             net48.SnapshotDependencies!.Single().ArtifactRules! );
 
-        Assert.Equal( ["+:artifacts/tests/Common.net10.0.zip=>artifacts/tests"], cells.Single( c => c.Id == "TestWinX64Net100" ).SnapshotDependencies!.Single().ArtifactRules! );
+        Assert.Equal(
+            ["+:artifacts/tests/Common.net10.0.zip=>artifacts/tests"],
+            cells.Single( c => c.Id == "TestWinX64Net100" ).SnapshotDependencies!.Single().ArtifactRules! );
     }
 
     [Fact]
@@ -133,7 +136,7 @@ public sealed class TestArchiveCellsTests
         var cells = TestArchiveCells.Create( CreateReleaseProduct( [] ), [Application( "Common", "net10.0", _everywhere )] );
 
         Assert.Equal( BuildConfiguration.Release, cells.Single( c => c.Id == "TestWinX64Net100" ).BuildSnapshotDependency );
-        Assert.True( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateReleaseProduct( [..cells] ) ) );
+        Assert.True( SnapshotDependencyGraph.TryValidate( new ConsoleHelper(), CreateReleaseProduct( [.. cells] ) ) );
     }
 
     [Fact]
@@ -271,7 +274,7 @@ public sealed class TestArchiveCellsTests
         Assert.True( TestArchivePackages.TryGetPackages( context.Console, sources, application, out var packages ) );
         Assert.Equal( ["Backstage/Backstage", "Backstage/Backstage.Tools"], packages.Select( p => p.Reference ).ToArray() );
 
-        TestArchives.WriteList( context, [application with { Packages = [..packages.Select( p => p.Reference )] }] );
+        TestArchives.WriteList( context, [application with { Packages = [.. packages.Select( p => p.Reference )] }] );
 
         Assert.Contains(
             "Client.net48: Backstage/Backstage Backstage/Backstage.Tools",

@@ -40,15 +40,14 @@ public class RemoveInternalsCommandSettings : CommonCommandSettings
             this._unparsedMSBuildProperties = value;
 
             this.MSBuildProperties = this.MSBuildProperties.SetItems(
-                value.Select(
-                    v =>
-                    {
-                        var split = v.Split( '=', 2 );
+                value.Select( v =>
+                {
+                    var split = v.Split( '=', 2 );
 
-                        return split.Length > 1
-                            ? new KeyValuePair<string, string>( split[0].Trim(), split[1].Trim() )
-                            : new KeyValuePair<string, string>( split[0].Trim(), "True" );
-                    } ) );
+                    return split.Length > 1
+                        ? new KeyValuePair<string, string>( split[0].Trim(), split[1].Trim() )
+                        : new KeyValuePair<string, string>( split[0].Trim(), "True" );
+                } ) );
         }
     }
 

@@ -48,7 +48,11 @@ internal static class TestApplicationDiscovery
     /// Finds the test applications of one solution, solution filter or project, whether or not its solution sets
     /// <see cref="Solution.ContainsTestApplications"/>, and without the checks that only the test archives need.
     /// </summary>
-    public static bool TryDiscover( BuildContext context, BuildConfiguration configuration, string solutionPath, out ImmutableArray<TestApplication> applications )
+    public static bool TryDiscover(
+        BuildContext context,
+        BuildConfiguration configuration,
+        string solutionPath,
+        out ImmutableArray<TestApplication> applications )
     {
         MSBuildHelper.InitializeLocator();
 
@@ -109,10 +113,7 @@ internal static class TestApplicationDiscovery
     {
         var builder = ImmutableArray.CreateBuilder<TestApplication>();
 
-        var globalProperties = new Dictionary<string, string>
-        {
-            ["Configuration"] = context.Product.DependencyDefinition.MSBuildConfiguration[configuration]
-        };
+        var globalProperties = new Dictionary<string, string> { ["Configuration"] = context.Product.DependencyDefinition.MSBuildConfiguration[configuration] };
 
         using var collection = new ProjectCollection( globalProperties );
         projectCount = 0;
@@ -270,7 +271,8 @@ internal static class TestApplicationDiscovery
             } );
     }
 
-    private static bool IsScript( Project project ) => string.Equals( project.GetPropertyValue( "TestApplicationKind" ), "ps1", StringComparison.OrdinalIgnoreCase );
+    private static bool IsScript( Project project )
+        => string.Equals( project.GetPropertyValue( "TestApplicationKind" ), "ps1", StringComparison.OrdinalIgnoreCase );
 
     private static bool IsTestApplication( Project project )
     {

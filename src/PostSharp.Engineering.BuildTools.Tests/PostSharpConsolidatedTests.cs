@@ -212,8 +212,14 @@ public class PostSharpConsolidatedTests
     private static IEnumerable<DependencyDefinition> AllDefinitions()
         => new[]
             {
-                typeof(DevelopmentDependencies), typeof(BusinessSystemsDependencies), typeof(TemplateDependencies), typeof(BackstageDependencies),
-                typeof(PostSharpDependencies), typeof(MetalamaDependencies), typeof(MetalamaVsxDependencies), typeof(TestDependencies)
+                typeof(DevelopmentDependencies),
+                typeof(BusinessSystemsDependencies),
+                typeof(TemplateDependencies),
+                typeof(BackstageDependencies),
+                typeof(PostSharpDependencies),
+                typeof(MetalamaDependencies),
+                typeof(MetalamaVsxDependencies),
+                typeof(TestDependencies)
             }
             .SelectMany( t => t.GetNestedTypes( BindingFlags.Public ).Append( t ) )
             .SelectMany( t => t.GetProperties( BindingFlags.Public | BindingFlags.Static ) )

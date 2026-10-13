@@ -30,10 +30,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 public class DockerTestsAdditionalCiBuildConfiguration : PowershellAdditionalCiBuildConfiguration
 {
     public DockerTestsAdditionalCiBuildConfiguration(
-        string id,
-        string name,
-        DockerTestPlatform platform,
-        string path = DefaultPath )
+            string id,
+            string name,
+            DockerTestPlatform platform,
+            string path = DefaultPath )
 
         // The platform is the only argument. Where the tests are is a fact about the repository, not a choice this
         // configuration makes, so generate-scripts writes it into RunDockerTests.ps1 instead.
@@ -70,20 +70,19 @@ public class DockerTestsAdditionalCiBuildConfiguration : PowershellAdditionalCiB
     /// report exactly what that configuration already reports. The rule lives here rather than in each product so
     /// that adding a platform is what creates the entry point, rather than something to remember alongside it.
     /// </remarks>
-    public static AdditionalCiBuildConfiguration[] WithCompositeConfiguration(
-        params DockerTestsAdditionalCiBuildConfiguration[] configurations )
+    public static AdditionalCiBuildConfiguration[] WithCompositeConfiguration( params DockerTestsAdditionalCiBuildConfiguration[] configurations )
     {
         if ( configurations.Length <= 1 )
         {
-            return [..configurations];
+            return [.. configurations];
         }
 
         var composite = new CompositeAdditionalCiBuildConfiguration(
             CompositeConfigurationId,
             "Run All Docker Tests",
-            [..configurations.Select( c => c.Id )] ) { ProjectFolder = configurations[0].ProjectFolder };
+            [.. configurations.Select( c => c.Id )] ) { ProjectFolder = configurations[0].ProjectFolder };
 
-        return [..configurations, composite];
+        return [.. configurations, composite];
     }
 
     /// <summary>
@@ -91,8 +90,7 @@ public class DockerTestsAdditionalCiBuildConfiguration : PowershellAdditionalCiB
     /// look for it there. The directory is a property of the product, which a configuration does not know when it is
     /// constructed, so the path is resolved here instead.
     /// </summary>
-    internal override string GetScriptPath( ProductProperties productProperties )
-        => $"{productProperties.Product.EngineeringDirectory}/{this.Script}";
+    internal override string GetScriptPath( ProductProperties productProperties ) => $"{productProperties.Product.EngineeringDirectory}/{this.Script}";
 
     public DockerTestPlatform Platform { get; }
 

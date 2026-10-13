@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using PostSharp.Engineering.McpApprovalServer.Mcp.Models;
 using PostSharp.Engineering.McpApprovalServer.Services;
 using System;
+using System.Globalization;
 using System.Windows.Media;
 
 namespace PostSharp.Engineering.McpApprovalServer.ViewModels;
@@ -37,7 +38,7 @@ public partial class ApprovalViewModel : ObservableObject
 
     public string? GitBranch => this._request.GitBranch;
 
-    public string ReceivedAt => this._request.ReceivedAt.ToString( "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture );
+    public string ReceivedAt => this._request.ReceivedAt.ToString( "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture );
 
     // Assessments
     public RiskAssessment CombinedAssessment => this._request.CombinedAssessment;
@@ -73,22 +74,24 @@ public partial class ApprovalViewModel : ObservableObject
 
     public Brush RegexRecommendationBrush => GetRecommendationBrush( this._request.RegexAssessment.Recommendation );
 
-    private static Brush GetRiskBrush( RiskLevel level ) => level switch
-    {
-        RiskLevel.Low => new SolidColorBrush( Color.FromRgb( 76, 175, 80 ) ), // Green
-        RiskLevel.Medium => new SolidColorBrush( Color.FromRgb( 255, 152, 0 ) ), // Orange
-        RiskLevel.High => new SolidColorBrush( Color.FromRgb( 244, 67, 54 ) ), // Red
-        RiskLevel.Critical => new SolidColorBrush( Color.FromRgb( 156, 39, 176 ) ), // Purple
-        _ => Brushes.Gray
-    };
+    private static Brush GetRiskBrush( RiskLevel level )
+        => level switch
+        {
+            RiskLevel.Low => new SolidColorBrush( Color.FromRgb( 76, 175, 80 ) ),       // Green
+            RiskLevel.Medium => new SolidColorBrush( Color.FromRgb( 255, 152, 0 ) ),    // Orange
+            RiskLevel.High => new SolidColorBrush( Color.FromRgb( 244, 67, 54 ) ),      // Red
+            RiskLevel.Critical => new SolidColorBrush( Color.FromRgb( 156, 39, 176 ) ), // Purple
+            _ => Brushes.Gray
+        };
 
-    private static Brush GetRecommendationBrush( Recommendation recommendation ) => recommendation switch
-    {
-        Recommendation.Approve => new SolidColorBrush( Color.FromRgb( 76, 175, 80 ) ), // Green
-        Recommendation.Reject => new SolidColorBrush( Color.FromRgb( 244, 67, 54 ) ), // Red
-        Recommendation.None => Brushes.Gray,
-        _ => Brushes.Gray
-    };
+    private static Brush GetRecommendationBrush( Recommendation recommendation )
+        => recommendation switch
+        {
+            Recommendation.Approve => new SolidColorBrush( Color.FromRgb( 76, 175, 80 ) ), // Green
+            Recommendation.Reject => new SolidColorBrush( Color.FromRgb( 244, 67, 54 ) ),  // Red
+            Recommendation.None => Brushes.Gray,
+            _ => Brushes.Gray
+        };
 
     [RelayCommand]
     private void Approve()

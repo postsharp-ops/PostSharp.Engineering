@@ -37,7 +37,7 @@ internal class SwapCommand : BaseCommand<SwapSettings>
 
         // A deployment requested at publish time may have no swapper of the same name, so existence is not validated:
         // in that case there is simply nothing to swap.
-        var deploymentNames = ( configuration.Swappers ?? [] )
+        var deploymentNames = (configuration.Swappers ?? [])
             .Select( s => s.EffectiveDeploymentName )
             .Distinct( StringComparer.Ordinal )
             .ToList();

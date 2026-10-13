@@ -91,15 +91,14 @@ internal class SkillIndexGenerator
         var unlistedItems = this._pathByUid
             .Where( p => this.IncludedArticlePaths.Contains( p.Value ) && !this._tocArticlePaths.Contains( p.Value ) )
             .OrderBy( p => p.Value, StringComparer.Ordinal )
-            .Select(
-                p => new IndexItem
-                {
-                    Name = string.IsNullOrWhiteSpace( this._metadataByUid[p.Key].Title ) ? p.Key : this._metadataByUid[p.Key].Title,
-                    Uid = p.Key,
-                    Path = p.Value,
-                    Summary = this._metadataByUid[p.Key].Summary,
-                    Keywords = this._metadataByUid[p.Key].Keywords
-                } )
+            .Select( p => new IndexItem
+            {
+                Name = string.IsNullOrWhiteSpace( this._metadataByUid[p.Key].Title ) ? p.Key : this._metadataByUid[p.Key].Title,
+                Uid = p.Key,
+                Path = p.Value,
+                Summary = this._metadataByUid[p.Key].Summary,
+                Keywords = this._metadataByUid[p.Key].Keywords
+            } )
             .ToList();
 
         if ( unlistedItems.Count > 0 )
@@ -147,7 +146,6 @@ internal class SkillIndexGenerator
     {
         try
         {
-
             // Check for YAML front matter (starts with ---)
             var match = _frontMatterRegex.Match( content );
 

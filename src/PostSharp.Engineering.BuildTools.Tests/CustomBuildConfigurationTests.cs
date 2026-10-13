@@ -47,7 +47,7 @@ public sealed class CustomBuildConfigurationTests
             AdditionalCiBuildConfigurations =
             [
                 new PowershellAdditionalCiBuildConfiguration( "BuildArtifacts", "Build artifacts", "Build.ps1", "build" ),
-                ..additional
+                .. additional
             ],
             Configurations = Product.DefaultConfigurations.WithValue(
                 BuildConfiguration.Public,
@@ -145,8 +145,7 @@ public sealed class CustomBuildConfigurationTests
     /// to the upstream check. A replacement that runs no upstream check has no use for the key.
     /// </summary>
     [Fact]
-    public void AReplacementThatRunsNoUpstreamCheckRequestsNoSshAgent()
-        => Assert.False( Generate( CreateProduct( CreateReplacement() ) ).IsSshAgentRequired );
+    public void AReplacementThatRunsNoUpstreamCheckRequestsNoSshAgent() => Assert.False( Generate( CreateProduct( CreateReplacement() ) ).IsSshAgentRequired );
 
     /// <summary>
     /// The declared flag is not the condition. The default public configuration sets it, so a validation that tested
@@ -242,8 +241,7 @@ public sealed class CustomBuildConfigurationTests
 
         var product = new Product( MetalamaDependencies.V2026_1.Metalama )
         {
-            GenerateDockerfiles = false,
-            OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows )
+            GenerateDockerfiles = false, OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows )
         };
 
         Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );

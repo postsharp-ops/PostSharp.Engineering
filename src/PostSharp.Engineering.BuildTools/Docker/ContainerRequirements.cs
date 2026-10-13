@@ -69,14 +69,10 @@ public record ContainerRequirements : ContainerHostRequirements
 
         // The file stem (also the context-dir name and the ARG BASE_IMAGE reference) is prefix-free: just the
         // layer name, or "<additionalName>-<layer>" to disambiguate additional chains.
-        string Stem( string layerName )
-            => additionalName == null ? layerName : $"{additionalName.ToLowerInvariant()}-{layerName}";
+        string Stem( string layerName ) => additionalName == null ? layerName : $"{additionalName.ToLowerInvariant()}-{layerName}";
 
         // Assemble components. The prolog is layer-specific and is prepended per layer below, so it is not here.
-        var allComponents = new List<ContainerComponent>
-        {
-            new PowershellComponent(), new GitComponent(), new EpilogueComponent()
-        };
+        var allComponents = new List<ContainerComponent> { new PowershellComponent(), new GitComponent(), new EpilogueComponent() };
 
         // The Claude layers, and the claude-pre layer they require, are emitted only for the product's own image.
         if ( this.GenerateClaudeImage )

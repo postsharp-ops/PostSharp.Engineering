@@ -60,7 +60,7 @@ public class TestOptions
             return [this.GetRun( null, 0 )];
         }
 
-        return [..this.Matrix.Select( this.GetRun )];
+        return [.. this.Matrix.Select( this.GetRun )];
     }
 
     private EffectiveTestOptions GetRun( TestMatrixEntry? entry, int index )

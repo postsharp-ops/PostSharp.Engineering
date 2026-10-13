@@ -94,13 +94,15 @@ internal static class TestArchivePackages
 
             var document = XDocument.Load( path );
 
-            var entries = document.Root?.Element( "packageSources" )?.Elements( "add" )
+            var entries = document.Root?.Element( "packageSources" )
+                              ?.Elements( "add" )
                               .Select( e => (Key: (string?) e.Attribute( "key" ), Value: (string?) e.Attribute( "value" )) )
                               .Where( e => e.Key != null && e.Value != null )
                               .ToDictionary( e => e.Key!, e => e.Value!, StringComparer.OrdinalIgnoreCase )
                           ?? [];
 
-            var mappings = document.Root?.Element( "packageSourceMapping" )?.Elements( "packageSource" )
+            var mappings = document.Root?.Element( "packageSourceMapping" )
+                               ?.Elements( "packageSource" )
                                .SelectMany( s => s.Elements( "package" ).Select( p => ((string) s.Attribute( "key" )!, (string) p.Attribute( "pattern" )!) ) )
                                .ToList()
                            ?? [];
@@ -240,7 +242,7 @@ internal static class TestArchivePackages
             }
         }
 
-        packages = [..builder.OrderBy( p => p.Reference, StringComparer.Ordinal )];
+        packages = [.. builder.OrderBy( p => p.Reference, StringComparer.Ordinal )];
 
         return success;
     }
@@ -258,10 +260,9 @@ internal static class TestArchivePackages
     // Whether a package of a target has a file that the publication copies. A package that has only build files, or the _._
     // placeholder of an empty asset group, such as a package of MSBuild targets, gives the application no file.
     private static bool HasFilesToPublish( JsonElement library )
-        => _publishedAssetGroups.Any(
-            g => library.TryGetProperty( g, out var group )
-                 && group.ValueKind == JsonValueKind.Object
-                 && group.EnumerateObject().Any( f => !f.Name.EndsWith( "/_._", StringComparison.Ordinal ) ) );
+        => _publishedAssetGroups.Any( g => library.TryGetProperty( g, out var group )
+                                           && group.ValueKind == JsonValueKind.Object
+                                           && group.EnumerateObject().Any( f => !f.Name.EndsWith( "/_._", StringComparison.Ordinal ) ) );
 
     /// <summary>
     /// Gets the identifiers, in lower case, of the packages without a URL or a feed that the manifest of an archive lists, which
@@ -283,7 +284,7 @@ internal static class TestArchivePackages
         // version wrote has no Feed field, which means that the package has no feed.
         return
         [
-            ..Regex.Matches( reader.ReadToEnd(), @"Id = '([^']+)'\s+Version = '[^']*'\s+Url = \$null(?!\s+Feed = ')" )
+            .. Regex.Matches( reader.ReadToEnd(), @"Id = '([^']+)'\s+Version = '[^']*'\s+Url = \$null(?!\s+Feed = ')" )
                 .Select( m => m.Groups[1].Value )
                 .Distinct( StringComparer.Ordinal )
                 .Order( StringComparer.Ordinal )

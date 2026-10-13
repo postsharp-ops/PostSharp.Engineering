@@ -108,8 +108,7 @@ public class DrySearchBackend : SearchBackendBase
         return Task.FromResult( 0 );
     }
 
-    public override Task<IReadOnlyList<T>> ExportDocumentsAsync<T>( string collection )
-        => Task.FromResult<IReadOnlyList<T>>( [] );
+    public override Task<IReadOnlyList<T>> ExportDocumentsAsync<T>( string collection ) => Task.FromResult<IReadOnlyList<T>>( [] );
 
     public override Task<IReadOnlyList<T>> SearchDocumentsAsync<T>( string collection, SearchParameters searchParameters )
         => Task.FromResult<IReadOnlyList<T>>( [] );

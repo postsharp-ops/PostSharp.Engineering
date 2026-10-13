@@ -54,8 +54,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 // Redacted: this repeats the command line, so a secret passed as an argument would land in the log
                 // on every failure. See ToolInvocationOptions.Secrets.
-                console.WriteError(
-                    $"The process `\"{fileName}\" {options.Redact( commandLine )}` failed with exit code {exitCode}." );
+                console.WriteError( $"The process `\"{fileName}\" {options.Redact( commandLine )}` failed with exit code {exitCode}." );
 
                 return false;
             }

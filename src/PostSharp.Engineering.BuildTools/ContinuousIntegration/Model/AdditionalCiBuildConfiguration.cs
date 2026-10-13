@@ -190,7 +190,7 @@ public abstract class AdditionalCiBuildConfiguration
                     + "move their values into SnapshotDependencies." );
             }
 
-            return [..this.SnapshotDependencies];
+            return [.. this.SnapshotDependencies];
         }
 
         if ( hasObsoleteMembers )

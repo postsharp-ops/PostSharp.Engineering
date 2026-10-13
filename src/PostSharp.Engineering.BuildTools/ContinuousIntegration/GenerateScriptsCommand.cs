@@ -34,7 +34,8 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         {
             if ( !product.PublishesTestArchives )
             {
-                context.Console.WriteError( "The product declares TestAgents but no solution sets ContainsTestApplications, so no build writes the archives they run." );
+                context.Console.WriteError(
+                    "The product declares TestAgents but no solution sets ContainsTestApplications, so no build writes the archives they run." );
 
                 return false;
             }
@@ -45,7 +46,8 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
 
             if ( sourceConfigurations.IsEmpty )
             {
-                context.Console.WriteError( "The product declares TestAgents but no build configuration sets RunsTestArchives, so they have no archives to run." );
+                context.Console.WriteError(
+                    "The product declares TestAgents but no build configuration sets RunsTestArchives, so they have no archives to run." );
 
                 return false;
             }
@@ -90,7 +92,8 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
             {
                 if ( !solution.Restore( context, restoreSettings ) )
                 {
-                    context.Console.WriteError( $"Cannot restore '{solution.Name}', whose restore graph gives the packages of its test applications. Build the product first." );
+                    context.Console.WriteError(
+                        $"Cannot restore '{solution.Name}', whose restore graph gives the packages of its test applications. Build the product first." );
 
                     return false;
                 }
@@ -110,7 +113,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                     return false;
                 }
 
-                packagesByArchive[application.ArchiveName] = [..packages.Select( p => p.Reference )];
+                packagesByArchive[application.ArchiveName] = [.. packages.Select( p => p.Reference )];
             }
 
             foreach ( var configuration in sourceConfigurations )
@@ -177,7 +180,7 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 var image = (ContainerRequirements) product.OverriddenBuildAgentRequirements!;
 
                 // Generate the main image chain (build [+ the Visual Studio layer] + claude leaf).
-                if ( !( image with { GenerateClaudeImage = true } ).WriteDockerfiles(
+                if ( !(image with { GenerateClaudeImage = true }).WriteDockerfiles(
                         context,
                         additionalName: null,
                         extraComponents: [],

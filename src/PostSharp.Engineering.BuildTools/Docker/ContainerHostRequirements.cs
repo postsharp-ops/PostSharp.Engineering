@@ -13,8 +13,7 @@ public record ContainerHostRequirements : BuildAgentRequirements
 {
     public ContainerHostKind HostKind { get; }
 
-    public ContainerHostRequirements( ContainerHostKind hostKind ) : base(
-        ContainerHelper.GetBuildAgentRequirements( hostKind ) )
+    public ContainerHostRequirements( ContainerHostKind hostKind ) : base( ContainerHelper.GetBuildAgentRequirements( hostKind ) )
     {
         this.HostKind = hostKind;
     }

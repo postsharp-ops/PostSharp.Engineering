@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
@@ -42,13 +43,12 @@ public record DependencyConfiguration( DependencyDefinition Definition, BuildCon
     /// Returns <see cref="EffectiveArtifactPickup"/> when set (via <see cref="DependencyDefinition.GetAllDependencies"/>),
     /// otherwise falls back to the parametrized dep's own setting.
     /// </summary>
-    public DependencyArtifactPickup ArtifactPickup
-        => this.EffectiveArtifactPickup ?? this.Parametrized?.ArtifactPickup ?? DependencyArtifactPickup.Snapshot;
+    public DependencyArtifactPickup ArtifactPickup => this.EffectiveArtifactPickup ?? this.Parametrized?.ArtifactPickup ?? DependencyArtifactPickup.Snapshot;
 
     public virtual bool Equals( DependencyConfiguration? other )
         => other is not null
            && ReferenceEquals( this.Definition, other.Definition )
            && this.Configuration == other.Configuration;
 
-    public override int GetHashCode() => System.HashCode.Combine( this.Definition, this.Configuration );
+    public override int GetHashCode() => HashCode.Combine( this.Definition, this.Configuration );
 }

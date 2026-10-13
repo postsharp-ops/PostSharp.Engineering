@@ -226,7 +226,7 @@ internal static class SnapshotDependencyGraph
                 // itself. Reusing the last successful build suppresses that snapshot, so the two together emit
                 // neither block and the dependency disappears from the generated configuration without a word.
                 if ( dependency.ArtifactRules is { Length: 0 }
-                     && ( dependency.ReuseLastSuccessfulBuild ?? configuration.EffectiveReuseLastSuccessfulBuild ) )
+                     && (dependency.ReuseLastSuccessfulBuild ?? configuration.EffectiveReuseLastSuccessfulBuild) )
                 {
                     console.WriteError(
                         $"{description} depends on '{dependency}' without artifact rules, which makes the dependency an ordering "

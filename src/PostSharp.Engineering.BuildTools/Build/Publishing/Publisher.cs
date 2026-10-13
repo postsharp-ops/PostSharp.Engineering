@@ -67,7 +67,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
         /// by native TeamCity runners) are excluded, because they define no deployment that <c>b publish</c> acts on.
         /// </summary>
         public static IReadOnlyList<string> GetPublishDeploymentNames( BuildConfigurationInfo configuration )
-            => ( configuration.PublicPublishers ?? [] )
+            => (configuration.PublicPublishers ?? [])
                 .Concat( configuration.PrivatePublishers ?? [] )
                 .Where( p => !p.IsInertAtPublishTime )
                 .Select( p => p.EffectiveDeploymentName )
