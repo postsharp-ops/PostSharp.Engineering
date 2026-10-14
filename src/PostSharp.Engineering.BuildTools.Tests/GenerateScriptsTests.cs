@@ -57,6 +57,40 @@ public class GenerateScriptsTests
     }
 
     /// <summary>
+    /// The upstream merge runs <c>Build.ps1 prepare</c> after a conflict resolution, which restores the source dependencies
+    /// and cannot clone them in the container, so the Upstream Merge configuration checks them out as the build does.
+    /// </summary>
+    [Fact]
+    public void UpstreamMerge_ChecksOutTheSourceDependencies()
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = new Product( MetalamaDependencies.V2026_1.MetalamaDocumentation )
+        {
+            GenerateDockerfiles = false, OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows )
+        };
+
+        Assert.NotNull( product.UpstreamProduct );
+        Assert.NotEmpty( product.SourceDependencies );
+
+        Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+
+        var settings = File.ReadAllText( Path.Combine( directory.Path, ".teamcity", "settings.kts" ) );
+        var start = settings.IndexOf( "object UpstreamMerge : BuildType", StringComparison.Ordinal );
+        Assert.True( start >= 0 );
+
+        var end = settings.IndexOf( "\nobject ", start + 1, StringComparison.Ordinal );
+        var upstreamMerge = end < 0 ? settings[start..] : settings[start..end];
+
+        foreach ( var sourceDependency in product.SourceDependencies )
+        {
+            Assert.Contains( $"=> {product.SourceDependenciesDirectory}/{sourceDependency.Name}", upstreamMerge, StringComparison.Ordinal );
+        }
+    }
+
+    /// <summary>
     private static Product CreateProduct( params DockerTestsAdditionalCiBuildConfiguration[] configurations )
         => new( MetalamaDependencies.V2026_1.Metalama )
         {
