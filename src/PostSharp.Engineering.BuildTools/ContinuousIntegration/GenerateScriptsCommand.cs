@@ -17,11 +17,15 @@ using System.Linq;
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 [UsedImplicitly]
-internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
+internal class GenerateScriptsCommand : BaseCommand<GenerateScriptsCommandSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings ) => Execute( context, settings );
+    protected override bool ExecuteCore( BuildContext context, GenerateScriptsCommandSettings settings )
+        => Execute( context, settings, settings.NoRestore );
 
-    public static bool Execute( BuildContext context, CommonCommandSettings settings )
+    /// <param name="noRestore">Whether the packages of the test archives are taken from the existing list of the archives
+    /// instead of the restore graph of the solutions, which needs a build of the product. See
+    /// <see cref="GenerateScriptsCommandSettings.NoRestore"/>.</param>
+    public static bool Execute( BuildContext context, CommonCommandSettings settings, bool noRestore = false )
     {
         var product = context.Product;
 
@@ -82,38 +86,13 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
                 applicationsByConfiguration.Add( sourceConfiguration, sourceApplications );
             }
 
-            // The packages that each application downloads from the builds that publish them are read from the restore graph of
-            // its project. The graph does not depend on the configuration, so the projects are restored once, in the
-            // configuration that the repository was prepared in, whose packages exist.
-            var restoreSettings = new BuildSettings();
-            restoreSettings.Initialize( context );
+            var packagesByArchive = noRestore
+                ? GetListedPackages( context, applications! )
+                : GetRestoredPackages( context, applications! );
 
-            foreach ( var solution in product.Solutions.Where( s => s.ContainsTestApplications ) )
-            {
-                if ( !solution.Restore( context, restoreSettings ) )
-                {
-                    context.Console.WriteError(
-                        $"Cannot restore '{solution.Name}', whose restore graph gives the packages of its test applications. Build the product first." );
-
-                    return false;
-                }
-            }
-
-            if ( !TestArchivePackages.Sources.TryLoad( context, out var sources ) )
+            if ( packagesByArchive == null )
             {
                 return false;
-            }
-
-            var packagesByArchive = new Dictionary<string, ImmutableArray<string>>( StringComparer.OrdinalIgnoreCase );
-
-            foreach ( var application in applications! )
-            {
-                if ( !TestArchivePackages.TryGetPackages( context.Console, sources, application, out var packages ) )
-                {
-                    return false;
-                }
-
-                packagesByArchive[application.ArchiveName] = [.. packages.Select( p => p.Reference )];
             }
 
             foreach ( var configuration in sourceConfigurations )
@@ -212,6 +191,86 @@ internal class GenerateScriptsCommand : BaseCommand<CommonCommandSettings>
         context.Console.WriteSuccess( "Generating build scripts was successful." );
 
         return true;
+    }
+
+    /// <summary>
+    /// Gets the packages that each test application downloads from the builds that publish them, from the restore graph of its
+    /// project. The graph does not depend on the configuration, so the projects are restored once, in the configuration that
+    /// the repository was prepared in, whose packages exist.
+    /// </summary>
+    /// <returns><c>null</c> if a solution cannot be restored or a graph cannot be read.</returns>
+    private static Dictionary<string, ImmutableArray<string>>? GetRestoredPackages( BuildContext context, IEnumerable<TestApplication> applications )
+    {
+        var restoreSettings = new BuildSettings();
+        restoreSettings.Initialize( context );
+
+        foreach ( var solution in context.Product.Solutions.Where( s => s.ContainsTestApplications ) )
+        {
+            if ( !solution.Restore( context, restoreSettings ) )
+            {
+                context.Console.WriteError(
+                    $"Cannot restore '{solution.Name}', whose restore graph gives the packages of its test applications. Build the product first, "
+                    + "or use --no-restore to take the packages from the existing list of the test archives." );
+
+                return null;
+            }
+        }
+
+        if ( !TestArchivePackages.Sources.TryLoad( context, out var sources ) )
+        {
+            return null;
+        }
+
+        var packagesByArchive = new Dictionary<string, ImmutableArray<string>>( StringComparer.OrdinalIgnoreCase );
+
+        foreach ( var application in applications )
+        {
+            if ( !TestArchivePackages.TryGetPackages( context.Console, sources, application, out var packages ) )
+            {
+                return null;
+            }
+
+            packagesByArchive[application.ArchiveName] = [.. packages.Select( p => p.Reference )];
+        }
+
+        return packagesByArchive;
+    }
+
+    /// <summary>
+    /// Gets the packages of each test application from the list of the test archives that an earlier run of
+    /// <c>generate-scripts</c> wrote, without restoring the solutions. The archives themselves are still discovered from the
+    /// projects, so an added or removed archive is planned. An archive that the list does not name is written with no package,
+    /// with a warning. <c>Build.ps1 build</c> compares the list with the restore graph, so a list that this makes stale fails
+    /// the next build of the product.
+    /// </summary>
+    private static Dictionary<string, ImmutableArray<string>> GetListedPackages( BuildContext context, IEnumerable<TestApplication> applications )
+    {
+        TestArchives.TryReadList( context, out var listedPackages );
+
+        var packagesByArchive = new Dictionary<string, ImmutableArray<string>>( StringComparer.OrdinalIgnoreCase );
+        var unlisted = new List<string>();
+
+        foreach ( var application in applications )
+        {
+            if ( listedPackages.TryGetValue( application.ArchiveName, out var packages ) )
+            {
+                packagesByArchive[application.ArchiveName] = packages;
+            }
+            else
+            {
+                packagesByArchive[application.ArchiveName] = [];
+                unlisted.Add( application.ArchiveName );
+            }
+        }
+
+        if ( unlisted.Count > 0 )
+        {
+            context.Console.WriteWarning(
+                $"The list of the test archives does not name these archives, so they are listed with no package: {string.Join( ", ", unlisted.Order( StringComparer.Ordinal ) )}. "
+                + "Run 'Build.ps1 generate-scripts' without --no-restore after a build of the product to list their packages." );
+        }
+
+        return packagesByArchive;
     }
 
     /// <summary>

@@ -486,21 +486,16 @@ internal static class UpstreamMerge
                         context.Console.WriteMessage( "" );
                         context.Console.WriteMessage( "Regenerating scripts after conflict resolution..." );
 
-                        if ( !ToolInvocationHelper.InvokePowershell(
-                                context.Console,
-                                "Build.ps1",
-                                "generate-scripts",
-                                context.RepoDirectory ) )
+                        if ( !TryRegenerateScripts( context ) )
                         {
                             // A failure here means that a tracked generated file could not be written, so the merge must
                             // not be committed with stale scripts. As in the branch below, the in-progress merge is left
                             // in the working tree instead of being aborted, so that a human can complete it.
-                            context.Console.WriteError( "Failed to regenerate scripts." );
                             context.Console.WriteError( "" );
                             context.Console.WriteError( "The conflicts are resolved, but the generated scripts are not up to date." );
                             context.Console.WriteError( "The in-progress merge has been left in the working tree. Manual completion required:" );
-                            context.Console.WriteError( $"  1. Fix the cause of the failure of './Build.ps1 generate-scripts' in '{downstreamBranch}'" );
-                            context.Console.WriteError( "  2. Regenerate scripts: ./Build.ps1 generate-scripts" );
+                            context.Console.WriteError( $"  1. Fix the cause of the failure of './Build.ps1 prepare' or './Build.ps1 generate-scripts' in '{downstreamBranch}'" );
+                            context.Console.WriteError( "  2. Regenerate scripts: ./Build.ps1 prepare, then ./Build.ps1 generate-scripts --no-restore" );
                             context.Console.WriteError( "  3. Stage the result: git add -A" );
                             context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
                             context.Console.WriteError( "  5. Push: git push" );
@@ -520,7 +515,7 @@ internal static class UpstreamMerge
                         context.Console.WriteError( "The in-progress merge has been left in the working tree. Manual resolution required:" );
                         context.Console.WriteError( $"  1. Resolve the conflicts in '{downstreamBranch}' in your IDE" );
                         context.Console.WriteError( "  2. Stage the result: git add -A" );
-                        context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 generate-scripts" );
+                        context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 prepare, then ./Build.ps1 generate-scripts --no-restore" );
                         context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
                         context.Console.WriteError( "  5. Push: git push" );
 
@@ -592,7 +587,7 @@ internal static class UpstreamMerge
                 context.Console.WriteError( "The working tree has been left as-is. Manual completion required:" );
                 context.Console.WriteError( $"  1. Resolve the conflicts with 'origin/{downstreamBranch}' in your IDE" );
                 context.Console.WriteError( "  2. Stage the result: git add -A" );
-                context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 generate-scripts" );
+                context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 prepare, then ./Build.ps1 generate-scripts --no-restore" );
                 context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
                 context.Console.WriteError( "  5. Push: git push" );
 
@@ -671,14 +666,8 @@ internal static class UpstreamMerge
         // the merge is committed, as after the merge of the upstream branch.
         context.Console.WriteMessage( "Regenerating scripts after conflict resolution..." );
 
-        if ( !ToolInvocationHelper.InvokePowershell(
-                context.Console,
-                "Build.ps1",
-                "generate-scripts",
-                context.RepoDirectory ) )
+        if ( !TryRegenerateScripts( context ) )
         {
-            context.Console.WriteError( "Failed to regenerate scripts." );
-
             return false;
         }
 
@@ -703,6 +692,49 @@ internal static class UpstreamMerge
         }
 
         context.Console.WriteMessage( "Merge committed successfully." );
+
+        return true;
+    }
+
+    /// <summary>
+    /// Runs <c>Build.ps1 prepare</c>, then <c>Build.ps1 generate-scripts --no-restore</c>, in the working tree of the merge.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The merge runs in a fresh checkout, which lacks the files that <c>prepare</c> generates and that source control
+    /// ignores. <c>generate-scripts</c> can need them: it evaluates the projects of the solutions that contain test
+    /// applications, and a project can import a file that <c>prepare</c> writes. The files that <c>prepare</c> writes are
+    /// expected to be ignored by source control, so the <c>git add -A</c> that follows does not stage them.
+    /// </para>
+    /// <para>
+    /// The product is not built, so <c>generate-scripts</c> cannot restore a solution that consumes the packages of another
+    /// solution of the product. With <c>--no-restore</c>, it takes the packages of the test archives from the list that the
+    /// downstream branch already has. The next build of the merged branch fails if that list is stale.
+    /// </para>
+    /// </remarks>
+    private static bool TryRegenerateScripts( BuildContext context )
+    {
+        if ( !ToolInvocationHelper.InvokePowershell(
+                context.Console,
+                "Build.ps1",
+                "prepare",
+                context.RepoDirectory ) )
+        {
+            context.Console.WriteError( "Failed to prepare the build before regenerating scripts." );
+
+            return false;
+        }
+
+        if ( !ToolInvocationHelper.InvokePowershell(
+                context.Console,
+                "Build.ps1",
+                "generate-scripts --no-restore",
+                context.RepoDirectory ) )
+        {
+            context.Console.WriteError( "Failed to regenerate scripts." );
+
+            return false;
+        }
 
         return true;
     }
