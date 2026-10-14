@@ -860,10 +860,6 @@ internal static class TeamCitySettingsFile
                     useSnapshot: true )
             ],
             SnapshotDependencies = snapshotDependencies.ToArray(),
-
-            // After a conflict resolution, the merge runs 'Build.ps1 prepare', which restores the source dependencies and
-            // cannot clone them in the container, so they are checked out as for the build.
-            SourceDependencies = product.BuildRequiresSourceDependencies ? productProperties.SourceDependencies : [],
             IsSshAgentRequired = productProperties.IsRepoRemoteSsh
         };
 
