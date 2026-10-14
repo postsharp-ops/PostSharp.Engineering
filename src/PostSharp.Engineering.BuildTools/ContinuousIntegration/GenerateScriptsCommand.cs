@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Files;
 using PostSharp.Engineering.BuildTools.Build.Testing;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
@@ -52,6 +53,18 @@ internal class GenerateScriptsCommand : BaseCommand<GenerateScriptsCommandSettin
             {
                 context.Console.WriteError(
                     "The product declares TestAgents but no build configuration sets RunsTestArchives, so they have no archives to run." );
+
+                return false;
+            }
+
+            // The product writes the files that the evaluation of its projects needs, in a checkout where 'prepare' may not
+            // have run.
+            var discoveryStartingArgs = new TestDiscoveryStartingEventArgs( context );
+            product.OnTestDiscoveryStarting( discoveryStartingArgs );
+
+            if ( discoveryStartingArgs.IsFailed )
+            {
+                context.Console.WriteError( "The preparation of the evaluation of the test projects failed." );
 
                 return false;
             }

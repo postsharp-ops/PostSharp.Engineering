@@ -515,6 +515,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.PrepareCompleted?.Invoke( args );
         }
 
+        /// <summary>
+        /// An event raised by <c>generate-scripts</c> before it evaluates the projects of the solutions that contain test
+        /// applications. A handler writes the files that the evaluation of these projects needs and that source control
+        /// does not contain, such as generated properties that define their target frameworks. <c>generate-scripts</c>
+        /// can run in a checkout where <c>prepare</c> has not run and cannot run, such as the checkout of the upstream merge,
+        /// which has no dependency, so a handler must not need the dependencies of the product.
+        /// </summary>
+        public event Action<TestDiscoveryStartingEventArgs>? TestDiscoveryStarting;
+
+        internal void OnTestDiscoveryStarting( TestDiscoveryStartingEventArgs args ) => this.TestDiscoveryStarting?.Invoke( args );
+
         internal (string Private, string Public) GetArtifactsAbsoluteDirectories( BuildContext context, BuildConfiguration configuration )
         {
             return (

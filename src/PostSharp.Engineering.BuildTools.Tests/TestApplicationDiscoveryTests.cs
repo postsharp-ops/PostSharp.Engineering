@@ -319,5 +319,64 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
         Assert.Empty( packagesByArchive["Added.net8.0"] );
     }
 
+    /// <summary>
+    /// <c>generate-scripts</c> raises <see cref="Product.TestDiscoveryStarting"/> before it evaluates the projects, so that the
+    /// product can write the files that the evaluation needs, as in a checkout where <c>prepare</c> has not run.
+    /// </summary>
+    [Fact]
+    public void TheProductPreparesTheEvaluationOfTheTestProjects()
+    {
+        // The project imports a file that is not in the checkout.
+        this.CreateProject(
+            "Probe",
+            """
+            <Import Project="$(MSBuildThisFileDirectory)..\Generated.props" />
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+            </PropertyGroup>
+            """ );
+
+        this.WriteSolution( ["Probe"] );
+
+        Product CreateProduct()
+            => new( MetalamaDependencies.V2026_1.Metalama )
+            {
+                GenerateDockerfiles = false,
+                OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows ),
+                Solutions = [new DotNetSolution( "Probe.sln" ) { ContainsTestApplications = true }],
+                TestAgents = [new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty )],
+                Configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Release, c => c with { RunsTestArchives = true } )
+            };
+
+        MSBuildHelper.InitializeLocator();
+
+        // A handler that fails fails the command.
+        var failing = CreateProduct();
+        failing.TestDiscoveryStarting += args => args.IsFailed = true;
+
+        Assert.False(
+            GenerateScriptsCommand.Execute( TestBuildContext.Create( this._directory.Path, failing ), new CommonCommandSettings(), noRestore: true ) );
+
+        // The handler writes the file, which defines the target framework of the project.
+        var product = CreateProduct();
+
+        product.TestDiscoveryStarting += args => File.WriteAllText(
+            Path.Combine( args.Context.RepoDirectory, "Generated.props" ),
+            """
+            <Project>
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """ );
+
+        Assert.True(
+            GenerateScriptsCommand.Execute( TestBuildContext.Create( this._directory.Path, product ), new CommonCommandSettings(), noRestore: true ) );
+
+        Assert.True( TestArchives.TryReadList( TestBuildContext.Create( this._directory.Path, product ), out var packagesByArchive ) );
+        Assert.Equal( ["Probe.net8.0"], packagesByArchive.Keys.ToArray() );
+    }
+
     public void Dispose() => this._directory.Dispose();
 }

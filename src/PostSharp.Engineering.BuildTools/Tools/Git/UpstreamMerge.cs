@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -494,8 +495,8 @@ internal static class UpstreamMerge
                             context.Console.WriteError( "" );
                             context.Console.WriteError( "The conflicts are resolved, but the generated scripts are not up to date." );
                             context.Console.WriteError( "The in-progress merge has been left in the working tree. Manual completion required:" );
-                            context.Console.WriteError( $"  1. Fix the cause of the failure of './Build.ps1 prepare' or './Build.ps1 generate-scripts' in '{downstreamBranch}'" );
-                            context.Console.WriteError( "  2. Regenerate scripts: ./Build.ps1 prepare, then ./Build.ps1 generate-scripts --no-restore" );
+                            context.Console.WriteError( $"  1. Fix the cause of the failure of './Build.ps1 generate-scripts' in '{downstreamBranch}'" );
+                            context.Console.WriteError( "  2. Regenerate scripts: ./Build.ps1 generate-scripts --no-restore" );
                             context.Console.WriteError( "  3. Stage the result: git add -A" );
                             context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
                             context.Console.WriteError( "  5. Push: git push" );
@@ -515,7 +516,7 @@ internal static class UpstreamMerge
                         context.Console.WriteError( "The in-progress merge has been left in the working tree. Manual resolution required:" );
                         context.Console.WriteError( $"  1. Resolve the conflicts in '{downstreamBranch}' in your IDE" );
                         context.Console.WriteError( "  2. Stage the result: git add -A" );
-                        context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 prepare, then ./Build.ps1 generate-scripts --no-restore" );
+                        context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 generate-scripts --no-restore" );
                         context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
                         context.Console.WriteError( "  5. Push: git push" );
 
@@ -587,7 +588,7 @@ internal static class UpstreamMerge
                 context.Console.WriteError( "The working tree has been left as-is. Manual completion required:" );
                 context.Console.WriteError( $"  1. Resolve the conflicts with 'origin/{downstreamBranch}' in your IDE" );
                 context.Console.WriteError( "  2. Stage the result: git add -A" );
-                context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 prepare, then ./Build.ps1 generate-scripts --no-restore" );
+                context.Console.WriteError( "  3. Regenerate scripts: ./Build.ps1 generate-scripts --no-restore" );
                 context.Console.WriteError( "  4. Commit the merge: git commit --no-edit" );
                 context.Console.WriteError( "  5. Push: git push" );
 
@@ -697,14 +698,14 @@ internal static class UpstreamMerge
     }
 
     /// <summary>
-    /// Runs <c>Build.ps1 prepare</c>, then <c>Build.ps1 generate-scripts --no-restore</c>, in the working tree of the merge.
+    /// Runs <c>Build.ps1 generate-scripts --no-restore</c> in the working tree of the merge.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The merge runs in a fresh checkout, which lacks the files that <c>prepare</c> generates and that source control
-    /// ignores. <c>generate-scripts</c> can need them: it evaluates the projects of the solutions that contain test
-    /// applications, and a project can import a file that <c>prepare</c> writes. The files that <c>prepare</c> writes are
-    /// expected to be ignored by source control, so the <c>git add -A</c> that follows does not stage them.
+    /// The merge runs in a fresh checkout, where <c>prepare</c> has not run and cannot run: in a continuous integration
+    /// build, it reads the dependencies that TeamCity downloads, and the Upstream Merge configuration downloads none.
+    /// <c>generate-scripts</c> raises <see cref="Product.TestDiscoveryStarting"/>, whose handler writes the files that the
+    /// evaluation of the test projects needs.
     /// </para>
     /// <para>
     /// The product is not built, so <c>generate-scripts</c> cannot restore a solution that consumes the packages of another
@@ -714,17 +715,6 @@ internal static class UpstreamMerge
     /// </remarks>
     private static bool TryRegenerateScripts( BuildContext context )
     {
-        if ( !ToolInvocationHelper.InvokePowershell(
-                context.Console,
-                "Build.ps1",
-                "prepare",
-                context.RepoDirectory ) )
-        {
-            context.Console.WriteError( "Failed to prepare the build before regenerating scripts." );
-
-            return false;
-        }
-
         if ( !ToolInvocationHelper.InvokePowershell(
                 context.Console,
                 "Build.ps1",
