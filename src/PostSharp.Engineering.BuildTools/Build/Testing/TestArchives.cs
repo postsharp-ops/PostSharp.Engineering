@@ -164,6 +164,34 @@ internal static class TestArchives
     }
 
     /// <summary>
+    /// Reads the list that <see cref="WriteList"/> wrote: the packages of each archive, as <c>&lt;producer&gt;/&lt;id&gt;</c>,
+    /// by archive name.
+    /// </summary>
+    /// <returns><c>false</c> if the product has no list.</returns>
+    public static bool TryReadList( BuildContext context, out ImmutableDictionary<string, ImmutableArray<string>> packagesByArchive )
+    {
+        var listPath = GetListPath( context );
+
+        if ( !File.Exists( listPath ) )
+        {
+            packagesByArchive = ImmutableDictionary<string, ImmutableArray<string>>.Empty;
+
+            return false;
+        }
+
+        packagesByArchive = File.ReadAllLines( listPath )
+            .Select( l => l.Trim() )
+            .Where( l => l.Length > 0 && !l.StartsWith( '#' ) )
+            .Select( l => l.Split( ':', 2 ) )
+            .ToImmutableDictionary(
+                l => l[0].Trim(),
+                l => l.Length > 1 ? l[1].Split( ' ', StringSplitOptions.RemoveEmptyEntries ).ToImmutableArray() : [],
+                StringComparer.OrdinalIgnoreCase );
+
+        return true;
+    }
+
+    /// <summary>
     /// Compares the archives that the build wrote, and their packages, with the list that <c>generate-scripts</c> wrote, when
     /// there is one.
     /// </summary>
@@ -234,19 +262,15 @@ internal static class TestArchives
 
         var listPath = GetListPath( context );
 
-        if ( !File.Exists( listPath ) )
+        if ( !TryReadList( context, out var listedPackages ) )
         {
             return true;
         }
 
-        var expected = File.ReadAllLines( listPath )
-            .Select( l => l.Trim() )
-            .Where( l => l.Length > 0 && !l.StartsWith( '#' ) )
-            .Select( l => l.Split( ':', 2 ) )
-            .ToDictionary(
-                l => l[0].Trim(),
-                l => l.Length > 1 ? l[1].Split( ' ', StringSplitOptions.RemoveEmptyEntries ).Order( StringComparer.Ordinal ).ToList() : [],
-                StringComparer.OrdinalIgnoreCase );
+        var expected = listedPackages.ToDictionary(
+            p => p.Key,
+            p => p.Value.Order( StringComparer.Ordinal ).ToList(),
+            StringComparer.OrdinalIgnoreCase );
 
         var actual = archivePaths.Select( Path.GetFileNameWithoutExtension ).ToHashSet( StringComparer.OrdinalIgnoreCase );
 

@@ -5,7 +5,10 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.MSBuild;
 using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Build.Testing;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
+using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.Collections.Immutable;
 using System.IO;
@@ -64,7 +67,7 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
              """ );
     }
 
-    private bool Discover( string[] projects, out ImmutableArray<TestApplication> applications )
+    private void WriteSolution( string[] projects )
     {
         var lines = projects.SelectMany( p => new[]
         {
@@ -75,6 +78,11 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
         File.WriteAllLines(
             Path.Combine( this._directory.Path, "Probe.sln" ),
             ["Microsoft Visual Studio Solution File, Format Version 12.00", .. lines, "Global", "EndGlobal"] );
+    }
+
+    private bool Discover( string[] projects, out ImmutableArray<TestApplication> applications )
+    {
+        this.WriteSolution( projects );
 
         var product = new Product( MetalamaDependencies.V2026_1.Metalama )
         {
@@ -260,6 +268,55 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
 
         Assert.False( this.Discover( ["First", "Second"], out var applications ) );
         Assert.Equal( 2, applications.Length );
+    }
+
+    /// <summary>
+    /// With <c>--no-restore</c>, <c>generate-scripts</c> discovers the archives from the projects and takes their packages from
+    /// the existing list, so it succeeds where a restore fails, as in a checkout whose product is not built.
+    /// </summary>
+    [Fact]
+    public void WithoutRestoreThePackagesAreTakenFromTheList()
+    {
+        // The package does not exist, so a restore of the project would fail.
+        const string body = """
+                            <PropertyGroup>
+                              <OutputType>Exe</OutputType>
+                              <TargetFramework>net8.0</TargetFramework>
+                              <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+                            </PropertyGroup>
+                            <ItemGroup>
+                              <PackageReference Include="Product.NotBuilt" Version="1.0.0" />
+                            </ItemGroup>
+                            """;
+
+        this.CreateProject( "Listed", body );
+        this.CreateProject( "Added", body );
+        this.WriteSolution( ["Listed", "Added"] );
+
+        // The list names an archive that the projects no longer write, which is dropped.
+        var listPath = Path.Combine( this._directory.Path, "eng", TestArchives.ListFileName );
+        Directory.CreateDirectory( Path.GetDirectoryName( listPath )! );
+        File.WriteAllLines( listPath, ["# Comment", "Listed.net8.0: Metalama/Product.NotBuilt Metalama/Other", "Removed.net8.0: Metalama/Product.NotBuilt"] );
+
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            GenerateDockerfiles = false,
+            OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows ),
+            Solutions = [new DotNetSolution( "Probe.sln" ) { ContainsTestApplications = true }],
+            TestAgents = [new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty )],
+            Configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Release, c => c with { RunsTestArchives = true } )
+        };
+
+        MSBuildHelper.InitializeLocator();
+
+        Assert.True(
+            GenerateScriptsCommand.Execute( TestBuildContext.Create( this._directory.Path, product ), new CommonCommandSettings(), noRestore: true ) );
+
+        Assert.True( TestArchives.TryReadList( TestBuildContext.Create( this._directory.Path, product ), out var packagesByArchive ) );
+
+        Assert.Equal( ["Added.net8.0", "Listed.net8.0"], packagesByArchive.Keys.Order( StringComparer.Ordinal ).ToArray() );
+        Assert.Equal( ["Metalama/Product.NotBuilt", "Metalama/Other"], packagesByArchive["Listed.net8.0"].ToArray() );
+        Assert.Empty( packagesByArchive["Added.net8.0"] );
     }
 
     public void Dispose() => this._directory.Dispose();
