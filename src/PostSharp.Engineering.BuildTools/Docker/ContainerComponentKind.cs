@@ -27,6 +27,11 @@ public enum ContainerComponentKind
     DotNetInstaller,
     DotNet,
     DotNetDump,
+
+    // A workload is installed by the SDK that is already in the image, so DotNetWorkload must follow DotNet.
+    // Inserting it here shifts the ordinal of Timestamp and of the members after it. That is safe: SortOrder
+    // derives from the ordinal, so only the relative order matters, and the relative order is unchanged.
+    DotNetWorkload,
     Timestamp,
     Claude,
     ClaudeAddIns,
