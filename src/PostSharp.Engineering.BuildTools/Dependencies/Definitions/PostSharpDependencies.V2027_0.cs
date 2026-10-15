@@ -92,6 +92,7 @@ public static partial class PostSharpDependencies
             // Since 2027.0, PostSharp.Sdk holds the reference assemblies that add-ins compile against, and the
             // PostSharp.Compiler.* packages only depend on it. PostSharp.Build.Tools is a private package: the MSBuild SDK
             // of the build tasks and the test tools, which the tests import from the artifacts of the build.
+            // PostSharp.Testing.* is the aspect test framework, which the tests of the product use as a customer does.
             PackagePatterns =
             [
                 "PostSharp",
@@ -100,7 +101,8 @@ public static partial class PostSharpDependencies
                 "PostSharp.Build.Tools",
                 "PostSharp.Compiler.*",
                 "PostSharp.Patterns.*",
-                "PostSharp.Settings.*"
+                "PostSharp.Settings.*",
+                "PostSharp.Testing.*"
             ],
             AutoUpdateVersion = false
         };
