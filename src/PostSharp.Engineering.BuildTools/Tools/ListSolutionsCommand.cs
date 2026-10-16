@@ -14,6 +14,7 @@ internal sealed class ListSolutionsCommand : BaseCommand<CommonCommandSettings>
     {
         var table = new Table();
         table.AddColumn( "Id" );
+        table.AddColumn( "Alias" );
         table.AddColumn( "Solution" );
         table.AddColumn( "Type" );
 
@@ -22,7 +23,7 @@ internal sealed class ListSolutionsCommand : BaseCommand<CommonCommandSettings>
         foreach ( var solution in context.Product.Solutions )
         {
             i++;
-            table.AddRow( i.ToString( CultureInfo.InvariantCulture ), solution.SolutionPath, solution.GetType().Name );
+            table.AddRow( i.ToString( CultureInfo.InvariantCulture ), solution.Alias ?? "", solution.SolutionPath, solution.GetType().Name );
         }
 
         context.Console.Write( table );

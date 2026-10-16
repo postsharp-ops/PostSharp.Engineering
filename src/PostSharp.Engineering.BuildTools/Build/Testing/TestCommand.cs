@@ -52,16 +52,9 @@ internal class TestCommand : BaseCommand<BuildSettings>
             properties = ImmutableDictionary<string, string>.Empty;
         }
 
-        Solution[] solutionsToTest;
-
-        if ( settings.SolutionId != null )
+        if ( !SolutionSelection.TryGetSolutions( context, settings, out var solutionsToTest ) )
         {
-            var solution = product.Solutions[settings.SolutionId.Value - 1];
-            solutionsToTest = [solution];
-        }
-        else
-        {
-            solutionsToTest = product.Solutions;
+            return false;
         }
 
         if ( settings.TestsFilter == null && product.DefaultTestsFilter != null )

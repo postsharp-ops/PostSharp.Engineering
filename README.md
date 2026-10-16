@@ -211,6 +211,9 @@ Build.ps1 prepare
 # Build all packages
 Build.ps1 build
 
+# Build the solutions in their order, and stop after the given one
+Build.ps1 build --to <SOLUTION>
+
 # Build and run tests
 Build.ps1 test
 
@@ -253,6 +256,16 @@ Build.ps1 dependencies update
 | `bump` | Bumps the product version |
 | `verify` | Verifies public artifact dependencies are published |
 | `clean` | Cleans build artifacts |
+
+`build` and `test` select the solutions of the product with two options. The value designates a solution by its id
+(its position, which `list-solutions` shows), by its `Alias` (a property of the solution in the product definition), or
+by its file name with or without the extension.
+
+- `--to <SOLUTION>` builds the solutions in their order and stops after the given one. The build is prepared, so the
+  packages get a new version. The artifacts are not verified, because they are declared for the whole product, and a
+  Public build does not accept the option.
+- `--solution <SOLUTION>` builds the given solution only, without preparing the build (`--no-dependencies`), so the
+  packages keep the version of the previous build.
 
 ### Dependency Commands
 

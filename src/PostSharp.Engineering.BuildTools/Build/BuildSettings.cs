@@ -18,7 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Build
     [PublicAPI]
     public class BuildSettings : BaseBuildSettings
     {
-        private int? _solutionId;
+        private string? _solutionId;
 
         protected override void AppendSettings( StringBuilder stringBuilder )
         {
@@ -62,6 +62,11 @@ namespace PostSharp.Engineering.BuildTools.Build
             if ( this.SolutionId != null )
             {
                 stringBuilder.Append( $"--solution {this.SolutionId} " );
+            }
+
+            if ( this.LastSolution != null )
+            {
+                stringBuilder.Append( $"--to {this.LastSolution} " );
             }
 
             if ( this.Recursive )
@@ -134,10 +139,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         public bool DisableBuildServers { get; set; }
 
         [Description(
-            "Specifies the solution that should be built. The list of solutions and their id is given by the `list-solutions` command." +
-            "Setting this property automatically adds the --no-dependencies option." )]
+            "Specifies the solution that should be built: its id, its alias, or its name with or without the extension, as the `list-solutions` command shows them. "
+            + "Setting this property automatically adds the --no-dependencies option." )]
         [CommandOption( "--solution" )]
-        public int? SolutionId
+        public string? SolutionId
         {
             get => this._solutionId;
             set
@@ -146,6 +151,19 @@ namespace PostSharp.Engineering.BuildTools.Build
                 this.NoDependencies = true;
             }
         }
+
+        [Description(
+            "Builds the solutions in their order and stops after the given solution. The value is the id, the alias, or the name with or without the extension, "
+            + "as the `list-solutions` command shows them. Unlike --solution, the build is prepared, so the packages get a new version. The artifacts are not verified, "
+            + "and a Public build does not accept this option." )]
+        [CommandOption( "--to" )]
+        public string? LastSolution { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether the command builds only some solutions of the product, because of <see cref="SolutionId"/>
+        /// or <see cref="LastSolution"/>.
+        /// </summary>
+        public bool IsPartialBuild => this.SolutionId != null || this.LastSolution != null;
 
         [Description( "Recursively builds any local dependency before building the current repo." )]
         [CommandOption( "--recursive" )]

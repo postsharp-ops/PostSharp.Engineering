@@ -25,6 +25,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string SolutionPath { get; }
 
         /// <summary>
+        /// Gets the short name by which the <c>--to</c> option of the <c>build</c> and <c>test</c> commands designates the solution,
+        /// for instance <c>Core</c>. Its position in <see cref="Product.Solutions"/> and its file name also designate it, but the
+        /// position changes when a solution is added before it. The default value, <c>null</c>, gives the solution no alias.
+        /// </summary>
+        public string? Alias { get; init; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether the current solution should be built only during a <c>test</c> command.
         /// </summary>
         public bool IsTestOnly { get; init; }
