@@ -67,7 +67,9 @@ internal static class SolutionSelection
     }
 
     // The id is the 1-based position that the list-solutions command shows. The alias (Solution.Alias) and the file name of
-    // the solution, with or without its extension, do not change when a solution is added before the designated one.
+    // the solution, with or without its extension, do not change when a solution is added before the designated one. The file
+    // name is compared besides Solution.Name, which a solution can override with a display name (DocFxSolutionBase appends its
+    // command).
     private static int FindSolution( Solution[] solutions, string value )
     {
         if ( int.TryParse( value, NumberStyles.None, CultureInfo.InvariantCulture, out var id ) )
@@ -85,6 +87,7 @@ internal static class SolutionSelection
         return Array.FindIndex(
             solutions,
             s => string.Equals( s.Name, value, StringComparison.OrdinalIgnoreCase )
+                 || string.Equals( Path.GetFileName( s.SolutionPath ), value, StringComparison.OrdinalIgnoreCase )
                  || string.Equals( Path.GetFileNameWithoutExtension( s.SolutionPath ), value, StringComparison.OrdinalIgnoreCase ) );
     }
 

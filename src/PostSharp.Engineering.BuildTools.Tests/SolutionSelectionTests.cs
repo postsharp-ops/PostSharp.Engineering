@@ -19,14 +19,14 @@ public sealed class SolutionSelectionTests
     {
         Solutions =
         [
-            new DotNetSolution( @"Core\Core.sln" ) { Alias = "C" },
-            new DotNetSolution( @"Patterns\Patterns.sln" ) { Alias = "P" },
-            new DotNetSolution( @"Tests\Tests.sln" )
+            new DotNetSolution( Path.Combine( "Core", "Core.sln" ) ) { Alias = "C" },
+            new DotNetSolution( Path.Combine( "Patterns", "Patterns.sln" ) ) { Alias = "P" },
+            new DotNetSolution( Path.Combine( "Tests", "Tests.sln" ) )
         ]
     };
 
-    private static string[]? Select( BuildSettings settings )
-        => SolutionSelection.TryGetSolutions( TestBuildContext.Create( Path.GetTempPath(), _product ), settings, out var solutions )
+    private static string[]? Select( BuildSettings settings, Product? product = null )
+        => SolutionSelection.TryGetSolutions( TestBuildContext.Create( Path.GetTempPath(), product ?? _product ), settings, out var solutions )
             ? solutions.Select( s => Path.GetFileNameWithoutExtension( s.SolutionPath ) ).ToArray()
             : null;
 
@@ -47,7 +47,7 @@ public sealed class SolutionSelectionTests
     [InlineData( "0" )]
     [InlineData( "4" )]
     [InlineData( "Unknown" )]
-    [InlineData( @"Patterns\Patterns.sln" )]
+    [InlineData( "Patterns/Patterns.sln" )]
     public void ToRejectsAnUnknownSolution( string value ) => Assert.Null( Select( new BuildSettings { LastSolution = value } ) );
 
     [Theory]
@@ -61,4 +61,26 @@ public sealed class SolutionSelectionTests
 
     [Fact]
     public void SolutionAndToAreExclusive() => Assert.Null( Select( new BuildSettings { SolutionId = "1", LastSolution = "Patterns" } ) );
+
+    // A solution can override Solution.Name with a display name, as DocFxSolutionBase does; its file name still designates it.
+    [Theory]
+    [InlineData( "Reference.Site" )]
+    [InlineData( "Reference" )]
+    [InlineData( "Reference.Site:build" )]
+    public void ToMatchesTheFileNameOfASolutionWithADisplayName( string value )
+    {
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            Solutions = [new DotNetSolution( Path.Combine( "Core", "Core.sln" ) ), new DisplayNameSolution( Path.Combine( "Docs", "Reference.Site" ) )]
+        };
+
+        Assert.Equal( ["Core", "Reference"], Select( new BuildSettings { LastSolution = value }, product ) );
+    }
+
+    private sealed class DisplayNameSolution : DotNetSolution
+    {
+        public DisplayNameSolution( string solutionPath ) : base( solutionPath ) { }
+
+        public override string Name => Path.GetFileName( this.SolutionPath ) + ":build";
+    }
 }
