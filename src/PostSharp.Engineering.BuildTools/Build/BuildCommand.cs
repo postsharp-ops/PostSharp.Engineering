@@ -66,6 +66,20 @@ namespace PostSharp.Engineering.BuildTools.Build
                 return false;
             }
 
+            // The solutions are selected before the build is prepared, so that an unknown solution fails at once.
+            if ( !SolutionSelection.TryGetSolutions( context, settings, out var solutionsToBuild ) )
+            {
+                return false;
+            }
+
+            // A Public build is deployed, so it must produce every artifact of the product.
+            if ( settings.LastSolution != null && configuration == BuildConfiguration.Public )
+            {
+                context.Console.WriteError( "The --to option cannot be used in the Public configuration, which builds every solution." );
+
+                return false;
+            }
+
             // Skip if we have a date tag and a fresh build.
             DateTime dateTag;
 
@@ -154,18 +168,6 @@ namespace PostSharp.Engineering.BuildTools.Build
             var privateArtifactsDirectory = product.GetPrivateArtifactsAbsoluteDirectory( context, settings.BuildConfiguration );
 
             // Build solutions.
-            IEnumerable<Solution> solutionsToBuild;
-
-            if ( settings.SolutionId != null )
-            {
-                var solution = product.Solutions[settings.SolutionId.Value - 1];
-                solutionsToBuild = [solution];
-            }
-            else
-            {
-                solutionsToBuild = product.Solutions;
-            }
-
             var solutionSettings = TestArchives.AddBuildProperties( product, settings, TeamCityHelper.IsTeamCityBuild( settings ) );
 
             foreach ( var solution in solutionsToBuild )
@@ -196,8 +198,8 @@ namespace PostSharp.Engineering.BuildTools.Build
             var publicArtifactsDirectory = product.GetPublicArtifactsAbsoluteDirectory( context );
 
             // The archives and their packages are compared with the list only when this build wrote them: the command line can
-            // turn it off.
-            if ( settings.SolutionId == null
+            // turn it off. A partial build does not write the archives of the solutions it skips.
+            if ( !settings.IsPartialBuild
                  && solutionSettings.Properties.TryGetValue( "PublishTestArchive", out var publishTestArchive )
                  && bool.TryParse( publishTestArchive, out var isPublishingTestArchives )
                  && isPublishingTestArchives
@@ -220,7 +222,12 @@ namespace PostSharp.Engineering.BuildTools.Build
             var allPrivateArtifacts = product.PrivateArtifacts.Append( buildConfigurationInfo.PrivateArtifacts );
             var allArtifacts = allPrivateArtifacts.Append( allPublicArtifacts );
 
-            if ( !allArtifacts.Verify( context, privateArtifactsDirectory, buildInfo ) )
+            // The artifacts are declared for the whole product, not for each solution, so a partial build cannot verify them.
+            if ( settings.LastSolution != null )
+            {
+                context.Console.WriteWarning( "The artifacts are not verified, because the --to option skips some solutions." );
+            }
+            else if ( !allArtifacts.Verify( context, privateArtifactsDirectory, buildInfo ) )
             {
                 return false;
             }
@@ -380,7 +387,11 @@ namespace PostSharp.Engineering.BuildTools.Build
 
             product.OnArtifactsPrepared( eventArgs );
 
-            context.Console.WriteSuccess( $"Building the whole {product.ProductName} product was successful. Package version: {buildInfo.PackageVersion}." );
+            var builtPart = settings.SolutionId != null ? solutionsToBuild[0].Name
+                : settings.LastSolution != null ? $"{product.ProductName} up to {solutionsToBuild[^1].Name}"
+                : $"the whole {product.ProductName} product";
+
+            context.Console.WriteSuccess( $"Building {builtPart} was successful. Package version: {buildInfo.PackageVersion}." );
 
             return true;
         }
