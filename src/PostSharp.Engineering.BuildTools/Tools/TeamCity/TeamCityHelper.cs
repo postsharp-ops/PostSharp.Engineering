@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using Microsoft.VisualStudio.Services.Common;
 using PostSharp.Engineering.BuildTools.Build;
@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Text;
 using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -391,11 +392,78 @@ public static class TeamCityHelper
 
         Console.WriteLine(
             "##teamcity[importData type='{0}' path='{1}' flowId='{2}' timestamp='{3}' whenNoDataPublished='{4}']",
-            type,
-            path,
-            flowId,
+            EscapeServiceMessageValue( type ),
+            EscapeServiceMessageValue( path ),
+            EscapeServiceMessageValue( flowId ),
             timestamp,
             failOnNoData ? "error" : "warning" );
+    }
+
+    /// <summary>
+    /// Escapes a value of a TeamCity service message. For instance, the TRX file of a test run that ends in the same second
+    /// as another one is named <c>..._net10.0[1].trx</c>, and an unescaped bracket makes the message invalid.
+    /// </summary>
+    public static string EscapeServiceMessageValue( string value )
+    {
+        var builder = new StringBuilder( value.Length );
+
+        foreach ( var c in value )
+        {
+            switch ( c )
+            {
+                case '|':
+                    builder.Append( "||" );
+
+                    break;
+
+                case '\'':
+                    builder.Append( "|'" );
+
+                    break;
+
+                case '[':
+                    builder.Append( "|[" );
+
+                    break;
+
+                case ']':
+                    builder.Append( "|]" );
+
+                    break;
+
+                case '\n':
+                    builder.Append( "|n" );
+
+                    break;
+
+                case '\r':
+                    builder.Append( "|r" );
+
+                    break;
+
+                case '\u0085':
+                    builder.Append( "|x" );
+
+                    break;
+
+                case '\u2028':
+                    builder.Append( "|l" );
+
+                    break;
+
+                case '\u2029':
+                    builder.Append( "|p" );
+
+                    break;
+
+                default:
+                    builder.Append( c );
+
+                    break;
+            }
+        }
+
+        return builder.ToString();
     }
 
     private static bool TryCreateProject( TeamCityClient tc, BuildContext context, string name, string id, string? parentId = null, string? vcsRootId = null )
