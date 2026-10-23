@@ -60,20 +60,19 @@ public static partial class MetalamaVsxDependencies
                     .ToDependency( _metalamaConfigurations )
                     .WithLastSuccessfulOnly(),
 
-                // Metalama 2026.1 is still under development, so its public builds are on develop/2026.1 and can be
-                // resolved there. Once 2026.1 is released and TeamCity has cleaned up the artifacts of that branch,
-                // add WithPublishingBranch() here, as the 2026.1 family does for Metalama 2026.0.
-                MetalamaDependencies.V2026_1.Metalama
+                // The canonical variant of Metalama.Vsx is built on Metalama 2027.0, which supports the projects that use
+                // Metalama 2026.1 or later. The 2026.0 variant still needs Metalama 2026.0. Metalama 2026.0 is released:
+                // it publishes only from release/2026.0, and TeamCity has cleaned up the artifacts of the last public
+                // build on develop/2026.0. Look its builds up on the publishing branch instead.
+                MetalamaDependencies.V2026_0.Metalama
                     .ToDependency( _metalamaConfigurations )
-                    .WithAlias( "Metalama20261" )
+                    .WithAlias( "Metalama20260" )
+                    .WithPublishingBranch()
                     .WithLastSuccessfulOnly(),
 
-                // PostSharp 2026.0, not 2027.0. PostSharp 2027.0 has no branch and no build configuration yet, so a
-                // reference to it would resolve to a build that does not exist and the dependency could not be fetched.
-                // Move this to PostSharpDependencies.V2027_0 once that family produces a signed distribution.
                 // PostSharp exports only its public build -- the signed distribution -- so that is the configuration
                 // to resolve, whichever configuration this product is itself built in.
-                PostSharpDependencies.V2026_0.PostSharp.ToDependency(
+                PostSharpDependencies.V2027_0.PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
                             BuildConfiguration.Public,
                             BuildConfiguration.Public,
