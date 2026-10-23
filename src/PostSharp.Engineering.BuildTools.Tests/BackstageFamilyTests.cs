@@ -215,4 +215,17 @@ public class BackstageFamilyTests
         // The previous version lines still build Backstage inside Metalama.
         Assert.Contains( "Metalama.Backstage*", MetalamaDependencies.V2026_1.Metalama.PackagePatterns );
     }
+
+    /// <summary>
+    /// SharpCrafters.Aspects.Introspection, the reader and writer of the .pssym file, is built by Backstage but named after
+    /// the files it reads. Without a pattern of Backstage for it, the package source mapping of PostSharp, which merges it
+    /// into its compiler, looks for it on nuget.org, where it is not.
+    /// </summary>
+    [Fact]
+    public void IntrospectionPackages_AreMappedToBackstage()
+    {
+        Assert.Contains(
+            BackstageDependencies.V2027_0.Backstage.PackagePatterns,
+            p => "SharpCrafters.Aspects.Introspection".StartsWith( p.TrimEnd( '*' ), StringComparison.Ordinal ) );
+    }
 }

@@ -76,6 +76,11 @@ public static partial class BackstageDependencies
                 [
                     "SharpCrafters.Backstage*", "SharpCrafters.Common*",
 
+                    // The readers and writers of the files that describe how aspects are applied (the .pssym file of
+                    // PostSharp), which the compilers of both products reference. They depend on nothing of this library,
+                    // so they are named after what they describe rather than after it.
+                    "SharpCrafters.Aspects*",
+
                     // The product customizations, one package family per product built on this library. They carry the
                     // name of the product they customize and not the one of this one, so neither the default patterns
                     // of this product nor those of the consuming product match them: without these two entries the
