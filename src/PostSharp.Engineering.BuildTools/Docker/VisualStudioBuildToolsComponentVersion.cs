@@ -105,18 +105,18 @@ public sealed class VisualStudioBuildToolsComponentVersion
     public override string ToString() => this.Version;
 
     /// <summary>
-    /// Gets the most recent Release channel build that this class carries, currently <see cref="v18_9"/>. A product
+    /// Gets the most recent Release channel build that this class carries, currently <see cref="v18_11"/>. A product
     /// that names this property moves to a new minor version, and therefore to a new base image, as soon as this
     /// class carries one. Name a line property instead where that move has to be a deliberate edit.
     /// </summary>
-    public static VisualStudioBuildToolsComponentVersion LatestStable => v18_9;
+    public static VisualStudioBuildToolsComponentVersion LatestStable => v18_11;
 
     /// <summary>
-    /// Gets the most recent Preview channel build that this class carries, currently <see cref="v18_11"/>. Microsoft
+    /// Gets the most recent Preview channel build that this class carries, currently <see cref="v18_12"/>. Microsoft
     /// markets that channel as Insiders. It serves pre-release builds, so this property is for testing a future
     /// Visual Studio, not for a production image.
     /// </summary>
-    public static VisualStudioBuildToolsComponentVersion LatestPreview => v18_11;
+    public static VisualStudioBuildToolsComponentVersion LatestPreview => v18_12;
 
     // The properties below are the supported way to select a version. Each names a line, i.e. the builds that share
     // a major and a minor version, and resolves to the build that this class currently carries for that line. A
@@ -147,12 +147,20 @@ public sealed class VisualStudioBuildToolsComponentVersion
     public static VisualStudioBuildToolsComponentVersion v18_9 => v18_9_2;
 
     /// <summary>
-    /// Gets the build of the Visual Studio (Dev18) 18.11 line that this class carries, currently
-    /// <see cref="v18_11_0"/>. 18.11 is served by the Preview channel, and is the pre-release of Visual Studio 2027.
+    /// Gets the build of the Visual Studio 2026 (Dev18) 18.11 line that this class carries, currently
+    /// <see cref="v18_11_2"/>. It bundles the .NET SDK 10.0.403.
     /// </summary>
 
     // ReSharper disable once InconsistentNaming
-    public static VisualStudioBuildToolsComponentVersion v18_11 => v18_11_0;
+    public static VisualStudioBuildToolsComponentVersion v18_11 => v18_11_2;
+
+    /// <summary>
+    /// Gets the build of the Visual Studio (Dev18) 18.12 line that this class carries, currently
+    /// <see cref="v18_12_0"/>. 18.12 is served by the Preview channel.
+    /// </summary>
+
+    // ReSharper disable once InconsistentNaming
+    public static VisualStudioBuildToolsComponentVersion v18_12 => v18_12_0;
 
 #pragma warning restore PSENG0002
 #pragma warning restore PSENG0003
@@ -244,13 +252,46 @@ public sealed class VisualStudioBuildToolsComponentVersion
     /// a Release entry once it does, expected in November 2026.
     /// </remarks>
     [Obsolete(
-        "Use v18_11, which resolves to the build currently carried for the 18.11 line, or LatestPreview.",
-        DiagnosticId = SpecificBuildDiagnosticId )]
+        "18.11 has shipped to the Release channel, so the Preview channel no longer serves 18.11.0. Use v18_11.",
+        DiagnosticId = UnservicedBuildDiagnosticId )]
 
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v18_11_0 = new(
         "18.11.12202.211",
         "https://download.visualstudio.microsoft.com/download/pr/878be7d2-921c-416a-8caa-cfad80ef209b/ede547c4c0a713a4d0fc3e1943b82eb3e535cc789be77b8eb95b89a76d702bee/VisualStudioPreview.vsman",
+        _dev18PreviewBootstrapper,
+        "Preview" );
+
+    /// <summary>
+    /// Visual Studio 2026 (Dev18) 18.11.2, build 12324.101, the Stable release that installs the .NET SDK 10.0.403
+    /// and, with it, the .NET runtime 10.0.14.
+    /// </summary>
+    [Obsolete(
+        "Use v18_11, which resolves to the build currently carried for the 18.11 line, or LatestStable.",
+        DiagnosticId = SpecificBuildDiagnosticId )]
+
+    // ReSharper disable once InconsistentNaming
+    public static readonly VisualStudioBuildToolsComponentVersion v18_11_2 = new(
+        "18.11.2",
+        "https://download.visualstudio.microsoft.com/download/pr/9a3f23c2-cc94-49a0-88c0-f9f19f2ac9df/b7aefeb168ba0be6c55db436328ef42f1800013146390350aed9ecb6d39f9bd6/VisualStudio.vsman",
+        _dev18Bootstrapper );
+
+    /// <summary>
+    /// Visual Studio (Dev18) 18.12.0, build 12324.72, from the Preview channel. It installs the .NET SDK
+    /// 11.0.100-rc.3.26522.148.
+    /// </summary>
+    /// <remarks>
+    /// The channel advances every few weeks, so <c>https://aka.ms/vs/18/insiders/channel</c> may return a later
+    /// channel manifest than the embedded copy.
+    /// </remarks>
+    [Obsolete(
+        "Use v18_12, which resolves to the build currently carried for the 18.12 line, or LatestPreview.",
+        DiagnosticId = SpecificBuildDiagnosticId )]
+
+    // ReSharper disable once InconsistentNaming
+    public static readonly VisualStudioBuildToolsComponentVersion v18_12_0 = new(
+        "18.12.12324.72",
+        "https://download.visualstudio.microsoft.com/download/pr/830dd2b3-cce4-45d7-bcfa-b958732aae12/6bbbd083ecf52b9df35ccc02d8064694a14628a69e1521815f6245ecf7cbf7b4/VisualStudioPreview.vsman",
         _dev18PreviewBootstrapper,
         "Preview" );
 }
