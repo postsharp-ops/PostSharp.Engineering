@@ -16,14 +16,15 @@ public static class BusinessSystemsDependencies
             string dependencyName,
             string? gitHubOwner = null,
             string? gitHubAppConnectionId = null,
-            string branch = "master" )
+            string branch = "master",
+            string? gitHubRepositoryName = null )
             : base(
                 Family,
                 dependencyName,
                 branch,
                 null,
                 gitHubOwner != null
-                    ? new GitHubRepository( dependencyName, gitHubOwner )
+                    ? new GitHubRepository( gitHubRepositoryName ?? dependencyName, gitHubOwner )
                     : new AzureDevOpsRepository( Family.Name, dependencyName ),
                 TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ) ),
                 false )
@@ -43,8 +44,15 @@ public static class BusinessSystemsDependencies
 
     public static DependencyDefinition HelpBrowser { get; } = new BusinessSystemsDependencyDefinition( "HelpBrowser" );
 
+    // The repository is metalama/Metalama.Marketplace. Its name has a dot, which the dependency name, also used as the
+    // TeamCity project id, cannot have. A token requested for postsharp/MetalamaMarketplace, which does not exist,
+    // made TeamCity refuse to start every build of the product.
     public static DependencyDefinition MetalamaMarketplace { get; } =
-        new BusinessSystemsDependencyDefinition( "MetalamaMarketplace", "postsharp", GitHubAppConnections.PostSharp );
+        new BusinessSystemsDependencyDefinition(
+            "MetalamaMarketplace",
+            "metalama",
+            GitHubAppConnections.Metalama,
+            gitHubRepositoryName: "Metalama.Marketplace" );
 
     public static DependencyDefinition WebIndexer { get; } =
         new BusinessSystemsDependencyDefinition( "WebIndexer", "postsharp-ops", GitHubAppConnections.PostSharpOps );
