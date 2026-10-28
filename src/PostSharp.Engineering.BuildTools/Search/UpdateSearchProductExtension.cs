@@ -113,7 +113,16 @@ public class UpdateSearchProductExtension : ProductExtension
 
         BuildStep CreateBuildStep()
         {
-            return new EngineeringCommandBuildStep( "UpdateSearch", "Update search", command, null, true, timeout: this.TimeOut );
+            // The step runs on an agent chosen by the product's requirements. When the product builds in a container,
+            // those agents have no .NET SDK of their own, so the step must run in the product's image like the build does.
+            return new EngineeringCommandBuildStep(
+                "UpdateSearch",
+                "Update search",
+                command,
+                null,
+                true,
+                dockerSpec: context.Product.DockerSpec,
+                timeout: this.TimeOut );
         }
 
         foreach ( var configuration in this.BuildConfigurations )
