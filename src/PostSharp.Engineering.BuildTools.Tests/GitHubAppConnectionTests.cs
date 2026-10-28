@@ -71,6 +71,21 @@ public class GitHubAppConnectionTests
         => Assert.Equal( GitHubAppConnections.Metalama, MetalamaDependencies.V2026_1.Metalama.EffectiveGitHubAppConnectionId );
 
     /// <summary>
+    /// The build-scoped token is requested for the repository of the definition, and TeamCity refuses to start the
+    /// build when the connection cannot reach it. The definition named postsharp/MetalamaMarketplace, which does not
+    /// exist, so no build of the marketplace could start.
+    /// </summary>
+    [Fact]
+    public void MetalamaMarketplace_IsTheRepositoryOfTheMetalamaOrganization()
+    {
+        var repository = Assert.IsType<GitHubRepository>( BusinessSystemsDependencies.MetalamaMarketplace.VcsRepository );
+
+        Assert.Equal( "metalama", repository.Owner );
+        Assert.Equal( "Metalama.Marketplace", repository.Name );
+        Assert.Equal( GitHubAppConnections.Metalama, BusinessSystemsDependencies.MetalamaMarketplace.EffectiveGitHubAppConnectionId );
+    }
+
+    /// <summary>
     /// This repository belongs to the Metalama family but to the 'postsharp' organization, so the family default must
     /// be overridden.
     /// </summary>
