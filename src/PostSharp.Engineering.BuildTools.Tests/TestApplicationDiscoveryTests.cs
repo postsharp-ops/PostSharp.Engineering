@@ -320,6 +320,49 @@ public sealed class TestApplicationDiscoveryTests : IDisposable
     }
 
     /// <summary>
+    /// <c>generate-scripts</c> writes <c>global.json</c> before it evaluates the projects, because a project that imports
+    /// PostSharp.Engineering.Sdk cannot be evaluated without it, as in a checkout where <c>prepare</c> has not run.
+    /// </summary>
+    [Fact]
+    public void GenerateScriptsWritesGlobalJsonBeforeTheEvaluation()
+    {
+        this.CreateProject(
+            "Probe",
+            """
+            <PropertyGroup>
+              <TargetFramework>net8.0</TargetFramework>
+              <OutputType>Exe</OutputType>
+              <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+            </PropertyGroup>
+            """ );
+
+        this.WriteSolution( ["Probe"] );
+
+        var globalJsonPath = Path.Combine( this._directory.Path, "global.json" );
+        var globalJsonExistedAtEvaluation = false;
+
+        var product = new Product( MetalamaDependencies.V2026_1.Metalama )
+        {
+            GenerateDockerfiles = false,
+            DotNetSdkVersion = new DotNetSdkVersion( "10.0.100" ) { RollForward = RollForwardPolicy.LatestMajor, AllowPrerelease = true },
+            OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows ),
+            Solutions = [new DotNetSolution( "Probe.sln" ) { ContainsTestApplications = true }],
+            TestAgents = [new TestAgent( "win-x64", "TestWinX64", "Windows x64", BuildAgentRequirements.Empty )],
+            Configurations = Product.DefaultConfigurations.WithValue( BuildConfiguration.Release, c => c with { RunsTestArchives = true } )
+        };
+
+        product.TestDiscoveryStarting += _ => globalJsonExistedAtEvaluation = File.Exists( globalJsonPath );
+
+        MSBuildHelper.InitializeLocator();
+
+        Assert.True(
+            GenerateScriptsCommand.Execute( TestBuildContext.Create( this._directory.Path, product ), new CommonCommandSettings(), noRestore: true ) );
+
+        Assert.True( globalJsonExistedAtEvaluation );
+        Assert.Contains( "PostSharp.Engineering.Sdk", File.ReadAllText( globalJsonPath ), StringComparison.Ordinal );
+    }
+
+    /// <summary>
     /// <c>generate-scripts</c> raises <see cref="Product.TestDiscoveryStarting"/> before it evaluates the projects, so that the
     /// product can write the files that the evaluation needs, as in a checkout where <c>prepare</c> has not run.
     /// </summary>
