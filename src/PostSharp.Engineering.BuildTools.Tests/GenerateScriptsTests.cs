@@ -387,6 +387,63 @@ public class GenerateScriptsTests
         return line[prefix.Length..line.LastIndexOf( '\'' )].Split( ',' );
     }
 
+    /// <summary>
+    /// DockerBuild.ps1 builds the default Dockerfile of the product when it is called without -Dockerfile, so a product
+    /// whose build needs another image than build.Dockerfile can be built with a plain '.\DockerBuild.ps1 build'.
+    /// </summary>
+    [Theory]
+    [InlineData( null, "build" )]
+    [InlineData( "vs17-build", "vs17-build" )]
+    public void DockerBuild_CarriesTheDefaultDockerfileOfTheProduct( string? stem, string expected )
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = CreateProductWithDefaultDockerfile( stem, generateDockerfiles: false );
+
+        Assert.True( GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+
+        Assert.Contains(
+            $"$DefaultDockerfileStem = '{expected}'",
+            File.ReadAllLines( Path.Combine( directory.Path, "DockerBuild.ps1" ) ) );
+    }
+
+    /// <summary>
+    /// A default Dockerfile that no chain produces would only fail on the machine of the person who builds the product,
+    /// so generate-scripts refuses it.
+    /// </summary>
+    [Theory]
+    [InlineData( null, true )]
+    [InlineData( "missing", false )]
+    public void Execute_RefusesADefaultDockerfileThatIsNotGenerated( string? stem, bool succeeds )
+    {
+        MSBuildHelper.InitializeLocator();
+
+        using var directory = new TempDirectory();
+
+        var product = CreateProductWithDefaultDockerfile( stem, generateDockerfiles: true );
+
+        Assert.Equal( succeeds, GenerateScriptsCommand.Execute( TestBuildContext.Create( directory.Path, product ), new CommonCommandSettings() ) );
+    }
+
+    // A null stem leaves the property unset, so that the default of the property is what is tested.
+    private static Product CreateProductWithDefaultDockerfile( string? stem, bool generateDockerfiles )
+        => stem == null
+            ? new Product( MetalamaDependencies.V2026_1.Metalama )
+            {
+                GenerateTeamCitySettings = false,
+                GenerateDockerfiles = generateDockerfiles,
+                OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows )
+            }
+            : new Product( MetalamaDependencies.V2026_1.Metalama )
+            {
+                GenerateTeamCitySettings = false,
+                GenerateDockerfiles = generateDockerfiles,
+                OverriddenBuildAgentRequirements = new ContainerRequirements( ContainerHostKind.Windows ),
+                DefaultDockerfileStem = stem
+            };
+
     private static string NormalizeLineEndings( string text ) => text.Replace( "\r\n", "\n", StringComparison.Ordinal );
 
     [Fact]

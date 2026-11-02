@@ -49,6 +49,9 @@ internal static class EmbeddedResourceHelper
         // ContainerRequirements.GetImagePrefix / the default DockerSpec.ImageName.
         replacements.Add( "<DOCKER_IMAGE_PREFIX>", $"{product.ProductNameWithoutDot}-{product.ProductFamily.Version}".ToLowerInvariant() );
 
+        // The value lands inside a single-quoted PowerShell literal, so an apostrophe has to be doubled.
+        replacements.Add( "<DEFAULT_DOCKERFILE_STEM>", product.DefaultDockerfileStem.Replace( "'", "''", StringComparison.Ordinal ) );
+
         // The package directories a container deletes from the mounted NuGet cache before it restores. The list is
         // baked into the script rather than passed to it, because it is a fact about the product and not a choice a
         // caller makes, and because the TeamCity step that cleans what the agent itself can delete has to name exactly
