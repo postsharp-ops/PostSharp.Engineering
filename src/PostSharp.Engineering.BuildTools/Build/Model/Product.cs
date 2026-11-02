@@ -325,6 +325,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool GenerateDockerfiles { get; init; } = true;
 
         /// <summary>
+        /// Gets or sets the stem of the Dockerfile that <c>DockerBuild.ps1</c> builds when it is called without <c>-Dockerfile</c>
+        /// and without <c>-Claude</c>: the file <c>&lt;stem&gt;.Dockerfile</c> in the <c>docker</c> subdirectory of
+        /// <see cref="EngineeringDirectory"/>. The default is <see cref="ContainerLayers.Build"/>.
+        /// </summary>
+        /// <remarks>
+        /// Set it to the stem of an additional chain, such as <c>vs17-build</c>, when the build of the product needs that image
+        /// rather than the main one. A person who builds the product with only <c>.\DockerBuild.ps1 build</c> then gets the right
+        /// image without knowing which Dockerfile to name. When <see cref="GenerateDockerfiles"/> is <c>true</c>, the
+        /// <c>generate-scripts</c> command fails if it did not write this Dockerfile.
+        /// </remarks>
+        public string DefaultDockerfileStem { get; init; } = ContainerLayers.Build;
+
+        /// <summary>
         /// Gets or sets a value indicating whether the <c>prepare</c> command should generate the <c>global.json</c> file.
         /// Set to <c>false</c> for a product whose <c>global.json</c> is owned by its own build system and committed to source control.
         /// </summary>

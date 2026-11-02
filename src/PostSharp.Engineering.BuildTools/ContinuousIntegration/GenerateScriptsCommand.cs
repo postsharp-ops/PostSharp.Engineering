@@ -13,6 +13,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -201,6 +202,23 @@ internal class GenerateScriptsCommand : BaseCommand<GenerateScriptsCommandSettin
                     {
                         return false;
                     }
+                }
+
+                // DockerBuild.ps1 builds this Dockerfile when it is called without -Dockerfile, so a stem that no chain
+                // produced would only fail on the machine of the person who builds the product.
+                var defaultDockerfile = Path.Combine(
+                    context.RepoDirectory,
+                    product.EngineeringDirectory,
+                    "docker",
+                    $"{product.DefaultDockerfileStem}.Dockerfile" );
+
+                if ( !File.Exists( defaultDockerfile ) )
+                {
+                    context.Console.WriteError(
+                        $"The default Dockerfile '{defaultDockerfile}' was not generated. Set Product.DefaultDockerfileStem to the stem "
+                        + "of a Dockerfile of the main chain or of an additional chain." );
+
+                    return false;
                 }
             }
 
