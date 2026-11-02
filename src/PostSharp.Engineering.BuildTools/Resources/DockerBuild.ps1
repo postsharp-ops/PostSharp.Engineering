@@ -3091,8 +3091,10 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
             }
         }
     }
-    elseif (-not $env:IS_TEAMCITY_AGENT)
+    elseif ($env:IS_POSTSHARP_OWNED -and -not $env:IS_TEAMCITY_AGENT)
     {
+        # Only a development machine of ours is expected to have run 'prepare' on the host. A build agent, or a clean
+        # machine that has only Docker, builds without the additional mounts.
         Write-Error "DockerMounts.g.ps1 not found at '$dockerMountsScript'. Run './Build.ps1 prepare' or './Build.ps1 dependencies update' to generate it."
         exit 1
     }
