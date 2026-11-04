@@ -70,12 +70,15 @@ public static partial class MetalamaVsxDependencies
                     .WithPublishingBranch()
                     .WithLastSuccessfulOnly(),
 
-                // PostSharp exports only its public build -- the signed distribution -- so that is the configuration
-                // to resolve, whichever configuration this product is itself built in.
+                // The debug and release builds take the release build of PostSharp, as the documentation of the line
+                // does, and only the public build takes the public build of PostSharp, the signed distribution. The
+                // PostSharp line publishes from the release branch, which is updated only when the line is deployed, so
+                // the public build left on the development branch is older than the current packages. The release
+                // build runs on the development branch. This line generates no debug build of PostSharp.
                 PostSharpDependencies.V2027_0.PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Public,
-                            BuildConfiguration.Public,
+                            BuildConfiguration.Release,
+                            BuildConfiguration.Release,
                             BuildConfiguration.Public ) )
                     .WithLastSuccessfulOnly()
             ]
