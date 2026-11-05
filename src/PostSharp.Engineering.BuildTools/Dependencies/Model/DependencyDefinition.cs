@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
@@ -184,9 +185,21 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             }
         }
 
+        /// <summary>
+        /// Gets the direct and transitive dependencies of this product in a build configuration.
+        /// </summary>
+        /// <remarks>
+        /// A product that this product declares as a direct dependency is taken in the configuration of that declaration
+        /// only, and not also in the configuration in which another dependency reaches it. Both would have the same
+        /// <see cref="DependencyConfiguration.Key"/>, so their artifacts would be unpacked into the same directory and
+        /// the build would get whichever came last. For instance, the debug build of Metalama.Vsx declares the debug
+        /// build of Backstage, and also takes the release build of PostSharp, which was built against the release build
+        /// of Backstage.
+        /// </remarks>
         public IReadOnlySet<DependencyConfiguration> GetAllDependencies( BuildConfiguration buildConfiguration )
         {
             HashSet<DependencyConfiguration> dependencies = new();
+            var directDependencyKeys = this.Dependencies.Select( d => d.Key ).ToHashSet( StringComparer.OrdinalIgnoreCase );
             PopulateRecursive( parent: null, this, buildConfiguration, ancestorIsLastSuccessful: false );
 
             return dependencies;
@@ -215,6 +228,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     // parent is null for the direct dependencies of the consumer, which keep the reference as declared.
                     var alias = parent?.GetAliasForTransitiveDependency( child.Definition );
                     var effectiveChild = alias == null ? child : child with { Alias = alias };
+
+                    // A transitive dependency on a product that is also a direct dependency is the direct dependency: its
+                    // own dependencies are reached from the direct declaration, in the declared configuration.
+                    if ( parent != null && directDependencyKeys.Contains( effectiveChild.Key ) )
+                    {
+                        continue;
+                    }
 
                     var dependencyConfiguration = new DependencyConfiguration( child, childConfiguration )
                     {

@@ -255,6 +255,19 @@ public class ParametrizedDependencyAliasTests
     }
 
     [Fact]
+    public void GetAllDependencies_TakesADirectDependencyOnlyInItsDeclaredConfiguration()
+    {
+        // The debug build of Metalama.Vsx 2027.0 declares the debug build of Backstage, and takes the release build of
+        // PostSharp, which depends on the release build of Backstage. Both would be unpacked into dependencies/Backstage.
+        var dependencies = MetalamaVsxDependencies.V2027_0.MetalamaVsx.GetAllDependencies( BuildConfiguration.Debug );
+
+        var backstage = Assert.Single( dependencies, d => ReferenceEquals( d.Definition, BackstageDependencies.V2027_0.Backstage ) );
+
+        Assert.Equal( BuildConfiguration.Debug, backstage.Configuration );
+        Assert.Single( dependencies, d => d.Key.Equals( "Backstage", StringComparison.OrdinalIgnoreCase ) );
+    }
+
+    [Fact]
     public void GetAllDependencies_OfAnUnaliasedProductAssignsNoAlias()
     {
         var dependencies = MetalamaDependencies.V2026_1.Metalama.GetAllDependencies( BuildConfiguration.Debug );
