@@ -121,6 +121,9 @@ public static partial class MetalamaDependencies
                     "Metalama.Patterns.Observability",
                     "Metalama.Patterns.TestHelpers",
                     "Metalama.Patterns.Wpf",
+
+                    // The host of the design-time pipeline in a test process, with which Metalama.Vsx tests its Metalama plugin.
+                    "Metalama.DesignTime.Hosting",
                     "Metalama.LinqPad",
                     "Metalama.Migration",
                     "Metalama.Testing.*",
