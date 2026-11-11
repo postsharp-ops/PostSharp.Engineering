@@ -16,10 +16,16 @@ public record PreferredDotNetSdkVersions
     // These values are the single source of truth of the default versions. The obsolete PreferredVersions class
     // exposes them as constants, which is why they are declared as constants here instead of as literals in the
     // property initializers.
+    internal const string DefaultV_11_0 = "11.0.100";
     internal const string DefaultV_10_0 = "10.0.113";
     internal const string DefaultV_9_0 = "9.0.319";
     internal const string DefaultV_8_0 = "8.0.426";
     internal const string DefaultV_6_0 = "6.0.428";
+
+    /// <summary>
+    /// Gets the preferred version of the .NET 11.0 SDK.
+    /// </summary>
+    public string V_11_0 { get; init; } = DefaultV_11_0;
 
     /// <summary>
     /// Gets the preferred version of the .NET 10.0 SDK.
