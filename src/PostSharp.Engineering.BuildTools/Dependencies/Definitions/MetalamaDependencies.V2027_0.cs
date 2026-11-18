@@ -124,7 +124,9 @@ public static partial class MetalamaDependencies
 
                     // The host of the design-time pipeline in a test process, with which Metalama.Vsx tests its Metalama plugin.
                     "Metalama.DesignTime.Hosting",
+                    "Metalama.Introspection.Navigation",
                     "Metalama.LinqPad",
+                    "Metalama.Mcp",
                     "Metalama.Migration",
                     "Metalama.Testing.*",
                     "Metalama.Tool",
