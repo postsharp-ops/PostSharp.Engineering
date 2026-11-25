@@ -106,9 +106,10 @@ public sealed class VisualStudioBuildToolsComponentVersionTests
     }
 
     /// <summary>
-    /// A selector property must resolve to a build that Microsoft still services. This is what a re-pin that adds a
-    /// build but forgets to move the property would break, and these properties are the members that products are
-    /// told to use. A selector that is itself marked as resolving to an unserviced build, such as LatestPreview when no
+    /// A selector property must not resolve to a build marked as unserviced. A line property stays on its build when a
+    /// later patch of the same channel is added, but it moves when a Preview build reaches the Release channel and the
+    /// Preview build is marked; this is what a change that marks the Preview build but forgets to move the property
+    /// would break, and these properties are the members that products are told to use. A selector that is itself marked as resolving to an unserviced build, such as LatestPreview when no
     /// Preview build is carried, already warns its users and is exempt.
     /// </summary>
     [Theory]

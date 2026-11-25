@@ -11,17 +11,22 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 /// <remarks>
 /// To add a version, download <c>https://aka.ms/vs/{major}/{channel}/channel</c> (<c>17/release</c> for the
 /// Dev17 Release channel, <c>18/stable</c> for the Dev18 Release channel, <c>18/insiders</c> for the Dev18
-/// Preview channel), save it to <c>Resources</c> under the name given by <see cref="ManifestFilename"/>, and
+/// Preview channel, <c>18/release.ltsc.18.11</c> for the Dev18 18.11 long-term servicing channel), save it to
+/// <c>Resources</c> under the name given by <see cref="ManifestFilename"/>, and
 /// read <see cref="InstallCatalogueUri"/> out of it: it is the payload URL of the
 /// <c>Microsoft.VisualStudio.Manifests.VisualStudio</c> channel item on a Release channel, and of the
 /// <c>Microsoft.VisualStudio.Manifests.VisualStudioPreview</c> item on a Preview channel.
 /// </remarks>
 /// <remarks>
-/// Then, if the new build belongs to a line that already has a property, such as <see cref="v17_14"/>, point that
-/// property at it and mark the build it replaces with <see cref="UnservicedBuildDiagnosticId"/> if Microsoft no longer
-/// services it. If the new build opens a line, add a property for that line instead, and leave the existing ones alone:
-/// moving a product to a new minor version is a deliberate edit, not a re-pin. A product names a line property, so a
-/// build that no property resolves to is reachable only by a product that names it on purpose.
+/// Then, if the new build opens a line, add a property for that line. If it belongs to a line that already has a
+/// property, such as <see cref="v17_14"/>, leave the property where it is: re-pointing it to a later build of the same
+/// channel rebuilds the base image of every product that names the line, which takes hours on every agent, and a later
+/// patch of the Build Tools brings nothing that our builds need. The one exception is a line whose property names a
+/// Preview build when the line reaches the Release channel: re-point the property to the Release build, and mark the
+/// Preview build with <see cref="UnservicedBuildDiagnosticId"/>, because a production image must not stay on a
+/// pre-release. Moving a product to a new minor version is a deliberate edit of the product, not a re-pin. A product
+/// names a line property, so a build that no property resolves to is reachable only by a product that names it on
+/// purpose.
 /// </remarks>
 public sealed class VisualStudioBuildToolsComponentVersion
 {
@@ -159,12 +164,13 @@ public sealed class VisualStudioBuildToolsComponentVersion
 
     /// <summary>
     /// Gets the build of the Visual Studio 2026 (Dev18) 18.11 line that this class carries, currently
-    /// <see cref="v18_11_4"/> from the 18.11 long-term servicing channel. Microsoft services that channel until
-    /// 14 November 2028, whereas the Stable channel has moved on to 18.12.
+    /// <see cref="v18_11_2"/> from the Release channel. It bundles the .NET SDK 10.0.403. The line continues on the
+    /// 18.11 long-term servicing channel (<see cref="v18_11_4"/>), but this property stays on 18.11.2 so that the
+    /// images built on it remain valid.
     /// </summary>
 
     // ReSharper disable once InconsistentNaming
-    public static VisualStudioBuildToolsComponentVersion v18_11 => v18_11_4;
+    public static VisualStudioBuildToolsComponentVersion v18_11 => v18_11_2;
 
     /// <summary>
     /// Gets the build of the Visual Studio 2026 (Dev18) 18.12 line that this class carries, currently
@@ -278,13 +284,9 @@ public sealed class VisualStudioBuildToolsComponentVersion
     /// Visual Studio 2026 (Dev18) 18.11.2, build 12324.101, the Stable release that installs the .NET SDK 10.0.403
     /// and, with it, the .NET runtime 10.0.14.
     /// </summary>
-    /// <remarks>
-    /// The Stable channel services only its latest build, and it serves 18.12 since November 2026, so this build
-    /// receives no further fix. The 18.11 line continues on the long-term servicing channel, see <see cref="v18_11_4"/>.
-    /// </remarks>
     [Obsolete(
-        "The Stable channel serves 18.12, so 18.11.2 receives no further fix. Use v18_11, which resolves to the 18.11 long-term servicing channel.",
-        DiagnosticId = UnservicedBuildDiagnosticId )]
+        "Use v18_11, which resolves to the build currently carried for the 18.11 line.",
+        DiagnosticId = SpecificBuildDiagnosticId )]
 
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v18_11_2 = new(
@@ -299,9 +301,11 @@ public sealed class VisualStudioBuildToolsComponentVersion
     /// <remarks>
     /// The channel manifest comes from <c>https://aka.ms/vs/18/release.ltsc.18.11/channel</c>, and the bootstrapper
     /// from the same channel: the Stable bootstrapper would install the latest Stable minor version instead.
+    /// <see cref="v18_11"/> does not resolve to this build, so that the images built on 18.11.2 remain valid; name
+    /// it explicitly to install the same Build Tools as a machine set up from the long-term servicing channel.
     /// </remarks>
     [Obsolete(
-        "Use v18_11, which resolves to the build currently carried for the 18.11 line.",
+        "Prefer v18_11, which resolves to the build currently carried for the 18.11 line. Name this build only to match a machine installed from the 18.11 long-term servicing channel.",
         DiagnosticId = SpecificBuildDiagnosticId )]
 
     // ReSharper disable once InconsistentNaming
