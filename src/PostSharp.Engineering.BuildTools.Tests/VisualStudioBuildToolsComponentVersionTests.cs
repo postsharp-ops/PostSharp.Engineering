@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using Xunit;
 
 namespace PostSharp.Engineering.BuildTools.Tests;
@@ -105,18 +106,30 @@ public sealed class VisualStudioBuildToolsComponentVersionTests
     }
 
     /// <summary>
-    /// A selector property must resolve to a build that Microsoft still services. This is what a re-pin that adds a
-    /// build but forgets to move the property would break, and these properties are the members that products are
-    /// told to use.
+    /// A selector property must not resolve to a build marked as unserviced. A line property stays on its build when a
+    /// later patch of the same channel is added, but it moves when a Preview build reaches the Release channel and the
+    /// Preview build is marked; this is what a change that marks the Preview build but forgets to move the property
+    /// would break, and these properties are the members that products are told to use. A selector that is itself marked as resolving to an unserviced build, such as LatestPreview when no
+    /// Preview build is carried, already warns its users and is exempt.
     /// </summary>
     [Theory]
     [MemberData( nameof(SelectorNames) )]
     public void SelectorResolvesToServicedBuild( string name )
     {
+        var property = GetSelectorProperties().Single( p => p.Name == name );
+        var selectorObsolete = property.GetCustomAttribute<ObsoleteAttribute>();
+
         var version = GetVersion( name );
 
         var field = Assert.Single( GetBuildFields(), f => ReferenceEquals( f.GetValue( null ), version ) );
         var obsolete = field.GetCustomAttribute<ObsoleteAttribute>();
+
+        if ( selectorObsolete?.DiagnosticId == VisualStudioBuildToolsComponentVersion.UnservicedBuildDiagnosticId )
+        {
+            Assert.Equal( VisualStudioBuildToolsComponentVersion.UnservicedBuildDiagnosticId, obsolete?.DiagnosticId );
+
+            return;
+        }
 
         Assert.NotEqual(
             VisualStudioBuildToolsComponentVersion.UnservicedBuildDiagnosticId,
@@ -126,14 +139,42 @@ public sealed class VisualStudioBuildToolsComponentVersionTests
     /// <summary>
     /// LatestStable and LatestPreview name a channel, so each has to resolve to a build of that channel. The channel
     /// decides the channel id given to the installer, and a Preview build reached through LatestStable would only be
-    /// noticed once an image was built.
+    /// noticed once an image was built. A long-term servicing channel, such as <c>Release.LTSC.18.11</c>, is a Release
+    /// channel, so LatestStable may resolve to it.
     /// </summary>
     [Theory]
     [InlineData( nameof(VisualStudioBuildToolsComponentVersion.LatestStable), "Release" )]
+#pragma warning disable PSENG0002 // LatestPreview is obsolete while no Preview build is carried, but it still names the Preview channel.
     [InlineData( nameof(VisualStudioBuildToolsComponentVersion.LatestPreview), "Preview" )]
+#pragma warning restore PSENG0002
     public void LatestSelectorMatchesChannel( string name, string channel )
     {
-        Assert.Equal( channel, GetVersion( name ).Channel );
+        var actual = GetVersion( name ).Channel;
+
+        Assert.True(
+            actual == channel || actual.StartsWith( channel + ".", StringComparison.Ordinal ),
+            $"{name} resolves to the channel {actual}, which is not {channel} or one of its long-term servicing channels." );
+    }
+
+    /// <summary>
+    /// The channel id is passed to the installer as <c>--channelId</c>, and it must be the part of the embedded channel
+    /// manifest's <c>info.id</c> that precedes the slash. A long-term servicing channel has an id of its own, such as
+    /// <c>VisualStudio.18.Release.LTSC.18.11</c>, which differs from the plain Release id.
+    /// </summary>
+    [Theory]
+    [MemberData( nameof(VersionNames) )]
+    public void ChannelIdMatchesEmbeddedManifest( string name )
+    {
+        var version = GetVersion( name );
+        var resourceName = $"PostSharp.Engineering.BuildTools.Resources.{version.ManifestFilename}";
+
+        using var stream = typeof(VisualStudioBuildToolsComponent).Assembly.GetManifestResourceStream( resourceName );
+        Assert.NotNull( stream );
+
+        using var document = JsonDocument.Parse( stream );
+        var manifestId = document.RootElement.GetProperty( "info" ).GetProperty( "id" ).GetString()!;
+
+        Assert.Equal( manifestId.Split( '/' )[0], version.ChannelId );
     }
 
     /// <summary>
