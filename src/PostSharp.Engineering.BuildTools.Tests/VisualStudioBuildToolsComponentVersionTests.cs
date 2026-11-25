@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using Xunit;
 
 namespace PostSharp.Engineering.BuildTools.Tests;
@@ -126,14 +127,40 @@ public sealed class VisualStudioBuildToolsComponentVersionTests
     /// <summary>
     /// LatestStable and LatestPreview name a channel, so each has to resolve to a build of that channel. The channel
     /// decides the channel id given to the installer, and a Preview build reached through LatestStable would only be
-    /// noticed once an image was built.
+    /// noticed once an image was built. A long-term servicing channel, such as <c>Release.LTSC.18.11</c>, is a Release
+    /// channel, so LatestStable may resolve to it.
     /// </summary>
     [Theory]
     [InlineData( nameof(VisualStudioBuildToolsComponentVersion.LatestStable), "Release" )]
     [InlineData( nameof(VisualStudioBuildToolsComponentVersion.LatestPreview), "Preview" )]
     public void LatestSelectorMatchesChannel( string name, string channel )
     {
-        Assert.Equal( channel, GetVersion( name ).Channel );
+        var actual = GetVersion( name ).Channel;
+
+        Assert.True(
+            actual == channel || actual.StartsWith( channel + ".", StringComparison.Ordinal ),
+            $"{name} resolves to the channel {actual}, which is not {channel} or one of its long-term servicing channels." );
+    }
+
+    /// <summary>
+    /// The channel id is passed to the installer as <c>--channelId</c>, and it must be the part of the embedded channel
+    /// manifest's <c>info.id</c> that precedes the slash. A long-term servicing channel has an id of its own, such as
+    /// <c>VisualStudio.18.Release.LTSC.18.11</c>, which differs from the plain Release id.
+    /// </summary>
+    [Theory]
+    [MemberData( nameof(VersionNames) )]
+    public void ChannelIdMatchesEmbeddedManifest( string name )
+    {
+        var version = GetVersion( name );
+        var resourceName = $"PostSharp.Engineering.BuildTools.Resources.{version.ManifestFilename}";
+
+        using var stream = typeof(VisualStudioBuildToolsComponent).Assembly.GetManifestResourceStream( resourceName );
+        Assert.NotNull( stream );
+
+        using var document = JsonDocument.Parse( stream );
+        var manifestId = document.RootElement.GetProperty( "info" ).GetProperty( "id" ).GetString()!;
+
+        Assert.Equal( manifestId.Split( '/' )[0], version.ChannelId );
     }
 
     /// <summary>
