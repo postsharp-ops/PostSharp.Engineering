@@ -108,16 +108,27 @@ public sealed class VisualStudioBuildToolsComponentVersionTests
     /// <summary>
     /// A selector property must resolve to a build that Microsoft still services. This is what a re-pin that adds a
     /// build but forgets to move the property would break, and these properties are the members that products are
-    /// told to use.
+    /// told to use. A selector that is itself marked as resolving to an unserviced build, such as LatestPreview when no
+    /// Preview build is carried, already warns its users and is exempt.
     /// </summary>
     [Theory]
     [MemberData( nameof(SelectorNames) )]
     public void SelectorResolvesToServicedBuild( string name )
     {
+        var property = GetSelectorProperties().Single( p => p.Name == name );
+        var selectorObsolete = property.GetCustomAttribute<ObsoleteAttribute>();
+
         var version = GetVersion( name );
 
         var field = Assert.Single( GetBuildFields(), f => ReferenceEquals( f.GetValue( null ), version ) );
         var obsolete = field.GetCustomAttribute<ObsoleteAttribute>();
+
+        if ( selectorObsolete?.DiagnosticId == VisualStudioBuildToolsComponentVersion.UnservicedBuildDiagnosticId )
+        {
+            Assert.Equal( VisualStudioBuildToolsComponentVersion.UnservicedBuildDiagnosticId, obsolete?.DiagnosticId );
+
+            return;
+        }
 
         Assert.NotEqual(
             VisualStudioBuildToolsComponentVersion.UnservicedBuildDiagnosticId,
@@ -132,7 +143,9 @@ public sealed class VisualStudioBuildToolsComponentVersionTests
     /// </summary>
     [Theory]
     [InlineData( nameof(VisualStudioBuildToolsComponentVersion.LatestStable), "Release" )]
+#pragma warning disable PSENG0002 // LatestPreview is obsolete while no Preview build is carried, but it still names the Preview channel.
     [InlineData( nameof(VisualStudioBuildToolsComponentVersion.LatestPreview), "Preview" )]
+#pragma warning restore PSENG0002
     public void LatestSelectorMatchesChannel( string name, string channel )
     {
         var actual = GetVersion( name ).Channel;

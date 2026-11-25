@@ -109,19 +109,25 @@ public sealed class VisualStudioBuildToolsComponentVersion
     public override string ToString() => this.Version;
 
     /// <summary>
-    /// Gets the most recent Release channel build that this class carries, currently <see cref="v18_11"/>, which is
-    /// served by the 18.11 long-term servicing channel. A product
+    /// Gets the most recent Release channel build that this class carries, currently <see cref="v18_12"/>. A product
     /// that names this property moves to a new minor version, and therefore to a new base image, as soon as this
     /// class carries one. Name a line property instead where that move has to be a deliberate edit.
     /// </summary>
-    public static VisualStudioBuildToolsComponentVersion LatestStable => v18_11;
+    public static VisualStudioBuildToolsComponentVersion LatestStable => v18_12;
+
+#pragma warning disable PSENG0002
 
     /// <summary>
-    /// Gets the most recent Preview channel build that this class carries, currently <see cref="v18_12"/>. Microsoft
-    /// markets that channel as Insiders. It serves pre-release builds, so this property is for testing a future
-    /// Visual Studio, not for a production image.
+    /// Gets the most recent Preview channel build that this class carried, <see cref="v18_12_0"/>. Microsoft markets
+    /// that channel as Insiders. 18.12 has since shipped to the Release channel, and this class carries no later
+    /// Preview build, so the property resolves to a build that is no longer served.
     /// </summary>
-    public static VisualStudioBuildToolsComponentVersion LatestPreview => v18_12;
+    [Obsolete(
+        "18.12 has shipped to the Release channel, and no later Preview build is carried. Use v18_12 or LatestStable.",
+        DiagnosticId = UnservicedBuildDiagnosticId )]
+    public static VisualStudioBuildToolsComponentVersion LatestPreview => v18_12_0;
+
+#pragma warning restore PSENG0002
 
     // The properties below are the supported way to select a version. Each names a line, i.e. the builds that share
     // a major and a minor version, and resolves to the build that this class currently carries for that line. A
@@ -161,12 +167,12 @@ public sealed class VisualStudioBuildToolsComponentVersion
     public static VisualStudioBuildToolsComponentVersion v18_11 => v18_11_4;
 
     /// <summary>
-    /// Gets the build of the Visual Studio (Dev18) 18.12 line that this class carries, currently
-    /// <see cref="v18_12_0"/>. 18.12 is served by the Preview channel.
+    /// Gets the build of the Visual Studio 2026 (Dev18) 18.12 line that this class carries, currently
+    /// <see cref="v18_12_1"/> from the Release channel.
     /// </summary>
 
     // ReSharper disable once InconsistentNaming
-    public static VisualStudioBuildToolsComponentVersion v18_12 => v18_12_0;
+    public static VisualStudioBuildToolsComponentVersion v18_12 => v18_12_1;
 
 #pragma warning restore PSENG0002
 #pragma warning restore PSENG0003
@@ -295,7 +301,7 @@ public sealed class VisualStudioBuildToolsComponentVersion
     /// from the same channel: the Stable bootstrapper would install the latest Stable minor version instead.
     /// </remarks>
     [Obsolete(
-        "Use v18_11, which resolves to the build currently carried for the 18.11 line, or LatestStable.",
+        "Use v18_11, which resolves to the build currently carried for the 18.11 line.",
         DiagnosticId = SpecificBuildDiagnosticId )]
 
     // ReSharper disable once InconsistentNaming
@@ -314,8 +320,8 @@ public sealed class VisualStudioBuildToolsComponentVersion
     /// channel manifest than the embedded copy.
     /// </remarks>
     [Obsolete(
-        "Use v18_12, which resolves to the build currently carried for the 18.12 line, or LatestPreview.",
-        DiagnosticId = SpecificBuildDiagnosticId )]
+        "18.12 has shipped to the Release channel, so the Preview channel no longer serves 18.12.0. Use v18_12.",
+        DiagnosticId = UnservicedBuildDiagnosticId )]
 
     // ReSharper disable once InconsistentNaming
     public static readonly VisualStudioBuildToolsComponentVersion v18_12_0 = new(
@@ -323,4 +329,21 @@ public sealed class VisualStudioBuildToolsComponentVersion
         "https://download.visualstudio.microsoft.com/download/pr/830dd2b3-cce4-45d7-bcfa-b958732aae12/6bbbd083ecf52b9df35ccc02d8064694a14628a69e1521815f6245ecf7cbf7b4/VisualStudioPreview.vsman",
         _dev18PreviewBootstrapper,
         "Preview" );
+
+    /// <summary>
+    /// Visual Studio 2026 (Dev18) 18.12.1, build 12412.261, the Stable release of November 2026.
+    /// </summary>
+    /// <remarks>
+    /// The Stable channel rolls forward, so <c>https://aka.ms/vs/18/stable/channel</c> returns a later channel
+    /// manifest than the embedded copy once Microsoft ships a later build.
+    /// </remarks>
+    [Obsolete(
+        "Use v18_12, which resolves to the build currently carried for the 18.12 line, or LatestStable.",
+        DiagnosticId = SpecificBuildDiagnosticId )]
+
+    // ReSharper disable once InconsistentNaming
+    public static readonly VisualStudioBuildToolsComponentVersion v18_12_1 = new(
+        "18.12.1",
+        "https://download.visualstudio.microsoft.com/download/pr/646c5a89-4d3a-4f43-985e-9c4c6771f304/cc6841a1e5de4eadb9d1dec5c4d75dfe081c2e6b39981c220b6e69c50b557f39/VisualStudio.vsman",
+        _dev18Bootstrapper );
 }
